@@ -1,0 +1,20 @@
+<?php
+
+/**
+ * @file
+ * Hook implementations for the Vercel AI SDK Chat module.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function vercel_ai_sdk_help(string $route_name, RouteMatchInterface $route_match): string {
+  if ($route_name === 'help.page.vercel_ai_sdk') {
+    return '<p>' . t('Drupal-side HTTP endpoint speaking the Vercel AI SDK UI-message SSE protocol. The turn is the <code>vercel_ai_sdk</code> ChatProcessor plugin: <code>POST /vercel-ai/chat</code> loads an AI Assistant config entity (named via the required <code>agentId</code> field in the request body) and translates its provider output into AI-SDK UI-message parts, running any tool rounds the model asks for. Requires the <em>use vercel ai sdk chat</em> permission and an authenticated session. Configure providers at <a href="/admin/config/ai">/admin/config/ai</a> and assistants at <a href="/admin/config/ai/ai-assistant">/admin/config/ai/ai-assistant</a>. Consumer modules ship the assistant config entities they want to expose.') . '</p>';
+  }
+  return '';
+}

@@ -1,0 +1,3 @@
+::infobox
+No title here.
+::

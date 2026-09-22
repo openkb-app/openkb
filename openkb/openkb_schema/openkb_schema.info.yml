@@ -1,0 +1,10 @@
+name: 'OpenKB Schema'
+description: 'Publishes the kb_page frontmatter contract as JSON Schema on `GET /openkb/schema`. The `frontmatter` form display is the single exposure contract: fields placed there appear in the schema, in display order, with widget settings as rendering hints. Also carries the allowed HTML tags and attributes of the body text format, and the custom-elements formatter that keeps a boolean field a boolean on the wire.'
+type: module
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - custom_elements:custom_elements
+  - drupal:field
+  - drupal:filter
+  - drupal:node

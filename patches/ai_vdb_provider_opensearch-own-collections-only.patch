@@ -1,0 +1,72 @@
+diff --git a/src/Plugin/VdbProvider/OpenSearchVdbProvider.php b/src/Plugin/VdbProvider/OpenSearchVdbProvider.php
+index e76e948..6627431 100644
+--- a/src/Plugin/VdbProvider/OpenSearchVdbProvider.php
++++ b/src/Plugin/VdbProvider/OpenSearchVdbProvider.php
+@@ -50,6 +50,11 @@ class OpenSearchVdbProvider extends AiVdbProviderClientBase implements Dependent
+    */
+   protected Client $client;
+ 
++  /**
++   * Marks an index as one this provider made, for getCollections().
++   */
++  protected const INDEX_MARKER = 'ai_vdb_provider_opensearch';
++
+   public function __construct(
+     string $plugin_id,
+     mixed $plugin_definition,
+@@ -173,8 +178,45 @@ class OpenSearchVdbProvider extends AiVdbProviderClientBase implements Dependent
+    * {@inheritdoc}
+    */
+   public function getCollections(string $database = 'default'): array {
+-    $response = $this->getClient()->list()->indices();
+-    return array_map(fn($index) => $index['index'], $response['indices']);
++    $prefix = $this->formatIndexName($database, '');
++    $response = $this->getClient()->indices()->get([
++      'index' => $prefix . '*',
++      'ignore_unavailable' => TRUE,
++    ]);
++
++    // The cluster is shared, and a collection name is what the caller hands
++    // back to createCollection() or dropCollection(), so only this provider's
++    // own indices are listed, under the name they were made with. One made
++    // before the marker is recognised by its vector field instead.
++    $collections = [];
++    foreach ($response as $index => $definition) {
++      $mappings = $definition['mappings'] ?? [];
++      $mine = isset($mappings['_meta'])
++        ? ($mappings['_meta']['created_by'] ?? NULL) === self::INDEX_MARKER
++        : $this->hasVectorField($mappings);
++      if ($mine) {
++        $collections[] = substr($index, strlen($prefix));
++      }
++    }
++    return $collections;
++  }
++
++  /**
++   * Whether a mapping declares a kNN vector, the shape this provider creates.
++   *
++   * @param array $mappings
++   *   The index mappings.
++   *
++   * @return bool
++   *   TRUE if any field is a knn_vector.
++   */
++  protected function hasVectorField(array $mappings): bool {
++    foreach ($mappings['properties'] ?? [] as $field) {
++      if (($field['type'] ?? NULL) === 'knn_vector') {
++        return TRUE;
++      }
++    }
++    return FALSE;
+   }
+ 
+   /**
+@@ -194,6 +236,7 @@ class OpenSearchVdbProvider extends AiVdbProviderClientBase implements Dependent
+             ],
+           ],
+           'mappings' => [
++            '_meta' => ['created_by' => self::INDEX_MARKER],
+             // A dynamically mapped string is analyzed text, which no `term`
+             // filter matches. Every field beside the vector is here to be
+             // filtered on, so strings are keywords; one longer than a Lucene

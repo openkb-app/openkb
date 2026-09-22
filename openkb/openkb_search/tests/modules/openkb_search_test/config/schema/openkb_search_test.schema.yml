@@ -1,0 +1,10 @@
+openkb_search_test.settings:
+  type: config_object
+  label: 'OpenKB Search test settings'
+  mapping:
+    embeddings_fail:
+      type: boolean
+      label: 'Answer every embeddings call with a failure'
+    embeddings_refuse:
+      type: boolean
+      label: 'Refuse every embeddings prompt, as a moderation guard does'

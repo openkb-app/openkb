@@ -1,0 +1,19 @@
+name: 'OpenKB Tools'
+type: module
+description: 'Every openKB tool, as a Tool API plugin (ADR 0009). The ones Drupal executes are carried to external agents over Drupal''s MCP endpoint by `mcp_server_tool_bridge` and to the in-product chat by `tool_ai_connector`; the ones the frontend''s editing session executes are declared here and relayed to it, so one plugin manager still knows the whole surface. Also lets OAuth2 bearer tokens onto that endpoint, so an agent connects with the credential it already has.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - ai:ai
+  - comark:comark
+  - drupal:path_alias
+  - inline_comment:inline_comment
+  - mcp_server:mcp_server
+  - openkb:openkb_agent
+  - openkb:openkb_schema
+  - openkb:openkb_search
+  - openkb:openkb_space_access
+  - search_api:search_api
+  - simple_oauth:simple_oauth
+  - simple_oauth_personal_consumers
+  - tool:tool

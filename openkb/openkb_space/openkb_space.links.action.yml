@@ -1,0 +1,5 @@
+openkb_space.add_form:
+  title: 'Add space'
+  route_name: entity.openkb_space.add_form
+  appears_on:
+    - entity.openkb_space.collection

@@ -1,0 +1,17 @@
+openkb_workflow.moderation_status:
+  path: '/openkb/node/{node}/moderation'
+  defaults:
+    _controller: '\Drupal\openkb_workflow\Controller\ModerationStatusController::status'
+    _title: 'OpenKB moderation status'
+  methods: [GET]
+  requirements:
+    # The editorial standing of a page is for whoever may edit it — the
+    # same gate the commit route uses, so the surface that renders this status
+    # and the surface that writes from it answer to one access check.
+    _entity_access: 'node.update'
+    node: \d+
+  options:
+    parameters:
+      node:
+        type: entity:node
+    no_cache: TRUE

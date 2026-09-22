@@ -1,0 +1,31 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for OpenKB Space Access.
+ */
+
+declare(strict_types=1);
+
+use Drupal\node\NodeAccessRebuild;
+
+/**
+ * Implements hook_install().
+ *
+ * Existing pages carry no `kb_space` grant records yet, and a node keeps the
+ * records it was last saved with — so the realm only starts enforcing anything
+ * after a rebuild. On a fresh install there is no content and this is free.
+ */
+function openkb_space_access_install(): void {
+  \Drupal::service(NodeAccessRebuild::class)->rebuild();
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * The realm's records outlive the module that wrote them; without the rebuild
+ * every page would stay restricted to grant ids nobody hands out anymore.
+ */
+function openkb_space_access_uninstall(): void {
+  \Drupal::service(NodeAccessRebuild::class)->rebuild();
+}

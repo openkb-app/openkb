@@ -1,0 +1,32 @@
+# Optional: Caddy in front of the stack, terminating TLS for both hostnames with
+# automatic certificates. Needs FRONTEND_HOST and DRUPAL_HOST in .env, both
+# resolving to this machine, and ports 80 and 443 reachable.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+services:
+  tls:
+    image: caddy:2-alpine
+    restart: ${COMPOSE_CONTAINER_RESTART:-unless-stopped}
+    environment:
+      FRONTEND_HOST: ${FRONTEND_HOST:?set FRONTEND_HOST, see .env.example}
+      DRUPAL_HOST: ${DRUPAL_HOST:?set DRUPAL_HOST, see .env.example}
+      CADDY_GLOBAL_OPTIONS: ${TLS_CADDY_GLOBAL_OPTIONS:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/tls/Caddyfile:/etc/caddy/Caddyfile:ro
+      - tls-data:/data
+      - tls-config:/config
+    networks:
+      default:
+        # The two services reach each other under their public names, through
+        # the proxy, without leaving the docker network.
+        aliases:
+          - ${FRONTEND_HOST}
+          - ${DRUPAL_HOST}
+
+volumes:
+  tls-data:
+  tls-config:

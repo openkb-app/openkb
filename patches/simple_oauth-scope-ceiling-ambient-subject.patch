@@ -1,0 +1,86 @@
+--- a/simple_oauth.services.yml
++++ b/simple_oauth.services.yml
+@@ -52,7 +52,7 @@
+       - { name: cache.context }
+   access_policy.simple_oauth:
+     class: Drupal\simple_oauth\Access\Oauth2AccessPolicy
+-    arguments: [ '@simple_oauth.oauth2_scope.provider', '@entity_type.manager' ]
++    arguments: [ '@simple_oauth.oauth2_scope.provider', '@entity_type.manager', '@current_user' ]
+     tags:
+       - { name: access_policy }
+   simple_oauth.access_policy.user_roles:
+--- a/src/Access/Oauth2AccessPolicy.php
++++ b/src/Access/Oauth2AccessPolicy.php
+@@ -9,9 +9,11 @@
+ use Drupal\Core\Entity\EntityTypeManagerInterface;
+ use Drupal\Core\Session\AccessPolicyBase;
+ use Drupal\Core\Session\AccountInterface;
++use Drupal\Core\Session\AccountProxyInterface;
+ use Drupal\Core\Session\CalculatedPermissionsItem;
+ use Drupal\Core\Session\RefinableCalculatedPermissionsInterface;
+ use Drupal\simple_oauth\Authentication\TokenAuthUserInterface;
++use Drupal\simple_oauth\Entity\Oauth2TokenInterface;
+ use Drupal\simple_oauth\Oauth2ScopeProviderInterface;
+ 
+ /**
+@@ -19,7 +21,7 @@
+  */
+ final class Oauth2AccessPolicy extends AccessPolicyBase {
+ 
+-  public function __construct(protected Oauth2ScopeProviderInterface $scopeProvider, protected EntityTypeManagerInterface $entityTypeManager) {}
++  public function __construct(protected Oauth2ScopeProviderInterface $scopeProvider, protected EntityTypeManagerInterface $entityTypeManager, protected AccountProxyInterface $currentUser) {}
+ 
+   /**
+    * {@inheritdoc}
+@@ -32,11 +34,11 @@
+    * {@inheritdoc}
+    */
+   public function alterPermissions(AccountInterface $account, string $scope, RefinableCalculatedPermissionsInterface $calculated_permissions): void {
+-    if (!$account instanceof TokenAuthUserInterface) {
++    $token = $this->governingToken($account);
++    if (!$token) {
+       return;
+     }
+ 
+-    $token = $account->getToken();
+     $oauth2_scopes = $token->get('scopes')->getScopes();
+     $allowed_permissions = [];
+     $cacheable_metadata = new CacheableMetadata();
+@@ -68,6 +70,37 @@
+   }
+ 
+   /**
++   * Resolves the token whose scope caps this permission computation.
++   *
++   * The scope intersection normally applies only when the computed account is
++   * the token itself. But a TokenAuthUser shares the id of its subject owner,
++   * so when the subject's own permissions are computed during a
++   * token-authenticated request (author attribution, a permissions hash for
++   * the owner, an author access check), the access policy processor resolves
++   * the oauth2_scopes cache context from the token current user yet passes the
++   * plain subject account — and its account-switch guard, keyed on id
++   * equality, never fires. The un-intersected owner permissions would then be
++   * cached under the token's scope cache-key and read back by a later genuine
++   * token request, bypassing the ceiling. Cap the ambient subject too.
++   *
++   * @param \Drupal\Core\Session\AccountInterface $account
++   *   The account whose permissions are being computed.
++   *
++   * @return \Drupal\simple_oauth\Entity\Oauth2TokenInterface|null
++   *   The governing token, or NULL when the computation is not token-governed.
++   */
++  protected function governingToken(AccountInterface $account): ?Oauth2TokenInterface {
++    if ($account instanceof TokenAuthUserInterface) {
++      return $account->getToken();
++    }
++    $current = $this->currentUser->getAccount();
++    if ($current instanceof TokenAuthUserInterface && (string) $current->id() === (string) $account->id()) {
++      return $current->getToken();
++    }
++    return NULL;
++  }
++
++  /**
+    * {@inheritdoc}
+    */
+   public function getPersistentCacheContexts(): array {

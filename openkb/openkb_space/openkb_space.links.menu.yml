@@ -1,0 +1,11 @@
+entity.openkb_space.settings:
+  title: 'Space'
+  description: 'Configure a Space entity type.'
+  route_name:  entity.openkb_space.settings
+  parent: system.admin_structure
+
+entity.openkb_space.collection:
+  title: 'Spaces'
+  description: 'List of spaces.'
+  route_name: entity.openkb_space.collection
+  parent: system.admin_content

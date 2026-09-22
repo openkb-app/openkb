@@ -1,0 +1,9 @@
+node_modules
+.nuxt
+.output
+.env
+.DS_Store
+*.log
+dist
+# Hocuspocus SQLite snapshot store — local-only, regenerated at runtime.
+var/

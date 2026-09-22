@@ -1,0 +1,8 @@
+name: 'OpenKB Demo Outline'
+description: 'Gives the demo Product Handbook space its nested page tree on install. Shipped by `openkb_recipe_demo_outline`, which runs after the recipe that creates the pages the tree names.'
+type: module
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - openkb:openkb_space

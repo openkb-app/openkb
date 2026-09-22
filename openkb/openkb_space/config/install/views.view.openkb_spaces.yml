@@ -1,0 +1,197 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - openkb_space
+    - user
+id: openkb_spaces
+label: Spaces
+module: views
+description: 'Manage spaces; filter by creation date and owner.'
+tag: ''
+base_table: openkb_space
+base_field: id
+display:
+  default:
+    id: default
+    display_title: Default
+    display_plugin: default
+    position: 0
+    display_options:
+      title: Spaces
+      fields:
+        label:
+          id: label
+          table: openkb_space
+          field: label
+          entity_type: openkb_space
+          entity_field: label
+          plugin_id: field
+          label: Name
+          type: string
+          settings:
+            link_to_entity: true
+        uid:
+          id: uid
+          table: openkb_space
+          field: uid
+          entity_type: openkb_space
+          entity_field: uid
+          plugin_id: field
+          label: Owner
+          type: entity_reference_label
+          settings:
+            link: true
+        created:
+          id: created
+          table: openkb_space
+          field: created
+          entity_type: openkb_space
+          entity_field: created
+          plugin_id: field
+          label: Created
+          type: timestamp
+          settings:
+            date_format: short
+            custom_date_format: ''
+            timezone: ''
+        status:
+          id: status
+          table: openkb_space
+          field: status
+          entity_type: openkb_space
+          entity_field: status
+          plugin_id: field
+          label: Status
+          type: boolean
+          settings:
+            format: enabled-disabled
+        operations:
+          id: operations
+          table: openkb_space
+          field: operations
+          plugin_id: entity_operations
+          label: Operations
+          destination: true
+      filters:
+        label:
+          id: label
+          table: openkb_space
+          field: label
+          entity_type: openkb_space
+          entity_field: label
+          plugin_id: string
+          operator: contains
+          value: ''
+          exposed: true
+          expose:
+            operator_id: label_op
+            label: Title
+            operator: label_op
+            identifier: label
+        uid:
+          id: uid
+          table: openkb_space
+          field: uid
+          entity_type: openkb_space
+          entity_field: uid
+          plugin_id: user_name
+          operator: in
+          value: {  }
+          exposed: true
+          expose:
+            operator_id: uid_op
+            label: Owner
+            operator: uid_op
+            identifier: uid
+            multiple: false
+        created:
+          id: created
+          table: openkb_space
+          field: created
+          entity_type: openkb_space
+          entity_field: created
+          plugin_id: date
+          operator: '>='
+          value:
+            min: ''
+            max: ''
+            value: ''
+            type: date
+          exposed: true
+          expose:
+            operator_id: created_op
+            label: 'Created after'
+            description: 'A date, for example 2026-01-31.'
+            operator: created_op
+            identifier: created
+      sorts:
+        created:
+          id: created
+          table: openkb_space
+          field: created
+          entity_type: openkb_space
+          entity_field: created
+          plugin_id: date
+          order: DESC
+      pager:
+        type: full
+        options:
+          items_per_page: 50
+      exposed_form:
+        type: basic
+        options:
+          submit_button: Filter
+          reset_button: true
+      access:
+        type: perm
+        options:
+          perm: 'administer openkb_space'
+      cache:
+        type: tag
+      query:
+        type: views_query
+      style:
+        type: table
+        options:
+          columns:
+            label: label
+            uid: uid
+            created: created
+            status: status
+            operations: operations
+          default: created
+          info:
+            label:
+              sortable: true
+            uid:
+              sortable: false
+            created:
+              sortable: true
+              default_sort_order: desc
+            status:
+              sortable: true
+            operations:
+              sortable: false
+          override: true
+          sticky: true
+          empty_table: true
+      row:
+        type: fields
+      empty:
+        area_text_custom:
+          id: area_text_custom
+          table: views
+          field: area_text_custom
+          plugin_id: text_custom
+          empty: true
+          content: 'No spaces yet.'
+      display_extenders: {  }
+  page_1:
+    id: page_1
+    display_title: Page
+    display_plugin: page
+    position: 1
+    display_options:
+      display_extenders: {  }
+      path: admin/content/space

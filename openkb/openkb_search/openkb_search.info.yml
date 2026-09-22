@@ -1,0 +1,21 @@
+name: 'OpenKB Search'
+type: module
+description: 'The product''s OpenSearch text analysis: one language-agnostic analyzer, named on every fulltext field of the page index through the backend''s field-mapping event. Language-specific analysis is project configuration on the same event.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  # The listing arm queries kb_page nodes directly.
+  - drupal:node
+  # An alias saved on its own moves a page's indexed address.
+  - drupal:path_alias
+  # The document types a search narrows by are the values the frontmatter
+  # schema publishes, which is the one exposure contract for them.
+  - openkb:openkb_schema
+  # The search route takes a space by its URL slug and narrows the index on
+  # the space's label, which only the space entity joins.
+  - openkb:openkb_space
+  # The listing's access is the node grants the space roster writes; without
+  # them the query's access check lets every published page through.
+  - openkb:openkb_space_access
+  - search_api:search_api
+  - search_api_opensearch:search_api_opensearch

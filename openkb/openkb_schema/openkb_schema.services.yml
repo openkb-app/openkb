@@ -1,0 +1,15 @@
+services:
+  logger.channel.openkb_schema:
+    parent: logger.channel_base
+    arguments: ['openkb_schema']
+  Drupal\openkb_schema\BodyFormat:
+    class: Drupal\openkb_schema\BodyFormat
+    arguments:
+      - '@entity_field.manager'
+      - '@logger.channel.openkb_schema'
+  openkb_schema.schema_builder:
+    class: Drupal\openkb_schema\SchemaBuilder
+    arguments:
+      - '@entity_type.manager'
+      - '@entity_field.manager'
+      - '@Drupal\openkb_schema\BodyFormat'

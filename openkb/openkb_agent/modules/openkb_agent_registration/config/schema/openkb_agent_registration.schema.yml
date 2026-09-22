@@ -1,0 +1,13 @@
+openkb_agent_registration.settings:
+  type: config_object
+  label: 'Dynamic client registration settings'
+  mapping:
+    enabled:
+      type: boolean
+      label: 'Whether clients may register themselves'
+    scopes:
+      type: sequence
+      label: 'The scopes a self-registered client may be granted'
+      sequence:
+        type: string
+        label: 'OAuth2 scope ID'

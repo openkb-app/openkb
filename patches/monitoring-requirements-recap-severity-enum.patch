@@ -1,0 +1,42 @@
+--- a/src/Plugin/monitoring/SensorPlugin/RequirementsRecapSensorPlugin.php
++++ b/src/Plugin/monitoring/SensorPlugin/RequirementsRecapSensorPlugin.php
+@@ -4,6 +4,7 @@
+ 
+ use Drupal\Component\Utility\Html;
+ use Drupal\Core\Cache\CacheBackendInterface;
++use Drupal\Core\Extension\Requirement\RequirementSeverity;
+ use Drupal\Core\Form\FormStateInterface;
+ use Drupal\Core\StringTranslation\TranslatableMarkup;
+ use Drupal\monitoring\Attribute\SensorPlugin;
+@@ -64,7 +65,7 @@
+     $disabled_requirements = $this->sensorConfig->getSetting('disabled_requirements', []);
+     $requirements = array_diff_key($all_requirements, array_flip($disabled_requirements));
+     $requirements = array_filter($requirements, function ($requirement) use ($severity) {
+-      return isset($requirement['severity']) && $requirement['severity'] === $severity;
++      return isset($requirement['severity']) && $this->severityValue($requirement['severity']) === $severity;
+     });
+     $this->requirements = $requirements;
+     $sensor_result->setValue(count($requirements));
+@@ -213,6 +214,22 @@
+   }
+ 
+   /**
++   * The int value of a requirement severity.
++   *
++   * @param \Drupal\Core\Extension\Requirement\RequirementSeverity|int $severity
++   *   The severity as reported by the requirement.
++   *
++   * @return int
++   *   The severity as one of the SystemManager::REQUIREMENT_* constants.
++   */
++  protected function severityValue($severity): int {
++    if (class_exists(RequirementSeverity::class) && $severity instanceof RequirementSeverity) {
++      return $severity->value;
++    }
++    return (int) $severity;
++  }
++
++  /**
+    * Get all requirements from cache or from system manager.
+    *
+    * @return array

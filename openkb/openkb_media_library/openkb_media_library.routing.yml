@@ -1,0 +1,11 @@
+openkb_media_library.editor_assets:
+  path: '/openkb/media-library/assets'
+  defaults:
+    _controller: '\Drupal\openkb_media_library\Controller\EditorAssetsController::build'
+  requirements:
+    _custom_access: '\Drupal\openkb_media_library\Controller\EditorAssetsController::access'
+  options:
+    # Resolve assets and ajaxPageState against the admin theme so the
+    # dialog renders native Claro (page-editing roles hold `view the
+    # administration theme`, granted by the recipe).
+    _admin_route: TRUE

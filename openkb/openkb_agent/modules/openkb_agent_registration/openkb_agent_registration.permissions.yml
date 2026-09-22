@@ -1,0 +1,10 @@
+# The frontend server's way onto the client-registration bridge.
+#
+# Registration is anonymous by protocol — a client registering has no account
+# yet — so the bridge cannot authenticate the registrant. It authenticates the
+# relay instead, which reaches it under the collaboration server's own OAuth
+# client (ADR 0001).
+'use client registration api':
+  title: 'Use the client registration API'
+  description: 'The collaboration server''s service role holds this. Create OAuth clients on behalf of a registrant the bridge cannot authenticate; it grants no access of its own, since a registered client still has to walk a human through /oauth/authorize.'
+  restrict access: true

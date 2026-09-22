@@ -1,0 +1,3 @@
+#!/bin/sh
+# Brings an installed site up to the code in /app.
+exec /app/scripts/site-update.sh "$@"

@@ -1,0 +1,10 @@
+name: 'Vercel AI SDK Chat'
+description: 'Drupal-side HTTP chat endpoint speaking the Vercel AI SDK UI-message SSE protocol. The turn is a `drupal/ai` ChatProcessor plugin over `drupal/ai_assistant_api`; `POST /vercel-ai/chat` serves it with cookie-based auth. The `agentId` (AI Assistant config entity id) is a required field in every request body.'
+type: module
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:system
+  - drupal:user
+  - ai:ai
+  - ai:ai_assistant_api

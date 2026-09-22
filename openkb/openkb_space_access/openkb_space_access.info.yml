@@ -1,0 +1,8 @@
+name: 'OpenKB Space Access'
+type: module
+description: 'Space-scoped access control for pages: one access policy plus one node-grants realm turn a space''s roster, read access and status into read/write rules across entity access, collections and search, plus the per-space moderation policy the write surface reads and the page URLs a space rename re-derives.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:node
+  - openkb:openkb_space

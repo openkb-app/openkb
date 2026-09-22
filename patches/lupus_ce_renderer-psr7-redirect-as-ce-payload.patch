@@ -1,0 +1,161 @@
+--- a/src/EventSubscriber/CustomElementsRedirectResponseSubscriber.php
++++ b/src/EventSubscriber/CustomElementsRedirectResponseSubscriber.php
+@@ -13,6 +13,7 @@
+ use Drupal\lupus_ce_renderer\Cache\CustomElementsJsonResponse;
+ use Symfony\Component\HttpKernel\KernelEvents;
+ use Symfony\Component\HttpFoundation\RedirectResponse;
++use Symfony\Component\HttpFoundation\Response;
+ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+ 
+ /**
+@@ -64,12 +65,12 @@
+     // request to the browser.
+     // Note: The Settings::get() fallback is legacy and may be removed in a
+     // future major version.
++    $url = $this->redirectTarget($result);
+     if (
+-      $result instanceof RedirectResponse &&
++      $url !== NULL &&
+       ($request->getRequestFormat() == 'custom_elements' || $request->attributes->get('lupus_ce_renderer') || Settings::get('lupus_ce_renderer_enable', FALSE))
+     ) {
+       $data = [];
+-      $url = $result->getTargetUrl();
+ 
+       $data['redirect'] = [
+         'external' => UrlHelper::isExternal($url),
+@@ -99,6 +100,32 @@
+   }
+ 
+   /**
++   * The URL a response redirects to, or NULL when it is not a redirect.
++   *
++   * A controller may answer in PSR-7 rather than in HttpFoundation — the
++   * OAuth2 server behind simple_oauth's /oauth/authorize is one such. Core's
++   * PsrResponseSubscriber converts those to a plain Response carrying the
++   * status and the Location header, never to a RedirectResponse, so matching
++   * on the class alone would let a 302 leave the API as a raw redirect that
++   * the client's own HTTP layer follows server-side.
++   *
++   * @param \Symfony\Component\HttpFoundation\Response $response
++   *   The response to inspect.
++   *
++   * @return string|null
++   *   The target URL, or NULL.
++   */
++  protected function redirectTarget(Response $response): ?string {
++    if ($response instanceof RedirectResponse) {
++      return $response->getTargetUrl();
++    }
++    // 304 and 305 are redirection statuses that carry no target.
++    return $response->isRedirection() && $response->headers->has('location')
++      ? (string) $response->headers->get('location')
++      : NULL;
++  }
++
++  /**
+    * Get drupal messages.
+    *
+    * @return array
+--- a/src/EventSubscriber/CustomElementsViewSubscriber.php
++++ b/src/EventSubscriber/CustomElementsViewSubscriber.php
+@@ -7,6 +7,7 @@
+ use Drupal\Core\Cache\CacheableMetadata;
+ use Drupal\custom_elements\CustomElement;
+ use Drupal\lupus_ce_renderer\CustomElementsRenderer;
++use Psr\Http\Message\ResponseInterface;
+ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+ use Symfony\Component\HttpFoundation\Response;
+ use Symfony\Component\HttpKernel\Exception\NotAcceptableHttpException;
+@@ -45,6 +46,15 @@
+   public function onKernelView(ViewEvent $event) {
+     $request = $event->getRequest();
+ 
++    // A controller may answer in PSR-7 — simple_oauth's /oauth/authorize,
++    // built on league/oauth2-server, is one such. Core's PsrResponseSubscriber
++    // converts those on this same event, so leave it to do that: the response
++    // is already final, and refusing it as an unrenderable result would answer
++    // 406 to a request the site handled perfectly well.
++    if ($event->getControllerResult() instanceof ResponseInterface) {
++      return;
++    }
++
+     // Errors are handled by CustomElementsHttpExceptionSubscriber already.
+     // But if there is no custom-error page configured, the system-default
+     // error pages apply, which render in HTML. We handle this case here.
+--- a/tests/modules/lupus_ce_renderer_test/src/Controller/TestController.php
++++ b/tests/modules/lupus_ce_renderer_test/src/Controller/TestController.php
+@@ -6,6 +6,8 @@
+ use Drupal\Core\Render\HtmlResponse;
+ use Drupal\Core\Render\RendererInterface;
+ use Drupal\custom_elements\CustomElement;
++use GuzzleHttp\Psr7\Response as Psr7Response;
++use Psr\Http\Message\ResponseInterface;
+ use Symfony\Component\DependencyInjection\ContainerInterface;
+ 
+ /**
+@@ -63,6 +65,21 @@
+   }
+ 
+   /**
++   * Returns a PSR-7 redirect.
++   *
++   * Simulates a controller built on a PSR-7 library — simple_oauth's
++   * /oauth/authorize, whose league/oauth2-server answers that way. Core's
++   * PsrResponseSubscriber turns these into a plain Response carrying the
++   * status and the Location header, never into a RedirectResponse.
++   *
++   * @return \Psr\Http\Message\ResponseInterface
++   *   A PSR-7 redirect response.
++   */
++  public function psr7Redirect(): ResponseInterface {
++    return new Psr7Response(302, ['Location' => 'https://example.com/callback?code=abc']);
++  }
++
++  /**
+    * Returns a render array after early rendering that leaks cache metadata.
+    *
+    * The early render() call leaks a 'url.query_args' cache context into the
+--- a/tests/modules/lupus_ce_renderer_test/lupus_ce_renderer_test.routing.yml
++++ b/tests/modules/lupus_ce_renderer_test/lupus_ce_renderer_test.routing.yml
+@@ -60,3 +60,11 @@
+     _title: 'CustomElement with early rendering'
+   requirements:
+     _access: 'TRUE'
++
++lupus_ce_renderer_test.psr7_redirect:
++  path: '/lupus-ce-renderer-test/psr7-redirect'
++  defaults:
++    _controller: '\Drupal\lupus_ce_renderer_test\Controller\TestController::psr7Redirect'
++    _title: 'PSR-7 redirect'
++  requirements:
++    _access: 'TRUE'
+--- a/tests/src/Kernel/LupusCeRendererRedirectTest.php
++++ b/tests/src/Kernel/LupusCeRendererRedirectTest.php
+@@ -86,6 +86,27 @@
+   }
+ 
+   /**
++   * Tests that a PSR-7 redirect is provided as a redirect response too.
++   *
++   * Left as a raw 3xx it would leave the API for the client's own HTTP layer
++   * to follow server-side, which for an OAuth authorization code means
++   * spending it against a callback the real client is waiting on.
++   */
++  public function testPsr7RedirectIsProvidedAsRedirectResponse() {
++    $this->container->get('current_user')->setAccount($this->adminUser);
++
++    $request = Request::create('/lupus-ce-renderer-test/psr7-redirect', 'GET', ['_format' => 'custom_elements']);
++    $response = $this->container->get('http_kernel')->handle($request);
++
++    $this->assertEquals(200, $response->getStatusCode(), 'No raw 3xx leaves the API.');
++    $data = json_decode($response->getContent(), TRUE);
++    $this->assertArrayHasKey('redirect', $data, 'A PSR-7 redirect returns a redirect response.');
++    $this->assertEquals('https://example.com/callback?code=abc', $data['redirect']['url']);
++    $this->assertTrue($data['redirect']['external']);
++    $this->assertEquals(302, $data['redirect']['statusCode']);
++  }
++
++  /**
+    * Tests that non-admin routes render content instead of redirecting.
+    *
+    * The user logout confirm form is a non-admin route that returns a render

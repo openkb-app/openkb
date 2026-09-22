@@ -1,0 +1,268 @@
+<?php
+
+/**
+ * @file
+ * What a space means for the pages inside it.
+ *
+ * Its roster, read access, status and review flag become per-space permissions
+ * through the `kb_space` access policy, and the hooks here are the only place
+ * that is enforced on pages and on `field_space`. Access to a space itself
+ * is the entity's own handler, in `openkb_space`.
+ *
+ * @see docs/space-access.md
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Database\Query\AlterableInterface;
+use Drupal\Core\Database\Query\SelectInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\jsonapi\JsonApiFilter;
+use Drupal\jsonapi\ResourceType\ResourceType;
+use Drupal\node\NodeInterface;
+use Drupal\openkb_space\SpaceInterface;
+use Drupal\openkb_space_access\SpaceAccess;
+use Drupal\openkb_space_access\SpaceAccessPolicy;
+
+/**
+ * The space access service.
+ */
+function openkb_space_access_service(): SpaceAccess {
+  return \Drupal::service('openkb_space_access.space_access');
+}
+
+/**
+ * Implements hook_node_grants().
+ *
+ * The grant ids the account holds: a read id per readable space and an editor
+ * id per writable one. Editors carry both, so an unpublished draft in their
+ * space stays readable to them.
+ */
+function openkb_space_access_node_grants(AccountInterface $account, $op): array {
+  $access = openkb_space_access_service();
+  $gids = [];
+
+  if ($op === 'view') {
+    foreach ($access->spaceIds($account, SpaceAccessPolicy::VIEW) as $id) {
+      $gids[] = SpaceAccess::viewGid($id);
+    }
+  }
+  foreach ($access->spaceIds($account, SpaceAccessPolicy::UPDATE) as $id) {
+    $gids[] = SpaceAccess::editGid($id);
+  }
+
+  return $gids ? [SpaceAccess::REALM => $gids] : [];
+}
+
+/**
+ * Implements hook_node_access_records().
+ *
+ * Only the page's space decides its records. An unpublished page gets no
+ * reader record — a draft belongs to the space's editors until it is published,
+ * which is the same rule core applies with its default realm.
+ */
+function openkb_space_access_node_access_records(NodeInterface $node): array {
+  $id = openkb_space_access_service()->spaceIdOf($node);
+  if ($id === NULL) {
+    return [];
+  }
+
+  $records = [];
+  if ($node->isPublished()) {
+    $records[] = [
+      'realm' => SpaceAccess::REALM,
+      'gid' => SpaceAccess::viewGid($id),
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+      'priority' => 0,
+    ];
+  }
+  $records[] = [
+    'realm' => SpaceAccess::REALM,
+    'gid' => SpaceAccess::editGid($id),
+    'grant_view' => 1,
+    'grant_update' => 1,
+    'grant_delete' => 1,
+    'priority' => 0,
+  ];
+
+  return $records;
+}
+
+/**
+ * Implements hook_node_access().
+ *
+ * Grants can only ever add access, so the write half is denied here: without
+ * this, `edit any kb_page content` — which every authenticated user holds —
+ * would let a non-editor write inside a space. Reads are left to the grants,
+ * except that a space nobody may read denies view outright — that also covers
+ * the one path that skips grants, an author reading their own unpublished
+ * page.
+ *
+ * We do not need to vary caches by user, there are no variations of pages
+ * served. Core already adds `user.node_grants:view` for the grants.
+ */
+function openkb_space_access_node_access(NodeInterface $node, $op, AccountInterface $account) {
+  $access = openkb_space_access_service();
+  $id = $access->spaceIdOf($node);
+  if ($id === NULL) {
+    return AccessResult::neutral();
+  }
+
+  if ($op === 'view') {
+    if (!$access->hasPermission($account, $id, SpaceAccessPolicy::VIEW)) {
+      return AccessResult::forbidden('The space is not readable by this account.');
+    }
+    // A forward draft — an unpublished non-default revision — belongs to the
+    // space's editors, the same line the grant records draw for an unpublished
+    // page. The site-wide `view any unpublished content` grant only opens
+    // core's revision checks (LatestRevisionCheck is a bare permission check);
+    // whose draft an account may read is decided here, by the roster.
+    if (!$node->isDefaultRevision() && !$node->isPublished()
+      && !$access->hasPermission($account, $id, SpaceAccessPolicy::UPDATE)) {
+      return AccessResult::forbidden('The space is not writable by this account.');
+    }
+    return AccessResult::neutral();
+  }
+
+  if ($op === 'update' || $op === 'delete') {
+    return $access->hasPermission($account, $id, SpaceAccessPolicy::UPDATE)
+      ? AccessResult::neutral()
+      : AccessResult::forbidden('The space is not writable by this account.');
+  }
+
+  return AccessResult::neutral();
+}
+
+/**
+ * Implements hook_jsonapi_ENTITY_TYPE_filter_access() for 'node'.
+ *
+ * JSON:API ANDs its collection filter (published/own only, from core's
+ * default-grant assumption) on top of the node_access query tag. For
+ * kb_page that extra condition would hide a space's drafts from the very
+ * editors whose roster grants them view, so on kb_page collections the
+ * grants realm is declared the whole answer — for every account: the realm
+ * is what makes that safe, and the kernel collection tests pin it (a draft
+ * lists to its space's editors and to nobody else, spaces apart).
+ *
+ * Scoped to the kb_page resource type on purpose: the hook has no bundle
+ * parameter and would otherwise rewrite collection semantics for every node
+ * bundle on the site, deleting core's published/own safety net under content
+ * this realm knows nothing about. Every other resource type keeps core's
+ * answer.
+ */
+function openkb_space_access_jsonapi_node_filter_access(EntityTypeInterface $entity_type, AccountInterface $account): array {
+  // Another bundle's collection keeps core's answer whenever the route can
+  // say so; off-route query building gets the realm's answer like kb routes.
+  $resource_type = \Drupal::routeMatch()->getParameter('resource_type');
+  if ($resource_type instanceof ResourceType && $resource_type->getTypeName() !== 'node--kb_page') {
+    return [];
+  }
+  return [
+    JsonApiFilter::AMONG_ALL => AccessResult::allowed()->addCacheContexts(['url.path']),
+  ];
+}
+
+/**
+ * Implements hook_jsonapi_ENTITY_TYPE_filter_access() for 'openkb_space'.
+ *
+ * The guard tags the query it secures, so the alter below has already dropped
+ * the spaces the account may not see. Core's fallback — published, enabled or
+ * own — fits no roster, and would empty every filtered collection for everyone
+ * but an administrator.
+ */
+function openkb_space_access_jsonapi_openkb_space_filter_access(EntityTypeInterface $entity_type, AccountInterface $account): array {
+  return [
+    JsonApiFilter::AMONG_ALL => AccessResult::allowed(),
+  ];
+}
+
+/**
+ * Implements hook_entity_base_field_info_alter().
+ *
+ * The outline may only name pages of its own space. That is a node query,
+ * which the space entity has no dependency for, so the rule is attached here.
+ */
+function openkb_space_access_entity_base_field_info_alter(array &$fields, EntityTypeInterface $entity_type): void {
+  if ($entity_type->id() !== 'openkb_space') {
+    return;
+  }
+  $outline = $fields['outline'] ?? NULL;
+  if ($outline instanceof FieldDefinitionInterface) {
+    $outline->addConstraint('OpenkbSpaceOutlinePages');
+  }
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_access() for openkb_space.
+ *
+ * Structure follows content: a space that holds writing to a review bar holds
+ * restructuring to the manager bar, and one with no review lets its writers do
+ * both. The space's own handler draws the manager line; this is the widening.
+ */
+function openkb_space_access_openkb_space_access(SpaceInterface $space, $op, AccountInterface $account) {
+  if ($op !== 'restructure' || \Drupal::service('openkb_space_access.moderation_policy')->isModerated($space)) {
+    return AccessResult::neutral()->addCacheableDependency($space);
+  }
+  return AccessResult::allowedIf(
+    openkb_space_access_service()->hasPermission($account, (int) $space->id(), SpaceAccessPolicy::UPDATE),
+  )->addCacheableDependency($space)->cachePerUser();
+}
+
+/**
+ * Implements hook_query_TAG_alter() for openkb_space_access.
+ *
+ * The entity access handler answers per space; collections need the same
+ * answer in SQL or a private space would still show up in the sidebar's space
+ * list and in JSON:API collections.
+ */
+function openkb_space_access_query_openkb_space_access_alter(AlterableInterface $query): void {
+  if (!$query instanceof SelectInterface) {
+    return;
+  }
+  $account = $query->getMetaData('account') ?? \Drupal::currentUser();
+  if ($account->hasPermission('administer openkb_space')) {
+    return;
+  }
+
+  $hidden = openkb_space_access_service()->hiddenSpaceIds($account);
+  if (!$hidden) {
+    return;
+  }
+
+  foreach ($query->getTables() as $alias => $table) {
+    if ($table['table'] === 'openkb_space') {
+      $query->condition("$alias.id", $hidden, 'NOT IN');
+      return;
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_field_access().
+ *
+ * `field_space` on a page is writable only into a space the account may
+ * write. Creating a page is entity-create access, which never sees the
+ * target space, so this is where "create in a space you may write" lands — and
+ * it also stops a page being moved into such a space.
+ */
+function openkb_space_access_entity_field_access($op, FieldDefinitionInterface $field_definition, AccountInterface $account, ?FieldItemListInterface $items = NULL) {
+  if ($items === NULL || $op !== 'edit' || $field_definition->getName() !== 'field_space') {
+    return AccessResult::neutral();
+  }
+  if ($account->hasPermission('bypass node access')) {
+    return AccessResult::neutral()->cachePerPermissions();
+  }
+  $id = $items->target_id === NULL ? NULL : (int) $items->target_id;
+  if ($id === NULL) {
+    return AccessResult::neutral();
+  }
+  return openkb_space_access_service()->hasPermission($account, $id, SpaceAccessPolicy::UPDATE)
+    ? AccessResult::neutral()->addCacheContexts(['user'])
+    : AccessResult::forbidden('Only managers and members of a space may put pages in it.')->addCacheContexts(['user']);
+}

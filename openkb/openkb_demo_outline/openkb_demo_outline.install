@@ -1,0 +1,73 @@
+<?php
+
+/**
+ * @file
+ * Install hook for the demo page tree.
+ */
+
+declare(strict_types=1);
+
+use Drupal\openkb_space\SpaceInterface;
+
+/**
+ * The demo Product Handbook tree: page UUID, nesting, sibling order.
+ *
+ * Two levels — two children under one parent, and a sibling beside it — is
+ * what makes the outline visible in the sidebar instead of a flat list.
+ */
+const OPENKB_DEMO_OUTLINE_SPACE = '2b22d0ce-2222-4b22-9b22-222222222222';
+
+/**
+ * Implements hook_install().
+ *
+ * The tree cannot be default content. A recipe applies its `content/` with
+ * `Existing::Skip` and core's importer has no update mode, so a field on an
+ * entity an earlier recipe created cannot be written declaratively — and the
+ * space is always created before its pages, since every page references
+ * it, so the tree cannot ride the space's own YAML either.
+ *
+ * `openkb_recipe_demo_outline` installs this module after the recipe that
+ * creates the pages. They exist by the time this runs, which is what the
+ * field constraint requires: an outline may only name pages of its space.
+ */
+function openkb_demo_outline_install(): void {
+  $outline = [
+    [
+      'id' => 'a1b2c3d4-2222-4f8e-9c1e-1b3e4f8e9c1e',
+      'children' => [
+        ['id' => 'e5f6a7b8-6666-4f8e-9c1e-1b3e4f8e9c1e'],
+        ['id' => 'f6a7b8c9-7777-4f8e-9c1e-1b3e4f8e9c1e'],
+      ],
+    ],
+    ['id' => 'd4e5f6a7-5555-4f8e-9c1e-1b3e4f8e9c1e'],
+  ];
+
+  $spaces = \Drupal::entityTypeManager()
+    ->getStorage('openkb_space')
+    ->loadByProperties(['uuid' => OPENKB_DEMO_OUTLINE_SPACE]);
+  $space = reset($spaces);
+  if (!$space instanceof SpaceInterface) {
+    throw new \RuntimeException(sprintf(
+      'Demo space %s does not exist. Apply openkb_recipe_demo, which creates it first.',
+      OPENKB_DEMO_OUTLINE_SPACE
+    ));
+  }
+  // A tree that has been rearranged since is left alone.
+  if (!$space->get('outline')->isEmpty()) {
+    return;
+  }
+
+  $space->set('outline', json_encode($outline, JSON_UNESCAPED_SLASHES));
+  // The field constraint decides whether this is a valid tree, so a stale UUID
+  // or a broken recipe order fails the install rather than shipping a demo
+  // whose sidebar quietly renders flat.
+  $violations = $space->validate();
+  if (count($violations) > 0) {
+    $messages = [];
+    foreach ($violations as $violation) {
+      $messages[] = (string) $violation->getMessage();
+    }
+    throw new \RuntimeException('Demo outline rejected: ' . implode(' ', $messages));
+  }
+  $space->save();
+}

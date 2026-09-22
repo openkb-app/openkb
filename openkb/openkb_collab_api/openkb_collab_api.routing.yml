@@ -1,0 +1,40 @@
+openkb_collab_api.commit:
+  path: '/openkb/node/{node}/commit'
+  defaults:
+    _controller: 'openkb_collab_api.commit_resource:commit'
+    _title: 'OpenKB commit'
+  methods: [POST]
+  requirements:
+    _entity_access: 'node.update'
+    _csrf_request_header_token: 'TRUE'
+    node: \d+
+    # Both the written revision and every rejection are rendered by JSON:API's
+    # own subscribers, which key off the request format — so the frontend gets
+    # the one error taxonomy it already parses.
+    _format: 'api_json'
+  options:
+    parameters:
+      node:
+        type: entity:node
+    no_cache: TRUE
+
+openkb_collab_api.join_access:
+  path: '/openkb/node/{node}/join-access'
+  defaults:
+    _controller: '\Drupal\openkb_collab_api\Controller\JoinAccessController::joinAccess'
+    _title: 'Collaborative session access'
+  methods: [GET]
+  requirements:
+    # Whether the account may *update* the node is the answer, not the gate:
+    # a refusal has to reach the caller as an answer it can read, or it cannot
+    # tell "signed in without access" from "not signed in". Reading the node is
+    # the floor. No `_auth`, so the site's global providers apply — the browser
+    # session cookie and simple_oauth's bearer token, the two carriers a join
+    # arrives with.
+    _entity_access: 'node.view'
+    node: \d+
+  options:
+    parameters:
+      node:
+        type: entity:node
+    no_cache: TRUE

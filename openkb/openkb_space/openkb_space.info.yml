@@ -1,0 +1,10 @@
+name: 'OpenKB Space'
+type: module
+description: 'The space content entity: identity, roster, read access and outline of one OpenKB space, with its own access handling and revision log.'
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:options
+  - drupal:path
+  - drupal:user
+  - drupal:views

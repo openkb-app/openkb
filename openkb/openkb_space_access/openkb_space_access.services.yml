@@ -1,0 +1,49 @@
+services:
+  access_policy.openkb_space:
+    class: Drupal\openkb_space_access\SpaceAccessPolicy
+    arguments: ['@entity_type.manager']
+    tags:
+      - { name: access_policy }
+  Drupal\openkb_space_access\SpaceAccessPolicy: '@access_policy.openkb_space'
+
+  openkb_space_access.hide_invisible_space:
+    class: Drupal\openkb_space_access\EventSubscriber\HideInvisibleSpaceSubscriber
+    arguments: ['@openkb_space_access.space_access', '@current_user']
+    tags:
+      - { name: event_subscriber }
+
+  openkb_space_access.space_access:
+    class: Drupal\openkb_space_access\SpaceAccess
+    arguments: ['@access_policy_processor', '@entity_type.manager']
+  Drupal\openkb_space_access\SpaceAccess: '@openkb_space_access.space_access'
+
+  openkb_space_access.moderation_policy:
+    class: Drupal\openkb_space_access\SpaceModerationPolicy
+    arguments: ['@openkb_space_access.space_access', '@entity_type.manager']
+  Drupal\openkb_space_access\SpaceModerationPolicy: '@openkb_space_access.moderation_policy'
+
+  openkb_space_access.access_map:
+    class: Drupal\openkb_space_access\SpaceAccessMap
+    arguments: ['@access_policy_processor', '@entity_type.manager', '@openkb_space_access.moderation_policy']
+  Drupal\openkb_space_access\SpaceAccessMap: '@openkb_space_access.access_map'
+
+  cache_context.user.openkb_spaces:
+    class: Drupal\openkb_space_access\Cache\SpaceVisibilityCacheContext
+    arguments: ['@current_user', '@openkb_space_access.space_access', '@entity_type.manager']
+    tags:
+      - { name: cache.context }
+
+  openkb_space_access.space_collection_cache:
+    class: Drupal\openkb_space_access\EventSubscriber\SpaceCollectionCacheSubscriber
+    tags:
+      - { name: event_subscriber }
+
+  # Explicit because pathauto and search_api are optional here: without them
+  # a rename moves the space alone.
+  Drupal\openkb_space_access\Hook\SpaceRenameHooks:
+    class: Drupal\openkb_space_access\Hook\SpaceRenameHooks
+    arguments:
+      - '@entity_type.manager'
+      - '@cache_tags.invalidator'
+      - '@?pathauto.generator'
+      - '@?search_api.entity_datasource.tracking_manager'

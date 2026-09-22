@@ -1,0 +1,23 @@
+openkb_schema.validate:
+  path: '/openkb/node/{node}/validate'
+  defaults:
+    _controller: '\Drupal\openkb_schema\Controller\ValidateController::validate'
+    _title: 'OpenKB frontmatter dry-run validation'
+  methods: [POST]
+  requirements:
+    _entity_access: 'node.update'
+    _csrf_request_header_token: 'TRUE'
+    node: \d+
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+openkb_schema.schema:
+  path: '/openkb/schema'
+  defaults:
+    _controller: '\Drupal\openkb_schema\Controller\SchemaController::get'
+    _title: 'OpenKB frontmatter schema'
+  methods: [GET]
+  requirements:
+    _permission: 'access content'

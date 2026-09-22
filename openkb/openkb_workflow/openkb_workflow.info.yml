@@ -1,0 +1,10 @@
+name: 'OpenKB Workflow'
+type: module
+description: 'The OpenKB block-level review model: per-block attribution, the per-space review policy, the publish gate and its review sidecar.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:node
+  - openkb:openkb_space
+  - openkb_space_access
+  - openkb_agent

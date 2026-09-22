@@ -1,0 +1,21 @@
+services:
+  openkb_search.field_mapping_subscriber:
+    class: Drupal\openkb_search\EventSubscriber\FieldMappingSubscriber
+    tags:
+      - { name: event_subscriber }
+
+  Drupal\openkb_search\Hook\KbPageAliasHooks:
+    class: Drupal\openkb_search\Hook\KbPageAliasHooks
+    arguments:
+      - '@entity_type.manager'
+      - '@search_api.entity_datasource.tracking_manager'
+
+  Drupal\openkb_search\Retrieval\PageTypes: '@openkb_search.page_types'
+  openkb_search.page_types:
+    class: Drupal\openkb_search\Retrieval\PageTypes
+    arguments: ['@openkb_schema.schema_builder']
+
+  Drupal\openkb_search\Embedding\EmbeddingCacheInterface: '@openkb_search.embedding_cache'
+  openkb_search.embedding_cache:
+    class: Drupal\openkb_search\Embedding\KeyValueEmbeddingCache
+    arguments: ['@keyvalue', '@state']

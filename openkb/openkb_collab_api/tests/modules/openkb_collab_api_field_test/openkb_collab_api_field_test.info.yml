@@ -1,0 +1,5 @@
+name: 'OpenKB Collaboration API field access test'
+type: module
+description: 'Denies edit access to one exposed field, so a suite can assert what the join gate does with a field the joiner may not edit.'
+package: Testing
+core_version_requirement: ^10.3 || ^11

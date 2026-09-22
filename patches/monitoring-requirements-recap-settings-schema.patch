@@ -1,0 +1,23 @@
+--- a/config/schema/monitoring.schema.yml
++++ b/config/schema/monitoring.schema.yml
+@@ -205,6 +205,20 @@
+         type: string
+         label: 'Exclude key'
+ 
++monitoring.settings.requirements_recap:
++  type: monitoring.settings_base
++  label: 'Requirements recap sensor settings'
++  mapping:
++    severity:
++      type: string
++      label: 'Requirements severity'
++    disabled_requirements:
++      type: sequence
++      label: 'Requirements to ignore'
++      sequence:
++        type: string
++        label: 'Requirement key'
++
+ monitoring.settings.payment_turnover:
+   type: monitoring.settings.entity_aggregator
+   label: 'Payment turnover sensor settings'

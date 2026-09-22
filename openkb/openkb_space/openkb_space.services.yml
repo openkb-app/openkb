@@ -1,0 +1,6 @@
+services:
+  openkb_space.cache_reset:
+    class: Drupal\openkb_space\SpaceCacheReset
+    arguments: ['@entity_type.manager']
+    tags:
+      - { name: needs_destruction }

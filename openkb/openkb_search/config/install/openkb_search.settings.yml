@@ -1,0 +1,12 @@
+# The Search API index ChunkRetrieval queries. Shipped by openkb_recipe_main.
+chunk_index: kb_chunks
+# The score a section must reach on the vector clause of the query, on
+# OpenSearch's scale for the configured metric — `(1 + cosine) / 2`. It is the
+# relevance gate: the pipeline normalises each clause against its own result
+# set, so the fused score ranks but does not measure. Measured on
+# `text-embedding-3-small`; a recipe changing the engine changes it.
+vector_floor: 0.75
+# Section chunking. A token is estimated as four characters.
+chunk:
+  target_tokens: 300
+  max_tokens: 500

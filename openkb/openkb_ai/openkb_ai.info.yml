@@ -1,0 +1,13 @@
+name: 'openKB AI'
+description: 'openKB-specific consumer of the Vercel AI SDK Chat bridge. Owns the `openkb` ai_assistant config entity: system prompt, comark/MDC formatting contract, and the ai_rag_cite grounding settings that point retrieval at the kb_chunks section index. The chat''s tools are the site''s Tool API tools, which reach it as drupal/ai function calls through `tool_ai_connector`; this module ships none.'
+type: module
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - vercel_ai_sdk:vercel_ai_sdk
+  - key:key
+  - ai:ai_assistant_api
+  - ai_rag_cite:ai_rag_cite
+  # The assistant's retriever plugin, and the schema of its settings.
+  - openkb:openkb_search
+  - comark:comark

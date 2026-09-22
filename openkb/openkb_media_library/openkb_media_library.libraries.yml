@@ -1,0 +1,6 @@
+selection:
+  js:
+    js/selection.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupal.ajax

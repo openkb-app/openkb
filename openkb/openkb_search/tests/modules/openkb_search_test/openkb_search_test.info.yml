@@ -1,0 +1,7 @@
+name: 'OpenKB Search test'
+type: module
+description: 'An embeddings provider that answers a deterministic vector, so indexing and retrieval are testable without an API key.'
+package: Testing
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - ai:ai

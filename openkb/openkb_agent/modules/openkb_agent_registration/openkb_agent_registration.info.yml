@@ -1,0 +1,8 @@
+name: 'OpenKB Agent Registration'
+type: module
+description: 'Connect-by-URL for MCP clients: the internal RFC 7591 bridge behind the frontend pass-through, the site policy a self-registration is held to, and the cap that holds every client to the scopes it registered with.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - openkb_agent
+  - simple_oauth:simple_oauth

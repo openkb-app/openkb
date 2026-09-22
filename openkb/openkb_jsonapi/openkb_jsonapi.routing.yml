@@ -1,0 +1,15 @@
+openkb_jsonapi.page_space:
+  path: '/openkb/node/{node}/space'
+  defaults:
+    _controller: '\Drupal\openkb_jsonapi\Controller\PageSpaceResource::move'
+    _title: 'OpenKB space move'
+  methods: [POST]
+  requirements:
+    _entity_access: 'node.update'
+    _csrf_request_header_token: 'TRUE'
+    node: \d+
+  options:
+    parameters:
+      node:
+        type: entity:node
+    no_cache: TRUE

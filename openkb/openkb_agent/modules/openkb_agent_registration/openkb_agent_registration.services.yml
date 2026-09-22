@@ -1,0 +1,14 @@
+services:
+  logger.channel.openkb_agent_registration:
+    parent: logger.channel_base
+    arguments: ['openkb_agent_registration']
+  # Site policy for self-registered clients.
+  openkb_agent_registration.client_registrar:
+    class: Drupal\openkb_agent_registration\ClientRegistrar
+    arguments: ['@entity_type.manager', '@config.factory', '@uuid', '@datetime.time', '@simple_oauth.oauth2_scope.provider']
+  # Gives the authorization-code grant the cap simple_oauth applies only to
+  # client credentials, so a client cannot ask past its registered scopes.
+  openkb_agent_registration.scope_cap:
+    class: Drupal\openkb_agent_registration\Repositories\ConsumerScopesAreACap
+    decorates: simple_oauth.repositories.scope
+    arguments: ['@openkb_agent_registration.scope_cap.inner']

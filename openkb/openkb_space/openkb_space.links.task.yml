@@ -1,0 +1,22 @@
+entity.openkb_space.settings:
+  title: 'Settings'
+  route_name: entity.openkb_space.settings
+  base_route: entity.openkb_space.settings
+entity.openkb_space.view:
+  title: 'View'
+  route_name: entity.openkb_space.canonical
+  base_route: entity.openkb_space.canonical
+entity.openkb_space.edit_form:
+  title: 'Edit'
+  route_name: entity.openkb_space.edit_form
+  base_route: entity.openkb_space.canonical
+entity.openkb_space.delete_form:
+  title: 'Delete'
+  route_name: entity.openkb_space.delete_form
+  base_route: entity.openkb_space.canonical
+  weight: 10
+entity.openkb_space.collection:
+  title: 'Spaces'
+  route_name: entity.openkb_space.collection
+  base_route: system.admin_content
+  weight: 10

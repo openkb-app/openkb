@@ -1,0 +1,48 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - ai_assistant_api
+    - ai_rag_cite
+    - openkb_search
+id: openkb
+label: 'Ask openKB'
+description: 'Knowledge-base assistant for the Ask openKB drawer and the search-page summary sidecar.'
+system_prompt: ''
+pre_action_prompt: ''
+instructions: "You are openKB, the assistant for an internal knowledge base built on Drupal + Nuxt. Keep answers concise (2-3 sentences) unless the user asks for depth. Format with comark/MDC syntax: standard markdown plus block callouts of the form `::callout{type=\"info|warning|success|danger\"}\\n…body…\\n::` and `::infobox{title=\"…\"}\\n…body…\\n::`. Open and close on their own lines."
+allow_history: 'session'
+history_context_length: '4'
+preprompt_instructions: ''
+system_role: 'assistant'
+assistant_message: ''
+no_results_message: 'No knowledge-base pages matched that query.'
+error_message: 'The AI backend is unavailable right now. Try again in a moment.'
+specific_error_messages: {}
+actions_enabled: {}
+roles: {}
+use_function_calling: false
+ai_agent: null
+llm_provider: 'openai'
+llm_model: 'gpt-4o-mini'
+llm_configuration: {}
+third_party_settings:
+  ai_rag_cite:
+    grounding:
+      mode: grounded
+      retriever: ai_search_chunks
+      retriever_settings:
+        top_k: 10
+      # Retrieval is gated in the query, on the vector clause, where the score
+      # still measures distance. The fused score a hit carries here is
+      # normalised against the result set, so a cut on it would drop the
+      # weakest hit of every search and measure nothing.
+      score_gate:
+        value: 0
+      min_sources: 1
+      max_sources: 5
+      max_per_entity: 2
+      citation_contract: 'Answer using only the sources below. Cite each claim inline with the bracketed number of the source it comes from, e.g. [1] or [2][3]. If the sources do not contain the answer, say you do not have enough information and cite nothing — never answer from outside them.'
+      no_answer_message: 'I found nothing on that in the knowledge base you can read.'
+      extra_guidance: ''
+      ground_explorer_calls: false

@@ -1,0 +1,52 @@
+{
+	skip_install_trust
+
+	{$CADDY_GLOBAL_OPTIONS}
+
+	frankenphp {
+		{$FRANKENPHP_CONFIG}
+	}
+
+	# https://caddyserver.com/docs/caddyfile/directives#sorting-algorithm
+	order php_server before file_server
+	order php before file_server
+}
+
+{$CADDY_EXTRA_CONFIG}
+
+{$SERVER_NAME::8080} {
+	root * web/
+	encode zstd br gzip
+
+	@hiddenPhpFiles path_regexp \..*/.*\.php(/|$)
+	error @hiddenPhpFiles 403
+
+	@vendorPhpFiles path_regexp /vendor/.*\.php(/|$)
+	error @vendorPhpFiles 404
+
+	@uploadedPhpFiles path_regexp ^/files/.*\.php(/|$)
+	error @uploadedPhpFiles 404
+
+	# Dot files are never served, in any directory.
+	@dotFiles {
+		path */.*
+		not path /.well-known/*
+	}
+	error @dotFiles 403
+
+	@protectedFiles {
+		not path /.well-known/*
+		path_regexp \.(engine|inc|install|make|module|profile|po|sh|[^/]*sql|theme|twig|tpl(\.php)?|xtmpl|yml)(~|\.sw[op]|\.bak|\.orig|\.save)?$|/(Entries[^/]*|Repository|Root|Tag|Template|composer\.(json|lock)|web\.config|yarn\.lock|package\.json)$|^\/#.*#$|\.php(~|\.sw[op]|\.bak|\.orig|\.save)$
+	}
+	error @protectedFiles 403
+
+	@static {
+		file
+		path *.avif *.css *.eot *.gif *.gz *.ico *.jpg *.jpeg *.js *.otf *.pdf *.png *.svg *.ttf *.webp *.woff *.woff2
+	}
+	header @static Cache-Control "max-age=31536000,public,immutable"
+
+	{$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+	php_server
+}

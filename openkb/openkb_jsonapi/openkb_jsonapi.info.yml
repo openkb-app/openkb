@@ -1,0 +1,12 @@
+name: 'OpenKB JSON:API'
+type: module
+description: 'The OpenKB decoupled write surface for person actions: moving a page to another space.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:node
+  - drupal:jsonapi
+  - openkb:openkb_space
+  - openkb_workflow
+  - openkb_agent
+  - openkb_collab_api

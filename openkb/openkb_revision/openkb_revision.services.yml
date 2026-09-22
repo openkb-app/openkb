@@ -1,0 +1,5 @@
+services:
+  openkb_revision.route_subscriber:
+    class: Drupal\openkb_revision\Routing\RouteSubscriber
+    tags:
+      - { name: event_subscriber }

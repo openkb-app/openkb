@@ -1,0 +1,10 @@
+{
+    "name": "drupal/openkb",
+    "type": "drupal-module",
+    "description": "OpenKB — the OpenKB-specific Drupal modules (agent identity, workflow/review, JSON:API surface, revision history, spaces, outline, schema, media library).",
+    "license": "GPL-2.0-or-later",
+    "version": "1.0.x-dev",
+    "require": {
+        "php": ">=8.3"
+    }
+}

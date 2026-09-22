@@ -1,0 +1,7 @@
+administer openkb_space:
+  title: 'Administer spaces'
+  description: 'Every space, enabled or disabled: view, edit, delete, revisions.'
+  restrict access: true
+create openkb_space:
+  title: 'Create spaces'
+  description: 'The owner of a new space manages it.'

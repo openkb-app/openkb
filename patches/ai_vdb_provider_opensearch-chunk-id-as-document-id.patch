@@ -1,0 +1,88 @@
+diff --git a/src/Plugin/VdbProvider/OpenSearchVdbProvider.php b/src/Plugin/VdbProvider/OpenSearchVdbProvider.php
+index 7dea004..2304f6b 100644
+--- a/src/Plugin/VdbProvider/OpenSearchVdbProvider.php
++++ b/src/Plugin/VdbProvider/OpenSearchVdbProvider.php
+@@ -17,6 +17,7 @@
+ use Drupal\Core\StringTranslation\StringTranslationTrait;
+ use Drupal\Core\StringTranslation\TranslatableMarkup;
+ use Drupal\key\KeyRepositoryInterface;
++use Drupal\search_api\IndexInterface;
+ use Drupal\search_api\Query\QueryInterface;
+ use Drupal\search_api_opensearch\Connector\ConnectorFormTrait;
+ use Drupal\search_api_opensearch\Connector\ConnectorPluginManager;
+@@ -265,7 +266,14 @@
+   public function insertIntoCollection(string $collection_name, array $data, string $database = 'default'): void {
+     $index_name = $this->formatIndexName($database, $collection_name);
+ 
+-    $id = $data['id'] ?? uniqid();
++    // The row's own id, so re-indexing an item replaces its rows instead of
++    // adding a second set: the delete that precedes it only sees what the last
++    // refresh made visible. A collection belongs to the server and every index
++    // on it writes here, so the index scopes the id.
++    $own_id = isset($data['drupal_long_id'])
++      ? ($data['index_id'] ?? '') . ':' . $data['drupal_long_id']
++      : uniqid();
++    $id = $data['id'] ?? $own_id;
+     $doc_data = $data;
+     if (isset($doc_data['id'])) {
+       unset($doc_data['id']);
+@@ -344,17 +352,57 @@
+   /**
+    * {@inheritdoc}
+    */
++  public function deleteIndexItems(array $configuration, IndexInterface $index, array $item_ids): void {
++    $this->deleteRowsOf($configuration, $item_ids, $index->id());
++  }
++
++  /**
++   * {@inheritdoc}
++   */
+   public function deleteItems(array $configuration, array $item_ids): void {
++    $this->deleteRowsOf($configuration, $item_ids);
++  }
++
++  /**
++   * Removes the rows the given items wrote.
++   *
++   * @param array $configuration
++   *   The backend configuration naming the database and the collection.
++   * @param array $item_ids
++   *   The Drupal item ids whose rows to remove.
++   * @param string $index_id
++   *   The index to remove them from. Every index on the collection when empty,
++   *   which is what a caller holding no index can ask for.
++   */
++  protected function deleteRowsOf(array $configuration, array $item_ids, string $index_id = ''): void {
+     $database = $configuration['database_settings']['database_name'] ?? 'default';
+     $collection = $configuration['database_settings']['collection'] ?? 'default';
+     $index = $this->formatIndexName($database, $collection);
++    $filter = [
++      ['terms' => ['drupal_entity_id' => array_values($item_ids)]],
++    ];
++    // A collection belongs to the server and every index on it writes here, so
++    // a row is named by index and item together — as insertIntoCollection()
++    // scopes the id it writes under.
++    if ($index_id !== '') {
++      $filter[] = ['term' => ['index_id' => $index_id]];
++    }
+     $this->getClient()->deleteByQuery(
+       [
+         'index' => $index,
++        // Every save indexes its own item, so two saves of one page overlap:
++        // the delete takes its snapshot, the other save writes the row, and
++        // OpenSearch fails the whole request on the version conflict — which
++        // surfaces as a 500 on the save. Skipping that row is right, because
++        // the insert that follows writes the current one under the same id.
++        'conflicts' => 'proceed',
++        // The rows this delete did remove are gone for the next one, which
++        // would otherwise take its snapshot before they disappeared.
++        'refresh' => TRUE,
+         'body' => [
+           'query' => [
+-            'terms' => [
+-              'drupal_entity_id' => array_values($item_ids),
++            'bool' => [
++              'filter' => $filter,
+             ],
+           ],
+         ],

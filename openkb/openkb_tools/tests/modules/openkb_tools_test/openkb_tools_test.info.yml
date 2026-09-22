@@ -1,0 +1,9 @@
+name: 'OpenKB Tools test fixtures'
+type: module
+description: 'Fixtures: a tool nobody may call, and a stand-in for a backend that answers processed field values.'
+package: Testing
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - search_api:search_api
+  - tool:tool
+hidden: true

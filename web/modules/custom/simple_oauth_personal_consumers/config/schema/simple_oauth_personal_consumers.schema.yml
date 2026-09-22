@@ -1,0 +1,13 @@
+simple_oauth_personal_consumers.settings:
+  type: config_object
+  label: 'Personal consumers settings'
+  mapping:
+    scopes:
+      type: sequence
+      label: 'Scope IDs assigned to every provisioned personal consumer'
+      sequence:
+        type: string
+        label: 'OAuth2 scope ID'
+    unclaimed_retention:
+      type: integer
+      label: 'Seconds an unclaimed personal consumer is kept before cron deletes it'

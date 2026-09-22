@@ -1,0 +1,22 @@
+# The internal client-registration bridge. Anonymous by protocol — a client
+# registering has no account yet — so the caller it authenticates is the
+# relay, under the collaboration server's own OAuth client (ADR 0001).
+openkb_agent_registration.register:
+  path: '/openkb/agent/register'
+  defaults:
+    _controller: '\Drupal\openkb_agent_registration\Controller\ClientRegistrationController::register'
+  methods: [POST]
+  requirements:
+    _permission: 'use client registration api'
+  options:
+    no_cache: TRUE
+
+# What a registration may ask for. Public, and read by the frontend to fill
+# `scopes_supported` in the OAuth metadata documents.
+openkb_agent_registration.metadata:
+  path: '/openkb/agent/registration/metadata'
+  defaults:
+    _controller: '\Drupal\openkb_agent_registration\Controller\ClientRegistrationController::metadata'
+  methods: [GET]
+  requirements:
+    _access: 'TRUE'

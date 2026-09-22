@@ -1,0 +1,10 @@
+name: 'OpenKB Agent'
+type: module
+description: 'OpenKB agent-identity glue around simple_oauth_personal_consumers: the acting-identity resolution the decoupled frontend reads and the agent-token labelling.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:user
+  - lupus_decoupled:lupus_decoupled_form
+  - simple_oauth:simple_oauth
+  - simple_oauth_personal_consumers

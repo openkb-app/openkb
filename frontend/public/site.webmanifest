@@ -1,0 +1,13 @@
+{
+  "name": "OpenKnowledgebase",
+  "short_name": "OpenKB",
+  "icons": [
+    { "src": "/okb-app-icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/okb-app-icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/okb-app-icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ],
+  "theme_color": "#4c5a9e",
+  "background_color": "#f5f6f9",
+  "display": "standalone",
+  "start_url": "/"
+}

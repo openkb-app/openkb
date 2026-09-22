@@ -1,0 +1,28 @@
+services:
+  logger.channel.openkb_tools:
+    parent: logger.channel_base
+    arguments: ['openkb_tools']
+  openkb_tools.mcp_auth:
+    class: Drupal\openkb_tools\Routing\McpAuthRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+  # The credential a relayed call carries: a token for the chatting account.
+  openkb_tools.chat_agent_token:
+    class: Drupal\openkb_tools\ChatAgentToken
+    arguments:
+      - '@entity_type.manager'
+      - '@simple_oauth.repositories.access_token'
+      - '@simple_oauth_personal_consumers.manager'
+      - '@config.factory'
+      - '@file_system'
+      - '@datetime.time'
+  # The base URL provider is optional: the endpoint setting can name the
+  # frontend outright, and a site without the decoupled stack has no session.
+  openkb_tools.session_relay:
+    class: Drupal\openkb_tools\SessionToolRelay
+    arguments:
+      - '@http_client'
+      - '@config.factory'
+      - '@openkb_tools.chat_agent_token'
+      - '@logger.channel.openkb_tools'
+      - '@?lupus_decoupled_ce_api.base_url_provider'

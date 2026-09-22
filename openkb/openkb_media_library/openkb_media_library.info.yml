@@ -1,0 +1,8 @@
+name: 'OpenKB Media Library'
+description: 'Drupal media-library dialog for the decoupled editor: an assets endpoint delivers the dialog libraries + a server-built MediaLibraryState URL, the editor opens the native dialog in-page via Drupal.ajax, and the selection reaches the editor as a DOM CustomEvent.'
+type: module
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:media
+  - drupal:media_library

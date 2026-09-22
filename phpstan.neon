@@ -1,0 +1,33 @@
+parameters:
+  paths:
+   - openkb
+   - web/modules/custom
+   - recipes/openkb_recipe_main
+   - recipes/openkb_recipe_demo
+   - recipes/openkb_recipe_demo_pages
+   - recipes/openkb_recipe_demo_outline
+   - recipes/openkb_recipe_agents
+   - recipes/openkb_recipe_chat
+   - recipes/openkb_recipe_collab
+  level: 0
+  reportUnmatchedIgnoredErrors: false
+  customRulesetUsed: true
+  fileExtensions:
+    - module
+    - theme
+    - profile
+    - install
+  ignoreErrors:
+    # new static() is a best practice in Drupal, so we cannot fix that.
+    # @see https://www.drupal.org/docs/develop/development-tools/phpstan/handling-unsafe-usage-of-new-static
+    - "#^Unsafe usage of new static#"
+    - '#Access to undefined constant static#'
+    - "#^Call to an undefined method#"
+    - "#^Call to an undefined static method#"
+    # The commit route is core's JSON:API entity resource with one behaviour
+    # changed (the revision a write is based on). JSON:API declares its PHP
+    # classes @internal, so the alternative to extending one is maintaining a
+    # parallel payload engine — a far larger surface to keep in step with core.
+    -
+      message: "#extends @internal class Drupal\\\\jsonapi\\\\Controller\\\\EntityResource#"
+      path: openkb/openkb_collab_api/src/Controller/CommitResource.php

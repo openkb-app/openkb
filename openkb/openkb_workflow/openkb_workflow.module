@@ -1,0 +1,74 @@
+<?php
+
+/**
+ * @file
+ * The OpenKB review model: presave attribution, the publish gate, the sidecar.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Access\AccessResultInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
+use Drupal\Core\Field\FieldItemListInterface;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_ENTITY_TYPE_presave() for node entities.
+ *
+ * Every write to a page passes through here, which is what makes the
+ * review model's facts unavoidable — see
+ * \Drupal\openkb_workflow\BlockAttribution.
+ */
+function openkb_workflow_node_presave(NodeInterface $node): void {
+  $attribution = \Drupal::service('openkb_workflow.block_attribution');
+  $attribution->attribute($node);
+  // The gate is enforced at the wire (OkbPendingReview constraint) and on the
+  // commit routes; a programmatic save is trusted, but one publishing past
+  // open reviews deserves a trace.
+  $blockers = $attribution->publicationHold($node);
+  if ($blockers !== []) {
+    \Drupal::logger('openkb_workflow')->warning('Programmatic save published node @nid with pending reviews on: @items.', [
+      '@nid' => (string) $node->id(),
+      '@items' => implode(', ', array_keys($blockers)),
+    ]);
+  }
+}
+
+/**
+ * Implements hook_entity_type_alter().
+ *
+ * The wire-side half of the publish gate: JSON:API validates every write, so
+ * the constraint closes the raw-PATCH path to the live page (ADR 0004).
+ */
+function openkb_workflow_entity_type_alter(array &$entity_types): void {
+  if (isset($entity_types['node'])) {
+    $entity_types['node']->addConstraint('OkbPendingReview');
+  }
+}
+
+/**
+ * Implements hook_entity_field_access().
+ *
+ * The review sidecar is write-dead to clients on every path. Drupal is the
+ * only writer of gate data: a flag, an approval and a contributor tally are
+ * each facts a server witnessed, and a caller that could hand any of them in
+ * could sign off its own work.
+ *
+ * Deliberately an access denial rather than a filter at each write surface, so
+ * a surface added later inherits it instead of having to remember it.
+ * Programmatic writes do not consult field access, which is how presave still
+ * writes the field.
+ */
+function openkb_workflow_entity_field_access(
+  string $operation,
+  FieldDefinitionInterface $field_definition,
+  AccountInterface $account,
+  ?FieldItemListInterface $items = NULL,
+): AccessResultInterface {
+  if ($operation === 'edit' && $field_definition->getName() === 'field_block_meta') {
+    return AccessResult::forbidden('The review sidecar is written by Drupal alone.');
+  }
+  return AccessResult::neutral();
+}

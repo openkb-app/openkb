@@ -1,0 +1,124 @@
+diff --git a/simple_oauth.services.yml b/simple_oauth.services.yml
+index 8356964..4290f16 100644
+--- a/simple_oauth.services.yml
++++ b/simple_oauth.services.yml
+@@ -45,6 +45,11 @@ services:
+     arguments: [ '@current_user' ]
+     tags:
+       - { name: cache.context }
++  cache_context.oauth2_token_subject_roles:
++    class: Drupal\simple_oauth\Cache\TokenSubjectRolesCacheContext
++    arguments: [ '@current_user' ]
++    tags:
++      - { name: cache.context }
+   access_policy.simple_oauth:
+     class: Drupal\simple_oauth\Access\Oauth2AccessPolicy
+     arguments: [ '@simple_oauth.oauth2_scope.provider', '@entity_type.manager' ]
+diff --git a/src/Access/DecoratedUserRolesAccessPolicy.php b/src/Access/DecoratedUserRolesAccessPolicy.php
+index 88fc506..30ec1f3 100644
+--- a/src/Access/DecoratedUserRolesAccessPolicy.php
++++ b/src/Access/DecoratedUserRolesAccessPolicy.php
+@@ -43,11 +43,21 @@ class DecoratedUserRolesAccessPolicy extends AccessPolicyBase {
+     }
+ 
+     if (!$account instanceof TokenAuthUserInterface) {
+-      return $this->inner->calculatePermissions($account, $scope);
++      // The inner policy is unaware of this policy's persistent cache
++      // contexts, but the calculated permissions must carry them in every
++      // branch: the access policy processor requires the final cacheability
++      // to contain all persistent contexts.
++      return $this->inner->calculatePermissions($account, $scope)
++        ->addCacheContexts(['oauth2_token_subject_roles']);
+     }
+ 
+     $calculated_permissions = parent::calculatePermissions($account, $scope);
+ 
++    // The permissions below are computed from the subject's roles, so they
++    // must be invalidated when the subject user changes (e.g. a role is
++    // granted or revoked).
++    $calculated_permissions->addCacheableDependency($account->getSubject());
++
+     /** @var \Drupal\user\RoleInterface[] $user_roles */
+     $user_roles = $this->entityTypeManager->getStorage('user_role')->loadMultiple($account->getSubject()->getRoles());
+ 
+@@ -64,7 +74,13 @@ class DecoratedUserRolesAccessPolicy extends AccessPolicyBase {
+    * {@inheritdoc}
+    */
+   public function getPersistentCacheContexts(): array {
+-    return $this->inner->getPersistentCacheContexts();
++    // The 'user.roles' context of the inner policy resolves the roles of the
++    // authenticated account — for a token-authenticated request that is
++    // TokenAuthUser::getRoles(), which is limited by the token's scopes and
++    // misses the subject's real roles this policy computes from. Vary by the
++    // subject's roles as well, so calculated permissions are not shared
++    // across subjects with different roles.
++    return array_merge($this->inner->getPersistentCacheContexts(), ['oauth2_token_subject_roles']);
+   }
+ 
+ }
+diff --git a/src/Cache/TokenSubjectRolesCacheContext.php b/src/Cache/TokenSubjectRolesCacheContext.php
+new file mode 100644
+index 0000000..653d9f5
+--- /dev/null
++++ b/src/Cache/TokenSubjectRolesCacheContext.php
+@@ -0,0 +1,60 @@
++<?php
++
++namespace Drupal\simple_oauth\Cache;
++
++use Drupal\Core\Cache\CacheableMetadata;
++use Drupal\Core\Cache\Context\CacheContextInterface;
++use Drupal\Core\Session\AccountProxyInterface;
++use Drupal\simple_oauth\Authentication\TokenAuthUserInterface;
++
++/**
++ * Defines the TokenSubjectRolesCacheContext service.
++ *
++ * Varies by the roles of the OAuth2 token's subject user. The calculated
++ * permissions of a token-authenticated request are computed from the
++ * subject's real roles (see DecoratedUserRolesAccessPolicy), but the stock
++ * 'user.roles' cache context resolves TokenAuthUser::getRoles(), which is
++ * limited by the token's scopes — for permission-granularity scopes that is
++ * just "authenticated" regardless of the subject's actual roles. Without
++ * this context, calculated permissions would be cached across subjects with
++ * different roles.
++ */
++class TokenSubjectRolesCacheContext implements CacheContextInterface {
++
++  /**
++   * Constructs a new TokenSubjectRolesCacheContext class.
++   *
++   * @param \Drupal\Core\Session\AccountProxyInterface $account
++   *   The current user.
++   */
++  public function __construct(protected AccountProxyInterface $account) {}
++
++  /**
++   * {@inheritdoc}
++   */
++  public static function getLabel() {
++    return t("OAuth2 token subject roles");
++  }
++
++  /**
++   * {@inheritdoc}
++   */
++  public function getContext() {
++    $account = $this->account->getAccount();
++    if (!$account instanceof TokenAuthUserInterface) {
++      return 'none';
++    }
++
++    $roles = $account->getSubject()->getRoles();
++    sort($roles);
++    return implode(',', $roles);
++  }
++
++  /**
++   * {@inheritdoc}
++   */
++  public function getCacheableMetadata() {
++    return new CacheableMetadata();
++  }
++
++}

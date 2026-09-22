@@ -1,0 +1,150 @@
+<?php
+
+/**
+ * @file
+ * Install hook for the Lupus Decoupled Docs demo space.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Component\Serialization\Json;
+use Drupal\node\NodeInterface;
+use Drupal\openkb_space\SpaceInterface;
+use Drupal\user\UserInterface;
+
+/**
+ * The account whose draft waits for review — a member, not a manager.
+ */
+const OPENKB_DEMO_LUPUS_DOCS_CONTRIBUTOR = 'e2e22222-2222-4e22-9e22-222222222222';
+
+/**
+ * Implements hook_install().
+ *
+ * Writes what default content cannot carry, from `demo-content.json`:
+ *
+ * - the page tree, since the space term is imported before the pages it
+ *   names and `Existing::Skip` rules out a second pass over it;
+ * - editor2's pending draft, since the importer writes one revision per entity.
+ */
+function openkb_demo_lupus_docs_install(): void {
+  $seed = Json::decode(file_get_contents(__DIR__ . '/demo-content.json') ?: '');
+  if (!is_array($seed)) {
+    throw new \RuntimeException('demo-content.json is unreadable. Re-run scripts/generate-lupus-docs-content.mjs.');
+  }
+
+  _openkb_demo_lupus_docs_write_outline($seed['space'], $seed['outline']);
+  _openkb_demo_lupus_docs_write_draft($seed['draft']);
+}
+
+/**
+ * Writes the page tree onto the space.
+ *
+ * @param string $space_uuid
+ *   The space's UUID.
+ * @param array $outline
+ *   The tree, as nested `{id, children}` nodes.
+ */
+function _openkb_demo_lupus_docs_write_outline(string $space_uuid, array $outline): void {
+  $space = _openkb_demo_lupus_docs_entity('openkb_space', $space_uuid);
+  if (!$space instanceof SpaceInterface) {
+    throw new \RuntimeException(sprintf(
+      'Space %s does not exist. Apply openkb_recipe_demo_lupus_docs, which creates it first.',
+      $space_uuid
+    ));
+  }
+  // A tree that has been rearranged since is left alone.
+  if (!$space->get('outline')->isEmpty()) {
+    return;
+  }
+
+  $space->set('outline', Json::encode($outline));
+  // The field constraint decides whether this is a valid tree, so a stale UUID
+  // or a broken recipe order fails the install rather than shipping a demo
+  // whose sidebar quietly renders flat.
+  $violations = $space->validate();
+  if (count($violations) > 0) {
+    $messages = [];
+    foreach ($violations as $violation) {
+      $messages[] = (string) $violation->getMessage();
+    }
+    throw new \RuntimeException('Lupus docs outline rejected: ' . implode(' ', $messages));
+  }
+  $space->save();
+}
+
+/**
+ * Adds editor2's block to one page as a draft awaiting editor1's review.
+ *
+ * On a fresh non-default revision: content_moderation asks storage for the
+ * default revision, and storage hands back the loaded object itself. The
+ * revision is syncing, so presave attribution stands down and the sidecar
+ * written below is the whole record of who wrote the block and who may sign it.
+ *
+ * @param array $draft
+ *   The generated `{page, block, markdown}` descriptor.
+ */
+function _openkb_demo_lupus_docs_write_draft(array $draft): void {
+  $page = _openkb_demo_lupus_docs_entity('node', $draft['page']);
+  $contributor = _openkb_demo_lupus_docs_entity('user', OPENKB_DEMO_LUPUS_DOCS_CONTRIBUTOR);
+  if (!$page instanceof NodeInterface || !$contributor instanceof UserInterface) {
+    throw new \RuntimeException(sprintf(
+      'Page %s or account %s does not exist.',
+      $draft['page'],
+      OPENKB_DEMO_LUPUS_DOCS_CONTRIBUTOR
+    ));
+  }
+  $blocks = \Drupal::service('openkb_workflow.page_blocks');
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+
+  // The pending draft lives on a revision the default one does not see, so the
+  // latest revision is where to ask whether the block is already seeded.
+  $latest = $storage->loadRevision($storage->getLatestRevisionId($page->id()));
+  if (isset($blocks->segment($latest->get('field_kb_body')->value ?? '')[$draft['block']])) {
+    return;
+  }
+
+  $now = \Drupal::time()->getRequestTime();
+  $uid = (int) $contributor->id();
+
+  /** @var \Drupal\node\NodeInterface $revision */
+  $revision = $storage->createRevision($page, FALSE);
+
+  $body = $revision->get('field_kb_body')->first()->getValue();
+  $body['value'] = rtrim($body['value'], "\n") . "\n\n" . $draft['markdown'] . "\n";
+
+  $sidecar = $blocks->decode($revision->get('field_block_meta')->value);
+  $sidecar[$draft['block']] = $blocks->stamp(
+    $sidecar[$draft['block']] ?? [],
+    $uid,
+    NULL,
+    $contributor->getAccountName(),
+    $now,
+  );
+
+  $revision->set('field_kb_body', $body);
+  $revision->set('field_block_meta', $blocks->encode($sidecar));
+  $revision->set('moderation_state', 'draft');
+  $revision->setRevisionUserId($uid);
+  $revision->setRevisionCreationTime($now);
+  $revision->setRevisionLogMessage('Demo seed: a member\'s draft, awaiting review.');
+  $revision->setSyncing(TRUE);
+  $revision->save();
+}
+
+/**
+ * The single entity with this UUID, or NULL.
+ *
+ * @param string $entity_type
+ *   The entity type id.
+ * @param string $uuid
+ *   The UUID.
+ *
+ * @return \Drupal\Core\Entity\EntityInterface|null
+ *   The entity.
+ */
+function _openkb_demo_lupus_docs_entity(string $entity_type, string $uuid) {
+  $matches = \Drupal::entityTypeManager()
+    ->getStorage($entity_type)
+    ->loadByProperties(['uuid' => $uuid]);
+  return $matches === [] ? NULL : reset($matches);
+}

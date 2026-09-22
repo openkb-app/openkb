@@ -1,0 +1,202 @@
+{
+  "source": {
+    "repo": "drunomics/lupus-decoupled-website",
+    "commit": "a82bd76a5c7ee20f9548c5ae27bc323952a22b59"
+  },
+  "space": "a2156e41-2e0c-5426-92c1-fbf6b8f05fe6",
+  "outline": [
+    {
+      "id": "b24e95c0-e548-5028-a2d3-cf93c25ae504",
+      "children": [
+        {
+          "id": "76df758b-a813-54e8-ad3c-032d1467945f"
+        },
+        {
+          "id": "ceed501b-8849-55ea-8819-22062652918d"
+        },
+        {
+          "id": "194b2b6d-77f6-5ab8-884e-7d794d6203c8"
+        },
+        {
+          "id": "6797e2e7-6dc9-5b0a-a6b2-1bfe7047c947"
+        }
+      ]
+    },
+    {
+      "id": "91c1851f-87ad-5de9-92db-62a9e8422b5e",
+      "children": [
+        {
+          "id": "a9d06664-f109-56b4-a698-163437dce459"
+        },
+        {
+          "id": "dfa40bde-2700-5a25-bcee-75857ce892b7"
+        },
+        {
+          "id": "64c5cefc-aa05-5cb1-9600-739dc90c5f71"
+        },
+        {
+          "id": "9ab7939e-c34e-51bd-9a1c-fee950fa0763"
+        },
+        {
+          "id": "aa18c997-6d29-5ef9-ac07-5c2d49658e3e"
+        },
+        {
+          "id": "a8d39bd5-132a-579f-92fc-626167ec35d8"
+        },
+        {
+          "id": "8783ab17-f1ba-5981-8000-e5ecfad9ea56"
+        },
+        {
+          "id": "c2d73e8b-8337-578c-b493-56a1531df15c"
+        },
+        {
+          "id": "e02eb273-7dba-5da7-8e73-127d9a09867a"
+        },
+        {
+          "id": "6c86df93-7f3a-52f3-915e-03c353a90c87"
+        },
+        {
+          "id": "0e2fa38b-8f81-56cf-8407-57b4ffdda213"
+        }
+      ]
+    },
+    {
+      "id": "0cc3dd69-6212-530f-a68f-0a1f70e2ebae",
+      "children": [
+        {
+          "id": "69e05117-59c5-51a9-abe2-662fdd348f80"
+        },
+        {
+          "id": "c856634e-95d3-5e32-819e-279f26651af2"
+        },
+        {
+          "id": "96cc2de4-657f-5f96-956d-9e5f7ad8e498"
+        },
+        {
+          "id": "1153c495-0646-5056-88d0-612f85d7faf9"
+        },
+        {
+          "id": "cb2a8d7d-2576-5fbb-845d-e6462c60dd59"
+        },
+        {
+          "id": "8b963fec-5766-557e-9010-288ff9235881"
+        },
+        {
+          "id": "4fe09dab-6c77-5c2e-ae9c-ebc183c2aefa"
+        },
+        {
+          "id": "dfceb823-9dcd-591b-a48e-5fdd0235ef8d"
+        },
+        {
+          "id": "ae930ff8-de9a-515d-a61f-64047275479a"
+        },
+        {
+          "id": "b129db3b-5e5f-5121-ab04-59269f38c8fa"
+        },
+        {
+          "id": "2e69ef53-6fe0-525e-8ce1-56ff35ec573f"
+        }
+      ]
+    },
+    {
+      "id": "0990b7c4-514e-5428-a57b-0e80870bf449",
+      "children": [
+        {
+          "id": "8ab4d8a0-5075-54b3-8163-18446d545412"
+        }
+      ]
+    },
+    {
+      "id": "30abdf2f-d319-51ed-9ef6-8f28abb613ec"
+    },
+    {
+      "id": "305641b8-bd67-5b1c-a0d1-b55cd06d9c67",
+      "children": [
+        {
+          "id": "583bbd11-5cd2-5a22-8c57-11dd95ce5727"
+        },
+        {
+          "id": "2736e58e-838d-5d87-aaf3-9904c8e29cdc"
+        },
+        {
+          "id": "2c5984b5-fd10-5452-b748-4d13ab9b53d6"
+        },
+        {
+          "id": "7d89c8d3-cbe7-5f88-bff9-d2db939ae9eb"
+        },
+        {
+          "id": "6e00d2ed-d70b-525f-8887-5935bb5c0bae"
+        },
+        {
+          "id": "858d95fa-2e98-5e01-bf69-48b5aef86530"
+        },
+        {
+          "id": "c5b1045a-c667-5aaa-8bb3-0cdbfc7dd17e"
+        }
+      ]
+    },
+    {
+      "id": "eb908b96-c4b5-5e9a-9f43-d8066b62f0ee",
+      "children": [
+        {
+          "id": "b58fae7d-06b5-5aa3-86e3-6cc783359fa9"
+        },
+        {
+          "id": "7ce5770b-1bf5-55c1-835c-3afecfc0141a"
+        },
+        {
+          "id": "ddd9e146-4cc0-5575-bd12-e9232587b3a1"
+        },
+        {
+          "id": "9694bba9-ec8a-5170-8e80-712f8c05d349"
+        },
+        {
+          "id": "070ba33a-21d1-5d5b-91b4-c8e1c213e106"
+        },
+        {
+          "id": "051b9447-d692-51da-9fb9-8bba8b69c39d"
+        },
+        {
+          "id": "37da4e84-7ec9-58f6-9272-013ab348d26d"
+        },
+        {
+          "id": "c68aedb6-6646-5e5a-a69b-03f606d07f58"
+        },
+        {
+          "id": "7129be0a-ee12-5333-b19f-4fd9b848df4f"
+        },
+        {
+          "id": "eae4d53b-f04b-5a4d-8fb1-973b5b0c1b35"
+        },
+        {
+          "id": "f36a7c79-03c3-59c6-9866-a1f824049dee"
+        },
+        {
+          "id": "67d6dfc9-7a2c-5a32-a067-854734e976c6"
+        },
+        {
+          "id": "152e9e1d-f451-55f6-8ab9-a0d2c2fc8242"
+        }
+      ]
+    },
+    {
+      "id": "74e7eb52-86e9-5779-9142-89bae1b79598",
+      "children": [
+        {
+          "id": "1eb9e676-6590-567d-88c2-0412224bfeef"
+        },
+        {
+          "id": "6489d71c-c713-541c-abcb-a0afe7399334"
+        },
+        {
+          "id": "78791004-c010-5307-8798-6b982dd27271"
+        }
+      ]
+    }
+  ],
+  "draft": {
+    "page": "6797e2e7-6dc9-5b0a-a6b2-1bfe7047c947",
+    "block": "b-e2draft1",
+    "markdown": "::callout{type=\"info\" #b-e2draft1}\nProposed by editor2: mention that `drush lupus-decoupled:info` prints the frontend base URL the backend is wired to, which is the first thing to check when a page renders blank.\n::"
+  }
+}

@@ -1,0 +1,32 @@
+services:
+  logger.channel.openkb_collab_api:
+    parent: logger.channel_base
+    arguments: ['openkb_collab_api']
+
+  # Core's JSON:API entity resource with the revision base and the committed
+  # moderation state changed, so it takes the same dependencies — inheriting the
+  # definition keeps them in step with core. Everything this module adds rides
+  # setters for that reason. The moderation lookup and the space policy are the
+  # optional ones: content_moderation and spaces are a recipe's choice, not this
+  # route's. The publish gate is openkb_workflow's.
+  openkb_collab_api.commit_resource:
+    class: Drupal\openkb_collab_api\Controller\CommitResource
+    parent: jsonapi.entity_resource
+    calls:
+      - [setModerationInformation, ['@?content_moderation.moderation_information']]
+      - [setReviewGate, ['@openkb_workflow.block_attribution']]
+      - [setBlockMetaLock, ['@openkb_workflow.block_meta_lock']]
+      - [setCollabServer, ['@openkb_workflow.collab_server', '@account_switcher']]
+
+  # The stale-commit refusal carries two timestamps, which JSON:API's own
+  # normalizer would flatten into a sentence.
+  openkb_collab_api.stale_commit_subscriber:
+    class: Drupal\openkb_collab_api\EventSubscriber\StaleCommitSubscriber
+    tags:
+      - { name: event_subscriber }
+
+  # Which of a session's fields an account may edit — the half of admission
+  # node update access does not answer.
+  openkb_collab_api.session_field_access:
+    class: Drupal\openkb_collab_api\Access\SessionFieldAccess
+    arguments: ['@openkb_schema.schema_builder']

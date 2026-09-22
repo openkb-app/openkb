@@ -1,0 +1,1 @@
+block-level raw HTML is dropped; comark 0.3.2 already discards its children at parse time

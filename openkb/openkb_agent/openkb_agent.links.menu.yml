@@ -1,0 +1,7 @@
+openkb_agent.api_clients:
+  title: 'Agents & API clients'
+  description: 'Connect an agent, and manage the clients that act as you.'
+  route_name: simple_oauth_personal_consumers.collection
+  class: Drupal\openkb_agent\Plugin\Menu\ApiClientsMenuLink
+  menu_name: account
+  weight: 0

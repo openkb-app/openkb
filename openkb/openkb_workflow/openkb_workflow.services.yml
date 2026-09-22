@@ -1,0 +1,60 @@
+services:
+  logger.channel.openkb_workflow:
+    parent: logger.channel_base
+    arguments: ['openkb_workflow']
+  # Renders a refused publication as the blocks holding it up.
+  openkb_workflow.pending_review_subscriber:
+    class: Drupal\openkb_workflow\EventSubscriber\PendingReviewSubscriber
+    tags:
+      - { name: event_subscriber }
+  # The block model: how a body divides into blocks and what the review
+  # sidecar says about each. Stateless — every method answers from its
+  # arguments — and depends on nothing, so it is shared by everything that
+  # touches the sidecar rather than copied into it.
+  openkb_workflow.page_blocks:
+    class: Drupal\openkb_workflow\PageBlocks
+  # One writer at a time on a page's review sidecar. Two surfaces write it
+  # as load-mutate-save from separate requests — the checkpoint and the approve
+  # endpoint — and two of them overlapping lose one of the two facts with
+  # nothing reporting it.
+  openkb_workflow.block_meta_lock:
+    class: Drupal\openkb_workflow\BlockMetaLock
+    arguments: ['@lock']
+  # Which review steps this page's space enforces.
+  openkb_workflow.review_policy:
+    class: Drupal\openkb_workflow\ReviewPolicy
+    arguments:
+      - '@openkb_space_access.moderation_policy'
+      - '@openkb_space_access.space_access'
+      - '@entity_type.manager'
+  # Whether a write is the collaboration server checkpointing a shared session,
+  # and what that checkpoint says about who wrote which block. Believed of the
+  # collaboration client's own OAuth connection rather than of the payload,
+  # because naming a block's contributors decides who may sign that block off.
+  openkb_workflow.collab_server:
+    class: Drupal\openkb_workflow\CollabServerIdentity
+    arguments: ['@request_stack', '@openkb_agent.acting_identity']
+  # Presave attribution: the review model's only source of facts. The acting
+  # identity is openkb_agent's; the moderation lookup is optional
+  # (content_moderation is a recipe's choice, not this model's).
+  openkb_workflow.block_attribution:
+    class: Drupal\openkb_workflow\BlockAttribution
+    arguments:
+      - '@openkb_agent.acting_identity'
+      - '@datetime.time'
+      - '@openkb_workflow.page_blocks'
+      - '@openkb_workflow.collab_server'
+      - '@entity_type.manager'
+      - '@openkb_workflow.review_policy'
+      - '@?content_moderation.moderation_information'
+  # The moderation status document for one page. Consumers gate on
+  # node-update access before reading it.
+  openkb_workflow.moderation_status:
+    class: Drupal\openkb_workflow\ModerationStatus
+    arguments:
+      - '@current_user'
+      - '@?content_moderation.moderation_information'
+      - '@?openkb_space_access.moderation_policy'
+      - '@openkb_workflow.review_policy'
+      - '@entity_type.manager'
+      - '@openkb_workflow.page_blocks'

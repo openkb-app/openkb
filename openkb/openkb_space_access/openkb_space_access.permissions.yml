@@ -1,0 +1,25 @@
+# What the `kb_space` access policy answers with.
+#
+# Every one of them is calculated per space from its roster — a role
+# grant is not what confers them. They are declared so OAuth2 scopes can name
+# them: simple_oauth caps a token to the intersection of its scopes'
+# permissions, so a space permission no scope names is stripped from an agent,
+# which is also why `user.role.collab_server` lists them.
+#
+# The permission that *is* granted, `use collaboration api`, lives in
+# openkb_collab_api with the rest of the collaboration server's surface.
+'view space content':
+  title: 'View content in a space'
+  description: 'Calculated per space from its roster and read access; named by the agent read scope.'
+'update space content':
+  title: 'Write content in a space'
+  description: 'Calculated per space from its manager and member rosters; named by the agent write scope.'
+'publish space content':
+  title: 'Publish content in a space'
+  description: 'Calculated per space from its manager and member rosters; space-scoped publishing rights.'
+# No agent scope names this: an agent writes content, it never administers a
+# space. It is calculated for a manager's own session, and stripped from any
+# agent token by the scope intersection.
+'manage space':
+  title: 'Manage a space'
+  description: 'Calculated per space from its manager roster; gates the space''s own settings, roster and review policy.'

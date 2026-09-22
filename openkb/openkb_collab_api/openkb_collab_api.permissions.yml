@@ -1,0 +1,13 @@
+# The collaboration server's way into a space.
+#
+# It checkpoints sessions in every space and sits on no roster, so a roster
+# cannot be what lets it in (ADR 0001). This is the one `kb_space` permission a
+# role grants — `openkb_space_access` calculates the rest per space and honors
+# this one as a floor on top of whatever rank the roster gives.
+#
+# Access only. Who is believed about the acting user and the writer sets is the
+# connection's OAuth scope, not this (\Drupal\openkb_workflow\CollabServerIdentity).
+'use collaboration api':
+  title: 'Use the collaboration API'
+  description: 'The collaboration server''s service role holds this, to persist collaborated edits and sign-offs in any space.'
+  restrict access: true

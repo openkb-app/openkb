@@ -1,0 +1,10 @@
+services:
+  vercel_ai_sdk.tool_registry:
+    class: Drupal\vercel_ai_sdk\Service\ChatToolRegistry
+    arguments:
+      - '@plugin.manager.ai.function_calls'
+      - '@logger.channel.vercel_ai_sdk'
+
+  logger.channel.vercel_ai_sdk:
+    parent: logger.channel_base
+    arguments: ['vercel_ai_sdk']

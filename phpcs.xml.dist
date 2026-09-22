@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<ruleset name="openkb">
+  <file>./openkb</file>
+  <file>./web/modules/custom</file>
+  <file>./recipes/openkb_recipe_install</file>
+  <file>./recipes/openkb_recipe_main</file>
+  <file>./recipes/openkb_recipe_demo</file>
+  <file>./recipes/openkb_recipe_demo_pages</file>
+  <file>./recipes/openkb_recipe_demo_outline</file>
+  <file>./recipes/openkb_recipe_demo_lupus_docs</file>
+  <file>./recipes/openkb_recipe_demo_lupus_docs_pages</file>
+  <file>./recipes/openkb_recipe_demo_lupus_docs_install</file>
+  <file>./recipes/openkb_recipe_agents</file>
+  <file>./recipes/openkb_recipe_chat</file>
+  <file>./recipes/openkb_recipe_chunk_store</file>
+  <file>./recipes/openkb_recipe_collab</file>
+  <file>./recipes/openkb_recipe_embeddings_mock</file>
+  <file>./recipes/openkb_recipe_dev</file>
+  <file>./recipes/openkb_recipe_ci</file>
+  <file>./recipes/openkb_recipe_monitoring</file>
+
+  <!-- Exclude -->
+  <exclude-pattern>*md</exclude-pattern>
+  <!-- Generated page bodies: markdown in a YAML block scalar, whose code
+       samples the indentation sniffs read as misindented PHP. -->
+  <exclude-pattern>*/openkb_recipe_demo_lupus_docs_pages/content/*</exclude-pattern>
+
+  <arg name="extensions" value="inc,install,module,php,profile,test,theme,yml"/>
+  <arg value="s"/>
+
+  <rule ref="./vendor/drupal/coder/coder_sniffer/Drupal">
+    <!--Blacklist of coding standard rules we don't care about. -->
+
+  </rule>
+
+</ruleset>

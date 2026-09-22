@@ -1,0 +1,19 @@
+openkb_agent.identity:
+  path: '/openkb/agent/identity'
+  defaults:
+    _controller: '\Drupal\openkb_agent\Controller\AgentIdentityController::identity'
+    _title: 'Acting identity'
+  methods: [GET]
+  requirements:
+    _user_is_logged_in: 'TRUE'
+  options:
+    no_cache: TRUE
+
+openkb_agent.my_agents:
+  path: '/openkb/me/agents'
+  defaults:
+    _controller: '\Drupal\openkb_agent\Controller\MyAgentsController::agents'
+    _title: 'My agents'
+  methods: [GET]
+  requirements:
+    _user_is_logged_in: 'TRUE'

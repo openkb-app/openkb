@@ -1,0 +1,9 @@
+name: 'OpenKB Revision'
+type: module
+description: 'A node''s editing record for the frontend: its revision history as custom elements, held to the space that owns the page.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:node
+  - custom_elements:custom_elements
+  - lupus_ce_renderer:lupus_ce_renderer

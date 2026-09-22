@@ -1,0 +1,1 @@
+The block split makes three blocks out of one; the trailing id stays on the piece it trailed.

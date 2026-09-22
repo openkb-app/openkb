@@ -1,0 +1,30 @@
+diff --git a/src/Entity/McpToolConfig.php b/src/Entity/McpToolConfig.php
+index 18d01cd..f23f9dd 100644
+--- a/src/Entity/McpToolConfig.php
++++ b/src/Entity/McpToolConfig.php
+@@ -110,10 +110,15 @@ final class McpToolConfig extends ConfigEntityBase {
+ 
+   /**
+    * {@inheritdoc}
++   *
++   * mcp_server's tool plugin manager caches the derived definitions under the
++   * mcp_server:tools tag, so that tag is what a saved entity has to
++   * invalidate: without it a tool switched on or off here keeps its previous
++   * state until the plugin caches are cleared by hand.
+    */
+   public function postSave(EntityStorageInterface $storage, $update = TRUE): void {
+     parent::postSave($storage, $update);
+-    Cache::invalidateTags(['mcp_server:discovery']);
++    Cache::invalidateTags(['mcp_server:discovery', 'mcp_server:tools']);
+   }
+ 
+   /**
+@@ -121,7 +126,7 @@ final class McpToolConfig extends ConfigEntityBase {
+    */
+   public static function postDelete(EntityStorageInterface $storage, array $entities): void {
+     parent::postDelete($storage, $entities);
+-    Cache::invalidateTags(['mcp_server:discovery']);
++    Cache::invalidateTags(['mcp_server:discovery', 'mcp_server:tools']);
+   }
+ 
+ }

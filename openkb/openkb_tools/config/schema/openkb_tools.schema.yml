@@ -1,0 +1,14 @@
+openkb_tools.settings:
+  type: config_object
+  label: 'OpenKB tools settings'
+  mapping:
+    search:
+      type: mapping
+      label: 'Retrieval'
+      mapping:
+        top_k:
+          type: integer
+          label: 'How many sections one search answers'
+    session_endpoint:
+      type: string
+      label: 'The frontend MCP endpoint session tools are relayed to; empty derives it from the frontend base URL'

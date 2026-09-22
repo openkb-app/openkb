@@ -1,0 +1,28 @@
+openkb_search.settings:
+  type: config_object
+  label: 'OpenKB Search settings'
+  mapping:
+    chunk_index:
+      type: string
+      label: 'The Search API index ChunkRetrieval queries'
+    vector_floor:
+      type: float
+      label: 'The score a section must reach on the vector clause of the query'
+    chunk:
+      type: mapping
+      label: 'Section chunking'
+      mapping:
+        target_tokens:
+          type: integer
+          label: 'Tokens a chunk aims for, a token estimated as four characters'
+        max_tokens:
+          type: integer
+          label: 'Tokens a chunk never exceeds, a token estimated as four characters'
+
+ai_rag_cite.retriever.ai_search_chunks:
+  type: mapping
+  label: 'Chunk index retriever'
+  mapping:
+    top_k:
+      type: integer
+      label: 'How many sections one retrieval answers'

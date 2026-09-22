@@ -1,0 +1,10 @@
+name: 'OpenKB Demo Lupus Decoupled Docs'
+description: 'Gives the Lupus Decoupled Docs demo space its page tree and one draft awaiting review. Shipped by `openkb_recipe_demo_lupus_docs_install`, which runs after the recipe that creates the pages both writes address.'
+type: module
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - drupal:content_moderation
+  - openkb:openkb_space
+  - openkb:openkb_workflow

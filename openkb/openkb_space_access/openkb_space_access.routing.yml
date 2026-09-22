@@ -1,0 +1,8 @@
+openkb_space_access.spaces:
+  path: '/openkb/spaces'
+  defaults:
+    _controller: '\Drupal\openkb_space_access\Controller\SpaceListController::list'
+    _title: 'Spaces you may work in'
+  methods: [GET]
+  requirements:
+    _user_is_logged_in: 'TRUE'

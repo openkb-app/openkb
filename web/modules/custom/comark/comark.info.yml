@@ -1,0 +1,9 @@
+name: 'Comark'
+description: 'Indexing + search endpoint for comark-markdown page bodies. Drupal stores raw markdown; the Nuxt comark tree passes are the single source of truth for markdown→DOM.'
+type: module
+package: Lupus Decoupled Drupal
+core_version_requirement: ^10 || ^11
+dependencies:
+  - search_api:search_api
+  # The indexer posts to the decoupled frontend, whose base URL this provides.
+  - lupus_decoupled:lupus_decoupled_ce_api

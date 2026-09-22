@@ -1,0 +1,5 @@
+search:
+  top_k: 10
+# Where the frontend answers a relayed session-tool call, server to server.
+# Empty derives it from the configured frontend base URL.
+session_endpoint: ''

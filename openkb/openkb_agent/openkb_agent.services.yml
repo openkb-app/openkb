@@ -1,0 +1,22 @@
+services:
+  logger.channel.openkb_agent:
+    parent: logger.channel_base
+    arguments: ['openkb_agent']
+  # Renders a Drupal form as custom elements without losing its heading.
+  openkb_agent.controller.titled_form:
+    class: Drupal\openkb_agent\Controller\TitledFormCeController
+    parent: controller.form
+  openkb_agent.route_subscriber:
+    class: Drupal\openkb_agent\Routing\RouteSubscriber
+    tags:
+      - { name: event_subscriber }
+  # Who the request acts as, and whether through an agent — derived from the
+  # authenticated credential, never from anything a caller sends.
+  openkb_agent.acting_identity:
+    class: Drupal\openkb_agent\ActingIdentity
+    arguments: ['@current_user']
+  # What approving on the consent screen grants.
+  openkb_agent.consent_screen:
+    class: Drupal\openkb_agent\ConsentScreen
+    arguments: ['@openkb_agent.acting_identity', '@simple_oauth_personal_consumers.manager', '@entity_type.manager']
+  Drupal\openkb_agent\ConsentScreen: '@openkb_agent.consent_screen'

@@ -1,0 +1,19 @@
+openkb_search.search:
+  path: '/openkb/search'
+  defaults:
+    _controller: '\Drupal\openkb_search\Controller\SearchController::search'
+    _title: 'Search the pages you may read'
+  methods: [GET]
+  requirements:
+    # Which pages the caller reaches is the index processor's answer, per
+    # query. Anonymous holds no space and would only ever be answered nothing.
+    _user_is_logged_in: 'TRUE'
+    # Refusals included: the answer is JSON, never an HTML page no caller can
+    # read. The route's one format is also the request's, so no caller has to
+    # name it. Plain JSON, because `q`, `page`, `space` and `type` are this
+    # route's own query parameters rather than JSON:API's.
+    _format: 'json'
+  options:
+    # The answer is the account's and the index's, and neither has a cache tag
+    # to drop it on.
+    no_cache: TRUE

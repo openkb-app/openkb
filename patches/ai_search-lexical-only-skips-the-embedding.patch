@@ -1,0 +1,21 @@
+diff --git a/modules/ai_search/src/Plugin/search_api/backend/SearchApiAiSearchBackend.php b/modules/ai_search/src/Plugin/search_api/backend/SearchApiAiSearchBackend.php
+index d0480d5..57e3865 100644
+--- a/modules/ai_search/src/Plugin/search_api/backend/SearchApiAiSearchBackend.php
++++ b/modules/ai_search/src/Plugin/search_api/backend/SearchApiAiSearchBackend.php
+@@ -811,10 +811,12 @@ class SearchApiAiSearchBackend extends AiSearchBackendPluginBase implements Plug
+       ];
+     }
+ 
+-    // Get the vectorized input which might come from the search terms, or might
+-    // be provided in the query options already.
+-    $vector_input = $this->getSearchVectorInput($query, $params);
+-    if (!empty($vector_input)) {
++    // A lexical_only query is answered off the index's own text fields, so
++    // nothing is embedded for it: the provider is handed no vector, and the
++    // cost of a provider call is what the option exists to avoid.
++    $lexical_only = !empty($query->getOption('lexical_only', FALSE));
++    $vector_input = $lexical_only ? [] : $this->getSearchVectorInput($query, $params);
++    if (!empty($vector_input) || $lexical_only) {
+       $params['vector_input'] = $vector_input;
+       $params['query'] = $query;
+       if ($use_grouping) {

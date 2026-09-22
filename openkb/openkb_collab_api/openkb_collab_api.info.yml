@@ -1,0 +1,12 @@
+name: 'OpenKB Collaboration API'
+type: module
+description: 'The surfaces the collaboration server reaches Drupal through, and the identity it reaches them with: the commit and checkpoint write, the `use collaboration api` permission the space policy honors, and the drush command that provisions the server''s OAuth consumer from a deployment''s environment.'
+package: OpenKB
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:user
+  - drupal:node
+  - drupal:jsonapi
+  - simple_oauth:simple_oauth
+  - openkb_workflow
+  - openkb_schema

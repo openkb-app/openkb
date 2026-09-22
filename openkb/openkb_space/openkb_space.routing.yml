@@ -1,0 +1,28 @@
+entity.openkb_space.settings:
+  path: 'admin/structure/openkb-space'
+  defaults:
+    _form: '\Drupal\openkb_space\Form\SpaceSettingsForm'
+    _title: 'Space'
+  requirements:
+    _permission: 'administer openkb_space'
+
+openkb_space.outline_write:
+  path: '/openkb/space/{openkb_space}/outline'
+  defaults:
+    _controller: '\Drupal\openkb_space\Controller\OutlineResource::write'
+    _title: 'OpenKB space outline'
+  methods: [PUT]
+  requirements:
+    # Restructuring is its own operation: the space holds it to its managers,
+    # and a space that runs no review widens it to its writers.
+    _entity_access: 'openkb_space.restructure'
+    _csrf_request_header_token: 'TRUE'
+    openkb_space: \d+
+    # Refusals included: the endpoint answers in JSON:API's error taxonomy
+    # rather than Drupal's access-denied page, which no API caller can read.
+    _format: 'api_json'
+  options:
+    parameters:
+      openkb_space:
+        type: entity:openkb_space
+    no_cache: TRUE
