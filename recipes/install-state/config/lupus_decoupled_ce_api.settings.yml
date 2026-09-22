@@ -1,0 +1,5 @@
+absolute_file_urls: true
+frontend_base_url: ''
+frontend_routes_redirect: true
+preview_provider: markup
+theme: stark

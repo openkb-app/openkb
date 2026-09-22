@@ -1,0 +1,20 @@
+langcode: en
+status: true
+dependencies: {  }
+id: agent_read
+name: 'agent:read'
+description: "Read published content as the token's owner."
+grant_types:
+  client_credentials:
+    status: true
+    description: ''
+  authorization_code:
+    status: true
+    description: ''
+  refresh_token:
+    status: true
+    description: ''
+umbrella: true
+parent: ''
+granularity_id: null
+granularity_configuration: null

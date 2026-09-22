@@ -1,0 +1,23 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.openkb_space.field_agent_review
+  module:
+    - openkb_space
+id: openkb_space.openkb_space.field_agent_review
+field_name: field_agent_review
+entity_type: openkb_space
+bundle: openkb_space
+label: 'Agent review'
+description: 'Whether a block an agent wrote needs a human sign-off before the page can be published. On (the default) holds in a wiki space too, where unreviewed agent text would otherwise reach the live page on the next save.'
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

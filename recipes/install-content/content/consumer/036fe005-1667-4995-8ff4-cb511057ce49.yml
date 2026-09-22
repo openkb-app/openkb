@@ -1,0 +1,39 @@
+_meta:
+  version: '1.0'
+  entity_type: consumer
+  uuid: 036fe005-1667-4995-8ff4-cb511057ce49
+  default_langcode: en
+default:
+  label:
+    -
+      value: 'OpenKB AI'
+  client_id:
+    -
+      value: openkb_chat
+  # Not a person's own client: nobody owns it, it is never swept, and its
+  # label is the `via` of every write the chat relays.
+  personal:
+    -
+      value: false
+  # A consumer must name a grant type. `refresh_token` is the inert one — it
+  # needs a refresh token nothing issues here — so Drupal's own issuance
+  # (ChatAgentToken) stays the only way to a token on this client.
+  grant_types:
+    -
+      value: refresh_token
+  confidential:
+    -
+      value: false
+  third_party:
+    -
+      value: false
+  is_default:
+    -
+      value: false
+  # The ceiling of every token issued on this client. Narrow it on the client
+  # and the chat's tokens narrow with it.
+  scopes:
+    -
+      scope_id: agent_read
+    -
+      scope_id: agent_write

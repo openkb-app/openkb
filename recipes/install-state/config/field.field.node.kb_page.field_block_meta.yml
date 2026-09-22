@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_block_meta
+    - node.type.kb_page
+id: node.kb_page.field_block_meta
+field_name: field_block_meta
+entity_type: node
+bundle: kb_page
+label: 'Block provenance'
+description: 'Per-block provenance sidecar (contributors) keyed by stable block id, as JSON. Written by the collab commit path; not edited directly.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long

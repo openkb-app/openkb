@@ -1,0 +1,28 @@
+langcode: en
+status: true
+dependencies: {  }
+id: user_sessions_all
+label: 'All active sessions'
+description: 'All active sessions of logged in and anonymous users without logout'
+category: 'User activity'
+plugin_id: database_aggregator
+result_class: null
+value_label: 'Active sessions'
+value_type: number
+caching_time: null
+settings:
+  time_interval_field: timestamp
+  time_interval_value: 86400
+  conditions:
+    -
+      field: uid
+      value: '0'
+      operator: '!='
+  verbose_fields:
+    - uid
+    - hostname
+    - timestamp
+  table: sessions
+  history_status: true
+thresholds:
+  type: none

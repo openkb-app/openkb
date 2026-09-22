@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies: {  }
+id: requirements_errors
+label: 'Requirements errors'
+description: 'Errors in the Drupal status report.'
+category: Requirements
+plugin_id: requirements_recap
+result_class: null
+value_label: 'Errors in status report'
+value_type: number
+caching_time: 900
+settings:
+  severity: '2'
+thresholds:
+  type: exceeds
+  warning: null
+  critical: 0

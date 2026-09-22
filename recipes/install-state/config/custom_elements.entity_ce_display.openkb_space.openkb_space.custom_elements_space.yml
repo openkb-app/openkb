@@ -1,0 +1,53 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - core.entity_view_mode.openkb_space.custom_elements_space
+    - field.field.openkb_space.openkb_space.field_agent_review
+    - field.field.openkb_space.openkb_space.field_moderation
+  module:
+    - openkb_schema
+    - openkb_space
+id: openkb_space.openkb_space.custom_elements_space
+targetEntityType: openkb_space
+bundle: openkb_space
+mode: custom_elements_space
+useLayoutBuilder: false
+forceAutoProcessing: false
+customElementName: kb-space
+content:
+  agentReview:
+    formatter: boolean
+    field_name: field_agent_review
+    is_slot: false
+    weight: -4
+  id:
+    formatter: flattened
+    field_name: id
+    is_slot: false
+    weight: -9
+  moderation:
+    formatter: boolean
+    field_name: field_moderation
+    is_slot: false
+    weight: -5
+  name:
+    formatter: flattened
+    field_name: label
+    is_slot: false
+    weight: -8
+  path:
+    formatter: path
+    field_name: path
+    is_slot: false
+    weight: -7
+  readAccess:
+    formatter: flattened
+    field_name: read_access
+    is_slot: false
+    weight: -6
+  uuid:
+    formatter: flattened
+    field_name: uuid
+    is_slot: false
+    weight: -10

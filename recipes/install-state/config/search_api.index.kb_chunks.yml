@@ -1,0 +1,107 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - search_api.server.ai_chunks
+  module:
+    - comark
+    - custom_elements
+    - node
+    - openkb_space_access
+    - search_api_opensearch
+    - trash
+id: kb_chunks
+name: 'KB chunks'
+description: 'One row per section of a published kb_page, with the section stored as analyzed text beside its vector. Search runs on it: one hybrid OpenSearch query, a kNN clause on the vector and a match clause on the text, fused by a search pipeline. The chat grounds on it, the search_pages tool retrieves from it, the search page ranks on it and the document-link picker matches a title prefix on its lexical clause alone, every hit naming the block a citation lands on.'
+read_only: false
+field_settings:
+  changed:
+    label: Changed
+    datasource_id: 'entity:node'
+    property_path: changed
+    type: date
+  chunks:
+    label: Chunks
+    property_path: chunks
+    type: string
+  cites:
+    label: Cites
+    property_path: cites
+    type: string
+  contributors:
+    label: Contributors
+    datasource_id: 'entity:node'
+    property_path: 'field_contributors:entity:name'
+    type: string
+  created:
+    label: 'Authored on'
+    datasource_id: 'entity:node'
+    property_path: created
+    type: date
+  langcode:
+    label: Language
+    datasource_id: 'entity:node'
+    property_path: langcode
+    type: string
+  links:
+    label: Links
+    property_path: links
+    type: string
+  owner:
+    label: Owner
+    datasource_id: 'entity:node'
+    property_path: 'field_owner:entity:name'
+    type: string
+  path:
+    label: Path
+    property_path: path
+    type: string
+  space:
+    label: Space
+    datasource_id: 'entity:node'
+    property_path: 'field_space:entity:label'
+    type: string
+  summary:
+    label: Summary
+    datasource_id: 'entity:node'
+    property_path: field_summary
+    type: text
+  tags:
+    label: Tags
+    datasource_id: 'entity:node'
+    property_path: 'field_tags:entity:name'
+    type: string
+  title:
+    label: Title
+    datasource_id: 'entity:node'
+    property_path: title
+    type: string
+  type:
+    label: Type
+    datasource_id: 'entity:node'
+    property_path: field_type
+    type: string
+datasource_settings:
+  'entity:node':
+    bundles:
+      default: false
+      selected:
+        - kb_page
+    languages:
+      default: true
+      selected: {  }
+processor_settings:
+  comark_indexable: {  }
+  entity_status: {  }
+  kb_page_path: {  }
+  space_access_filter: {  }
+  trash_status: {  }
+tracker_settings:
+  default:
+    indexing_order: fifo
+options:
+  cron_limit: 50
+  delete_on_fail: true
+  index_directly: true
+  track_changes_in_references: true
+server: ai_chunks

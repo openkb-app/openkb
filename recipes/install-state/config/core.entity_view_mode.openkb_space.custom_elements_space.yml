@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - openkb_space
+id: openkb_space.custom_elements_space
+label: 'Custom Elements Space'
+description: ''
+targetEntityType: openkb_space
+cache: true

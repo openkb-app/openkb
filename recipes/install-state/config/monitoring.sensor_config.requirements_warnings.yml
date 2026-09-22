@@ -1,0 +1,23 @@
+langcode: en
+status: true
+dependencies: {  }
+id: requirements_warnings
+label: 'Requirements warnings'
+description: 'Warnings in the Drupal status report.'
+category: Requirements
+plugin_id: requirements_recap
+result_class: null
+value_label: 'Warnings in status report'
+value_type: number
+caching_time: 900
+settings:
+  severity: '1'
+  disabled_requirements:
+    - update_core
+    - update_contrib
+    - coverage_core
+    - experimental_modules
+thresholds:
+  type: exceeds
+  warning: 0
+  critical: null

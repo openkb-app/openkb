@@ -1,0 +1,32 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - dblog
+id: dblog_event_severity_error
+label: 'Severity error'
+description: 'Watchdog entries of severity Error in the last two hours.'
+category: Watchdog
+plugin_id: watchdog_aggregator
+result_class: null
+value_label: Events
+value_type: number
+caching_time: 300
+settings:
+  time_interval_field: timestamp
+  time_interval_value: 7200
+  conditions:
+    -
+      field: severity
+      value: '3'
+  verbose_fields:
+    - wid
+    - message
+    - variables
+    - timestamp
+  table: watchdog
+  history_status: true
+thresholds:
+  type: exceeds
+  warning: 1
+  critical: 5

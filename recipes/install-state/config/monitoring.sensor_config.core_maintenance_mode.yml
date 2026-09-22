@@ -1,0 +1,17 @@
+langcode: en
+status: true
+dependencies: {  }
+id: core_maintenance_mode
+label: 'Maintenance mode'
+description: 'Site maintenance mode'
+category: Other
+plugin_id: state_value
+result_class: null
+value_label: null
+value_type: bool
+caching_time: null
+settings:
+  key: system.maintenance_mode
+  value: false
+thresholds:
+  type: none

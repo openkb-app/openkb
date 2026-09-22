@@ -1,0 +1,15 @@
+langcode: en
+status: true
+dependencies: {  }
+id: agent_read_content
+name: 'agent:read:content'
+description: 'Read published content — child of agent:read.'
+grant_types:
+  client_credentials:
+    status: true
+    description: ''
+umbrella: false
+parent: agent_read
+granularity_id: permission
+granularity_configuration:
+  permission: 'access content'

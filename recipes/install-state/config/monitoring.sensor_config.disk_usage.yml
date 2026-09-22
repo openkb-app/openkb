@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies: {  }
+id: disk_usage
+label: 'Public files disk usage'
+description: 'Used space on the disk holding the public files directory.'
+category: System
+plugin_id: disk_usage
+result_class: null
+value_label: '%'
+value_type: number
+caching_time: 86400
+settings:
+  directory: 'public://'
+thresholds:
+  type: exceeds
+  warning: 80
+  critical: 95

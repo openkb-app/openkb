@@ -1,0 +1,20 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - search_api
+id: search_api_kb_chunks
+label: 'Search index queue size of KB chunks index'
+description: 'Pages waiting to be embedded into the chunk index. Pages are indexed on save, so a growing queue means the index is not keeping up.'
+category: 'Search API'
+plugin_id: search_api_unindexed
+result_class: null
+value_label: 'Unindexed items'
+value_type: number
+caching_time: 900
+settings:
+  index_id: kb_chunks
+thresholds:
+  type: exceeds
+  warning: 2
+  critical: 10

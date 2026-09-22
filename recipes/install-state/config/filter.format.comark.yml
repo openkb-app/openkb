@@ -1,0 +1,16 @@
+langcode: en
+status: true
+dependencies: {  }
+name: Comark
+format: comark
+weight: -10
+filters:
+  filter_html:
+    id: filter_html
+    provider: filter
+    status: true
+    weight: -10
+    settings:
+      allowed_html: '<p id="b-*"> <br> <hr id="b-*"> <div> <section> <article> <aside> <h1 id="b-*"> <h2 id="b-*"> <h3 id="b-*"> <h4 id="b-*"> <h5 id="b-*"> <h6 id="b-*"> <blockquote id="b-*"> <pre language id="b-*"> <code class="language-*"> <ul class="contains-task-list" id="b-*"> <ol start id="b-*"> <li class="task-list-item"> <table id="b-*"> <thead> <tbody> <tr> <th style="text-align:left text-align:center text-align:right"> <td style="text-align:left text-align:center text-align:right"> <em> <strong> <del> <ins> <sub> <sup> <mark> <u> <kbd> <abbr title> <span> <a href hreflang title> <img src alt title> <input type="checkbox" class="task-list-item-checkbox" checked disabled> <callout type id="b-*"> <infobox title id="b-*"> <image media alt id="b-*"> <doc nid block> <citation nid block v url>'
+      filter_html_help: false
+      filter_html_nofollow: false
