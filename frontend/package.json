@@ -12,10 +12,10 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@ai-sdk/vue": "^4.0.93",
-    "@comark/vue": "^0.6.2",
-    "@hocuspocus/extension-sqlite": "^4.6.0",
-    "@hocuspocus/provider": "^4.6.0",
+    "@ai-sdk/vue": "^4.0.107",
+    "@comark/vue": "^0.7.0",
+    "@hocuspocus/extension-sqlite": "^4.7.0",
+    "@hocuspocus/provider": "^4.7.0",
     "@hocuspocus/server": "^4.3.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@nuxt/ui": "^4.11.1",
@@ -40,26 +40,26 @@
     "@tiptap/vue-3": "3.31.3",
     "@tiptap/y-tiptap": "^3.0.9",
     "ai": "^7.0.66",
-    "comark": "^0.6.2",
+    "comark": "^0.7.0",
     "drupal-jsonapi-params": "^3.0.1",
     "nuxt": "^4.5.2",
     "nuxtjs-drupal-ce": "^2.8.0",
     "prosemirror-markdown": "^1.13.7",
     "tailwindcss": "^4.3.0",
-    "vue": "^3.5.42",
+    "vue": "^3.5.43",
     "y-indexeddb": "^9.0.12",
-    "yaml": "^2.9.0",
+    "yaml": "^2.9.1",
     "yjs": "^13.6.32"
   },
   "devDependencies": {
-    "@iconify-json/lucide": "^1.2.131",
+    "@iconify-json/lucide": "^1.2.134",
     "@iconify-json/sidekickicons": "^1.2.1",
     "@playwright/test": "^1.63.0",
     "@types/ws": "^8.18.1",
-    "@vitejs/plugin-vue": "^6.0.7",
-    "happy-dom": "^20.14.0",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "happy-dom": "^20.14.5",
     "typescript": "^6.0.0",
-    "vitest": "^5.0.0",
+    "vitest": "^5.0.1",
     "ws": "^8.21.0"
   }
 }
