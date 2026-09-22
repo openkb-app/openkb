@@ -54,6 +54,10 @@ Not sure where a bug belongs? File it here; it gets moved and linked if the fix 
 
 Security reports: see [`SECURITY.md`](SECURITY.md).
 
+### AI-generated code
+
+Most of OpenKB is written with AI coding tools, in a workflow where every change is drafted by an agent from a written plan, then read, tested and approved by a human before it is submitted. Contributions to this repository and to the module on drupal.org are held to the same rule: disclose what an AI generated, and stand behind it as your own.
+
 ## License
 
 The backend (`openkb/`, `web/modules/`) is [GPL-2.0-or-later](LICENSE); the frontend (`frontend/`) is [MIT](frontend/LICENSE). OpenKB is developed by [drunomics](https://drunomics.com).
