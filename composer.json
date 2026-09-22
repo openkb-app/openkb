@@ -1,13 +1,21 @@
 {
-    "name": "drupal/lupus-decoupled-project",
-    "description": "Project template for Lupus Decoupled Drupal projects",
+    "name": "openkb-app/openkb-project",
+    "description": "OpenKB: the open knowledge base for people and AI agents. Site template of the Drupal backend.",
     "type": "project",
     "license": "GPL-2.0-or-later",
-    "homepage": "https://www.drupal.org/project/drupal",
+    "homepage": "https://openkb.app",
     "support": {
-        "docs": "https://www.drupal.org/docs/user_guide/en/index.html",
-        "chat": "https://www.drupal.org/node/314178"
+        "source": "https://github.com/openkb-app/openkb",
+        "issues": "https://github.com/openkb-app/openkb/issues",
+        "docs": "https://openkb.app",
+        "security": "https://github.com/openkb-app/openkb/blob/main/SECURITY.md"
     },
+    "authors": [
+        {
+            "name": "drunomics GmbH",
+            "homepage": "https://drunomics.com"
+        }
+    ],
     "repositories": [
         {
             "type": "path",
@@ -194,13 +202,12 @@
             ],
             "post-create-project-cmd-message": [
                 "<bg=blue;fg=white>                                                         </>",
-                "<bg=blue;fg=white>  Congratulations, you've installed Lupus Decoupled!     </>",
+                "<bg=blue;fg=white>  OpenKB: the backend site template is in place.         </>",
                 "<bg=blue;fg=white>                                                         </>",
                 "",
                 "<bg=yellow;fg=black>Next steps</>:",
-                "  * Complete the setup: see README.md (docker-compose + phapp).",
-                "  * Read the user guide: https://lupus-decoupled.org/get-started/first-steps",
-                "  * Get support: https://lupus-decoupled.org/community#chat"
+                "  * Run the stack: see README.md (docker compose).",
+                "  * Documentation: https://openkb.app"
             ]
         },
         "tools": {
