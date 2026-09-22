@@ -8,7 +8,7 @@ The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with dr
 - Two DNS names under one parent domain, both pointing at the host: one for the frontend (`kb.example.com`), one for Drupal (`cms.kb.example.com`). Drupal under a path of the frontend host is not supported.
 - `vm.max_map_count=262144` on the host, for OpenSearch: `sysctl -w vm.max_map_count=262144`, and the same line in `/etc/sysctl.conf` to keep it.
 - A reverse proxy that terminates TLS; Caddy and Traefik examples below.
-- The OpenKB recipes. The image ships without them (ADR 0007): mount them into `drupal` next to `/app/recipes` and name the directory in `OPENKB_RECIPES_DIR`, e.g. `./recipes:/app/openkb-recipes:ro` with `OPENKB_RECIPES_DIR=/app/openkb-recipes`.
+- The OpenKB recipes. The image ships without them: mount them into `drupal` next to `/app/recipes` and name the directory in `OPENKB_RECIPES_DIR`, e.g. `./recipes:/app/openkb-recipes:ro` with `OPENKB_RECIPES_DIR=/app/openkb-recipes`.
 
 ## Bring-up
 
@@ -108,7 +108,7 @@ ingress:
 | `collab-store` | the collaboration server's snapshot store: edits not yet saved to Drupal |
 | `opensearch-data` | the search index — rebuildable: `drush search-api:reset-tracker kb_chunks && drush search-api:index kb_chunks` |
 
-Back up the database, `drupal-files` and `collab-store` together, and restore them together: the snapshot store is coupled to the database ([ADR 0008](docs/adr/0008-store-coupled-to-database.md)). `docker compose down && docker compose up -d` keeps all four; `docker compose down -v` deletes them.
+Back up the database, `drupal-files` and `collab-store` together, and restore them together: the snapshot store is coupled to the database. `docker compose down && docker compose up -d` keeps all four; `docker compose down -v` deletes them.
 
 ## Resources and logs
 
@@ -118,11 +118,11 @@ All four services log to stdout: `docker compose logs -f drupal` (Caddy's access
 
 ## Hosting the collaboration server
 
-The Hocuspocus server is embedded in the Nitro process (decision: [OKB-11](https://drunomics.youtrack.cloud/issue/OKB-11); split-out triggers live there). How the integration works — components, connection flow, storage model, shutdown paths — is documented in [collab-server.md](collab-server.md). Constraints for any hosted / containerized deploy:
+The Hocuspocus server is embedded in the Nitro process. Constraints for any hosted / containerized deploy:
 
-- **Exactly 1 replica of `frontend`.** Y.Doc state is held in-process — a second replica split-brains every open document. Never scale the frontend horizontally, never enable Nitro's `node-cluster` preset (WS is unsupported there, nitro#2171), and don't set a Nitro `baseURL` on node-server (breaks WS upgrades, nitro#2347). Re-open the split-out decision before adding replicas.
-- **Persistent volume for the SQLite snapshot.** `frontend/var/` (or wherever `HOCUSPOCUS_SQLITE` points) is the only crash-safe copy of uncommitted edits and must live on a persistent volume — the `collab-store` volume in `docker-compose.yml`. When we go multi-env, the designated replacement is `@hocuspocus/extension-database` reusing the project DB; SQLite stays fine as long as we run single-replica. Note the 4.x `extension-sqlite` requires the `better-sqlite3` peer dep — coordinate versions with the hocuspocus bump (OKB-8).
-- **`OKB_COLLAB_CLIENT_ID` / `OKB_COLLAB_CLIENT_SECRET` on both `frontend` and `drupal`.** The collaboration server's own OAuth client (ADR 0001): `frontend` presents it at `/oauth/token` and carries the Bearer token on every checkpoint, seed, conversation statement and client registration it relays; the PHP side provisions the consumer from the same pair (`scripts/setup-collab-oauth.sh`). They have no committed default — set them in `.env` — and without them the server has no identity: checkpoints report `no-credentials` and registration answers `temporarily_unavailable`. Holding them means being able to write as the collaboration server, so treat them as secrets. See [collab-server.md](collab-server.md), "The checkpoint's carrier and its statement".
+- **Exactly 1 replica of `frontend`.** Y.Doc state is held in-process — a second replica split-brains every open document. Never scale the frontend horizontally, never enable Nitro's `node-cluster` preset (WS is unsupported there, nitro#2171), and don't set a Nitro `baseURL` on node-server (breaks WS upgrades, nitro#2347).
+- **Persistent volume for the SQLite snapshot.** `frontend/var/` (or wherever `HOCUSPOCUS_SQLITE` points) is the only crash-safe copy of uncommitted edits and must live on a persistent volume — the `collab-store` volume in `docker-compose.yml`.
+- **`OKB_COLLAB_CLIENT_ID` / `OKB_COLLAB_CLIENT_SECRET` on both `frontend` and `drupal`.** The collaboration server's own OAuth client: `frontend` presents it at `/oauth/token` and carries the Bearer token on every checkpoint, seed, conversation statement and client registration it relays; the PHP side provisions the consumer from the same pair (`scripts/setup-collab-oauth.sh`). They have no committed default — set them in `.env` — and without them the server has no identity: checkpoints report `no-credentials` and registration answers `temporarily_unavailable`. Holding them means being able to write as the collaboration server, so treat them as secrets.
 - **Proxy idle timeouts above 60s.** Hocuspocus pings every 60s, which is borderline against a proxy that cuts idle connections at 60s — allow well above that, e.g. 300s, on the frontend host. If a CDN sits in front, check its idle timeout too (typically 90s) or bypass it for `/collaboration`.
 - **Liveness probe**: `GET /api/collab/health` returns `{status, documents, connections, uptime}` from the embedded server — unauthenticated, aggregate counts only. It is the `openkb-frontend` image's healthcheck; reuse it for any hosted probe.
 - **Shutdown flush**: pending debounced document stores are flushed to SQLite before the process dies. Production (`node .output/server/index.mjs`) gets this via nitro's graceful shutdown → `close` hook; dev containers wrap the server in `frontend/scripts/dev-server.sh` (see `docker-compose.development.yml`), because `nuxt dev` runs nitro in a worker thread that never sees SIGTERM.
