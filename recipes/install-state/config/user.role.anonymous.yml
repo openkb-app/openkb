@@ -1,0 +1,20 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - filter.format.restricted_html
+    - rest.resource.rest_menu_item
+  module:
+    - filter
+    - media
+    - rest
+    - system
+id: anonymous
+label: 'Anonymous user'
+weight: 0
+is_admin: false
+permissions:
+  - 'access content'
+  - 'restful get rest_menu_item'
+  - 'use text format restricted_html'
+  - 'view media'

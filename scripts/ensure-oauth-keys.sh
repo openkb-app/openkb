@@ -8,7 +8,7 @@
 # installed and cannot be skipped by a failure later in the install.
 # Key parameters mirror simple_oauth's KeyGenerator (RSA 4096,
 # private.key/public.key, mode 600); simple_oauth.settings points at
-# private://simple_oauth/*.key (see recipes/openkb_recipe_main/recipe.yml).
+# private://simple_oauth/*.key (see recipes/openkb_recipe_agents/recipe.yml).
 set -e
 cd `dirname $0`/..
 

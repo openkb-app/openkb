@@ -1,26 +1,25 @@
-import { describe, it, expect } from 'vitest'
-import { AGENT_REVIEW_OPTIONS, MODERATION_OPTIONS, READ_ACCESS_OPTIONS } from './space-policy'
+import { describe, expect, it } from 'vitest'
+import { AGENT_REVIEW_FLAG, MODERATION_FLAG, READ_ACCESS_OPTIONS } from './space-policy'
 
-/**
- * The choices the create dialog and the settings card both render. What is
- * pinned is the contract the dialog relies on: every group offers exactly the
- * values the write path can send, each with a label, an icon and a hint.
- */
-
-describe('the space policy choices', () => {
-  it('offers both agent-review values, the sign-off one first', () => {
-    expect(AGENT_REVIEW_OPTIONS.map(option => option.value)).toEqual([true, false])
-    expect(AGENT_REVIEW_OPTIONS[0]!.label).toBe('Agent edits need a human sign-off')
-    expect(AGENT_REVIEW_OPTIONS[1]!.label).toBe('Agent edits publish like human edits')
+describe('space policy texts', () => {
+  it('names the two audiences for read access', () => {
+    expect(READ_ACCESS_OPTIONS.map(option => option.value)).toEqual(['members_only', 'all_users'])
   })
 
-  it('gives every choice in every group a label, an icon and a hint', () => {
-    for (const group of [READ_ACCESS_OPTIONS, MODERATION_OPTIONS, AGENT_REVIEW_OPTIONS]) {
-      for (const option of group) {
-        expect(option.label).toBeTruthy()
-        expect(option.icon).toMatch(/^i-/)
-        expect(option.hint).toBeTruthy()
-      }
+  it('names the on-state of each publishing flag and explains both states', () => {
+    expect(MODERATION_FLAG.label).toBe('Review before publishing')
+    expect(AGENT_REVIEW_FLAG.label).toBe('Agent edits need a human sign-off')
+    for (const flag of [MODERATION_FLAG, AGENT_REVIEW_FLAG]) {
+      expect(flag.hint.on.length, flag.label).toBeGreaterThan(0)
+      expect(flag.hint.off.length, flag.label).toBeGreaterThan(0)
+      expect(flag.hint.on).not.toBe(flag.hint.off)
+    }
+  })
+
+  it('gives every read-access option a label and a hint', () => {
+    for (const option of READ_ACCESS_OPTIONS) {
+      expect(option.label.length, String(option.value)).toBeGreaterThan(0)
+      expect(option.hint.length, String(option.value)).toBeGreaterThan(0)
     }
   })
 })

@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: find_drafts
+tool_id: openkb_find_drafts
+description: null

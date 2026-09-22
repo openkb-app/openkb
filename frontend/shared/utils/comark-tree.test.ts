@@ -11,7 +11,7 @@ const RECIPES = new URL('../../../recipes/', import.meta.url)
  * bare attribute takes any value, a quoted one lists the values it accepts.
  */
 function shippedAllowedHtml(): AllowedHtml {
-  const yaml = readFileSync(new URL('openkb_recipe_main/config/filter.format.comark.yml', RECIPES), 'utf8')
+  const yaml = readFileSync(new URL('openkb_recipe_core/config/filter.format.comark.yml', RECIPES), 'utf8')
   const setting = /allowed_html: '(.*)'/.exec(yaml)?.[1] ?? ''
   // Core adds these to every tag, whatever the setting says.
   const listed: AllowedHtml = { '*': { lang: true, dir: { ltr: true, rtl: true } } }

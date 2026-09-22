@@ -1,0 +1,15 @@
+langcode: en
+status: true
+dependencies: {  }
+id: agent_write_draft
+name: 'agent:write:draft'
+description: 'Save a page as a Draft revision — child of agent:write.'
+grant_types:
+  client_credentials:
+    status: true
+    description: ''
+umbrella: false
+parent: agent_write
+granularity_id: permission
+granularity_configuration:
+  permission: 'use editorial transition create_new_draft'

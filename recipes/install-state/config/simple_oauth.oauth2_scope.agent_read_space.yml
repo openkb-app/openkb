@@ -1,0 +1,15 @@
+langcode: en
+status: true
+dependencies: {  }
+id: agent_read_space
+name: 'agent:read:space'
+description: 'Read inside the spaces the owner belongs to — child of agent:read.'
+grant_types:
+  client_credentials:
+    status: true
+    description: ''
+umbrella: false
+parent: agent_read
+granularity_id: permission
+granularity_configuration:
+  permission: 'view space content'

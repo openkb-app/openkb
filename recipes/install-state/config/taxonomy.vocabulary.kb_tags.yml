@@ -1,0 +1,8 @@
+langcode: en
+status: true
+dependencies: {  }
+name: 'KB tags'
+vid: kb_tags
+description: 'Free tagging for knowledge-base pages.'
+weight: 0
+new_revision: false

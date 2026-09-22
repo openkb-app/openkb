@@ -1,0 +1,30 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - ai_vdb_provider_opensearch.settings
+  module:
+    - ai_search
+    - ai_vdb_provider_opensearch
+id: ai_chunks
+name: 'AI chunks'
+description: "The vector store behind the `kb_chunks` index: ai_search over ai_vdb_provider_opensearch, on the site's OpenSearch cluster. Unusable until the OpenAI provider is keyed, exactly as the chat is."
+backend: search_api_ai_search
+backend_config:
+  chat_model: ''
+  database: opensearch
+  database_settings:
+    database_name: default
+    collection: kb_chunks
+    metric: cosine_similarity
+  embeddings_engine: openai__text-embedding-3-small
+  embeddings_engine_configuration:
+    set_dimensions: true
+    dimensions: 512
+  embedding_strategy: comark_sections
+  embedding_strategy_configuration:
+    chunk_size: '500'
+    embedding_collection_size: 50
+    chunk_min_overlap: '0'
+    skip_moderation: true
+  include_raw_embedding_vector: false

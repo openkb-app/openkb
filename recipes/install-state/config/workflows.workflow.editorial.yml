@@ -1,0 +1,56 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.kb_page
+  module:
+    - content_moderation
+id: editorial
+label: Editorial
+type: content_moderation
+type_settings:
+  states:
+    draft:
+      label: Draft
+      weight: 0
+      published: false
+      default_revision: false
+    in_review:
+      label: 'In review'
+      weight: 1
+      published: false
+      default_revision: false
+    published:
+      label: Published
+      weight: 2
+      published: true
+      default_revision: true
+  transitions:
+    create_new_draft:
+      label: 'Create new draft'
+      from:
+        - draft
+        - in_review
+        - published
+      to: draft
+      weight: 0
+    publish:
+      label: Publish
+      from:
+        - draft
+        - in_review
+        - published
+      to: published
+      weight: 2
+    submit_for_review:
+      label: 'Submit for review'
+      from:
+        - draft
+        - in_review
+        - published
+      to: in_review
+      weight: 1
+  entity_types:
+    node:
+      - kb_page
+  default_moderation_state: draft

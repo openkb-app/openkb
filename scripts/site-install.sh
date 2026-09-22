@@ -7,24 +7,23 @@
 #    and stale exports cause cim/UI validation to fail later),
 #  - wait for OpenSearch (search_api_opensearch pings during recipe import;
 #    the cluster needs ~10-30s to start),
-#  - drush site-install with the openkb_recipe_install base recipe (the
-#    Lupus Decoupled base recipe plus the core sub-recipes and modules
-#    OpenKB owns),
-#  - wire the frontend URL before any content is imported (the comark search
-#    processor resolves the Nuxt sidecar from it at index time),
-#  - apply openkb_recipe_main + openkb_recipe_agents + openkb_recipe_collab
-#    + openkb_recipe_chat + openkb_recipe_monitoring, plus the environment
-#    recipe named in OPENKB_ENV_RECIPE (openkb_recipe_dev in development,
-#    openkb_recipe_ci on CI),
-#    then provision the collab server's OAuth client,
+#  - drush site-install with one recipe: install-state, the applied result of
+#    the source recipes the public image ships; or the one the environment
+#    names in OPENKB_ENV_RECIPE (openkb_recipe_dev in development,
+#    openkb_recipe_ci on CI), or openkb_recipe_main — the app itself — where
+#    it names none. Each carries the whole site, so nothing is applied on top,
+#  - wire the frontend URL: the comark search processor resolves the Nuxt
+#    sidecar from it at index time,
+#  - install-content where the image ships it: the entities every site starts
+#    with,
+#  - provision the collab server's OAuth client,
 #  - enable services_env_parameter, set the admin and test-editor passwords,
 #  - wait for the sidecar, then re-feed the search indexes (automated cron is
 #    held off from the install until this is done, so it cannot hold the
 #    index lock),
 #
-# The recipes are read from OPENKB_RECIPES_DIR (default: recipes/). The image
-# ships without them; a directory mounted for them has to sit next to
-# /app/recipes, which holds the base recipe they build on.
+# The recipes are read from OPENKB_RECIPES_DIR (default: recipes/), next to the
+# composer-installed lupus_decoupled_recipe they build on.
 #
 # The collab snapshot store is left alone here — it belongs to `frontend`, which
 # this container cannot cycle. Reset it from the host with
@@ -36,11 +35,19 @@ DRUSH="php -d memory_limit=512M ./vendor/drush/drush/drush.php --uri=${DRUPAL_BA
 FRONTEND_URL=${DRUPAL_FRONTEND_BASE_URL:?DRUPAL_FRONTEND_BASE_URL must name the frontend URL}
 
 RECIPES_DIR=${OPENKB_RECIPES_DIR:-recipes}
-if [ ! -f "$RECIPES_DIR/openkb_recipe_install/recipe.yml" ]; then
+[ ! -d "$RECIPES_DIR" ] || RECIPES_DIR=$(cd "$RECIPES_DIR" && pwd)
+# The public image ships the applied result of the source recipes as
+# install-state and install-content; a checkout ships the source set.
+if [ -f "$RECIPES_DIR/install-state/recipe.yml" ]; then
+  RECIPE=${RECIPE:-$RECIPES_DIR/install-state}
+  CONTENT_RECIPE=$RECIPES_DIR/install-content
+elif [ -f "$RECIPES_DIR/openkb_recipe_main/recipe.yml" ]; then
+  RECIPE=${RECIPE:-$RECIPES_DIR/${OPENKB_ENV_RECIPE:-openkb_recipe_main}}
+  CONTENT_RECIPE=
+else
   echo "No OpenKB recipes in $RECIPES_DIR. Mount them and name the directory in OPENKB_RECIPES_DIR." >&2
   exit 1
 fi
-RECIPES_DIR=$(cd "$RECIPES_DIR" && pwd)
 
 # 0. Ensure the simple_oauth keypair before anything can fail: a partial
 # install (e.g. a recipe apply aborting) must never leave the env without
@@ -69,12 +76,15 @@ done
 echo "Dropping the stale chunk collection..."
 curl -sf -X DELETE "$OPENSEARCH_URL/default_kb_chunks" >/dev/null 2>&1 || true
 
-# 3. Site install with the openkb_recipe_install recipe.
-echo "Installing Drupal with the openkb_recipe_install recipe..."
+# 3. Site install. One recipe carries the whole site: openkb_recipe_main is
+# the app, and the environment recipes (openkb_recipe_dev, openkb_recipe_ci)
+# carry it plus what they add. RECIPE overrides both, for installing a part of
+# the app on its own.
+echo "Installing Drupal..."
 # Read-only, so the installer leaves the env-driven settings.php alone.
 chmod a-w web/sites/default/settings.php 2>/dev/null || true
 $DRUSH sql-create -y
-RECIPE=${RECIPE:-$RECIPES_DIR/openkb_recipe_install}
+echo "  recipe: $RECIPE"
 $DRUSH si -y --site-name='OpenKB' "$RECIPE"
 
 # The installer swaps every cache backend for an in-memory one, so nothing the
@@ -89,24 +99,22 @@ $DRUSH cache:rebuild
 CRON_INTERVAL=$($DRUSH config:get automated_cron.settings interval --format=string)
 $DRUSH config:set automated_cron.settings interval 0 -y
 
-# 4. Wire the frontend URL. Must precede the content-bearing recipes: importing
-# a kb_page indexes it immediately (index_directly), and the comark
-# processor reads the Nuxt sidecar's origin from this setting. Configured
-# later, the seed pages index without their body.
+# 4. Wire the frontend URL. The comark search processor reads the Nuxt
+# sidecar's origin from this setting, so the seed content the install imported
+# is indexed without its body until step 6 re-feeds the index.
 echo "Configuring frontend URL..."
 $DRUSH config:set lupus_decoupled_ce_api.settings frontend_base_url "$FRONTEND_URL" -y
 $DRUSH config:set lupus_decoupled_ce_api.settings preview_provider "nuxt" -y
 
-# 5. Apply additional recipes: the feature ones, then the one recipe the
-# environment names in OPENKB_ENV_RECIPE (production names none).
-ADDITIONAL_RECIPES=${ADDITIONAL_RECIPES-"openkb_recipe_main openkb_recipe_agents openkb_recipe_collab openkb_recipe_chat openkb_recipe_monitoring ${OPENKB_ENV_RECIPE:-}"}
-for recipe in $ADDITIONAL_RECIPES; do
-  echo "Applying additional recipe: $recipe"
-  $DRUSH recipe "$RECIPES_DIR/$recipe" -y
-done
+# 5. The content every site starts with, where the image ships it as a recipe
+# of its own. After the frontend URL, which the import reads.
+if [ -n "$CONTENT_RECIPE" ] && [ -f "$CONTENT_RECIPE/recipe.yml" ]; then
+  echo "Applying $CONTENT_RECIPE..."
+  $DRUSH recipe "$CONTENT_RECIPE" -y
+fi
 
-# 5a. The collaboration server's own OAuth client. After the recipes, which
-# ship the scope and the role it is capped at.
+# 5a. The collaboration server's own OAuth client. After the install, which
+# ships the scope and the role it is capped at.
 ./scripts/setup-collab-oauth.sh
 
 echo "Enabling services_env_parameter..."
@@ -119,7 +127,7 @@ if [ -z "${ADMIN_PASSWORD:-}" ]; then
 fi
 $DRUSH user:password admin "$ADMIN_PASSWORD"
 
-# 5c. Passwords for the seeded test editors. Only where an environment recipe
+# 5b. Passwords for the seeded test editors. Only where an environment recipe
 # brought them: production installs no demo content and has no such accounts.
 #
 # The accounts themselves come from openkb_recipe_demo_pages' content, which
@@ -128,7 +136,7 @@ $DRUSH user:password admin "$ADMIN_PASSWORD"
 # space roster, a moderated space or a non-member's 404 can only be exercised
 # as someone else. `TEST_USER_PASSWORD` defaults to the shared dev secret every
 # development stack already has in `dotenv/app.env`.
-case "$ADDITIONAL_RECIPES" in
+case "$RECIPE" in
   *openkb_recipe_dev*|*openkb_recipe_ci*)
     TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-${APP_SECRET:-lupus123}}
     for account in editor1 editor2; do
@@ -169,7 +177,7 @@ if $DRUSH search-api:list 2>/dev/null | grep -q kb_chunks; then
   # the environments that install that content — as with the test editors
   # above. A keyed environment then indexes the seed pages without
   # paying for them again; a text the fixture does not hold reaches the engine.
-  case "$ADDITIONAL_RECIPES" in
+  case "$RECIPE" in
     *openkb_recipe_dev*|*openkb_recipe_ci*)
       echo "Loading the embedding fixture..."
       $DRUSH openkb:embeddings-import

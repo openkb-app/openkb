@@ -1,7 +1,9 @@
-# Builds the two images from this checkout and brings the stack up once.
+# Builds the two images from this checkout, brings the stack up once and
+# installs the site on it.
 #
 # - Pull requests and pushes to main: build, start, wait for both
-#   healthchecks, tear down. Nothing is pushed.
+#   healthchecks, `openkb-install`, check the site answers, tear down.
+#   Nothing is pushed.
 # - Publishing on release tags is a separate workflow.
 
 name: images
@@ -17,7 +19,7 @@ permissions:
 jobs:
   build-and-smoke:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,13 +32,21 @@ jobs:
 
       - name: Write .env
         run: |
+          # A self-hosted stack names the two public hostnames here, and they
+          # resolve inside the containers too. The job has no DNS, so the two
+          # URLs are the service names: `openkb-install` reaches the Nuxt
+          # sidecar under DRUPAL_FRONTEND_BASE_URL from the drupal container.
+          # The published ports are what this job's own curl uses.
           cat > .env <<EOF
-          DRUPAL_BASE_URL=http://localhost:8080
-          DRUPAL_FRONTEND_BASE_URL=http://localhost:3000
+          DRUPAL_BASE_URL=http://drupal:8080
+          DRUPAL_FRONTEND_BASE_URL=http://frontend:3000
           SESSION_COOKIE_DOMAIN=
           DRUPAL_HASH_SALT=smoke-test-only-not-a-secret
           MARIADB_PASSWORD=smoke
           MARIADB_ROOT_PASSWORD=smoke
+          OKB_COLLAB_CLIENT_ID=smoke
+          OKB_COLLAB_CLIENT_SECRET=smoke-test-only-not-a-secret
+          ADMIN_PASSWORD=smoke-test-only-not-a-secret
           OPENKB_TAG=smoke
           OPENKB_REVISION=${GITHUB_SHA}
           OPENSEARCH_JAVA_OPTS=-Xms256m -Xmx256m
@@ -59,6 +69,18 @@ jobs:
           done
           echo "The stack did not become healthy." >&2
           exit 1
+
+      - name: Install the site
+        run: docker compose exec -T drupal openkb-install
+
+      - name: Check the site answers
+        run: |
+          # The schema the frontend fetches anonymously: 200 only from an
+          # installed site whose anonymous role can read.
+          status=$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/openkb/schema)
+          [ "$status" = 200 ] || { echo "/openkb/schema answered $status" >&2; exit 1; }
+          docker compose exec -T drupal drush core:status --field=bootstrap | grep -qx Successful
+          docker compose exec -T drupal drush pm:list --status=enabled --field=name | grep -qx openkb_space
 
       - name: Logs
         if: always()

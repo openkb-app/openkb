@@ -1,0 +1,107 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - core.entity_view_mode.node.full
+    - field.field.node.kb_page.field_block_meta
+    - field.field.node.kb_page.field_contributors
+    - field.field.node.kb_page.field_kb_body
+    - field.field.node.kb_page.field_owner
+    - field.field.node.kb_page.field_space
+    - field.field.node.kb_page.field_summary
+    - field.field.node.kb_page.field_tags
+    - field.field.node.kb_page.field_type
+    - node.type.kb_page
+id: node.kb_page.full
+targetEntityType: node
+bundle: kb_page
+mode: full
+useLayoutBuilder: false
+forceAutoProcessing: false
+customElementName: node-kb-page
+content:
+  blockMeta:
+    formatter: raw
+    field_name: field_block_meta
+    is_slot: false
+    weight: 1
+  body:
+    formatter: raw
+    field_name: field_kb_body
+    is_slot: false
+    weight: 0
+  changed:
+    formatter: auto
+    field_name: changed
+    is_slot: false
+    weight: -5
+  contributors:
+    formatter: entity_reference
+    field_name: field_contributors
+    is_slot: false
+    weight: -3
+    configuration:
+      include_label: true
+      include_uuid: true
+  moderation_state:
+    formatter: auto
+    field_name: moderation_state
+    is_slot: false
+    weight: -8
+  nid:
+    formatter: auto
+    field_name: nid
+    is_slot: false
+    weight: -11
+  owner:
+    formatter: entity_reference
+    field_name: field_owner
+    is_slot: false
+    weight: -4
+    configuration:
+      include_label: true
+      include_uuid: true
+  path:
+    formatter: path
+    field_name: path
+    is_slot: false
+    weight: -9
+    configuration:
+      absolute: false
+  space:
+    formatter: entity_ce_render
+    field_name: field_space
+    is_slot: false
+    weight: -1
+    configuration:
+      mode: custom_elements_space
+      flatten: false
+      hide_element: true
+  summary:
+    formatter: auto
+    field_name: field_summary
+    is_slot: false
+    weight: -6
+  tags:
+    formatter: entity_reference
+    field_name: field_tags
+    is_slot: false
+    weight: -2
+    configuration:
+      include_label: true
+      include_uuid: true
+  title:
+    formatter: auto
+    field_name: title
+    is_slot: false
+    weight: -12
+  type:
+    formatter: auto
+    field_name: field_type
+    is_slot: false
+    weight: -7
+  uuid:
+    formatter: flattened
+    field_name: uuid
+    is_slot: false
+    weight: -10

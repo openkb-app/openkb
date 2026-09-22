@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="T extends string | boolean">
 /**
- * A single-choice list of policy options — the shared control behind every
- * space policy setting.
+ * A single-choice list of policy options — the control behind a space's
+ * read-access setting.
  *
  * One presentation, two homes: the create dialog picks a policy into a local
  * value, and the space settings cards bind it straight to a save. That is the

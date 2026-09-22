@@ -79,6 +79,21 @@ function mount(open: Ref<boolean>, space?: KbSpaceDetail) {
       h('button', { type: props.type ?? 'button', form: props.form, disabled: props.disabled }, slots.default?.()),
   })
   app.component('SpacePolicyOptions', PolicyOptions)
+  // The real one is a Reka switch: a button with `role="switch"` that flips
+  // the model on click.
+  app.component('USwitch', {
+    props: ['modelValue', 'label', 'description', 'disabled'],
+    emits: ['update:modelValue'],
+    setup: (props: { modelValue?: boolean, label?: string, description?: string, disabled?: boolean }, { emit, attrs }) => () =>
+      h('button', {
+        'type': 'button',
+        'role': 'switch',
+        'aria-checked': String(!!props.modelValue),
+        'data-testid': attrs['data-testid'],
+        'disabled': props.disabled,
+        'onClick': () => emit('update:modelValue', !props.modelValue),
+      }, [h('span', props.label), h('span', props.description)]),
+  })
   app.component('SpaceMembers', { props: ['space'], setup: () => () => h('div', { 'data-testid': 'space-members-stub' }) })
   app.mount(root)
   return root
@@ -86,6 +101,8 @@ function mount(open: Ref<boolean>, space?: KbSpaceDetail) {
 
 const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`)
 const pressed = (id: string) => byTestId(id)?.getAttribute('aria-pressed')
+const checked = (id: string) => byTestId(id)?.getAttribute('aria-checked')
+const hintOf = (id: string) => byTestId(id)?.lastElementChild?.textContent
 
 function type(id: string, value: string) {
   const input = byTestId(id) as HTMLInputElement
@@ -125,9 +142,10 @@ describe('SpaceDialog — editing a space', () => {
     expect((byTestId('space-settings-description') as HTMLInputElement).value).toBe('How we build things.')
     expect(pressed('space-settings-read-access-all_users')).toBe('true')
     expect(pressed('space-settings-read-access-members_only')).toBe('false')
-    expect(pressed('space-settings-moderation-off')).toBe('true')
-    expect(pressed('space-settings-agent-review-off')).toBe('true')
-    expect(pressed('space-settings-agent-review-on')).toBe('false')
+    expect(checked('space-settings-moderation')).toBe('false')
+    expect(checked('space-settings-agent-review')).toBe('false')
+    // The hint explains the state the switch is in.
+    expect(hintOf('space-settings-agent-review')).toContain('publish like human edits')
   })
 
   it('leaves the name out and carries the roster instead', async () => {
@@ -144,9 +162,11 @@ describe('SpaceDialog — editing a space', () => {
 
     type('space-settings-description', 'What we build, and why.')
     byTestId('space-settings-read-access-members_only')?.click()
-    byTestId('space-settings-moderation-on')?.click()
-    byTestId('space-settings-agent-review-on')?.click()
+    byTestId('space-settings-moderation')?.click()
+    byTestId('space-settings-agent-review')?.click()
     await nextTick()
+    expect(checked('space-settings-agent-review')).toBe('true')
+    expect(hintOf('space-settings-agent-review')).toContain('waits for a person')
     byTestId('space-settings-submit')?.click()
     await flush()
 
@@ -197,8 +217,8 @@ describe('SpaceDialog — creating a space', () => {
     expect(byTestId('new-space-name')).not.toBeNull()
     expect(byTestId('space-members-stub')).toBeNull()
     expect(pressed('new-space-read-access-members_only')).toBe('true')
-    expect(pressed('new-space-moderation-on')).toBe('true')
-    expect(pressed('new-space-agent-review-on')).toBe('true')
+    expect(checked('new-space-moderation')).toBe('true')
+    expect(checked('new-space-agent-review')).toBe('true')
 
     type('new-space-name', 'Research')
     await nextTick()
@@ -226,7 +246,7 @@ describe('SpaceDialog — creating a space', () => {
     await open()
 
     type('new-space-name', 'Research')
-    byTestId('new-space-agent-review-off')?.click()
+    byTestId('new-space-agent-review')?.click()
     await nextTick()
     byTestId('new-space-submit')?.click()
     await flush()

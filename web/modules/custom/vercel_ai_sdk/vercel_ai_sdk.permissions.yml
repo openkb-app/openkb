@@ -1,3 +1,0 @@
-use vercel ai sdk chat:
-  title: 'Use the Vercel AI SDK chat endpoint'
-  description: 'Send chat turns to the AI assistant via the POST /vercel-ai/chat endpoint.'

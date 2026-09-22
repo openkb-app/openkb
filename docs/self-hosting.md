@@ -8,7 +8,6 @@ The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with dr
 - Two DNS names under one parent domain, both pointing at the host: one for the frontend (`kb.example.com`), one for Drupal (`cms.kb.example.com`). Drupal under a path of the frontend host is not supported.
 - `vm.max_map_count=262144` on the host, for OpenSearch: `sysctl -w vm.max_map_count=262144`, and the same line in `/etc/sysctl.conf` to keep it.
 - A reverse proxy that terminates TLS; Caddy and Traefik examples below.
-- The OpenKB recipes. The image ships without them: mount them into `drupal` next to `/app/recipes` and name the directory in `OPENKB_RECIPES_DIR`, e.g. `./recipes:/app/openkb-recipes:ro` with `OPENKB_RECIPES_DIR=/app/openkb-recipes`.
 
 ## Bring-up
 
@@ -19,7 +18,7 @@ docker compose up -d
 docker compose exec drupal openkb-install
 ```
 
-`openkb-install` installs the site, applies the recipes, provisions the collaboration server's OAuth client from `OKB_COLLAB_CLIENT_ID` / `OKB_COLLAB_CLIENT_SECRET` and sets the `admin` password from `ADMIN_PASSWORD` — or generates one and prints it. It destroys an existing site. After changing the images, `docker compose exec drupal openkb-update` runs the database updates, imports config when the sync directory holds an export, and rebuilds caches; it is safe to run twice.
+`openkb-install` installs the site from the install state the image carries, provisions the collaboration server's OAuth client from `OKB_COLLAB_CLIENT_ID` / `OKB_COLLAB_CLIENT_SECRET` and sets the `admin` password from `ADMIN_PASSWORD` — or generates one and prints it. It destroys an existing site. After changing the images, `docker compose exec drupal openkb-update` runs the database updates, imports config when the sync directory holds an export, and rebuilds caches; it is safe to run twice.
 
 Both services listen on plain HTTP, bound to `127.0.0.1`: `drupal` on `DRUPAL_HTTP_PORT` (8080), `frontend` on `FRONTEND_HTTP_PORT` (3000).
 

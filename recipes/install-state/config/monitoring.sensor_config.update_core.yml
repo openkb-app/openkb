@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - update
+id: update_core
+label: Core
+description: 'Available updates for Drupal core'
+category: Update
+plugin_id: update_status
+result_class: null
+value_label: 'Outdated modules'
+value_type: number
+caching_time: 3600
+settings:
+  type: core
+thresholds:
+  type: none

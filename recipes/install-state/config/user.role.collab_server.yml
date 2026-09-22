@@ -1,0 +1,33 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - filter.format.comark
+    - node.type.kb_page
+    - workflows.workflow.editorial
+  module:
+    - content_moderation
+    - filter
+    - inline_comment
+    - node
+    - openkb_agent_registration
+    - openkb_collab_api
+    - openkb_space_access
+    - system
+id: collab_server
+label: 'Collaboration server'
+weight: 10
+is_admin: false
+permissions:
+  - 'access content'
+  - 'edit any kb_page content'
+  - 'update space content'
+  - 'use client registration api'
+  - 'use collaboration api'
+  - 'use editorial transition create_new_draft'
+  - 'use inline comments api'
+  - 'use text format comark'
+  - 'view any unpublished content'
+  - 'view kb_page revisions'
+  - 'view latest version'
+  - 'view space content'

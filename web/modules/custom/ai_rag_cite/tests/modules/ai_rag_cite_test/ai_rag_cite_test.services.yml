@@ -1,6 +1,0 @@
-services:
-  ai_rag_cite_test.processed_field_values:
-    class: Drupal\ai_rag_cite_test\EventSubscriber\ProcessedFieldValues
-    arguments: ['@state']
-    tags:
-      - { name: event_subscriber }

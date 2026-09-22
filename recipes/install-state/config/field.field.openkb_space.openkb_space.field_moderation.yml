@@ -1,0 +1,23 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.openkb_space.field_moderation
+  module:
+    - openkb_space
+id: openkb_space.openkb_space.field_moderation
+field_name: field_moderation
+entity_type: openkb_space
+bundle: openkb_space
+label: Moderation
+description: 'Whether edits in this space go through review. On (the default) means a save writes a draft beside the published page and an editor publishes it explicitly. Off means a save publishes immediately, wiki-style — the space keeps its access rules either way.'
+required: false
+translatable: false
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: 'On'
+  off_label: 'Off'
+field_type: boolean

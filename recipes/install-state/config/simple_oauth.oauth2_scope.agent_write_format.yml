@@ -1,0 +1,15 @@
+langcode: en
+status: true
+dependencies: {  }
+id: agent_write_format
+name: 'agent:write:format'
+description: 'Write the comark body format — child of agent:write.'
+grant_types:
+  client_credentials:
+    status: true
+    description: ''
+umbrella: false
+parent: agent_write
+granularity_id: permission
+granularity_configuration:
+  permission: 'use text format comark'

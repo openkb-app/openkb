@@ -1,0 +1,56 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - filter.format.basic_html
+    - filter.format.comark
+    - node.type.kb_page
+    - rest.resource.lupus_decoupled_site_info
+    - rest.resource.rest_menu_item
+    - workflows.workflow.editorial
+  module:
+    - content_moderation
+    - file
+    - filter
+    - inline_comment
+    - mcp_server
+    - media
+    - node
+    - openkb_space
+    - path
+    - rest
+    - simple_oauth
+    - simple_oauth_personal_consumers
+    - system
+    - vercel_ai_sdk
+id: authenticated
+label: 'Authenticated user'
+weight: 1
+is_admin: false
+permissions:
+  - 'access content'
+  - 'access mcp server'
+  - 'access user profiles'
+  - 'create kb_page content'
+  - 'create media'
+  - 'create openkb_space'
+  - 'create url aliases'
+  - 'delete own files'
+  - 'delete own kb_page content'
+  - 'edit any kb_page content'
+  - 'grant simple_oauth codes'
+  - 'manage own personal consumers'
+  - 'restful get lupus_decoupled_site_info'
+  - 'restful get rest_menu_item'
+  - 'use editorial transition create_new_draft'
+  - 'use editorial transition publish'
+  - 'use editorial transition submit_for_review'
+  - 'use inline comments api'
+  - 'use text format basic_html'
+  - 'use text format comark'
+  - 'use vercel ai sdk chat'
+  - 'view any unpublished content'
+  - 'view kb_page revisions'
+  - 'view latest version'
+  - 'view media'
+  - 'view the administration theme'

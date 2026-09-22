@@ -1,0 +1,6 @@
+connector: standard
+connector_config:
+  url: 'http://opensearch:9200'
+  ssl_verification: false
+vdb_config:
+  engine: lucene

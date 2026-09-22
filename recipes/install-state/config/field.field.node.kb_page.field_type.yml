@@ -1,0 +1,22 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_type
+    - node.type.kb_page
+  module:
+    - options
+id: node.kb_page.field_type
+field_name: field_type
+entity_type: node
+bundle: kb_page
+label: Type
+description: 'Document type. Drives per-type presentation and the OKF `type`; extend the allowed values as new doc types emerge.'
+required: true
+translatable: false
+default_value:
+  -
+    value: article
+default_value_callback: ''
+settings: {  }
+field_type: list_string

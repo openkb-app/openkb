@@ -1,0 +1,18 @@
+langcode: en
+status: true
+dependencies: {  }
+id: tmp_disk_usage
+label: 'Temporary directory disk usage'
+description: 'Used space on the disk holding /tmp. Drupal needs to write temporary files, so a full /tmp takes the site down.'
+category: System
+plugin_id: disk_usage
+result_class: null
+value_label: '%'
+value_type: number
+caching_time: 3600
+settings:
+  directory: /tmp
+thresholds:
+  type: exceeds
+  warning: 95
+  critical: 95

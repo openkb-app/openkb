@@ -3,7 +3,7 @@ import { toFormModel, type FrontmatterSchema } from './frontmatter-model'
 
 /**
  * A schema shaped exactly like `GET /openkb/schema` for the v1 field set
- * (see recipes/openkb_recipe_main): field_type (enum, required), field_summary
+ * (see recipes/openkb_recipe_core): field_type (enum, required), field_summary
  * (string_long textarea), field_owner (single user ref), field_contributors
  * (multi user ref), field_tags (multi term ref). Property order is the
  * form-display weight order the backend emits.

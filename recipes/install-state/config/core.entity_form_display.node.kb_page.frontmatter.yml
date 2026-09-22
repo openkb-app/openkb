@@ -1,0 +1,70 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - core.entity_form_mode.node.frontmatter
+    - field.field.node.kb_page.field_block_meta
+    - field.field.node.kb_page.field_contributors
+    - field.field.node.kb_page.field_kb_body
+    - field.field.node.kb_page.field_owner
+    - field.field.node.kb_page.field_space
+    - field.field.node.kb_page.field_summary
+    - field.field.node.kb_page.field_tags
+    - field.field.node.kb_page.field_type
+    - node.type.kb_page
+id: node.kb_page.frontmatter
+targetEntityType: node
+bundle: kb_page
+mode: frontmatter
+content:
+  field_owner:
+    type: entity_reference_autocomplete
+    weight: 2
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_summary:
+    type: string_textarea
+    weight: 1
+    region: content
+    settings:
+      rows: 3
+      placeholder: 'One-paragraph abstract for listings and search.'
+    third_party_settings: {  }
+  field_tags:
+    type: entity_reference_autocomplete_tags
+    weight: 4
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_type:
+    type: options_select
+    weight: 0
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  url_redirects:
+    weight: 50
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+hidden:
+  created: true
+  field_block_meta: true
+  field_contributors: true
+  field_kb_body: true
+  field_space: true
+  path: true
+  promote: true
+  status: true
+  sticky: true
+  title: true
+  uid: true

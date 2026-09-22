@@ -239,6 +239,7 @@ circleci/database/*
 # Lupus Decoupled Stuff
 /recipes/*
 !/recipes/openkb_recipe_main/
+!/recipes/openkb_recipe_core/
 !/recipes/openkb_recipe_demo/
 !/recipes/openkb_recipe_demo_pages/
 !/recipes/openkb_recipe_demo_outline/
@@ -254,8 +255,11 @@ circleci/database/*
 !/recipes/openkb_recipe_ci/
 !/recipes/openkb_recipe_ai_logging/
 !/recipes/openkb_recipe_collab/
-!/recipes/openkb_recipe_install/
+!/recipes/openkb_recipe_base/
 !/recipes/openkb_recipe_monitoring/
+# The generated install artifacts the published project ships.
+!/recipes/install-state/
+!/recipes/install-content/
 
 # Allow using local config, version dist file.
 phpcs.xml

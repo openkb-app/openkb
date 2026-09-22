@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies: {  }
+name: Page
+type: kb_page
+description: 'Knowledge base page. Body is stored as raw comark markdown; agents consume it directly, humans see it rendered by the frontend.'
+help: 'Write content in comark markdown. Embedded components use ::name{prop=value} fences.'
+new_revision: true
+preview_mode: 1
+display_submitted: false

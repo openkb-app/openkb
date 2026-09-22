@@ -1,4 +1,0 @@
-ai_rag_cite.retriever.fake:
-  type: mapping
-  label: 'Fake retriever'
-  mapping: {}

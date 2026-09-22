@@ -1,0 +1,23 @@
+allowed_menus:
+  account: account
+  admin: admin
+  footer: footer
+  main: main
+  tools: tools
+add_fragment: 1
+base_url: ''
+output_values:
+  key: key
+  title: title
+  description: description
+  uri: uri
+  alias: alias
+  external: external
+  absolute: absolute
+  relative: relative
+  existing: existing
+  weight: weight
+  expanded: expanded
+  enabled: enabled
+  uuid: uuid
+  options: options

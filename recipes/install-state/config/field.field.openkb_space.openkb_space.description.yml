@@ -1,0 +1,19 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.openkb_space.description
+  module:
+    - openkb_space
+id: openkb_space.openkb_space.description
+field_name: description
+entity_type: openkb_space
+bundle: openkb_space
+label: Description
+description: 'What the space is for, shown on its landing page.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long

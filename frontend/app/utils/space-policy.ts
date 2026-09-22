@@ -1,7 +1,7 @@
 import type { KbSpaceReadAccess } from '#shared/utils/kb-spaces'
 
 /**
- * The space-policy choices, shared by the create dialog and the settings cards
+ * The space-policy texts, shared by the create dialog and the settings dialog
  * so their labels and hints are one source, not two that can drift.
  */
 export interface PolicyChoice<T> {
@@ -9,6 +9,13 @@ export interface PolicyChoice<T> {
   label: string
   icon: string
   hint: string
+}
+
+/** A yes/no policy shown as a switch: the label names the on-state. */
+export interface PolicyFlag {
+  label: string
+  /** What the current state does — the switch shows the one that applies. */
+  hint: { on: string, off: string }
 }
 
 /** Read access — who may read a space. Members only is the default for a new one. */
@@ -28,36 +35,22 @@ export const READ_ACCESS_OPTIONS: PolicyChoice<KbSpaceReadAccess>[] = [
 ]
 
 /** Editing workflow — whether publishing waits for a review. On is the default. */
-export const MODERATION_OPTIONS: PolicyChoice<boolean>[] = [
-  {
-    value: true,
-    label: 'Review before publishing',
-    icon: 'i-lucide-file-clock',
-    hint: 'Publishing waits until a second pair of eyes has signed the changed blocks off.',
+export const MODERATION_FLAG: PolicyFlag = {
+  label: 'Review before publishing',
+  hint: {
+    on: 'Publishing waits until a second pair of eyes has signed the changed blocks off.',
+    off: 'Anyone on the roster publishes, whenever they are ready. Saving is a draft either way.',
   },
-  {
-    value: false,
-    label: 'Publish without review',
-    icon: 'i-lucide-zap',
-    hint: 'Anyone on the roster publishes, whenever they are ready. Saving is a draft either way.',
-  },
-]
+}
 
 /**
  * Agent review — whether a block an agent wrote waits for a human sign-off.
  * On is the default, and it holds in a wiki space too.
  */
-export const AGENT_REVIEW_OPTIONS: PolicyChoice<boolean>[] = [
-  {
-    value: true,
-    label: 'Agent edits need a human sign-off',
-    icon: 'i-lucide-user-check',
-    hint: 'A block an agent wrote waits for a person to sign it off before the page can be published.',
+export const AGENT_REVIEW_FLAG: PolicyFlag = {
+  label: 'Agent edits need a human sign-off',
+  hint: {
+    on: 'A block an agent wrote waits for a person to sign it off before the page can be published.',
+    off: 'Agent-written blocks publish like human edits. Whatever review this space runs still applies to them.',
   },
-  {
-    value: false,
-    label: 'Agent edits publish like human edits',
-    icon: 'i-lucide-bot',
-    hint: 'Nothing extra is asked of agent-written blocks. Whatever review this space runs still applies to them.',
-  },
-]
+}

@@ -1,0 +1,5 @@
+name: 'OpenKB install content'
+description: >-
+  The entities every OpenKB site starts with. Applied on top of the
+  install-state recipe. Generated — not edited by hand.
+type: 'Content type'
