@@ -1,0 +1,17 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - openkb_space
+id: openkb_space.field_agent_review
+field_name: field_agent_review
+entity_type: openkb_space
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: false
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

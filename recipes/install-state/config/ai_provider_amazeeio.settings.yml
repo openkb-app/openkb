@@ -1,0 +1,9 @@
+api_key: amazeeio_ai
+moderation: false
+amazee_host: 'https://api.amazee.ai'
+host: 'https://api.amazee.ai'
+postgres_host: ''
+postgres_port: 5432
+postgres_default_database: ''
+postgres_username: ''
+postgres_password: amazeeio_ai_database

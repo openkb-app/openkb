@@ -1,0 +1,19 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - node
+    - openkb_space
+id: node.field_space
+field_name: field_space
+entity_type: node
+type: entity_reference
+settings:
+  target_type: openkb_space
+module: core
+locked: false
+cardinality: 1
+translatable: false
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

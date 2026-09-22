@@ -1,0 +1,15 @@
+langcode: en
+status: true
+dependencies: {  }
+id: collab
+name: collab
+description: "Check point shared editing sessions: commit a session's body, and state its conversations and writer sets."
+grant_types:
+  client_credentials:
+    status: true
+    description: 'The collaboration server writing on behalf of an editing session.'
+umbrella: false
+parent: ''
+granularity_id: role
+granularity_configuration:
+  role: collab_server

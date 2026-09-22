@@ -1,0 +1,31 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - core.entity_view_mode.openkb_space.full
+    - field.field.openkb_space.openkb_space.description
+  module:
+    - openkb_space
+id: openkb_space.openkb_space.full
+targetEntityType: openkb_space
+bundle: openkb_space
+mode: full
+useLayoutBuilder: false
+forceAutoProcessing: false
+customElementName: kb-space
+content:
+  description:
+    formatter: flattened
+    field_name: description
+    is_slot: false
+    weight: -8
+  name:
+    formatter: flattened
+    field_name: label
+    is_slot: false
+    weight: -10
+  path:
+    formatter: path
+    field_name: path
+    is_slot: false
+    weight: -9

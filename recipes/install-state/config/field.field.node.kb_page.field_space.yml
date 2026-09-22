@@ -1,0 +1,26 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_space
+    - node.type.kb_page
+id: node.kb_page.field_space
+field_name: field_space
+entity_type: node
+bundle: kb_page
+label: Space
+description: 'The space this page belongs to. Spaces are the organizational unit and the access boundary for KB content. The space comes from the context a page is created in, so it is not part of the frontmatter editors edit.'
+required: true
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:openkb_space'
+  handler_settings:
+    target_bundles: null
+    sort:
+      field: label
+      direction: asc
+    auto_create: false
+    auto_create_bundle: ''
+field_type: entity_reference

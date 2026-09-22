@@ -1,0 +1,20 @@
+langcode: en
+status: true
+dependencies: {  }
+id: agent_write
+name: 'agent:write'
+description: "Edit pages as the token's owner — the collab-commit write ceiling."
+grant_types:
+  client_credentials:
+    status: true
+    description: ''
+  authorization_code:
+    status: true
+    description: ''
+  refresh_token:
+    status: true
+    description: ''
+umbrella: true
+parent: ''
+granularity_id: null
+granularity_configuration: null

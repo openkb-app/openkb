@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - openkb_space
+id: openkb_space.full
+label: Full
+description: ''
+targetEntityType: openkb_space
+cache: true

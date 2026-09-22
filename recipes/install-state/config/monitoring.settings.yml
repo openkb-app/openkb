@@ -1,0 +1,4 @@
+sensor_call_logging: on_request
+watchdog_logging: false
+cron_run_sensors: false
+disable_sensor_autocreate: true

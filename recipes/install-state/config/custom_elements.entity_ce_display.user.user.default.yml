@@ -1,0 +1,23 @@
+langcode: en
+status: true
+dependencies:
+  module:
+    - user
+id: user.user.default
+targetEntityType: user
+bundle: user
+mode: default
+useLayoutBuilder: false
+forceAutoProcessing: false
+customElementName: user-profile
+content:
+  name:
+    formatter: flattened
+    field_name: name
+    is_slot: false
+    weight: -9
+  uid:
+    formatter: flattened
+    field_name: uid
+    is_slot: false
+    weight: -10

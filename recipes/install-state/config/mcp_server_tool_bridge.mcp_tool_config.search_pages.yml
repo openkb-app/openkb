@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: search_pages
+tool_id: openkb_search_pages
+description: null

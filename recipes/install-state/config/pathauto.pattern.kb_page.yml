@@ -1,0 +1,22 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - node.type.kb_page
+  module:
+    - node
+id: kb_page
+label: Page
+type: 'canonical_entities:node'
+pattern: '/[node:field_space:entity:url:path]/[node:title]'
+selection_criteria:
+  61863f2e-0d7c-4c1a-8311-8e7bc9ff0dad:
+    id: 'entity_bundle:node'
+    negate: false
+    context_mapping:
+      node: node
+    bundles:
+      kb_page: kb_page
+selection_logic: and
+weight: 0
+relationships: {  }

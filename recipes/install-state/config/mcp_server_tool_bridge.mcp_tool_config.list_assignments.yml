@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: list_assignments
+tool_id: openkb_list_assignments
+description: null

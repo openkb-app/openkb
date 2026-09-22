@@ -1,0 +1,47 @@
+index_id: kb_chunks
+control_field_max_length: false
+exclude_chunk_from_metadata: false
+exclude_title: false
+indexing_options:
+  chunks:
+    field_name: chunks
+    indexing_option: main_content
+  cites:
+    field_name: cites
+    indexing_option: attributes
+  links:
+    field_name: links
+    indexing_option: attributes
+  title:
+    field_name: title
+    indexing_option: contextual_content
+  path:
+    field_name: path
+    indexing_option: attributes
+  space:
+    field_name: space
+    indexing_option: attributes
+  langcode:
+    field_name: langcode
+    indexing_option: attributes
+  changed:
+    field_name: changed
+    indexing_option: attributes
+  created:
+    field_name: created
+    indexing_option: attributes
+  type:
+    field_name: type
+    indexing_option: contextual_content
+  tags:
+    field_name: tags
+    indexing_option: attributes
+  summary:
+    field_name: summary
+    indexing_option: attributes
+  owner:
+    field_name: owner
+    indexing_option: attributes
+  contributors:
+    field_name: contributors
+    indexing_option: attributes
