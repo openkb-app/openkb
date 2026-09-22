@@ -1,0 +1,129 @@
+# Development mode of the release images, shared by CI and localdev. Same
+# images as docker-compose.yml, different mounts and commands:
+#
+# - the checkout is bind-mounted over /app and the containers run as the host
+#   user, so the host's gitignored files/ tree replaces the files volume,
+# - `cli` is the drupal image kept idle: composer, phapp, drush, phpunit,
+# - `frontend` runs the Nuxt dev server.
+#
+# The Traefik labels are inert where no Traefik runs on the host.
+
+x-development:
+  &development
+    user: ${COMPOSE_DEFAULT_USER:-1000}
+    # Everything `phapp setup` wrote, not only what docker-compose.yml names.
+    env_file:
+      - path: .env
+        required: false
+
+x-drupal-development:
+  &drupal-development
+    << : *development
+    environment:
+      # The host user has no home directory in the image.
+      HOME: /tmp
+      XDG_CONFIG_HOME: /tmp/.config
+      XDG_DATA_HOME: /tmp/.local/share
+      COMPOSER_CACHE_DIR: /cache/composer
+      COMPOSER_MEMORY_LIMIT: -1
+      # Development ini on top of the image's: docker/drupal/dev/php.ini.
+      PHP_INI_SCAN_DIR: /usr/local/etc/php/conf.d:/app/docker/drupal/dev
+    volumes: !override
+      - ${COMPOSE_APP_DIR:-.}:/app
+      - ${COMPOSE_CACHE_DIR:-./.cache}/.composer/cache:/cache/composer
+
+services:
+  drupal:
+    << : *drupal-development
+    labels:
+      - "lupus-ci.job_name=${LUPUS_CI_JOB_NAME:-}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-servicemain.rule=HostRegexp(`${COMPOSE_HOSTNAME:-openkb-dev-project.localdev.space}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-servicemain.tls=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-servicemain-http.rule=HostRegexp(`${COMPOSE_HOSTNAME:-openkb-dev-project.localdev.space}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-servicemain-http.entrypoints=http"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-servicemain-http.middlewares=redirect-http-to-https"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-drupal.loadbalancer.server.port=8080"
+    networks:
+      default: {}
+      traefik: {}
+
+  cli:
+    extends:
+      file: docker-compose.yml
+      service: drupal
+    << : *drupal-development
+    build: !reset null
+    ports: !reset []
+    healthcheck:
+      disable: true
+    command: ["sleep", "infinity"]
+    labels:
+      - "lupus-ci.job_name=${LUPUS_CI_JOB_NAME:-}"
+
+  frontend:
+    << : *development
+    # npm install, then `nuxt dev` behind a wrapper that flushes the collab
+    # store on SIGTERM — see frontend/scripts/dev-server.sh.
+    command: sh scripts/dev-server.sh
+    environment:
+      HOME: /tmp
+      npm_config_cache: /cache/npm
+      NODE_ENV: ${NODE_ENV:-development}
+    healthcheck:
+      # Covers the npm install and the dev server's cold start.
+      start_period: 300s
+    volumes: !override
+      - ${COMPOSE_APP_DIR:-.}:/app
+      # Keeps the container's musl node_modules apart from a host-side install.
+      - frontend-node-modules:/app/frontend/node_modules
+      - ${COMPOSE_CACHE_DIR:-./.cache}/.npm:/cache/npm
+    # `node1<sep><host>`: HOST_SEPARATOR is `.` for localdev (wildcard DNS) and
+    # `_` for CI (single wildcard cert).
+    labels:
+      - "lupus-ci.job_name=${LUPUS_CI_JOB_NAME:-}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-node1.rule=HostRegexp(`node1${HOST_SEPARATOR:-.}${COMPOSE_HOSTNAME:-openkb-dev-project.localdev.space}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-node1.tls=true"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-node1-http.rule=HostRegexp(`node1${HOST_SEPARATOR:-.}${COMPOSE_HOSTNAME:-openkb-dev-project.localdev.space}`)"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-node1-http.entrypoints=http"
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-node1-http.middlewares=redirect-http-to-https"
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-frontend.loadbalancer.server.port=3000"
+    networks:
+      default: {}
+      traefik: {}
+
+  mariadb:
+    # On top of docker-compose.yml's, which a `command` here replaces:
+    # - small buffers: many environments share the CI host,
+    # - every InnoDB deadlock graph goes to the container log.
+    command:
+      - --transaction-isolation=READ-COMMITTED
+      - --innodb-buffer-pool-size=64M
+      - --innodb-log-file-size=32M
+      - --innodb-print-all-deadlocks=ON
+    labels:
+      - "lupus-ci.job_name=${LUPUS_CI_JOB_NAME:-}"
+
+  opensearch:
+    # Under host-wide memory pressure the kernel kills these JVMs before
+    # Jenkins, whose loss takes every build down (INF-687).
+    oom_score_adj: 500
+    environment:
+      OPENSEARCH_JAVA_OPTS: -Xms256m -Xmx256m
+      # A full disk on a shared host must not block index creation.
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+    labels:
+      - "lupus-ci.job_name=${LUPUS_CI_JOB_NAME:-}"
+
+# External by default: CI's host-side Traefik creates it. The localdev overlay
+# re-declares it as project-managed.
+networks:
+  traefik:
+    name: traefik
+    external: true
+
+volumes:
+  frontend-node-modules:

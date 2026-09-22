@@ -1,0 +1,5 @@
+# Asked of the account the request authenticates as, so a role is what decides
+# it — for a person and for a service account alike.
+'use inline comments api':
+  title: 'Use the inline comments API'
+  description: 'Allows using /api/inline-comments for full inline comment management.'

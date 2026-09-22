@@ -1,0 +1,5 @@
+simple_oauth_personal_consumers.collection:
+  route_name: simple_oauth_personal_consumers.collection
+  base_route: entity.user.canonical
+  title: 'API clients'
+  weight: 20

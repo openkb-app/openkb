@@ -1,0 +1,22 @@
+services:
+  plugin.manager.ai_rag_cite_retriever:
+    class: Drupal\ai_rag_cite\RetrieverPluginManager
+    parent: default_plugin_manager
+  Drupal\ai_rag_cite\RetrieverPluginManager: '@plugin.manager.ai_rag_cite_retriever'
+
+  ai_rag_cite.grounding:
+    class: Drupal\ai_rag_cite\Grounding
+
+  ai_rag_cite.grounding_subscriber:
+    class: Drupal\ai_rag_cite\EventSubscriber\GroundingSubscriber
+    arguments:
+      - '@entity_type.manager'
+      - '@plugin.manager.ai_rag_cite_retriever'
+      - '@ai_rag_cite.grounding'
+      - '@logger.channel.ai_rag_cite'
+    tags:
+      - { name: event_subscriber }
+
+  logger.channel.ai_rag_cite:
+    parent: logger.channel_base
+    arguments: ['ai_rag_cite']

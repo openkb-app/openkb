@@ -1,0 +1,39 @@
+--- a/src/Plugin/Derivative/McpToolConfigDeriver.php
++++ b/src/Plugin/Derivative/McpToolConfigDeriver.php
+@@ -117,6 +117,10 @@
+ 
+   /**
+    * Creates an MCP Tool API derivative definition.
++   *
++   * The read-only and idempotent hints come from the tool's own operation.
++   * openWorld stays with the base definition: Tool API has no equivalent
++   * signal, so there is nothing per-tool to read it from.
+    */
+   private function createDerivativeDefinition(
+     McpToolDefinition $base_plugin_definition,
+@@ -134,9 +138,9 @@
+       deriver: NULL,
+       inputSchema: $this->convertToMcpSchema($tool_definition),
+       outputSchema: $this->convertToMcpOutputSchema($tool_definition),
+-      readOnly: $base_plugin_definition->readOnly,
++      readOnly: !$tool_definition->getOperation()->isModifying(),
+       destructive: $tool_definition->isDestructive(),
+-      idempotent: $base_plugin_definition->idempotent,
++      idempotent: $tool_definition->getOperation()->isIdempotent(),
+       openWorld: $base_plugin_definition->openWorld,
+       toolId: $tool_id,
+       mcpToolConfigId: $mcp_tool_config_id,
+--- a/tests/src/Kernel/McpToolConfigDeriverTest.php
++++ b/tests/src/Kernel/McpToolConfigDeriverTest.php
+@@ -77,7 +77,10 @@
+     $this->assertSame('mcp_server_test:example', $def->toolId);
+     $this->assertSame('derive_me', $def->mcpToolConfigId);
+     $this->assertNotEmpty($def->inputSchema);
+-    $this->assertFalse($def->readOnly);
++    // ExampleTool declares ToolOperation::Read, so it is read-only and
++    // idempotent.
++    $this->assertTrue($def->readOnly);
++    $this->assertTrue($def->idempotent);
+     $this->assertIsBool($def->destructive);
+     $this->assertSame('Example Test Tool', $def->label->render());
+   }

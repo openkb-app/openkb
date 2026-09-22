@@ -1,0 +1,80 @@
+<?php
+
+/**
+ * @file
+ * Owner-bound, self-service OAuth2 consumers.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\consumers\Entity\ConsumerInterface;
+use Drupal\simple_oauth_personal_consumers\PersonalConsumerManagerInterface;
+
+/**
+ * Implements hook_entity_base_field_info().
+ */
+function simple_oauth_personal_consumers_entity_base_field_info(EntityTypeInterface $entity_type): array {
+  $fields = [];
+  if ($entity_type->id() === 'consumer') {
+    $fields['personal'] = BaseFieldDefinition::create('boolean')
+      ->setLabel(new TranslatableMarkup('Personal consumer'))
+      ->setDescription(new TranslatableMarkup('Whether this consumer is a self-service personal client owned by its user.'))
+      ->setDefaultValue(FALSE);
+
+    $fields['created'] = BaseFieldDefinition::create('created')
+      ->setLabel(new TranslatableMarkup('Created'))
+      ->setDescription(new TranslatableMarkup('When the consumer was created. This is the age the unclaimed-consumer sweep goes by.'));
+
+    $fields['last_used'] = BaseFieldDefinition::create('timestamp')
+      ->setLabel(new TranslatableMarkup('Last used'))
+      ->setDescription(new TranslatableMarkup('When a token was last issued for the consumer, kept to the hour.'));
+  }
+  return $fields;
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_presave() for oauth2_token.
+ *
+ * Tokens issued via client_credentials carry no user identifier, so
+ * simple_oauth's access policy would grant the raw scope permissions without
+ * intersecting them with the owner's own permissions. Stamping the consumer's
+ * user onto the token turns that intersection on: the token can never do more
+ * than owner ∩ scope, and role changes on the owner apply live.
+ */
+function simple_oauth_personal_consumers_oauth2_token_presave(EntityInterface $token): void {
+  if (!$token->get('auth_user_id')->isEmpty()) {
+    return;
+  }
+  $consumer = $token->get('client')->entity;
+  if ($consumer && $consumer->hasField('personal') && $consumer->get('personal')->value && !$consumer->get('user_id')->isEmpty()) {
+    $token->set('auth_user_id', $consumer->get('user_id')->target_id);
+  }
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_insert() for oauth2_token.
+ *
+ * A token is the only thing a consumer is ever used for, so its issuance is
+ * what "last used" means.
+ */
+function simple_oauth_personal_consumers_oauth2_token_insert(EntityInterface $token): void {
+  $consumer = $token->get('client')->entity;
+  if ($consumer instanceof ConsumerInterface && $consumer->hasField('last_used')) {
+    \Drupal::service(PersonalConsumerManagerInterface::class)->recordUsage($consumer);
+  }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function simple_oauth_personal_consumers_cron(): void {
+  $swept = \Drupal::service(PersonalConsumerManagerInterface::class)->sweepUnclaimed();
+  if ($swept > 0) {
+    \Drupal::logger('simple_oauth_personal_consumers')
+      ->notice('Deleted @count unclaimed personal consumer(s) past their retention.', ['@count' => $swept]);
+  }
+}

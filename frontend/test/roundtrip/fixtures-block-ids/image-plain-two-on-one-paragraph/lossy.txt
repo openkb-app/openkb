@@ -1,0 +1,1 @@
+Soft-broken lines become blocks of their own; each image keeps the id that trailed it.

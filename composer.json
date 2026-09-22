@@ -1,0 +1,227 @@
+{
+    "name": "openkb-app/openkb-project",
+    "description": "OpenKB: the open knowledge base for people and AI agents.",
+    "type": "project",
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://openkb.app",
+    "support": {
+        "source": "https://github.com/openkb-app/openkb",
+        "issues": "https://github.com/openkb-app/openkb/issues",
+        "docs": "https://openkb.app",
+        "security": "https://github.com/openkb-app/openkb/blob/main/SECURITY.md"
+    },
+    "authors": [
+        {
+            "name": "drunomics GmbH",
+            "homepage": "https://drunomics.com"
+        }
+    ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://git.drupalcode.org/project/openkb.git"
+        },
+        {
+            "type": "composer",
+            "url": "https://packages.drupal.org/8"
+        }
+    ],
+    "require": {
+        "composer/installers": "^2.3",
+        "cweagans/composer-patches": "^1.7",
+        "drupal/ai": "^1.5.0-rc1",
+        "drupal/ai_dashboard": "^1.0.3",
+        "drupal/ai_logging": "^1.3.1",
+        "drupal/ai_provider_amazeeio": "^1.3.1",
+        "drupal/ai_provider_anthropic": "^1.2.2",
+        "drupal/ai_provider_mistral": "^1.1.0-rc1@RC",
+        "drupal/ai_provider_openai": "^1.2.5",
+        "drupal/ai_vdb_provider_opensearch": "^1.1.0-alpha2",
+        "drupal/core-composer-scaffold": "^11.1",
+        "drupal/core-project-message": "^11.1",
+        "drupal/core-recommended": "11.4.*",
+        "drupal/custom_elements": "^3.5.0-beta1",
+        "drupal/dashboard": "^2.2.1",
+        "drupal/devel": "^5.3",
+        "drupal/key": "^1.18",
+        "drupal/lupus_csr": "^1.0",
+        "drupal/lupus_decoupled": "^1.5.1",
+        "drupal/lupus_decoupled_recipe": "^2.0",
+        "drupal/mcp_server": "2.0.0-beta2",
+        "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": "^1.0@beta",
+        "drupal/monitoring": "^1.20.0",
+        "drupal/ohdear_integration": "^3.0.0",
+        "drupal/openkb": "1.x-dev",
+        "drupal/pathauto": "^1.13",
+        "drupal/project_browser": "^2.1.4",
+        "drupal/redirect": "^1.11",
+        "drupal/responsive_preview": "^2.3.2",
+        "drupal/rest_log": "^2.3",
+        "drupal/rest_menu_items": "^3.0.7",
+        "drupal/schema_metatag": "^3.0",
+        "drupal/search_api": "^1.39",
+        "drupal/search_api_exclude": "^2.0",
+        "drupal/search_api_opensearch": "2.5.0 as 2.x-dev",
+        "drupal/services_env_parameter": "^1.3",
+        "drupal/simple_oauth": "^6",
+        "drupal/tool": "^1.0@beta",
+        "drupal/trash": "^3.0.30",
+        "drupal/webform": "6.*",
+        "drush/drush": "^13",
+        "league/commonmark": "^2.8",
+        "ohdearapp/health-check-results": "^1.0.0"
+    },
+    "conflict": {
+        "drupal/drupal": "*"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "platform": {
+            "php": "8.3.32"
+        },
+        "sort-packages": true,
+        "preferred-install": {
+            "drupal/lupus_decoupled": "source",
+            "drupal/lupus_decoupled_recipe": "source"
+        },
+        "allow-plugins": {
+            "composer/installers": true,
+            "cweagans/composer-patches": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "drupal/core-composer-scaffold": true,
+            "drupal/core-project-message": true,
+            "drupal/core-recipe-unpack": false,
+            "drupal/core-vendor-hardening": true,
+            "drupal/site_template_helper": false,
+            "php-http/discovery": true,
+            "phpstan/extension-installer": true,
+            "symfony/runtime": true,
+            "tbachert/spi": true
+        }
+    },
+    "extra": {
+        "composer-exit-on-patch-failure": true,
+        "drupal-scaffold": {
+            "locations": {
+                "web-root": "web/"
+            }
+        },
+        "patches": {
+            "drupal/monitoring": {
+                "OKB-156: Compare a requirement's severity as an int — Drupal 11.2 turned it into a RequirementSeverity enum, so the strict int comparison in the requirements_recap sensor matches nothing and the sensor reports zero errors on a site whose status report is full of them. CoreRequirementsSensorPlugin already handles both forms. drupal.org issue pending; swap for its patch once filed.": "patches/monitoring-requirements-recap-severity-enum.patch",
+                "OKB-156: Declare the requirements_recap sensor's settings schema. The plugin reads `severity` and `disabled_requirements`, but the module ships no monitoring.settings.requirements_recap type, so every install of a sensor using it logs a `settings missing schema` warning. drupal.org issue pending; swap for its patch once filed.": "patches/monitoring-requirements-recap-settings-schema.patch"
+            },
+            "drupal/ai_vdb_provider_opensearch": {
+                "OKB-295: Map every stored field as a keyword. createCollection() declares only the vector, so the item keys and the strategy's attributes are dynamically mapped as analyzed text — no `term` filter matches one, which also leaves deleteItems() matching nothing and duplicating every chunk on reindex. drupal.org issue pending; swap for its patch once filed.": "patches/ai_vdb_provider_opensearch-attributes-mapped-as-keywords.patch",
+                "OKB-295: Store a row under its own id, scoped by index, and delete it by the same scope, surviving a concurrent save. insertIntoCollection() mints a uniqid() for every row, so nothing a reindex writes can replace what is there; the collection belongs to the server, so the index has to be part of the id. deleteItems() then removes by drupal_entity_id alone, which takes a second index's rows for the same entity with it, and runs delete_by_query without `conflicts` or `refresh`, so a row whose version moved while another save was indexing the same page fails the whole request — a 500 on the save — and the rows it did delete are invisible to the next one. drupal.org issue pending; swap for its patch once filed.": "patches/ai_vdb_provider_opensearch-chunk-id-as-document-id.patch",
+                "OKB-295: Answer one bool filter list from prepareFilters(). It writes the index id into the clause the condition group built, which puts either two fields in one `term` or a `term` beside a `bool`; OpenSearch rejects both, so any query carrying a condition fails. drupal.org issue pending; swap for its patch once filed.": "patches/ai_vdb_provider_opensearch-one-bool-filter-list.patch",
+                "OKB-295: List only the provider's own collections. getCollections() answers every index in the cluster, under its prefixed name, so foreign indices are offered as collections and the names it returns cannot be passed back to createCollection() or dropCollection(). An index made before the marker is recognised by its vector field. Applies on top of the keyword-mapping patch, whose comment is in its context. drupal.org issue pending; swap for its patch once filed.": "patches/ai_vdb_provider_opensearch-own-collections-only.patch",
+                "OKB-295: Answer the stored row on the read path. vectorSearch() narrows `_source` to the output_fields ai_search asks for — id, drupal_entity_id, drupal_long_id, content — so every attribute the embedding strategy stored is dropped before the result item is built and a consumer can neither render nor cite one. Applies on top of the collections patch. drupal.org issue pending; swap for its patch once filed.": "patches/ai_vdb_provider_opensearch-stored-row-on-the-read-path.patch",
+                "OKB-306: Search a collection on both arms at once. vectorSearch() only ever issues a kNN clause, so a term a section spells out is unreachable unless the embedding places it near. Where a site declares an analyzed text field on the new CollectionMappingEvent, one hybrid query runs a match clause beside the kNN one, a search pipeline fuses the scores, a vector_min_score option floors the kNN arm, and highlight fragments come back on the row, marked with private-use characters no stored text carries. The match clause mirrors the parsed keys' conjunction, and an excluded key goes into the filter both arms share rather than into a clause of either. drupal.org issue pending; swap for its patch once filed.": "patches/ai_vdb_provider_opensearch-hybrid-knn-and-match.patch",
+                "OKB-309: Run the match clause on its own where a query asks for it. vectorSearch() always issues a kNN clause, so a caller that wants the lexical arm alone — a title prefix offered while someone types, where an embedding costs a provider call and a fragment embeds to noise — has no way to ask for it. A `lexical_only` query option answers off the analyzed text fields the CollectionMappingEvent declares, with no kNN clause and no search pipeline, and its value names the OpenSearch match type (`bool_prefix` for a prefix match). Applies on top of the hybrid patch. drupal.org issue pending; swap for its patch once filed.": "patches/ai_vdb_provider_opensearch-lexical-only-query.patch"
+            },
+            "drupal/ai": {
+                "OKB-309: Embed nothing for a lexical_only query. The ai_search backend embeds the query's keys before every search and only reaches a provider's vectorSearch() when it holds a vector, so a search that wants the lexical arm alone still costs an embeddings call. The option is passed through instead, and the provider answers it off the index's own text fields. drupal.org issue pending; swap for its patch once filed.": "patches/ai_search-lexical-only-skips-the-embedding.patch"
+            },
+            "drupal/core": {
+                "#3210926: Call to a member function getAlias on null in PathItem->postSave()": "https://gist.githubusercontent.com/drubot/9391b2cef7ee384b54977e5b6ceacee4/raw/a2dcf23ec15046e1a5e4fe959dfbd26cb08f0497/drupal-core-3210926-pathitem-postsave-missing-alias.patch"
+            },
+            "drupal/custom_elements": {
+                "OKB-134: Let the entity_reference formatter emit the referenced entity UUID (upstream merge pending)": "https://gist.githubusercontent.com/drubot/42486a256163af3638af8830562d6487/raw/88b3f01a143fa3f03697309120dc9030ff738f05/custom_elements-entity-reference-include-uuid.patch"
+            },
+            "drupal/lupus_decoupled": {
+                "#3466974: Answer configured permissions for the current user in /api/site-info, so a frontend can ask whether it may offer an action instead of rendering a page to read roles off it. Varies by the user.permissions cache context; anonymous stays one shared entry. Pending upstream, swap for its patch once merged.": "https://gist.githubusercontent.com/drubot/cd77056466c2648ab13189046e534a8e/raw/3d109c20d3c28280d5d5b368143821a9a239a7ba/lupus_decoupled-3466974-site-info-permissions.patch"
+            },
+            "drupal/lupus_ce_renderer": {
+                "OKB-151: Answer a plain 3xx Response as the CE redirect payload too — a controller answering in PSR-7 (simple_oauth's /oauth/authorize) reaches the response event as a plain Response, so the class check alone lets a raw 302 leave /ce-api for a consumer's HTTP layer to follow server-side. drupal.org issue pending; swap for its patch once merged.": "patches/lupus_ce_renderer-psr7-redirect-as-ce-payload.patch"
+            },
+            "drupal/mcp_server": {
+                "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call that loads an entity is answered as an event stream with the result nowhere in it. Against 2.0.0-beta2; drop once the fix is released upstream.": "https://gist.githubusercontent.com/drubot/18ff9d3e652c8cc9f9bbf00eb6b2463f/raw/6de9eb94c40210ae411d5cd0291d6d61ff9ded56/mcp_server-shield-element-handler-from-foreign-fiber-suspends.patch"
+            },
+            "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": {
+                "OKB-201: A failed or denied call must reach the client as an error. ToolApi::execute() answers every failure with a returned array, and the SDK wraps any returned array as a successful CallToolResult, so a refusal arrives as HTTP 200 isError: false. Throwing Mcp\\Exception\\ToolCallException is the plugin's only lever on the error channel. drupal.org #3618716 (active, no MR); attach this there rather than opening a new issue.": "patches/mcp_server_tool_bridge-failed-call-is-an-error.patch",
+                "OKB-201: Advertise a per-tool outputSchema. McpToolConfigDeriver copies outputSchema from the base plugin definition, which is always NULL, so no bridged tool describes its result. Built from the tool's own getOutputDefinitions(), describing the {success, message, data} envelope execute() answers. drupal.org issue pending.": "patches/mcp_server_tool_bridge-output-schema-from-tool-outputs.patch",
+                "OKB-201: Take readOnlyHint and idempotentHint from the tool's ToolOperation. The deriver copies both from the base plugin definition, so every bridged tool is advertised as non-read-only and non-idempotent and a client gating writes on readOnlyHint treats a read tool as a mutation. Applies on top of the outputSchema patch. drupal.org issue pending.": "patches/mcp_server_tool_bridge-hints-from-tool-operation.patch",
+                "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch"
+            },
+            "drupal/simple_oauth": {
+                "OKB-73: Vary calculated permissions by the token subject's roles (drupal.org issue pending)": "patches/simple_oauth-token-subject-roles-cache-context.patch",
+                "OKB-75: Apply the scope intersect to the token subject computed under an ambient token (drupal.org issue pending)": "patches/simple_oauth-scope-ceiling-ambient-subject.patch"
+            }
+        },
+        "patchLevel": {
+            "drupal/core": "-p2"
+        },
+        "installer-paths": {
+            "web/core": [
+                "type:drupal-core"
+            ],
+            "web/libraries/{$name}": [
+                "type:drupal-library"
+            ],
+            "web/modules/contrib/mcp_server_tool_bridge": [
+                "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge"
+            ],
+            "web/modules/contrib/{$name}": [
+                "type:drupal-module"
+            ],
+            "recipes/{$name}": [
+                "type:drupal-recipe"
+            ],
+            "web/profiles/contrib/{$name}": [
+                "type:drupal-profile"
+            ],
+            "web/themes/contrib/{$name}": [
+                "type:drupal-theme"
+            ],
+            "drush/Commands/contrib/{$name}": [
+                "type:drupal-drush"
+            ],
+            "web/modules/custom/{$name}": [
+                "type:drupal-custom-module"
+            ],
+            "web/themes/custom/{$name}": [
+                "type:drupal-custom-theme"
+            ]
+        },
+        "drupal-core-project-message": {
+            "include-keys": [
+                "homepage",
+                "support"
+            ],
+            "post-create-project-cmd-message": [
+                "<bg=blue;fg=white>                                                         </>",
+                "<bg=blue;fg=white>  OpenKB is in place.                                    </>",
+                "<bg=blue;fg=white>                                                         </>",
+                "",
+                "<bg=yellow;fg=black>Next steps</>:",
+                "  * Run the stack: see README.md (docker compose).",
+                "  * Documentation: https://openkb.app"
+            ]
+        },
+        "tools": {
+            "phapp": {
+                "url": "https://github.com/drunomics/phapp-cli/releases/download/0.7.2/phapp.phar",
+                "version": "0.7.2"
+            }
+        }
+    },
+    "require-dev": {
+        "brianium/paratest": "^7.8.5",
+        "drupal/core-dev": "^11 || ^10.4"
+    },
+    "scripts": {
+        "install-phar-tools": [
+            "drunomics\\Composer\\PharInstaller::installPharTools"
+        ],
+        "cs": "vendor/bin/phpcs --colors",
+        "cbf": "vendor/bin/phpcbf",
+        "phpstan-check": "vendor/bin/phpstan analyze --memory-limit=-1"
+    },
+    "autoload": {
+        "classmap": [
+            "scripts/composer/PharInstaller.php"
+        ]
+    }
+}

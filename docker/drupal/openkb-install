@@ -1,0 +1,3 @@
+#!/bin/sh
+# Installs the site. Destroys an existing one.
+exec /app/scripts/site-install.sh "$@"

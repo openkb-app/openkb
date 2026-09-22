@@ -1,0 +1,7 @@
+name: 'Vercel AI SDK test'
+type: module
+description: 'Provides the scripted drupal/ai provider the chat tests drive a turn with.'
+package: Testing
+core_version_requirement: ^10 || ^11
+dependencies:
+  - ai:ai

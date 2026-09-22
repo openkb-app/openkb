@@ -1,0 +1,1357 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* The two brand faces, served from `public/fonts/` — one variable file per
+   family covers every weight the book uses, and the OFL text sits beside each
+   file. No font module and no CDN: the app is the only source of the faces. */
+@font-face {
+  font-family: 'Manrope Variable';
+  src: url('/fonts/Manrope.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  src: url('/fonts/JetBrainsMono.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Ramps. Every brand role below is a step on one of these, so a contrast fix
+   moves a step instead of introducing a colour. The brand book (OKB-218,
+   B5 · Slate Indigo & Mint, section 06) is the source. */
+@theme {
+  --font-sans: 'Manrope Variable', Manrope, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Slate indigo. Brand primary is 800 in light, 300 in dark; 900 is the
+     book's own darker step, which the hover state lands on. */
+  --color-primary-50:  #f4f5fa;
+  --color-primary-100: #e6e9f4;
+  --color-primary-200: #ccd3e9;
+  --color-primary-300: #a6b3d9;
+  --color-primary-400: #8493c8;
+  --color-primary-500: #6a79b4;
+  --color-primary-600: #6472ae;
+  --color-primary-700: #5766a6;
+  --color-primary-800: #4c5a9e;
+  --color-primary-900: #3e4b86;
+  --color-primary-950: #2c3560;
+
+  /* Neutral — the brand's own ink/ground/surface/border set. The six anchors
+     it names are steps 0, 50, 100, 200, 400, 600, 800, 900, 950 and 975; the
+     rest are interpolated so the ladder stays even. */
+  --color-neutral-0:   #ffffff;
+  --color-neutral-50:  #f5f6f9;
+  --color-neutral-100: #eef0f5;
+  --color-neutral-200: #e0e2ea;
+  --color-neutral-300: #c1c5d2;
+  --color-neutral-400: #a3a7ba;
+  --color-neutral-500: #7e8398;
+  --color-neutral-600: #5a5f76;
+  --color-neutral-700: #43475b;
+  --color-neutral-800: #2c3040;
+  --color-neutral-900: #1d202c;
+  --color-neutral-950: #171a26;
+  --color-neutral-975: #141620;
+
+  /* Mint — agent attribution only: the mark, "via <agent>" chips, the marks an
+     agent-authored block carries. Never a general accent. 500 is the mark's
+     own step and carries 2.5:1 on white, so no word ever sits on it; 700 is
+     the text-safe step every agent label and icon takes. */
+  --color-agent-50:  #ecfdf5;
+  --color-agent-100: #d1fae5;
+  --color-agent-200: #a7f3d0;
+  --color-agent-300: #6ee7b7;
+  --color-agent-400: #34d399;
+  --color-agent-500: #10b981;
+  --color-agent-600: #059669;
+  --color-agent-700: #047857;
+  --color-agent-800: #065f46;
+  --color-agent-900: #064e3b;
+
+  /* Mint again — the book gives the verified state the agent's hue, one step
+     darker than the mark. Kept as its own ramp because a Nuxt UI success
+     toast reads it and carries no agent meaning. */
+  --color-success-300: #6ee7b7;
+  --color-success-400: #34d399;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-success-800: #065f46;
+
+  /* Amber — the pending review state. */
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+
+  /* Red and cyan carry no brand role; they stay the app's error and info
+     hues, with the step each scheme needs. */
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-700: #b91c1c;
+  --color-info-300:  #67e8f9;
+  --color-info-500:  #06b6d4;
+  --color-info-700:  #0e7490;
+  --color-info-800:  #155e75;
+
+  /* The brand radius, on the four surfaces the book names: buttons, inputs and
+     popovers (`rounded-md`), cards and dialogs (`rounded-lg`). The rest of the
+     scale stays proportional to --ui-radius. */
+  --radius-md: var(--okb-radius);
+  --radius-lg: var(--okb-radius);
+}
+
+/* Brand roles — the one source of truth, mapped from the book's token table.
+   Everything downstream reads a role, never a ramp step directly, so a scheme
+   is one block of overrides. */
+:root {
+  --okb-primary: var(--color-primary-800);
+  --okb-primary-hover: var(--color-primary-900);
+  --okb-primary-pressed: var(--color-primary-950);
+  --okb-agent: var(--color-agent-500);
+  --okb-agent-text: var(--color-agent-700);
+  --okb-verified: var(--color-success-700);
+  --okb-pending: var(--color-warning-700);
+  --okb-text: var(--color-neutral-950);
+  --okb-text-muted: var(--color-neutral-600);
+  --okb-ground: var(--color-neutral-50);
+  --okb-surface: var(--color-neutral-0);
+  --okb-border: var(--color-neutral-200);
+  --okb-radius: 10px;
+
+  /* "Yours, waiting on a peer" — the muted grey pulled toward the primary
+     blue, so it reads as a state of its own rather than as disabled text.
+     Darker step for the ink, lighter for the rule, matching the weights the
+     other tones use. Derived from roles this element also carries, so `.dark`
+     re-resolves it. Declared here because the title's pill and its sign-off
+     sit in the `<h1>`, outside the editor. */
+  --okb-peer-wait: color-mix(in oklab, var(--okb-primary) 50%, var(--okb-text-muted));
+  --okb-peer-wait-rule: color-mix(in oklab, var(--okb-primary) 50%, var(--okb-border));
+}
+
+.dark {
+  --okb-primary: var(--color-primary-300);
+  --okb-primary-hover: var(--color-primary-200);
+  --okb-primary-pressed: var(--color-primary-100);
+  --okb-agent: var(--color-agent-400);
+  --okb-agent-text: var(--color-agent-400);
+  --okb-verified: var(--color-success-400);
+  --okb-pending: var(--color-warning-400);
+  --okb-text: var(--color-neutral-100);
+  --okb-text-muted: var(--color-neutral-400);
+  --okb-ground: var(--color-neutral-975);
+  --okb-surface: var(--color-neutral-900);
+  --okb-border: var(--color-neutral-800);
+}
+
+/* Nuxt UI bridge. Its whole component theme hangs off these, so mapping them
+   onto the roles is what puts the brand on the chrome.
+
+   Contrast floor — WCAG AA (4.5:1 for text, 3:1 for UI) against both surfaces
+   each scheme puts text on, the card and the page ground. The two lightest
+   text steps collapse onto the muted role for that reason: Nuxt UI's own
+   ladder starts below the floor. `--ui-primary` is the brand's interactive
+   colour, which is already the step that clears both as link text and as a
+   white label on a solid fill. */
+:root {
+  --ui-radius: 0.375rem;
+  --ui-header-height: 52px;
+
+  --ui-primary: var(--okb-primary);
+  /* One step darker than the roles they stand for: a Nuxt UI `subtle` badge
+     or alert puts the colour on a 10% tint of itself, which is lighter than
+     either brand surface, and the role's own step lands at 4.1-4.4:1 there.
+     The roles themselves are what the review markers paint with, on the page
+     rather than on a tint of themselves, where they clear the floor. */
+  --ui-success: var(--color-success-800);
+  --ui-warning: var(--color-warning-800);
+  --ui-error: var(--color-error-700);
+  --ui-info: var(--color-info-800);
+
+  --ui-bg: var(--okb-surface);
+  --ui-bg-muted: var(--okb-ground);
+  --ui-bg-elevated: var(--color-neutral-100);
+  --ui-bg-accented: var(--color-neutral-200);
+  --ui-bg-inverted: var(--color-neutral-950);
+  --ui-text-dimmed: var(--okb-text-muted);
+  --ui-text-muted: var(--okb-text-muted);
+  --ui-text-toned: var(--color-neutral-700);
+  --ui-text: var(--color-neutral-800);
+  --ui-text-highlighted: var(--okb-text);
+  --ui-text-inverted: var(--color-neutral-0);
+  --ui-border: var(--okb-border);
+  --ui-border-muted: var(--okb-border);
+  --ui-border-accented: var(--color-neutral-300);
+  --ui-border-inverted: var(--color-neutral-950);
+
+  /* The page canvas is the ground; the card surface is what sits on it. */
+  --color-body-bg: var(--okb-ground);
+  --color-sidebar-bg: var(--okb-ground);
+  --color-sidebar-border: var(--okb-border);
+
+  /* Type scale — chrome headings (h1..h4 used in cards, hero, page title).
+     The prose tree is Nuxt UI's own scale, not this one. Display tracking is
+     the book's -0.03em at h1. */
+  --text-h1-size: 32px;
+  --text-h1-line-height: 1.18;
+  --text-h1-weight: 600;
+  --text-h1-tracking: -0.03em;
+
+  --text-h2-size: 22px;
+  --text-h2-line-height: 1.25;
+  --text-h2-weight: 600;
+  --text-h2-tracking: -0.02em;
+
+  --text-h3-size: 17px;
+  --text-h3-line-height: 1.35;
+  --text-h3-weight: 500;
+  --text-h3-tracking: -0.01em;
+
+  --text-h4-size: 14px;
+  --text-h4-line-height: 1.4;
+  --text-h4-weight: 500;
+}
+
+.dark {
+  --ui-primary: var(--okb-primary);
+  --ui-success: var(--okb-verified);
+  --ui-warning: var(--okb-pending);
+  --ui-error: var(--color-error-400);
+  --ui-info: var(--color-info-300);
+
+  --ui-bg: var(--okb-surface);
+  --ui-bg-muted: var(--okb-ground);
+  --ui-bg-elevated: var(--color-neutral-800);
+  --ui-bg-accented: var(--color-neutral-700);
+  --ui-bg-inverted: var(--color-neutral-100);
+  --ui-text-dimmed: var(--okb-text-muted);
+  --ui-text-muted: var(--okb-text-muted);
+  --ui-text-toned: var(--color-neutral-300);
+  --ui-text: var(--color-neutral-200);
+  --ui-text-highlighted: var(--okb-text);
+  --ui-text-inverted: var(--color-neutral-950);
+  --ui-border: var(--okb-border);
+  --ui-border-muted: var(--okb-border);
+  --ui-border-accented: var(--color-neutral-700);
+  --ui-border-inverted: var(--color-neutral-100);
+
+  --color-body-bg: var(--okb-ground);
+  --color-sidebar-bg: var(--okb-ground);
+  --color-sidebar-border: var(--okb-border);
+}
+
+/* Page typography as one utility. Read view and editor render the same
+   tags, so one class on both roots is read↔edit parity by construction.
+   The cascade constraint is in `docs/adr/0013-one-typography-class-list.md`. */
+@utility okb-prose {
+  /* The line box every block inherits, with the size it is a ratio of, so a
+     host sizing its own chrome cannot shrink the page content. Nuxt UI's editor theme
+     sets `[&_p]:leading-7` on the same root at equal specificity and later
+     source order; important is what keeps the content's inherited line box. */
+  @apply text-base leading-7 [&_p]:leading-[inherit]!;
+  /* Block rhythm, and flush with the content's top and bottom edge. */
+  @apply *:my-5 *:first:mt-0 *:last:mb-0;
+  @apply [&_a]:text-primary [&_a]:border-b [&_a]:border-transparent [&_a]:hover:border-primary [&_a]:font-medium [&_a]:transition-colors;
+  @apply [&_a>code]:border-dashed [&_a:hover>code]:border-primary [&_a:hover>code]:text-primary [&_a>code]:transition-colors;
+  @apply [&_:is(h1,h2,h3,h4,h5,h6)]:text-highlighted [&_:is(h1,h2,h3,h4,h5,h6)]:font-bold;
+  @apply [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-base;
+  @apply [&_h2]:mt-12 [&_h2]:mb-6 [&_h3]:mt-8 [&_h3]:mb-3 [&_h4]:mt-6 [&_h4]:mb-2;
+  @apply [&_:is(h1,h2,h3,h4,h5,h6)>code]:border-dashed [&_:is(h1,h2,h3,h4,h5,h6)>code]:font-bold;
+  @apply [&_h2>code]:text-xl/6 [&_h3>code]:text-lg/5;
+  @apply [&_blockquote]:border-s-4 [&_blockquote]:border-accented [&_blockquote]:ps-4 [&_blockquote]:italic;
+  @apply [&_hr]:my-12 [&_hr]:border-t [&_hr]:border-default;
+  @apply [&_pre]:text-sm/6 [&_pre]:font-mono [&_pre]:border [&_pre]:border-muted [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:px-4 [&_pre]:py-3 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:overflow-x-auto;
+  @apply [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_pre_code]:rounded-none [&_pre_code]:inline [&_pre_code]:border-0 [&_pre_code]:bg-transparent;
+  /* `anywhere`, not `break-word`: an identifier longer than a narrow column or
+     a fixed table cell has to shrink the inline box's min-content width too,
+     or it scrolls the page sideways. */
+  @apply [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-sm [&_code]:font-mono [&_code]:font-medium [&_code]:rounded-md [&_code]:inline-block [&_code]:wrap-anywhere [&_code]:border [&_code]:border-muted [&_code]:text-highlighted [&_code]:bg-muted;
+  @apply [&_:is(ul,ol)]:ps-6 [&_ul]:list-disc [&_ul]:marker:text-(--ui-border-accented) [&_ol]:list-decimal [&_ol]:marker:text-muted;
+  @apply [&_li]:my-1.5 [&_li]:ps-1.5;
+  /* Every image the page content holds, a raw `<img>` without a component included.
+     Nuxt UI's editor theme states `rounded-md` on the same root, so ours is
+     important: the token is what both modes read. */
+  @apply [&_img]:rounded-(--okb-radius)!;
+  @apply [&_table]:w-full [&_table]:table-fixed [&_table]:border-separate [&_table]:border-spacing-0 [&_thead]:bg-muted;
+  @apply [&_:is(th,td)]:px-4 [&_:is(th,td)]:py-3 [&_:is(th,td)]:text-sm/6 [&_:is(th,td)]:align-top [&_:is(th,td)]:border-muted [&_:is(th,td)]:border-e [&_:is(th,td)]:border-b [&_:is(th,td)]:first:border-s;
+  @apply [&_th]:border-t [&_th]:font-semibold [&_th]:text-start;
+  /* The editor wraps list, quote and cell content in paragraph nodes the read
+     tree has no counterpart for, so their margins must add no height. */
+  @apply [&_:is(li,blockquote,th,td)_p]:my-0;
+}
+
+/* A prose body in a box — a callout, an infobox, an assistant answer — one
+   step down from the page content's scale. It sits inside an `okb-prose` root, so
+   every class naming an element that root also names is important: two
+   descendant variants of equal specificity are ordered by Tailwind, not by
+   this file. */
+@utility okb-prose-compact {
+  @apply text-sm/6;
+  /* The edge resets are important too, or a box opening or closing on a
+     heading keeps that heading's margin: the classes below state theirs so. */
+  @apply *:my-4 *:first:mt-0! *:last:mb-0!;
+  @apply [&_h1]:text-lg! [&_h1]:mt-0! [&_h1]:mb-3!;
+  @apply [&_h2]:text-base! [&_h2]:mt-5! [&_h2]:mb-2!;
+  @apply [&_h3]:text-sm! [&_h3]:mt-4! [&_h3]:mb-1.5!;
+  @apply [&_h4]:text-sm! [&_h4]:mt-3! [&_h4]:mb-1!;
+  @apply [&_:is(ul,ol)]:ps-5.5!;
+  @apply [&_li]:my-1!;
+  @apply [&_code]:text-xs!;
+}
+
+html, body {
+  font-family: var(--font-sans);
+}
+body {
+  background: var(--color-body-bg);
+  color: var(--ui-text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The one focus ring in the app: 2px in the brand's interactive colour, held
+   off the control by 2px so it reads against a filled button as well as
+   against the page.
+
+   `transition-colors` — on every library control — animates `outline-color`,
+   and a control's resting outline is a 25% tint of its own colour. The list
+   below drops `outline-color`, so the ring is at full strength the instant
+   focus lands. */
+:focus-visible {
+  outline: 2px solid var(--okb-primary);
+  outline-offset: 2px;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter;
+}
+
+/* Mention chips (TipTap @-mention in the editor, and the read page's
+   <custom-mention> element comark emits for :mention[label]{uid="…"} —
+   an undefined custom element, styled here since DrupalMarkup renders it
+   as raw HTML outside Vue). */
+custom-mention::before {
+  content: '@';
+}
+custom-mention,
+.mention {
+  display: inline-block;
+  padding: 0 0.25rem;
+  border-radius: 0.25rem;
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-800);
+  font-weight: 500;
+  text-decoration: none;
+}
+.dark custom-mention,
+.dark .mention {
+  background-color: color-mix(in oklab, var(--color-primary-900) 40%, transparent);
+  color: var(--color-primary-200);
+}
+/* A mention of an agent wears the agent colour, the way its avatar does. */
+.mention--agent {
+  background-color: var(--color-agent-100);
+  color: var(--okb-agent-text);
+}
+.dark .mention--agent {
+  background-color: color-mix(in oklab, var(--color-agent-900) 40%, transparent);
+  color: var(--color-agent-200);
+}
+
+/* An agent's avatar wears the mint the brand reserves for agent attribution,
+   so the colour says "agent" where the initials say whose. */
+.okb-agent-avatar {
+  background-color: var(--okb-agent-text);
+  color: var(--color-agent-50);
+}
+.dark .okb-agent-avatar {
+  background-color: var(--okb-agent);
+  color: var(--color-agent-900);
+}
+
+/* The comment composer's field (EditorMentionTextarea): the textarea's own
+   background is dropped so the mention chips echoed under it show through, and
+   both boxes take their type from here — a chip drawn in another size lands
+   beside the word it is about, not on it. */
+.okb-mention-field textarea {
+  background-color: transparent;
+}
+.okb-mention-field textarea,
+.okb-mention-field .okb-mention-echo-layer {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+/* The mention echo drawn behind it: the same pill as `.mention`, under the
+   textarea's own text. The padding is cancelled by an equal negative margin so
+   every line still breaks where the textarea breaks it. */
+.okb-mention-echo {
+  padding: 0 0.25rem;
+  margin: 0 -0.25rem;
+  border-radius: 0.25rem;
+  background-color: var(--color-primary-100);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.okb-mention-echo--agent {
+  background-color: var(--color-agent-100);
+}
+.dark .okb-mention-echo {
+  background-color: color-mix(in oklab, var(--color-primary-900) 40%, transparent);
+}
+.dark .okb-mention-echo--agent {
+  background-color: color-mix(in oklab, var(--color-agent-900) 40%, transparent);
+}
+
+/* Document links. The editor renders a non-navigable <span>, so it needs link
+   styling of its own; the read page's <a> gets it from the prose styles. */
+.ProseMirror .okb-doc-link {
+  color: var(--ui-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: default;
+}
+
+/* Citations. The stored node carries a target and no words, so the chip the
+   editor draws is its number — handed out per distinct target in document
+   order by the decoration in app/editor/cite-numbers.ts. The read page renders
+   the same badge as a real link (CustomCitation.vue). */
+.ProseMirror .okb-cite::after {
+  content: attr(data-n);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding-inline: 0.375rem;
+  border-radius: 9999px;
+  background: var(--ui-primary);
+  color: var(--ui-bg);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: text-top;
+  margin-inline: 0.125rem;
+}
+.ProseMirror .okb-cite.ProseMirror-selectednode::after {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+/* Editor content (TipTap ProseMirror view). The table is `okb-prose`'s, in both
+   modes; these rules add what only an editable table has, and drop the
+   decorative bullet Nuxt UI's `list-disc` puts next to a task-item checkbox. */
+.ProseMirror .selectedCell {
+  background: color-mix(in oklab, var(--ui-primary) 12%, transparent);
+}
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+}
+/* Checkbox inline with its text — TipTap's task-item markup (<label> +
+   block <div>) stacks them vertically otherwise. */
+.ProseMirror ul[data-type="taskList"] > li {
+  display: flex;
+  gap: 0.5rem;
+}
+.ProseMirror ul[data-type="taskList"] > li > label {
+  flex-shrink: 0;
+}
+.ProseMirror ul[data-type="taskList"] > li > div {
+  flex: 1 1 auto;
+}
+
+.collaboration-carets__caret {
+  border-left: 1px solid;
+  border-right: 1px solid;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  position: relative;
+  word-break: normal;
+}
+/* Layout only: the caret's own renderer paints the label, because its colours
+   come from the peer and not from the theme. */
+.collaboration-carets__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  border-radius: 3px 3px 3px 0;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* In-place editor (page edit mode). The TipTap surface mounts in the
+   read column; these rules strip the editor card look (padding, min-height,
+   focus ring) so the content renders at the exact metrics of the read view —
+   the no-jump swap depends on it. */
+.inplace-editor .ProseMirror {
+  padding: 0;
+  min-height: 200px;
+  outline: none;
+  background: transparent;
+  border: none;
+}
+/* A box body's flush edge in the editor: the first and last child that is not
+   a ProseMirror widget (the review pills sit in the content host too).
+   Important and layered, or it cannot out-rank the box's heading margins —
+   see `docs/adr/0013-one-typography-class-list.md`. */
+@layer utilities {
+  .inplace-editor .ProseMirror [data-node-view-content] > :nth-child(1 of :not(.ProseMirror-widget)) {
+    margin-top: 0 !important;
+  }
+  .inplace-editor .ProseMirror [data-node-view-content] > :nth-last-child(1 of :not(.ProseMirror-widget)) {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* A whole block, selected — what a click in the gutter beside it sets, and
+   what clicking the ⠿ sets on its way to opening the menu. Copy, cut and
+   paste act on this selection, so it has to be visible; a component block (a
+   callout, a table) has no other way to read as selected. */
+.inplace-editor .ProseMirror-selectednode {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 3px;
+  border-radius: 1px;
+  background: color-mix(in oklab, var(--ui-primary) 8%, transparent);
+}
+
+/* Agent tile — the surface an agent-authored answer sits on (the search page's
+   AI summary). Tinted from the agent role, which is what says who wrote it. */
+.agent-tile {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--okb-agent) 8%, var(--okb-surface)) 0%, var(--okb-surface) 80%);
+  border-radius: var(--okb-radius);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--okb-agent) 35%, transparent);
+  position: relative;
+}
+.agent-tile::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--okb-agent);
+  border-radius: var(--okb-radius) 0 0 var(--okb-radius);
+}
+
+/* Review marks in the editor (app/editor/review-marks.ts). The plugin puts a
+   class on the BLOCK and hangs the pills inside it, each carrying its words
+   as an attribute this file draws — so no text of ours joins the block's own.
+
+   Two parts, at two volumes:
+
+   - a coloured rule down the left margin, on every marked block, so the state
+     is readable while scrolling. It takes the FIRST pill's colour, which on a
+     block owing both steps is the agent's;
+   - one pill per step still owed, on the block in hand only — under the
+     pointer, holding the caret, or node-selected. Two owed steps are two
+     pills, in two colours.
+
+   The pills are restricted because the margin below a block is the margin
+   above the next one: a pill on every block puts text exactly where its
+   neighbour's board runs. Words are one caret move or one hover away on any
+   block, and the review drawer lists every block owing a review in words, so
+   colour is not the only channel — but at rest the rule's colour is what a
+   reader sees.
+
+   Placed like the read page's byline: in the margin the prose already leaves
+   below the block, so no mark adds layout height (the read↔edit swap lands
+   every block at the same y). The prose column has no gutter wide enough for
+   a label — the dashboard sidebar owns that space at every width. */
+.inplace-editor .ProseMirror .okb-review {
+  position: relative;
+
+  /* The rule, held clear of the text column. An outer box-shadow is clipped
+     to the border box, so the gap is painted in the page colour rather than
+     left out. */
+  box-shadow:
+    -0.375rem 0 0 -0.125rem var(--color-body-bg),
+    -0.625rem 0 0 -0.125rem var(--okb-review-rule);
+}
+/* The pills — one span per step owed. Faded rather than dropped where the
+   block is not in hand: the words stay for assistive tech, and nothing paints
+   into the neighbouring block's margin line. The padding keeps the right end
+   of the line free for the comment control (comment-marks.ts). */
+.inplace-editor .ProseMirror .okb-review-pills {
+  position: absolute;
+  top: calc(100% + 0.1em);
+  right: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  max-width: 100%;
+  padding-inline-end: 4.75rem;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+/* A leaf block (an image, a rule) has no inside, so its marks ride an empty
+   anchor placed after it — the prose margins collapse through it, so nothing
+   moves — and are drawn upwards into the same margin line. */
+.inplace-editor .ProseMirror .okb-margin-gap {
+  display: block;
+  position: relative;
+  height: 0;
+}
+.inplace-editor .ProseMirror .okb-margin-gap .okb-review-pills {
+  top: auto;
+  bottom: 0.15em;
+}
+.inplace-editor .ProseMirror .okb-review-pill {
+  padding: 0 0.4375rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--okb-review-ink);
+  background: color-mix(in oklab, var(--okb-review-rule) 14%, var(--color-body-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--okb-review-rule) 35%, transparent);
+}
+/* The words, and a glyph ahead of them so shape says what colour says and two
+   pills stay apart for a reader who separates neither. Filled circle is the
+   reader's own move — and the fallback for any state without a rule of its
+   own — hollow is somebody else's, a question mark a block with nobody on
+   record, a diamond the agent step. Literal glyphs: a `\2713` escape
+   terminates on the following space and leaves no gap. */
+.inplace-editor .ProseMirror .okb-review-pill::before {
+  content: "● " attr(data-review-label);
+}
+.inplace-editor .ProseMirror .okb-review-pill--awaiting-others::before {
+  content: "○ " attr(data-review-label);
+}
+.inplace-editor .ProseMirror .okb-review-pill--unattributed::before {
+  content: "? " attr(data-review-label);
+}
+.inplace-editor .ProseMirror .okb-review-pill--reviewed::before {
+  content: "✓ " attr(data-review-label);
+}
+.inplace-editor .ProseMirror .okb-review-pill--agent::before {
+  content: "◆ " attr(data-review-label);
+}
+/* Under the pointer: the block, or the row itself. The row is needed as well,
+   for a leaf block — its marks ride the gap after the block rather than
+   hanging inside it, so the pointer reaching the checkmark leaves the block
+   entirely. Nothing in a hidden row takes the pointer, so this rule only holds
+   a row open, never opens one. */
+@media (hover: hover) {
+  .inplace-editor .ProseMirror > .okb-review:hover .okb-review-pills,
+  .inplace-editor .ProseMirror > .okb-review:hover + .okb-margin-gap .okb-review-pills,
+  .inplace-editor .ProseMirror .okb-review-pills:hover {
+    opacity: 1;
+    --okb-pill-events: auto;
+  }
+}
+.inplace-editor .ProseMirror-focused > .okb-review.okb-block-active .okb-review-pills,
+.inplace-editor .ProseMirror-focused > .okb-review.okb-block-active + .okb-margin-gap .okb-review-pills,
+.inplace-editor .ProseMirror > .okb-review.ProseMirror-selectednode .okb-review-pills,
+.inplace-editor .ProseMirror > .okb-review.ProseMirror-selectednode + .okb-margin-gap .okb-review-pills {
+  opacity: 1;
+  --okb-pill-events: auto;
+}
+/* The third way a block comes into hand, beside the pointer and the caret. The
+   editor's own focus class is gone while a control inside it holds focus, so
+   without this the pill a reader just tabbed to would be the invisible one. */
+.inplace-editor .ProseMirror .okb-review-pills:focus-within {
+  opacity: 1;
+  --okb-pill-events: auto;
+}
+
+/* The checkmark that clears the step its pill names — one click, one step, so
+   a block owing both is asked twice by two people.
+
+   Beside its pill rather than in it, and larger than it: the pill clips to its
+   own box for the ellipsis, and this is a pointer target: twice the pill's
+   line box, at the app's own corner radius, which leaves a 26 x 26 square of
+   it taking the pointer — over the 24 x 24 WCAG 2.5.8 minimum. The negative
+   block margin keeps it out of the row's height, so the pill stays on its
+   margin line and the control overflows it evenly above and below.
+
+   A tile in the page colour, ringed in its pill's own tone at twice the pill's
+   weight, so it reads as one object where it overhangs the text rather than as
+   a ring drawn over words, and as a button rather than as another pill.
+
+   The only thing in the margin that takes a pointer, and only while its pill
+   is shown: everything else there stays inert over the text column.
+
+   Greyed where the rule refuses a sign-off (app/editor/review-marks.ts); a
+   refused control asks nothing. */
+.inplace-editor .ProseMirror .okb-review-approve {
+  pointer-events: var(--okb-pill-events, none);
+  cursor: pointer;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  margin-block: -0.5rem;
+  /* Pulled back inside the row's gap, so a block owing both steps reads as
+     two pill-and-checkmark pairs rather than four things in a line. */
+  margin-inline-start: -0.5rem;
+  border-radius: var(--ui-radius);
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--okb-review-ink);
+  background: var(--color-body-bg);
+  box-shadow: inset 0 0 0 2px var(--okb-review-rule);
+}
+/* The heavy check, U+2714, followed by the text presentation selector so no
+   platform draws it as an emoji. Escaped rather than literal, which keeps the
+   invisible second character readable in the source. */
+.inplace-editor .ProseMirror .okb-review-approve::before {
+  content: "\2714\FE0E";
+}
+/* Fills in: the ring already carries the tone, so the fill is what says
+   clickable — a tint alone is read as a state, a filled tile as something to
+   click. */
+.inplace-editor .ProseMirror .okb-review-approve:not([aria-disabled="true"]):hover {
+  background: color-mix(in oklab, var(--okb-review-rule) 30%, var(--color-body-bg));
+}
+/* One the rule refuses: it keeps its place and its announcement, and its
+   tooltip says what would unblock the block. Nothing about it invites a click,
+   so it neither fills in nor takes the pointer's cursor. */
+.inplace-editor .ProseMirror .okb-review-approve[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.inplace-editor .ProseMirror .okb-review-approve:focus-visible {
+  outline: 2px solid var(--okb-review-ink);
+  outline-offset: 1px;
+}
+
+/* One palette, read three times: by the block for its left rule, by each pill
+   for its own colour, and by the checkmark standing beside that pill. A block
+   owing both steps carries both classes, so the rule takes the agent colour
+   — the first pill's colour — while the pills keep one colour each.
+
+   The three waiting states say whose move it is. Only the reader's own queue
+   is drawn to catch the eye; a block waiting on somebody else is stated and
+   left quiet, and one nobody is on record for is stuck until an identified
+   edit or an admin clears it. The pills carry the same distinction in words
+   and in their glyphs.
+
+   Amber is the only warm colour on the page, and it means one thing: this
+   one is yours to act on. */
+.inplace-editor .ProseMirror :is(.okb-review--reviewed, .okb-review-pill--reviewed) {
+  --okb-review-rule: var(--okb-verified);
+  --okb-review-ink: var(--ui-success);
+}
+.inplace-editor .ProseMirror :is(.okb-review--reviewable, .okb-review-pill--reviewable, .okb-review-approve--reviewable) {
+  --okb-review-rule: var(--okb-pending);
+  --okb-review-ink: var(--ui-warning);
+}
+.inplace-editor .ProseMirror :is(.okb-review--awaiting-others, .okb-review-pill--awaiting-others, .okb-review-approve--awaiting-others) {
+  --okb-review-rule: var(--okb-peer-wait-rule);
+  --okb-review-ink: var(--okb-peer-wait);
+}
+.inplace-editor .ProseMirror :is(.okb-review--unattributed, .okb-review-pill--unattributed, .okb-review-approve--unattributed) {
+  --okb-review-rule: var(--color-error-500);
+  --okb-review-ink: var(--ui-error);
+}
+
+/* The agent step, in the colour the brand reserves for agent attribution. On
+   the block it wins over the state colours above wherever both steps are owed,
+   because that is the approval to give first — and its pill leads for the
+   same reason. A reader who cannot tell the agent colour from blue reads
+   "agent" in the pill and sees a diamond rather than a circle. */
+.inplace-editor .ProseMirror :is(.okb-review--agent, .okb-review-pill--agent, .okb-review-approve--agent) {
+  --okb-review-rule: var(--okb-agent);
+  --okb-review-ink: var(--okb-agent-text);
+}
+
+/* The title's review pills (app/editor/components/TitleHeading.vue).
+
+   A rename is a review item like a block's text, so the heading carries the
+   same pill and the same checkmark. The heading sits above the editor surface
+   and has no margin line to open on hover, so they are drawn in the flow under
+   it and are always visible. The tones are set here as well: the rules above
+   are scoped to the ProseMirror root, which this is outside of. */
+.okb-title-review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.okb-title-review-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.okb-title-review .okb-review-pill {
+  padding: 0 0.4375rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  display: inline-flex;
+  gap: 0.25rem;
+  color: var(--okb-review-ink);
+  background: color-mix(in oklab, var(--okb-review-rule) 14%, var(--color-body-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--okb-review-rule) 35%, transparent);
+}
+.okb-title-review .okb-review-approve {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  border-radius: var(--ui-radius);
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--okb-review-ink);
+  background: var(--color-body-bg);
+  box-shadow: inset 0 0 0 2px var(--okb-review-rule);
+}
+.okb-title-review .okb-review-approve::before {
+  content: "\2714\FE0E";
+}
+.okb-title-review .okb-review-approve:not([aria-disabled="true"]):hover {
+  background: color-mix(in oklab, var(--okb-review-rule) 30%, var(--color-body-bg));
+}
+.okb-title-review .okb-review-approve[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.okb-title-review .okb-review-approve:focus-visible {
+  outline: 2px solid var(--okb-review-ink);
+  outline-offset: 1px;
+}
+.okb-title-review :is(.okb-review-pill--reviewed) {
+  --okb-review-rule: var(--okb-verified);
+  --okb-review-ink: var(--ui-success);
+}
+.okb-title-review :is(.okb-review-pill--reviewable, .okb-review-approve--reviewable) {
+  --okb-review-rule: var(--okb-pending);
+  --okb-review-ink: var(--ui-warning);
+}
+.okb-title-review :is(.okb-review-pill--awaiting-others, .okb-review-approve--awaiting-others) {
+  --okb-review-rule: var(--okb-peer-wait-rule);
+  --okb-review-ink: var(--okb-peer-wait);
+}
+.okb-title-review :is(.okb-review-pill--unattributed, .okb-review-approve--unattributed) {
+  --okb-review-rule: var(--color-error-500);
+  --okb-review-ink: var(--ui-error);
+}
+.okb-title-review :is(.okb-review-pill--agent, .okb-review-approve--agent) {
+  --okb-review-rule: var(--okb-agent);
+  --okb-review-ink: var(--okb-agent-text);
+}
+
+/* Inline comments in the editor (app/editor/comment-marks.ts).
+
+   The passage a thread is about is highlighted; every block carries a control
+   in the margin line below it, beside the review checkmark. Neither takes flow
+   height, so no block moves for either. Both are labelled from here, because
+   the control sits inside its block and text in it would join the block's. */
+.inplace-editor .ProseMirror .okb-comment-range {
+  background-color: color-mix(in srgb, var(--color-warning-500) 22%, transparent);
+  border-bottom: 1px solid var(--ui-warning);
+}
+/* Every addressable block anchors its own margin marks, so one rule places
+   the control whatever the block holds. The strip below extends hover into
+   the margin line, so a pointer on its way to a control does not leave the
+   block and find the control gone. It stays clear of the next block. */
+.inplace-editor .ProseMirror .okb-margin-host {
+  position: relative;
+}
+.inplace-editor .ProseMirror .okb-margin-host::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 100%;
+  block-size: 0.75em;
+}
+/* A block that scrolls its own content clips the margin line under it, and
+   the code block is the one the prose scale gives `overflow-x: auto`. It wraps
+   its lines, so nothing of it depends on that scroll — and a control nobody
+   can see or point at is the alternative. */
+.inplace-editor .ProseMirror pre.okb-margin-host {
+  overflow: visible;
+}
+/* The marks describe the block, they are not part of it, so they keep the
+   page's own type wherever the block sets another — the code block does. */
+.inplace-editor .ProseMirror :is(.okb-review-pills, .okb-comment-badge, .okb-comment-start) {
+  font-family: var(--font-sans);
+}
+.inplace-editor .ProseMirror .okb-comment-badge::before {
+  content: '💬 ' attr(data-count);
+}
+.inplace-editor .ProseMirror .okb-comment-start:focus-visible {
+  outline: 2px solid var(--ui-text);
+  outline-offset: 1px;
+}
+/* Both sit in the slot the pill row keeps free for them
+   (`padding-inline-end` above), which starts right beside the checkmark. */
+.inplace-editor .ProseMirror .okb-comment-badge,
+.inplace-editor .ProseMirror .okb-comment-start {
+  position: absolute;
+  top: calc(100% + 0.1em);
+  right: 0;
+  color: var(--ui-text-muted);
+  user-select: none;
+  cursor: pointer;
+  border-radius: var(--ui-radius);
+}
+/* The same line and the same size as the review pill beside it, and the whole
+   slot wide, so the count reads from the slot's left edge however long it is. */
+.inplace-editor .ProseMirror .okb-comment-badge {
+  inline-size: 4.75rem;
+  text-align: start;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* The offer is the block menu's Comment control, in the margin: the checkmark's
+   own square beside the checkmark, so the two controls on a block read as a
+   pair. `right` puts it at the slot's left edge, where the badge's words start
+   (4.75rem slot less its own 1.875rem). */
+.inplace-editor .ProseMirror .okb-comment-start {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  right: 2.875rem;
+  margin-block: -0.5rem;
+  background: var(--color-body-bg);
+  box-shadow: inset 0 0 0 2px var(--ui-border-accented);
+}
+/* lucide `message-square-plus`, the icon the block menu's Comment entry
+   carries. A mask over `currentColor`, so the glyph follows the hover. */
+.inplace-editor .ProseMirror .okb-comment-start::before {
+  content: '';
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2zM12 8v6m-3-3h6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.inplace-editor .ProseMirror .okb-margin-gap .okb-comment-badge,
+.inplace-editor .ProseMirror .okb-margin-gap .okb-comment-start {
+  top: auto;
+  bottom: 0.15em;
+}
+.inplace-editor .ProseMirror .okb-margin-gap .okb-comment-start {
+  margin-block: 0;
+}
+.inplace-editor .ProseMirror .okb-comment-badge:hover {
+  color: var(--ui-text);
+  text-decoration: underline;
+}
+.inplace-editor .ProseMirror .okb-comment-start:hover {
+  color: var(--ui-text);
+  background: color-mix(in oklab, var(--ui-text) 12%, var(--color-body-bg));
+}
+/* The offer takes no pointer while it is invisible — an unseen control that
+   answers a click is worse than no control. Shown by the block's hover and
+   held open by its own, so a pointer walking down to it does not lose it. */
+.inplace-editor .ProseMirror .okb-comment-start {
+  opacity: 0;
+  pointer-events: var(--okb-offer-events, none);
+}
+@media (hover: hover) {
+  .inplace-editor .ProseMirror .okb-margin-host:hover .okb-comment-start,
+  .inplace-editor .ProseMirror .okb-margin-host:hover + .okb-margin-gap .okb-comment-start,
+  .inplace-editor .ProseMirror .okb-comment-start:hover {
+    opacity: 1;
+    --okb-offer-events: auto;
+  }
+}
+
+/* "Working here" marks in the editor (app/editor/agent-marks.ts). A peer —
+   in practice an agent — says which blocks it is on, and the block says so
+   back.
+
+   The label is the signal and the tint only seconds it: a reader who cannot
+   tell the wash from the page still reads who is working. It takes the margin
+   line ABOVE the block, the two below being spoken for (review right, comment
+   count left), and like both it is absolutely positioned, so no mark adds
+   layout height and the read↔edit swap lands every block at the same y. */
+.inplace-editor .ProseMirror .okb-claimed {
+  position: relative;
+  background-color: color-mix(in srgb, var(--okb-agent) 10%, transparent);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--okb-agent) 10%, transparent);
+  border-radius: 2px;
+}
+.inplace-editor .ProseMirror .okb-claimed::before {
+  content: '✎ ' attr(data-claim-label);
+  position: absolute;
+  bottom: calc(100% + 0.2em);
+  left: 0;
+  max-width: 100%;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--okb-agent-text);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The block boundary — a dashed grey board around one block at a time.
+
+   Every mark above sits in the margin, and a margin mark says nothing about
+   WHICH block it describes unless that block's own edge is visible. In the
+   editor the edge is drawn on the two occasions a reader is asking about one
+   block: the one they point at, and the one they are in.
+
+   Hover is asked for only where a pointer can hover. The caret is the answer
+   everywhere else — a tap places it in the block it lands on, which is how
+   this reads on touch — and `.okb-block-active` is what the review-marks
+   plugin puts on the block holding it, no selector naming it otherwise.
+   `.ProseMirror-focused` keeps the board off a document nobody is in, and a
+   node-selected block keeps its own solid outline instead.
+
+   An outline, so the board takes no layout size and the read<->edit swap
+   still lands every block at the same y. Its offset runs the edge through the
+   margin lines the marks sit on, so every mark paints the page colour behind
+   itself and sits above the board — a mark reads as a tab seated in a corner,
+   never as text a board strikes through. Both apply whichever block the board
+   belongs to: the gap between two blocks belongs to both.
+
+   It carries the weight of the selected-node ring and none of its colour: the
+   ring says "this block is the selection", the board only says "this block".
+   Dash length is not settable on an outline — Chromium derives it from the
+   width, so the width is what makes the dashes read at arm's length.
+
+   The wash is a gradient layer, not a background colour: callouts and tables
+   are node views that paint their own `background-color`, and a colour here
+   would replace theirs. `--okb-board` drives it, so the fill arrives and
+   leaves with the edge.
+
+   The read page shares this declaration rather than matching it, so a change
+   to the dash, the offset or the colour reaches both surfaces at once.
+   `.okb-block-board` (app/utils/block-board.ts) is painted on the block whose
+   card is open, and on no other. A block targeted by a URL fragment gets the
+   same treatment. */
+.inplace-editor .ProseMirror > :not(.ProseMirror-selectednode, .okb-margin-gap),
+.okb-block-board,
+.okb-page-title:target,
+.page-body [id^='b-']:target {
+  --okb-board: transparent;
+  --okb-board-wash: color-mix(in oklab, var(--okb-board) 22%, transparent);
+  outline: 2px dashed var(--okb-board);
+  outline-offset: 0.6rem;
+  background-image: linear-gradient(var(--okb-board-wash), var(--okb-board-wash));
+}
+@media (hover: hover) {
+  .inplace-editor .ProseMirror > :hover:not(.ProseMirror-selectednode, .okb-margin-gap) {
+    --okb-board: var(--ui-border-accented);
+  }
+}
+.inplace-editor .ProseMirror-focused > .okb-block-active:not(.ProseMirror-selectednode),
+.okb-block-board.okb-block-active {
+  --okb-board: var(--ui-border-accented);
+}
+/* A block whose checkmark holds focus. Nothing else draws its edge then: DOM
+   focus is on the control, so the editor is not `.ProseMirror-focused` and the
+   caret rule above stands down. */
+.inplace-editor .ProseMirror > :focus-within:not(.ProseMirror-selectednode, .okb-margin-gap) {
+  --okb-board: var(--ui-border-accented);
+}
+.inplace-editor .ProseMirror .okb-comment-badge,
+.inplace-editor .ProseMirror .okb-comment-start,
+.inplace-editor .ProseMirror .okb-claimed::before {
+  z-index: 1;
+  background: var(--color-body-bg);
+  padding: 0 0.25rem;
+}
+
+/* The per-block margin on the read page
+   (app/components/view/BlockMargin.vue): the ℹ that opens the block's card,
+   offered when a reader asks about the block and transparent otherwise.
+
+   The anchor takes zero flow height and the control is drawn absolutely into
+   the gap the prose already leaves below the block — entering edit mode removes
+   it, and anything that took height here would move every block below it (the
+   no-jump swap the read page promises).
+   Drawn UPWARDS from the anchor: an empty anchor collapses the two prose
+   margins around it through itself, so it comes to rest against the top of the
+   following block, and the whole gap is above it.
+
+   Right-aligned, so it reads as a signature under the block it belongs to
+   rather than as a caption over the block that follows — the two sit in the
+   same gap and only alignment tells them apart. The negative `bottom` centres
+   it on that ~1.25em gap, so a 24px target clears the text on both sides of it;
+   the gap is a line tall and this is the only thing in it. */
+.okb-block-margin {
+  position: relative;
+  height: 0;
+}
+.okb-block-margin-tools {
+  position: absolute;
+  right: 0;
+  bottom: -0.125rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* A round 24px target: it stands alone in the margin rather than inside a line
+   of text, so the inline exception in WCAG 2.2's target-size rule does not
+   cover it.
+
+   `z-index` and the page-colour fill hold it above the board its own block
+   draws — the same seat the editor's margin marks take over theirs, so the
+   board reads as an edge behind the control and never as a line struck through
+   it. */
+.okb-block-byline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  line-height: 1;
+  color: var(--ui-text-dimmed);
+  background-color: var(--color-body-bg);
+  cursor: pointer;
+  /* Hidden by opacity, so the button keeps its tab stop and its name for a
+     reader who has no pointer to ask with. The app's `:focus-visible` rule
+     transitions opacity, and this is chrome: it is there or it is not. */
+  opacity: 0;
+  transition: none;
+}
+/* Who is asking: the pointer on the block, or on the margin, so a pointer
+   walking down to the control does not lose it; the keyboard on the button;
+   a tap on the block (`.okb-block-asked`, BlockMargin.vue — a touch screen has
+   no hover); or the card already open. */
+.page-body [id^='b-']:hover + .okb-block-margin .okb-block-byline,
+.page-body [id^='b-'].okb-block-asked + .okb-block-margin .okb-block-byline,
+.okb-block-margin:hover .okb-block-byline,
+.okb-block-byline:focus-visible,
+.okb-block-byline[aria-expanded='true'] {
+  opacity: 1;
+}
+.okb-block-byline:hover {
+  color: var(--ui-text-highlighted);
+  background-color: var(--ui-bg-elevated);
+}
+.okb-block-byline:focus-visible {
+  color: var(--ui-text-highlighted);
+}
+
+/* The byline IS the control that opens the block's card: who wrote the block
+   and what it was signed off for are more than a margin line holds, so they are
+   the card's to say and this is what asks for them. */
+.okb-block-byline {
+  font-size: 1.0625rem;
+}
+/* A block an agent had a hand in, in the colour the brand reserves for saying
+   so. The words are in the card; this is the mark that makes them worth
+   opening. */
+.okb-block-byline--agent {
+  color: var(--okb-agent-text);
+}
+
+/* The open card, said on the control as well as on the block: the board names
+   which block, and this names which control the reader is holding. */
+.okb-block-byline[aria-expanded='true'] {
+  color: var(--ui-text-highlighted);
+  background-color: var(--ui-bg-elevated);
+}
+
+/* The two edges of the column the shared class list cannot name.
+
+   `*:first:mt-0` lands on the body's first child, but the stored body leads
+   with the title heading — hidden here so the page's own H1 shows it once — so
+   the first block on screen is the one after it. And BlockMargin puts a
+   zero-height anchor after every id-bearing block once the page hydrates, so
+   the last block stops being `:last-child`. */
+.page-body > .comark-content > h1:first-child + * {
+  margin-top: 0;
+}
+.page-body > .comark-content > :has(+ .okb-block-margin:last-child) {
+  margin-bottom: 0;
+}
+
+/* Addressable blocks (OKB-196).
+
+   Every top-level block the comark tree passes emit carries an `id="b-…"`, so
+   each is a fragment target — and so is a heading slug the table of contents
+   mints (PageToc.vue), which is why the allowance is on every id in the
+   body — and on the page's own heading, which carries the lead section's block.
+   The page is its own scrollport and already starts below the header, so the
+   allowance is only the room the arrival board draws in. */
+.page-body [id],
+.okb-page-title {
+  scroll-margin-top: 1rem;
+}
+/* Positioned, because the ¶ below is drawn against its own block. */
+.page-body [id^='b-'] {
+  position: relative;
+}
+/* Arrival: the block a fragment addressed wears the board, then loses it, so
+   nothing persists once the reader has been shown where they landed.
+   The page's own heading is the lead section's block — it carries that block's
+   id (NodeKbPage.vue) — so it arrives like any block in the body. */
+.okb-page-title:target,
+.page-body [id^='b-']:target {
+  --okb-board: var(--ui-border-accented);
+  animation: okb-block-arrival 1.5s ease-out forwards;
+}
+@keyframes okb-block-arrival {
+  0%, 60% { --okb-board: var(--ui-border-accented); }
+  100% { --okb-board: transparent; }
+}
+/* Where motion is unwelcome the board is simply there: the arrival still has
+   to be seen, and a fade is the part that can go. */
+@media (prefers-reduced-motion: reduce) {
+  .okb-page-title:target,
+  .page-body [id^='b-']:target {
+    animation: none;
+  }
+}
+/* The editor draws its margin marks against its own blocks, and a hash in an
+   edit URL must not board one. After the arrival rule, which it has to beat at
+   the same specificity. */
+.inplace-editor [id^='b-'] {
+  position: static;
+}
+.inplace-editor [id^='b-']:target {
+  --okb-board: transparent;
+  animation: none;
+}
+
+/* The block's link to itself, in the left margin opposite the byline.
+   Where there is a margin to sit in it is transparent rather than absent, so it
+   keeps its place in the tab order for a reader who has no pointer to hover
+   with; below the breakpoint there is neither margin nor hover, so it is gone
+   and takes its tab stop with it. */
+.okb-block-link {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  width: 1.5rem;
+  text-align: center;
+  opacity: 0;
+  color: var(--ui-text-dimmed);
+  text-decoration: none;
+  user-select: none;
+  /* The app's `:focus-visible` rule lists opacity among the properties it
+     transitions, and `okb-prose` gives every anchor in the body a duration. The ¶
+     is chrome: it is there or it is not. */
+  transition: none;
+}
+.page-body [id^='b-']:hover > .okb-block-link,
+.okb-block-link:focus-visible {
+  opacity: 1;
+}
+.okb-block-link:focus-visible {
+  color: var(--ui-text-highlighted);
+}
+/* No margin to sit in and no hover to reveal it. */
+@media (max-width: 767px) {
+  .okb-block-link {
+    display: none;
+  }
+}
+
+/* Drupal-rendered forms in the frontend. The markup is Drupal's — the CE API
+   ships the fields, the CSRF token and the buttons as HTML — so it carries
+   Drupal's classes and none of this app's utilities. These rules give it the
+   app's look without a Drupal theme in the loop. */
+.drupal-form .form-item {
+  margin-bottom: 1rem;
+}
+.drupal-form label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ui-text-highlighted);
+}
+.drupal-form label.form-required::after {
+  content: ' *';
+  color: var(--color-error-500);
+}
+.drupal-form input[type='text'],
+.drupal-form input[type='email'],
+.drupal-form input[type='password'],
+.drupal-form textarea,
+.drupal-form select {
+  width: 100%;
+  max-width: 28rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: var(--okb-radius);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-size: 0.875rem;
+}
+.drupal-form .form-item__description,
+.drupal-form .description {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ui-text-muted);
+}
+.drupal-form .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+/* Every action is a 44px pointer target, submit buttons and the confirm
+   form's Cancel link alike. */
+.drupal-form .form-actions :is(input[type='submit'], button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: var(--okb-radius);
+  background: transparent;
+  color: var(--ui-text-toned);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+.drupal-form .form-actions :is(input[type='submit'], button, a):hover {
+  background: var(--ui-bg-elevated);
+}
+.drupal-form .form-actions :is(input.button--primary, button.button--primary) {
+  border-color: var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-text-inverted);
+}
+.drupal-form .form-actions :is(input.button--primary, button.button--primary):hover {
+  background: var(--okb-primary-hover);
+}
+
+/* The alert's icon and tint say which kind of message this is, so the text
+   itself is body text: the coloured variant does not clear the contrast floor
+   against its own tint, and Drupal's `<em class="placeholder">` — every name
+   and path a message quotes — inherits whatever the text is set to. */
+.drupal-message-body {
+  color: var(--ui-text-highlighted);
+}
+
+/* Drupal writes messages as HTML: a created API client's one-time secret
+   arrives as <code> inside the warning. */
+.drupal-message-body code {
+  display: inline-block;
+  padding: 0.0625rem 0.25rem;
+  border-radius: 4px;
+  background: var(--ui-bg-elevated);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,147 @@
+# The OpenKB stack: Drupal, the Nuxt frontend, MariaDB, OpenSearch.
+#
+# - Plain HTTP on two ports bound to 127.0.0.1; TLS belongs to a reverse proxy
+#   in front (docker-compose.tls.yml bundles one).
+# - Every setting is an environment variable, listed in .env.example.
+# - `docker compose build` builds the two own images from this checkout.
+
+x-container:
+  &container-defaults
+    restart: ${COMPOSE_CONTAINER_RESTART:-unless-stopped}
+
+x-hardening:
+  &hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+x-mariadb-environment:
+  &mariadb-environment
+    MARIADB_DATABASE: ${MARIADB_DATABASE:-drupal}
+    MARIADB_USER: ${MARIADB_USER:-drupal}
+    MARIADB_PASSWORD: ${MARIADB_PASSWORD:?set MARIADB_PASSWORD, see .env.example}
+
+x-drupal-environment:
+  &drupal-environment
+    << : *mariadb-environment
+    DRUPAL_BASE_URL: ${DRUPAL_BASE_URL:?set DRUPAL_BASE_URL, see .env.example}
+    DRUPAL_FRONTEND_BASE_URL: ${DRUPAL_FRONTEND_BASE_URL:?set DRUPAL_FRONTEND_BASE_URL, see .env.example}
+    DRUPAL_HASH_SALT: ${DRUPAL_HASH_SALT:?set DRUPAL_HASH_SALT, see .env.example}
+    # The site URI every drush call resolves.
+    DRUSH_OPTIONS_URI: ${DRUPAL_BASE_URL:-}
+    # The parent domain of the two hosts, with a leading dot. The session
+    # cookie is scoped to it, so the browser sends it to both.
+    SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
+    # Addresses or subnets whose X-Forwarded-* headers Drupal trusts. The
+    # default covers a proxy on the docker networks and on the host.
+    REVERSE_PROXY_ADDRESSES: ${REVERSE_PROXY_ADDRESSES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+    OPENSEARCH_URL: ${OPENSEARCH_URL:-http://opensearch:9200}
+    # The collaboration server's own OAuth client (ADR 0001). `openkb-install`
+    # provisions the consumer from it; the frontend presents it at /oauth/token.
+    OKB_COLLAB_CLIENT_ID: ${OKB_COLLAB_CLIENT_ID:-}
+    OKB_COLLAB_CLIENT_SECRET: ${OKB_COLLAB_CLIENT_SECRET:-}
+    # Read by `openkb-install`. Unset, it generates one and prints it.
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    # Where `openkb-install` finds the OpenKB recipes; the image ships without.
+    OPENKB_RECIPES_DIR: ${OPENKB_RECIPES_DIR:-/app/recipes}
+    # Optional. Without it the chat and the chunk index stay unusable.
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+services:
+  drupal:
+    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/drunomics/openkb}-drupal:${OPENKB_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/drupal/Dockerfile
+      args:
+        VERSION: ${OPENKB_TAG:-dev}
+        REVISION: ${OPENKB_REVISION:-unknown}
+    << : [*container-defaults, *hardening]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    environment:
+      << : *drupal-environment
+    ports:
+      - "${DRUPAL_LISTEN_IP:-127.0.0.1}:${DRUPAL_HTTP_PORT:-8080}:8080"
+    volumes:
+      # Public and private files, config sync, OAuth keys.
+      - drupal-files:/app/files
+
+  frontend:
+    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/drunomics/openkb}-frontend:${OPENKB_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      args:
+        VERSION: ${OPENKB_TAG:-dev}
+        REVISION: ${OPENKB_REVISION:-unknown}
+    << : [*container-defaults, *hardening]
+    # The shutdown flushes the collab store; give it time before SIGKILL.
+    stop_grace_period: 30s
+    environment:
+      DRUPAL_BASE_URL: ${DRUPAL_BASE_URL:?set DRUPAL_BASE_URL, see .env.example}
+      DRUPAL_FRONTEND_BASE_URL: ${DRUPAL_FRONTEND_BASE_URL:?set DRUPAL_FRONTEND_BASE_URL, see .env.example}
+      OKB_COLLAB_CLIENT_ID: ${OKB_COLLAB_CLIENT_ID:-}
+      OKB_COLLAB_CLIENT_SECRET: ${OKB_COLLAB_CLIENT_SECRET:-}
+      # Collab timing knobs (frontend/server/utils/collab-timing.ts, tuning
+      # notes in docs/collab-server.md). Empty falls back to the built-in
+      # defaults.
+      OKB_COLLAB_IDLE_MS: ${OKB_COLLAB_IDLE_MS:-}
+      OKB_COLLAB_COMMIT_QUIET_MS: ${OKB_COLLAB_COMMIT_QUIET_MS:-}
+      OKB_COLLAB_COMMIT_MAX_DIRTY_MS: ${OKB_COLLAB_COMMIT_MAX_DIRTY_MS:-}
+      OKB_AGENT_SESSION_IDLE_MS: ${OKB_AGENT_SESSION_IDLE_MS:-}
+      OKB_AGENT_SESSION_MAX_MS: ${OKB_AGENT_SESSION_MAX_MS:-}
+    ports:
+      - "${FRONTEND_LISTEN_IP:-127.0.0.1}:${FRONTEND_HTTP_PORT:-3000}:3000"
+    volumes:
+      # The collab snapshot store. Coupled to the database: back up and restore
+      # the two together (ADR 0008).
+      - collab-store:/app/frontend/var
+
+  mariadb:
+    image: mariadb:11.4
+    << : *container-defaults
+    # The isolation level Drupal asks for.
+    command:
+      - --transaction-isolation=READ-COMMITTED
+    environment:
+      << : *mariadb-environment
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?set MARIADB_ROOT_PASSWORD, see .env.example}
+      # Upgrades the system tables when a newer server opens an older volume.
+      MARIADB_AUTO_UPGRADE: "1"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  opensearch:
+    image: opensearchproject/opensearch:3
+    << : *container-defaults
+    environment:
+      discovery.type: single-node
+      # The cluster is reachable from the stack's own network only.
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: ${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+volumes:
+  drupal-files:
+  collab-store:
+  mariadb-data:
+  opensearch-data:

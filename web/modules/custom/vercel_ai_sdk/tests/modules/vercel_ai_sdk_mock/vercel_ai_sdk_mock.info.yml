@@ -1,0 +1,9 @@
+name: 'Vercel AI SDK Chat mock'
+description: 'A keyless `mock` AI provider, so an environment with no API key still answers a chat turn. It replaces the model call and nothing else; `vercel_ai_sdk_mock.settings` says whether it answers from canned prose or from a script the caller sends. Development and CI only.'
+type: module
+package: Testing
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:system
+  - drupal:user
+  - vercel_ai_sdk:vercel_ai_sdk

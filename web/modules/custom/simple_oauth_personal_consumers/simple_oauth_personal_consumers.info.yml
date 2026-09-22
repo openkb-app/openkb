@@ -1,0 +1,9 @@
+name: 'Simple OAuth Personal Consumers'
+type: module
+description: 'Self-service, owner-bound OAuth2 consumers: users provision client-credentials clients that act as themselves, capped by scope; administrator accounts cannot own them.'
+package: 'Simple OAuth'
+core_version_requirement: ^10.3 || ^11
+dependencies:
+  - drupal:user
+  - consumers:consumers
+  - simple_oauth:simple_oauth

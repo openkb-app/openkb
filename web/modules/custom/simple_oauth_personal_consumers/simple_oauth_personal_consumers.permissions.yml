@@ -1,0 +1,3 @@
+manage own personal consumers:
+  title: 'Manage own personal consumers'
+  description: 'Create and revoke client-credentials API clients acting on one''s own behalf.'

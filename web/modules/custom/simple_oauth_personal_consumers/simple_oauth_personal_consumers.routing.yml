@@ -1,0 +1,27 @@
+simple_oauth_personal_consumers.collection:
+  path: '/user/{user}/api-clients'
+  defaults:
+    _controller: '\Drupal\simple_oauth_personal_consumers\Controller\PersonalConsumersController::page'
+    _title: 'API clients'
+  requirements:
+    _custom_access: '\Drupal\simple_oauth_personal_consumers\Controller\PersonalConsumersController::access'
+    user: \d+
+  options:
+    parameters:
+      user:
+        type: entity:user
+
+simple_oauth_personal_consumers.revoke:
+  path: '/user/{user}/api-clients/{consumer}/revoke'
+  defaults:
+    _form: '\Drupal\simple_oauth_personal_consumers\Form\PersonalConsumerRevokeForm'
+    _title: 'Revoke API client'
+  requirements:
+    _custom_access: '\Drupal\simple_oauth_personal_consumers\Controller\PersonalConsumersController::access'
+    user: \d+
+  options:
+    parameters:
+      user:
+        type: entity:user
+      consumer:
+        type: entity:consumer

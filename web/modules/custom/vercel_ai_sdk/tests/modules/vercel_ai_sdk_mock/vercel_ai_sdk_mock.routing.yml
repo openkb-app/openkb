@@ -1,0 +1,7 @@
+vercel_ai_sdk_mock.settings:
+  path: '/admin/config/ai/chat-mock'
+  defaults:
+    _form: '\Drupal\vercel_ai_sdk_mock\Form\MockSettingsForm'
+    _title: 'Chat mock'
+  requirements:
+    _permission: 'administer site configuration'

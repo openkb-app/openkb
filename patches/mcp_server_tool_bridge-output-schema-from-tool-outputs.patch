@@ -1,0 +1,84 @@
+--- a/src/Plugin/Derivative/McpToolConfigDeriver.php
++++ b/src/Plugin/Derivative/McpToolConfigDeriver.php
+@@ -6,13 +6,13 @@
+ 
+ use Drupal\Component\Plugin\Derivative\DeriverBase;
+ use Drupal\Core\Entity\EntityTypeManagerInterface;
++use Drupal\Core\Plugin\Context\ContextDefinitionInterface;
+ use Drupal\Core\Plugin\Discovery\ContainerDeriverInterface;
+ use Drupal\Core\StringTranslation\TranslatableMarkup;
+ use Drupal\mcp_server\Definition\ToolDefinition as McpToolDefinition;
+ use Drupal\mcp_server\Plugin\Discovery\WireSafeDerivativeDiscoveryDecorator;
+ use Drupal\tool\Tool\ToolDefinition;
+ use Drupal\tool\Tool\ToolManager;
+-use Drupal\tool\TypedData\InputDefinitionInterface;
+ use Symfony\Component\DependencyInjection\ContainerInterface;
+ 
+ /**
+@@ -133,7 +133,7 @@
+       module_dependencies: $base_plugin_definition->module_dependencies,
+       deriver: NULL,
+       inputSchema: $this->convertToMcpSchema($tool_definition),
+-      outputSchema: $base_plugin_definition->outputSchema,
++      outputSchema: $this->convertToMcpOutputSchema($tool_definition),
+       readOnly: $base_plugin_definition->readOnly,
+       destructive: $tool_definition->isDestructive(),
+       idempotent: $base_plugin_definition->idempotent,
+@@ -158,6 +158,45 @@
+   }
+ 
+   /**
++   * Converts a tool's output definitions to an MCP output schema.
++   *
++   * The schema describes what execute() answers, which is the
++   * {success, message, data} envelope with the tool's own outputs under
++   * data. Nothing inside data is marked required: a tool that sets no output
++   * values falls back to the result's context values, which are keyed
++   * independently of the output definitions.
++   *
++   * @return array|null
++   *   The schema, or NULL for a tool that declares no outputs — an advertised
++   *   outputSchema is a promise about the result, so a tool that promises
++   *   nothing must not carry one.
++   */
++  private function convertToMcpOutputSchema(ToolDefinition $definition): ?array {
++    $definitions = $definition->getOutputDefinitions();
++    if ($definitions === []) {
++      return NULL;
++    }
++
++    $properties = [];
++    foreach ($definitions as $name => $output_definition) {
++      $properties[$name] = $this->convertInputDefinitionToSchema($output_definition);
++    }
++
++    return [
++      'type' => 'object',
++      'properties' => [
++        'success' => ['type' => 'boolean'],
++        'message' => ['type' => 'string'],
++        'data' => [
++          'type' => 'object',
++          'properties' => $properties,
++        ],
++      ],
++      'required' => ['success', 'data'],
++    ];
++  }
++
++  /**
+    * Converts input definitions to MCP schema.
+    */
+   private function convertToMcpSchemaFromDefinitions(iterable $definitions): array {
+@@ -188,9 +227,9 @@
+   }
+ 
+   /**
+-   * Converts an InputDefinition to a JSON Schema property.
++   * Converts an input or output definition to a JSON Schema property.
+    */
+-  private function convertInputDefinitionToSchema(InputDefinitionInterface $definition): array {
++  private function convertInputDefinitionToSchema(ContextDefinitionInterface $definition): array {
+     $data_type = $definition->getDataType();
+     $schema = [];
+ 

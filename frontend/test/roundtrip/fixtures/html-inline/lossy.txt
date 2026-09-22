@@ -1,0 +1,1 @@
+inline raw HTML tags outside the editor schema are stripped to their text content

@@ -1,0 +1,47 @@
+# Localdev and claude-vm on top of the development overlay: plain HTTP on
+# host ports, no host-side Traefik. Selected via COMPOSE_FILE in
+# dotenv/app--{localdev,claude-vm}.env.
+services:
+  drupal:
+    # Cancel the http→https redirect — localdev serves plain HTTP.
+    labels:
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-servicemain-http.middlewares="
+    networks:
+      default:
+        # DRUPAL_BASE_URL names the public host; the frontend's server-side
+        # fetches reach Drupal under it inside the docker network too.
+        aliases:
+          - ${COMPOSE_HOSTNAME}
+          - ${MAIN_HOST}
+
+  mariadb:
+    ports:
+      # Random local port — find it with `docker compose port mariadb 3306`.
+      - "127.0.0.1::3306"
+
+  frontend:
+    environment:
+      # Nuxt listens on the *published* port: DRUPAL_FRONTEND_BASE_URL carries
+      # it, and without a host-side Traefik the URL only holds from the host
+      # and from inside the network when the container answers on it too.
+      # NUXT_PORT drives `nuxt dev`, NITRO_PORT the built server.
+      NUXT_PORT: ${FRONTEND_HTTP_PORT:-8091}
+      NITRO_PORT: ${FRONTEND_HTTP_PORT:-8091}
+    ports: !override
+      - "${FRONTEND_LISTEN_IP:-127.0.0.1}:${FRONTEND_HTTP_PORT:-8091}:${FRONTEND_HTTP_PORT:-8091}"
+    labels:
+      - "traefik.http.routers.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-node1-http.middlewares="
+      - "traefik.http.services.${COMPOSE_PROJECT_NAME:-openkb-dev-project}-frontend.loadbalancer.server.port=${FRONTEND_HTTP_PORT:-8091}"
+    networks:
+      default:
+        # The frontend's public hostname, for Drupal's indexing fetch and the
+        # e2e browser.
+        aliases:
+          - node1${HOST_SEPARATOR:-.}${MAIN_HOST}
+
+# No host-side Traefik creates the network here. The name stays literal so the
+# `traefik.docker.network=traefik` label resolves.
+networks:
+  traefik:
+    name: traefik
+    external: false

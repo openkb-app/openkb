@@ -1,0 +1,1 @@
+The hoisted component splits the wrapped list; only the first piece keeps the id.

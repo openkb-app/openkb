@@ -1,0 +1,36 @@
+parameters:
+  # Project-wide service container overrides.
+  #
+  # Per-environment overlays (twig debug, null cache backends, etc.) are
+  # appended to container_yamls from the layered settings.*.settings.php
+  # files. Keep this file minimal so the default Drupal core services
+  # remain in effect unless an override is explicit.
+
+  # CORS: the decoupled Nuxt frontend calls /ce-api/* with credentials; the
+  # allowedOrigins list is populated at runtime by lupus_decoupled_cors.
+  cors.config:
+    enabled: true
+    allowedHeaders:
+      - 'Authorization'
+    allowedOrigins: []
+    allowedMethods: []
+    exposedHeaders: false
+    maxAge: false
+    supportsCredentials: true
+
+  lupus_decoupled_ce_api.api_prefix: '/ce-api'
+
+  # A JSON:API read renders processed body text, so core's required contexts
+  # would land on the normalization and split its cache. The parameter is
+  # global — every render array, admin UI included — and safe here: one
+  # language, and Drupal's HTML is admin-only under Claro, one theme per URL.
+  # @see \Drupal\Tests\openkb_jsonapi\Kernel\NormalizationCacheContextsTest
+  renderer.config:
+    required_cache_contexts: ['user.permissions']
+    # Core's defaults, repeated: a container_yamls parameter replaces the whole
+    # value, so every key core defines under it has to be here.
+    auto_placeholder_conditions:
+      max-age: 0
+      contexts: ['session', 'user']
+      tags: []
+    debug: false

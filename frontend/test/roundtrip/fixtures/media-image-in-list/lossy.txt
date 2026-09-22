@@ -1,0 +1,1 @@
+component-only list items are hoisted out of the list — the editor requires list items to start with a paragraph

@@ -1,0 +1,18 @@
+# Opt-in for localdev: xdebug for `drupal` and `cli`, as a local layer on the
+# release image. Build the release image first, then add this file:
+#
+#   docker compose build drupal
+#   COMPOSE_FILE="$COMPOSE_FILE:docker-compose.xdebug.yml" docker compose up -d --build drupal cli
+x-xdebug:
+  &xdebug
+    image: openkb-drupal-xdebug
+    build: !override
+      context: docker/xdebug
+      args:
+        OPENKB_DRUPAL_IMAGE: ${OPENKB_IMAGE_PREFIX:-ghcr.io/drunomics/openkb}-drupal:${OPENKB_TAG:-dev}
+
+services:
+  drupal:
+    << : *xdebug
+  cli:
+    << : *xdebug

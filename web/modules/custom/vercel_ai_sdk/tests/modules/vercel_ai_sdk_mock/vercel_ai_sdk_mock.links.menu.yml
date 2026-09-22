@@ -1,0 +1,5 @@
+vercel_ai_sdk_mock.settings:
+  title: 'Chat mock'
+  description: 'Answer the chat from canned prose, or from a script the caller sends.'
+  parent: ai.admin_config_infrastructure
+  route_name: vercel_ai_sdk_mock.settings

@@ -1,0 +1,69 @@
+# Builds the two images from this checkout and brings the stack up once.
+#
+# - Pull requests and pushes to main: build, start, wait for both
+#   healthchecks, tear down. Nothing is pushed.
+# - Publishing on release tags is a separate workflow.
+
+name: images
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # OpenSearch refuses to start below this.
+      - run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          DRUPAL_BASE_URL=http://localhost:8080
+          DRUPAL_FRONTEND_BASE_URL=http://localhost:3000
+          SESSION_COOKIE_DOMAIN=
+          DRUPAL_HASH_SALT=smoke-test-only-not-a-secret
+          MARIADB_PASSWORD=smoke
+          MARIADB_ROOT_PASSWORD=smoke
+          OPENKB_TAG=smoke
+          OPENKB_REVISION=${GITHUB_SHA}
+          OPENSEARCH_JAVA_OPTS=-Xms256m -Xmx256m
+          EOF
+
+      - name: Build images
+        run: docker compose build --pull
+
+      - name: Start the stack
+        run: docker compose up -d
+
+      - name: Wait for the healthchecks
+        run: |
+          for i in $(seq 1 60); do
+            drupal=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q drupal)")
+            frontend=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q frontend)")
+            echo "drupal=$drupal frontend=$frontend"
+            [ "$drupal" = healthy ] && [ "$frontend" = healthy ] && exit 0
+            sleep 5
+          done
+          echo "The stack did not become healthy." >&2
+          exit 1
+
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
