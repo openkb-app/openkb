@@ -7,7 +7,7 @@ The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with dr
 - Docker with the compose plugin.
 - Two DNS names under one parent domain, both pointing at the host: one for the frontend (`kb.example.com`), one for Drupal (`cms.kb.example.com`). Drupal under a path of the frontend host is not supported.
 - `vm.max_map_count=262144` on the host, for OpenSearch: `sysctl -w vm.max_map_count=262144`, and the same line in `/etc/sysctl.conf` to keep it.
-- A reverse proxy that terminates TLS — your own, or the bundled Caddy overlay below.
+- A reverse proxy that terminates TLS; Caddy and Traefik examples below.
 - The OpenKB recipes. The image ships without them (ADR 0007): mount them into `drupal` next to `/app/recipes` and name the directory in `OPENKB_RECIPES_DIR`, e.g. `./recipes:/app/openkb-recipes:ro` with `OPENKB_RECIPES_DIR=/app/openkb-recipes`.
 
 ## Bring-up
@@ -33,10 +33,16 @@ Whatever proxy sits in front has to:
 
 Both services call each other under their public URLs, so the two names must also resolve from inside the containers — true for public DNS, and the Caddy overlay adds the in-network aliases itself.
 
-**Caddy (bundled).** `docker-compose.tls.yml` adds `caddy:2-alpine` on ports 80/443 with automatic certificates; [`docker/tls/Caddyfile`](../docker/tls/Caddyfile) is the whole configuration. Set `FRONTEND_HOST` and `DRUPAL_HOST` in `.env`, then:
+**Caddy** (a complete configuration; Caddy sets the forwarded headers and passes WebSockets through by itself):
 
-```sh
-docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+```caddyfile
+kb.example.com {
+	reverse_proxy 127.0.0.1:3000
+}
+
+cms.kb.example.com {
+	reverse_proxy 127.0.0.1:8080
+}
 ```
 
 **Traefik** (labels on a `docker-compose.override.yml`; `websecure` and `le` are your entrypoint and resolver):

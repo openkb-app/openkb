@@ -27,7 +27,7 @@ The backend and the frontend talk over JSON:API and custom elements; agents talk
 
 ## Run it
 
-Prerequisites: Docker with the compose plugin, two hostnames under one parent domain (one for the frontend, one for Drupal), a reverse proxy that terminates TLS (a Caddy overlay is bundled), and `vm.max_map_count=262144` on the host for OpenSearch.
+Prerequisites: Docker with the compose plugin, two hostnames under one parent domain (one for the frontend, one for Drupal), a reverse proxy that terminates TLS, and `vm.max_map_count=262144` on the host for OpenSearch.
 
 ```sh
 git clone https://github.com/openkb-app/openkb.git && cd openkb
@@ -39,7 +39,7 @@ docker compose exec drupal openkb-install
 
 `openkb-install` installs the site from the OpenKB recipes named in `OPENKB_RECIPES_DIR`, provisions the collaboration server's OAuth client and prints the admin password when `ADMIN_PASSWORD` is unset. Updating is `docker compose pull && docker compose up -d && docker compose exec drupal openkb-update`.
 
-Every setting is an environment variable, listed with its meaning in [`.env.example`](.env.example). The reverse-proxy contract (headers, the WebSocket on `/collaboration`, idle timeouts), the bundled Caddy overlay, the backup set and the collaboration server's constraints are in [`docs/self-hosting.md`](docs/self-hosting.md).
+Every setting is an environment variable, listed with its meaning in [`.env.example`](.env.example). The reverse-proxy contract (headers, the WebSocket on `/collaboration`, idle timeouts) with Caddy and Traefik examples, the backup set and the collaboration server's constraints are in [`docs/self-hosting.md`](docs/self-hosting.md).
 
 ## Develop
 
