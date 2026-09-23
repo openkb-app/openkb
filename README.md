@@ -9,7 +9,7 @@ Website, product overview and documentation: **[openkb.app](https://openkb.app)*
 Two files into an empty directory, and the published images do the rest. Docker with the compose plugin is the only prerequisite.
 
 ```sh
-mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha1/quickstart/{docker-compose.yml,.env}"
+mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha3/quickstart/{docker-compose.yml,.env}"
 docker compose up -d
 ```
 

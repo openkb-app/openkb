@@ -5,6 +5,13 @@
 ### Fixes
 
 - Start the cron service after drupal, so one container fills the files volume.
+- A keyless install finishes: the chunk re-feed needs a key.
+
+## [1.0.0-alpha3] - 2026-09-23
+
+### Fixes
+
+- Start the cron service after drupal, so one container fills the files volume.
 
 ## [1.0.0-alpha3] - 2026-09-23
 
