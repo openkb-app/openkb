@@ -136,6 +136,8 @@ services:
     << : *container-defaults
     environment:
       discovery.type: single-node
+      # A nearly full host disk would otherwise make the indexes read-only.
+      cluster.routing.allocation.disk.threshold_enabled: "false"
       # The cluster is reachable from the stack's own network only.
       DISABLE_SECURITY_PLUGIN: "true"
       DISABLE_INSTALL_DEMO_CONFIG: "true"
