@@ -40,7 +40,7 @@
         "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": "^1.0@beta",
         "drupal/monitoring": "^1.20.0",
         "drupal/ohdear_integration": "^3.0.0",
-        "drupal/openkb": "1.x-dev",
+        "drupal/openkb": "1.0.0-alpha1",
         "drupal/redirect": "^1.11",
         "drupal/rest_menu_items": "^3.0.7",
         "drupal/search_api_opensearch": "2.5.0 as 2.x-dev",
