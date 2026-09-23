@@ -107,17 +107,21 @@ jobs:
           done
 
       # Also waits out the install: the drupal healthcheck asks for a page the
-      # setup page stands in for.
+      # setup page stands in for. Three minutes is minutes more than the
+      # install takes, so a stack that is still starting here is stuck, and the
+      # log of the container that is not healthy says where.
       - name: Wait for the healthchecks
         run: |
-          for i in $(seq 1 150); do
+          for i in $(seq 1 36); do
             drupal=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q drupal)")
             frontend=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q frontend)")
             echo "drupal=$drupal frontend=$frontend"
             [ "$drupal" = healthy ] && [ "$frontend" = healthy ] && exit 0
             sleep 5
           done
-          echo "The stack did not become healthy." >&2
+          echo "The stack did not become healthy in three minutes." >&2
+          [ "$drupal" = healthy ] || docker compose logs --no-color --tail=60 drupal
+          [ "$frontend" = healthy ] || docker compose logs --no-color --tail=60 frontend
           exit 1
 
       - name: Check the site answers

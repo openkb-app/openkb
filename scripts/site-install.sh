@@ -198,12 +198,34 @@ if $DRUSH search-api:list 2>/dev/null | grep -q kb_chunks; then
       ;;
   esac
 
-  echo "Embedding seed content into the chunk index..."
-  $DRUSH search-api:reset-tracker kb_chunks -y
-  $DRUSH search-api:index kb_chunks -y
+  # An item the engine cannot embed stays queued, and the indexing batch keeps
+  # retrying the queue: without a key the re-feed would never end and the
+  # install would never finish. A keyless site is a supported install, so it
+  # leaves the chunk index for cron and for the operator who adds the key.
+  keyed=$($DRUSH php:eval '
+    $engine = \Drupal\search_api\Entity\Server::load("ai_chunks")?->getBackendConfig()["embeddings_engine"] ?? "";
+    $key_id = \Drupal::config("ai_provider_" . explode("__", $engine)[0] . ".settings")->get("api_key");
+    print $key_id && !\Drupal::service("key.repository")->getKey($key_id)?->getKeyValue() ? "no-key" : "has-key";
+  ' 2>/dev/null) || true
+  case "$keyed" in
+    *has-key*)
+      echo "Embedding seed content into the chunk index..."
+      $DRUSH search-api:reset-tracker kb_chunks -y
+      # Bounded: a provider that answers nothing once the run has started would
+      # otherwise hold the install for as long as the container lives.
+      $DRUSH search-api:index kb_chunks --time-limit=300 -y
+      ;;
+    *)
+      echo "The embeddings provider holds no key, so the seed content is left"
+      echo "unembedded and the chunk index stays empty. Once the key is set:"
+      echo "  drush search-api:reset-tracker kb_chunks -y"
+      echo "  drush search-api:index kb_chunks -y"
+      ;;
+  esac
 fi
 
-# Cron runs again. The index is fed, so its next run has nothing to do.
+# Cron runs again. It indexes what is still queued — nothing, where the re-feed
+# above ran.
 $DRUSH state:delete openkb.cron_paused
 
 # 7. Rebuild caches. A recipe installs its modules with config sync active, and
