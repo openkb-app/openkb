@@ -259,6 +259,8 @@ circleci/database/*
 !/recipes/openkb_recipe_collab/
 !/recipes/openkb_recipe_base/
 !/recipes/openkb_recipe_monitoring/
+!/recipes/openkb_recipe_user_guide/
+!/recipes/openkb_recipe_starter_spaces/
 # The generated install artifacts the published project ships.
 !/recipes/install-state/
 !/recipes/install-content/

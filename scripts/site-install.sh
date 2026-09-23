@@ -18,6 +18,7 @@
 #    sidecar from it at index time,
 #  - install-content where the image ships it: the entities every site starts
 #    with,
+#  - the page trees the recipes ship as outline.json, once their pages exist,
 #  - provision the collab server's OAuth client,
 #  - enable services_env_parameter, set the test-editor passwords,
 #  - wait for the sidecar, then re-feed the search indexes (the cron service
@@ -123,14 +124,24 @@ if [ -n "$CONTENT_RECIPE" ] && [ -f "$CONTENT_RECIPE/recipe.yml" ]; then
   $DRUSH recipe "$CONTENT_RECIPE" -y
 fi
 
-# 5a. The collaboration server's own OAuth client. After the install, which
+# 5a. Page trees. An outline names its pages by id, so it cannot ride the
+# content YAML the importer validates; a recipe carries it as outline.json next
+# to its content/, written here once the pages exist. A space or page that is
+# not there is logged and skipped.
+for outline in "$RECIPES_DIR"/*/outline.json; do
+  [ -f "$outline" ] || continue
+  echo "Applying $outline..."
+  $DRUSH php:eval "\Drupal\openkb_space\Seed\SpaceOutline::applyFile('$outline');"
+done
+
+# 5b. The collaboration server's own OAuth client. After the install, which
 # ships the scope and the role it is capped at.
 ./scripts/setup-collab-oauth.sh
 
 echo "Enabling services_env_parameter..."
 $DRUSH en services_env_parameter -y
 
-# 5b. Passwords for the seeded test editors. Only where an environment recipe
+# 5c. Passwords for the seeded test editors. Only where an environment recipe
 # brought them: production installs no demo content and has no such accounts.
 #
 # The accounts themselves come from openkb_recipe_demo_pages' content, which
@@ -222,3 +233,4 @@ echo ""
 echo "  Site:  $FRONTEND_URL"
 echo "  Admin: ${DRUPAL_BASE_URL:-}/admin"
 echo "  Sign in as 'admin', with the ADMIN_PASSWORD from .env."
+echo "  Next steps: $FRONTEND_URL/openkb-user-guide/initial-setup"
