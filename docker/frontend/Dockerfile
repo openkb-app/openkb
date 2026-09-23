@@ -52,7 +52,7 @@ ARG REVISION=unknown
 
 LABEL org.opencontainers.image.title="openkb-frontend" \
       org.opencontainers.image.description="OpenKB frontend: the Nuxt server with the embedded Hocuspocus collaboration server." \
-      org.opencontainers.image.source="https://github.com/drunomics/openkb-dev-project" \
+      org.opencontainers.image.source="https://github.com/openkb-app/openkb" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

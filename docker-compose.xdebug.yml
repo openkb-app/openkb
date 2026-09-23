@@ -9,7 +9,7 @@ x-xdebug:
     build: !override
       context: docker/xdebug
       args:
-        OPENKB_DRUPAL_IMAGE: ${OPENKB_IMAGE_PREFIX:-ghcr.io/drunomics/openkb}-drupal:${OPENKB_TAG:-dev}
+        OPENKB_DRUPAL_IMAGE: ${OPENKB_IMAGE_PREFIX:-ghcr.io/openkb-app/openkb}-drupal:${OPENKB_TAG:-dev}
 
 services:
   drupal:

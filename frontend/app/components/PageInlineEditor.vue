@@ -7,6 +7,7 @@ import type { EditorView } from '@tiptap/pm/view'
 import { starterKitMarkdownOverrides } from '~/editor/extensions'
 import { readUnreadSelection } from '~/editor/selection-sync'
 import { useEditorSession } from '~/composables/useEditorSession'
+import { useMediaDialogRequest } from '~/composables/useMediaLibraryPicker'
 import type { ReviewStep } from '#shared/page-blocks'
 
 /**
@@ -32,6 +33,8 @@ const props = defineProps<{
   mayModerate: boolean
 }>()
 const emit = defineEmits<{ (e: 'session', session: EditorSession): void }>()
+
+const mediaDialogRequest = useMediaDialogRequest()
 
 const session = await useEditorSession(
   computed(() => props.nid),
@@ -295,5 +298,12 @@ const dragHandleOptions = {
         />
       </template>
     </UEditor>
+    <!-- Mounted only while the media-library dialog is open: the dialog and
+         its styles live and die with it. -->
+    <EditorMediaLibraryDialog
+      v-if="mediaDialogRequest"
+      :nid="mediaDialogRequest.nid"
+      :token="mediaDialogRequest.token"
+    />
   </ClientOnly>
 </template>

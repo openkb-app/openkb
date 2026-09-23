@@ -2,6 +2,8 @@
 
 The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with drush) and `openkb-frontend` (the built Nuxt server with the embedded collaboration server) — next to the official `mariadb:11.4` and `opensearchproject/opensearch:3` images. `docker-compose.yml` is that stack; every setting is an environment variable, listed in [`.env.example`](../.env.example).
 
+Both images are published to GHCR per release; [`release.md`](release.md) covers pinning a version instead of building from this checkout.
+
 ## Prerequisites
 
 - Docker with the compose plugin.

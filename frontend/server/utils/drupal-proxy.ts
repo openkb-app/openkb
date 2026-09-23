@@ -4,7 +4,7 @@ import { proxyRequest, getRequestURL, createError } from 'h3'
 /**
  * Same-origin passthrough to Drupal for the media-library dialog.
  *
- * Drupal's dialog JS (loaded via the openkb_media_library assets endpoint)
+ * Drupal's dialog JS (loaded from the openkb_media_library CE route)
  * requests root-relative paths on the current origin — dialog content,
  * form submits, views AJAX, and the CSS/JS/derivative assets those
  * responses reference. The routes in server/routes/ forward exactly those
@@ -12,10 +12,11 @@ import { proxyRequest, getRequestURL, createError } from 'h3'
  * Cookies pass through, so Drupal sees the shared session — the same auth
  * model as server/utils/drupal.ts.
  *
- * The POST paths (/media-library, /views/ajax) are also listed in
- * drupalCe.disableFormHandler (nuxt.config.ts): nuxtjs-drupal-ce's global
- * form-handler middleware would otherwise consume every urlencoded or
- * multipart POST body before this proxy sees it.
+ * The POST paths (/media-library, /views/ajax and the media-widget view the
+ * Grid/Table links lead to) are also listed in drupalCe.disableFormHandler
+ * (nuxt.config.ts): nuxtjs-drupal-ce's global form-handler middleware would
+ * otherwise consume every urlencoded or multipart POST body before this proxy
+ * sees it.
  */
 export function proxyToDrupal(event: H3Event) {
   const base = (useRuntimeConfig().drupalBaseUrl as string).replace(/\/$/, '')

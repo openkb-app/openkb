@@ -56,6 +56,11 @@ export const SelectionKeydownSync = Extension.create({
 
   // The view writes the state selection back over the DOM one on update.
   dispatchTransaction({ transaction: tr, next }) {
+    // A teardown still delivers transactions — y-tiptap flushes its awareness
+    // metas as the page navigates away — and a destroyed editor has no view to
+    // read a DOM selection from. TipTap answers `editor.view` with a proxy
+    // that throws on every internal the read below needs.
+    if (this.editor.isDestroyed) return next(tr)
     const { view } = this.editor
     if (!tr.selectionSet && !tr.getMeta(ySyncPluginKey) && tr.before === view.state.doc) {
       const before = view.state.selection

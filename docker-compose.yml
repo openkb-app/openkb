@@ -50,7 +50,7 @@ x-drupal-environment:
 
 services:
   drupal:
-    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/drunomics/openkb}-drupal:${OPENKB_TAG:-dev}
+    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/openkb-app/openkb}-drupal:${OPENKB_TAG:-dev}
     build:
       context: .
       dockerfile: docker/drupal/Dockerfile
@@ -72,7 +72,7 @@ services:
       - drupal-files:/app/files
 
   frontend:
-    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/drunomics/openkb}-frontend:${OPENKB_TAG:-dev}
+    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/openkb-app/openkb}-frontend:${OPENKB_TAG:-dev}
     build:
       context: .
       dockerfile: docker/frontend/Dockerfile

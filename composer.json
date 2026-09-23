@@ -8,7 +8,7 @@
         "source": "https://github.com/openkb-app/openkb",
         "issues": "https://github.com/openkb-app/openkb/issues",
         "docs": "https://openkb.app",
-        "security": "https://github.com/openkb-app/openkb/blob/main/SECURITY.md"
+        "security": "https://github.com/openkb-app/openkb/blob/1.x/SECURITY.md"
     },
     "authors": [
         {

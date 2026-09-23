@@ -6,7 +6,7 @@ on:
   pull_request:
     paths: [frontend/**, .github/workflows/frontend.yml]
   push:
-    branches: [main]
+    branches: ['1.x']
     paths: [frontend/**, .github/workflows/frontend.yml]
 
 permissions:

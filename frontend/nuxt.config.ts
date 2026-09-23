@@ -96,11 +96,18 @@ export default defineNuxtConfig({
     // an ordinary page fetch through this proxy, which only ends a session
     // Drupal can see. Anonymous CE reads would answer both with the signed-out
     // menu and a 403.
-    // The media-library dialog's form submits (selection, upload) and views
-    // AJAX are urlencoded/multipart POSTs served by our own Drupal proxy
-    // (server/utils/drupal-proxy.ts) — keep the module's global form
-    // handler off them. Exact path match, query string ignored.
-    disableFormHandler: ['/media-library', '/views/ajax'],
+    // The media-library dialog's form submits (selection, upload), views AJAX
+    // and its Grid/Table display links are urlencoded/multipart POSTs served
+    // by our own Drupal proxy (server/utils/drupal-proxy.ts) — keep the
+    // module's global form handler off them. Exact path match, query string
+    // ignored, so the display links name the one media type the editor's
+    // opener allows.
+    disableFormHandler: [
+      '/media-library',
+      '/views/ajax',
+      '/admin/content/media-widget/image',
+      '/admin/content/media-widget-table/image',
+    ],
     // The Canvas page builder is not part of this app, so the component
     // preview endpoint and its component-index build step are off.
     enableComponentPreview: false,
