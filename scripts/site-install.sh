@@ -11,16 +11,19 @@
 #    the source recipes the public image ships; or the one the environment
 #    names in OPENKB_ENV_RECIPE (openkb_recipe_dev in development,
 #    openkb_recipe_ci on CI), or openkb_recipe_main — the app itself — where
-#    it names none. Each carries the whole site, so nothing is applied on top,
+#    it names none. Each carries the whole site, so nothing is applied on top.
+#    The `admin` password comes from ADMIN_PASSWORD, or is generated and
+#    printed,
 #  - wire the frontend URL: the comark search processor resolves the Nuxt
 #    sidecar from it at index time,
 #  - install-content where the image ships it: the entities every site starts
 #    with,
 #  - provision the collab server's OAuth client,
-#  - enable services_env_parameter, set the admin and test-editor passwords,
-#  - wait for the sidecar, then re-feed the search indexes (automated cron is
-#    held off from the install until this is done, so it cannot hold the
-#    index lock),
+#  - enable services_env_parameter, set the test-editor passwords,
+#  - wait for the sidecar, then re-feed the search indexes (the cron service
+#    pauses until this is done, so it cannot hold the index lock),
+#  - the install marker the cron service and the boot read: cleared while the
+#    site is being rebuilt, written again at the end,
 #
 # The recipes are read from OPENKB_RECIPES_DIR (default: recipes/), next to the
 # composer-installed lupus_decoupled_recipe they build on.
@@ -83,9 +86,18 @@ curl -sf -X DELETE "$OPENSEARCH_URL/default_kb_chunks" >/dev/null 2>&1 || true
 echo "Installing Drupal..."
 # Read-only, so the installer leaves the env-driven settings.php alone.
 chmod a-w web/sites/default/settings.php 2>/dev/null || true
+# From here the site is gone until step 8 writes the marker again, so the cron
+# service stays quiet instead of reporting the install window as broken.
+rm -f "${PERSISTENT_FILES_DIR:-files}/.openkb-installed"
 $DRUSH sql-create -y
 echo "  recipe: $RECIPE"
-$DRUSH si -y --site-name='OpenKB' "$RECIPE"
+# The admin password is handed to the installer, so drush keeps the one it
+# would otherwise generate and print out of the log.
+if [ -z "${ADMIN_PASSWORD:-}" ]; then
+  ADMIN_PASSWORD=$(head -c 18 /dev/urandom | base64 | tr -d '/+=')
+  echo "  ADMIN_PASSWORD is unset. Generated password for admin: $ADMIN_PASSWORD"
+fi
+$DRUSH si -y --site-name='OpenKB' --account-pass="$ADMIN_PASSWORD" "$RECIPE"
 
 # The installer swaps every cache backend for an in-memory one, so nothing the
 # install writes reaches the DB-backed caches. Web traffic (frontend schema fetches,
@@ -93,11 +105,9 @@ $DRUSH si -y --site-name='OpenKB' "$RECIPE"
 # keeps serving that miss. This drops what the install window cached.
 $DRUSH cache:rebuild
 
-# A fresh site has no last cron run, so the first web request runs cron — and
-# cron indexes kb_chunks, holding the index lock against the re-index in
-# step 6. Off until the index is fed; the index does not exist yet here.
-CRON_INTERVAL=$($DRUSH config:get automated_cron.settings interval --format=string)
-$DRUSH config:set automated_cron.settings interval 0 -y
+# The cron service skips its runs while this is set: cron indexes kb_chunks,
+# which would hold the index lock against the re-index in step 6.
+$DRUSH state:set openkb.cron_paused 1
 
 # 4. Wire the frontend URL. The comark search processor reads the Nuxt
 # sidecar's origin from this setting, so the seed content the install imported
@@ -119,13 +129,6 @@ fi
 
 echo "Enabling services_env_parameter..."
 $DRUSH en services_env_parameter -y
-
-echo "Setting admin password..."
-if [ -z "${ADMIN_PASSWORD:-}" ]; then
-  ADMIN_PASSWORD=$(head -c 18 /dev/urandom | base64 | tr -d '/+=')
-  echo "  ADMIN_PASSWORD is unset. Generated password for admin: $ADMIN_PASSWORD"
-fi
-$DRUSH user:password admin "$ADMIN_PASSWORD"
 
 # 5b. Passwords for the seeded test editors. Only where an environment recipe
 # brought them: production installs no demo content and has no such accounts.
@@ -189,8 +192,8 @@ if $DRUSH search-api:list 2>/dev/null | grep -q kb_chunks; then
   $DRUSH search-api:index kb_chunks -y
 fi
 
-# Automated cron back on. The index is fed, so its next run has nothing to do.
-$DRUSH config:set automated_cron.settings interval "$CRON_INTERVAL" -y
+# Cron runs again. The index is fed, so its next run has nothing to do.
+$DRUSH state:delete openkb.cron_paused
 
 # 7. Rebuild caches. A recipe installs its modules with config sync active, and
 # simple_oauth's access policy answers a permission calculation made in that
@@ -200,6 +203,11 @@ $DRUSH config:set automated_cron.settings interval "$CRON_INTERVAL" -y
 # fetches anonymously, answers 403.
 echo "Rebuilding caches..."
 $DRUSH cache:rebuild
+
+# 8. The install marker, in the persistent files volume the cron service shares.
+# Without it the cron job stays quiet; with it a site that will not bootstrap
+# makes the run fail instead of passing silently.
+touch "${PERSISTENT_FILES_DIR:-files}/.openkb-installed"
 
 echo ""
 echo "Site installation complete."

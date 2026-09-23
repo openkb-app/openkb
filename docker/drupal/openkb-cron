@@ -1,0 +1,18 @@
+#!/bin/sh
+# One Drupal cron run, the `cron` service's crontab job.
+cd /app
+
+# No install marker: no site yet, so there is nothing to run.
+[ -f "${PERSISTENT_FILES_DIR:-files}/.openkb-installed" ] || exit 0
+
+# An installed site that will not bootstrap is broken. Fail the run so
+# supercronic logs it instead of hiding it behind a silent exit 0.
+if [ "$(drush core:status --field=bootstrap 2>/dev/null)" != "Successful" ]; then
+  echo "openkb-cron: the site is installed but does not bootstrap." >&2
+  exit 1
+fi
+
+# `openkb-install` holds this state around its index re-feed.
+[ "$(drush state:get openkb.cron_paused --format=string 2>/dev/null)" != "1" ] || exit 0
+
+exec drush cron -q

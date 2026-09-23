@@ -1,0 +1,45 @@
+#!/bin/sh
+# Brings the serving container's site up, in the background of the entrypoint.
+#
+#  - first boot: installs the site, the code path `openkb-install` runs,
+#  - an image update that left database updates pending: holds the site until
+#    an administrator has run update.php. Updates never run from here.
+#
+# Caddy answers every request with the setup page while `.openkb-holding`
+# exists. That marker is this container's own — only Caddy and this script read
+# it — so it lives in /run and not on the shared files volume, which carries the
+# site's private data. The lock does have to be shared: it makes one boot at a
+# time run across the containers on that volume. `.openkb-installed` is the
+# marker site-install.sh and site-update.sh write and the cron service reads;
+# nothing here writes it, so a failed install leaves none and the next boot
+# installs again.
+cd /app || exit 1
+
+FILES_DIR=${PERSISTENT_FILES_DIR:-files}
+INSTALLED=$FILES_DIR/.openkb-installed
+HOLDING=/run/openkb/.openkb-holding
+DRUSH="php -d memory_limit=512M ./vendor/drush/drush/drush.php"
+
+exec 9> "$FILES_DIR/.openkb-boot.lock" || exit 1
+flock 9
+
+: > "$HOLDING"
+
+# A site installed before the marker existed bootstraps without carrying one.
+if [ ! -f "$INSTALLED" ] && ! $DRUSH core:status --field=bootstrap 2>/dev/null | grep -qx Successful; then
+  echo "openkb-boot: no site on this database, installing it."
+  if ! ./scripts/site-install.sh; then
+    echo "openkb-boot: THE INSTALL FAILED — the output above says why." >&2
+    echo "openkb-boot: the stack keeps answering with the setup page. Fix the cause and" >&2
+    echo "openkb-boot: restart the drupal service, or start over with 'docker compose down -v'." >&2
+    exit 1
+  fi
+fi
+
+# openkb_update_hold sets the hold and lifts it again once update.php has run.
+# A site installed before that module existed does not carry it, and is served
+# as it is.
+$DRUSH openkb:update-hold || echo "openkb-boot: could not check for pending database updates." >&2
+
+rm -f "$HOLDING"
+echo "openkb-boot: the site is up."

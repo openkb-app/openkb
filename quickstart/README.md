@@ -6,16 +6,15 @@ nothing to fill in. Docker with the compose plugin is the only prerequisite.
 ```sh
 mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha1/quickstart/{docker-compose.yml,.env}"
 docker compose up -d
-docker compose exec drupal openkb-install
 ```
 
-`up` pulls the two images (~1.3 GB) and starts them next to MariaDB and
-OpenSearch; `openkb-install` then installs the site. Together they take a few
-minutes on a first run.
+`up` pulls the two images (~1.3 GB), starts them next to MariaDB and OpenSearch,
+and the `drupal` container installs the site on its first boot. Together that
+takes a few minutes; until it is done both URLs answer with a "setting up" page
+that reloads itself, and `docker compose logs -f drupal` shows the install.
 
 Open **<http://localhost:8642>** and sign in as **`admin`** with the password
-**`admin`**. The install prints a generated password along the way; the
-`ADMIN_PASSWORD` of `.env` replaces it. The same session opens Drupal's own
+**`admin`** — the `ADMIN_PASSWORD` of `.env`. The same session opens Drupal's own
 admin at <http://localhost:8643/admin>.
 
 ## The two files
@@ -83,18 +82,22 @@ carries it too — `FRONTEND_HTTP_PORT` with `DRUPAL_FRONTEND_BASE_URL`,
 `DRUPAL_HTTP_PORT` with `DRUPAL_BASE_URL`. `LISTEN_IP` moves both to another
 loopback address.
 
-**Image version.** `OPENKB_TAG` names what is pulled: the release these two
-files came with, built for amd64 and arm64; `1.x` for the development branch,
-built for amd64 only; or `sha-1a2b3c4` for one build of it. After changing it,
-`docker compose pull && docker compose up -d`, then
-`docker compose exec drupal openkb-update`.
+**Image version.** `OPENKB_TAG` names what is pulled. These two files carry
+`1.x`, the development branch, rebuilt on every push to it and built for amd64
+only; the copies a release ships carry that release instead, built for amd64
+and arm64. `sha-1a2b3c4` pins one build of the branch. After changing it,
+`docker compose pull && docker compose up -d`. Where the new images bring
+database updates, the site holds itself on a maintenance page until an
+administrator has run them: sign in at <http://localhost:8643/user/login> and
+open <http://localhost:8643/update.php>. The hold lifts itself when they are
+through.
 
 **OpenSearch memory mapping.** `OPENSEARCH_ALLOW_MMAP=false` is what lets this
 stack start on any host: with mmap on, OpenSearch requires
 `vm.max_map_count` ≥ 262144 on the host, which Linux does not grant by default.
 Turning it off costs read performance on a large index — fine while evaluating,
 not what a production install should run on. `OPENSEARCH_JAVA_OPTS` holds the
-heap down to 256 MB for the same reason.
+heap down to 256 MB for the same reason; plan 4 GB of RAM free for the stack.
 
 ## Throwing it away
 
@@ -106,11 +109,11 @@ Containers and all four volumes — database, files, collaboration snapshots and
 the search index — are gone. `docker compose down -v --rmi all` drops the pulled
 images with them.
 
-Starting over is the same two steps: `openkb-install` destroys the site it finds,
+Starting over is `docker compose down -v` and `up -d` again. Reinstalling in
+place (`docker compose exec drupal openkb-install`) destroys the site it finds,
 but the frontend's collaboration snapshots live in a volume of their own and
-would carry the old site's edits into the new one. So reinstall by throwing the
-stack away first — `docker compose down -v`, then `up -d` and `openkb-install`
-again.
+would carry the old site's edits into the new one — so throw the stack away
+instead.
 
 ## Running it for real
 

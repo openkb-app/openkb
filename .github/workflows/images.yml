@@ -2,8 +2,9 @@
 # installs the site on it, and publishes them on a push to `1.x` and on a
 # version tag.
 #
-# - Pull requests: build, start, wait for both healthchecks,
-#   `openkb-install`, check the site answers, tear down. Nothing is pushed.
+# - Pull requests: build, start, check the holding page answers while the
+#   container installs the site, wait for both healthchecks, check the site
+#   answers, tear down. Nothing is pushed.
 # - Push to `1.x`: the same smoke run, then the base-image provenance check
 #   and an amd64 development image, tagged `1.x` and `sha-<short>`.
 # - Tag `vX.Y.Z`, or a manual run naming one: the same, pushed for amd64 and
@@ -86,9 +87,30 @@ jobs:
       - name: Start the stack
         run: docker compose up -d
 
+      # The install the `drupal` container starts on its first boot takes
+      # minutes, so both URLs stand on the setup page for long enough to be
+      # polled for: `drupal` from the moment it serves, `frontend` from its
+      # next probe of `drupal`.
+      - name: The holding page answers while the site is installed
+        run: |
+          for url in http://127.0.0.1:8080/ http://127.0.0.1:3000/; do
+            for _ in $(seq 1 90); do
+              curl -s -i -H 'Accept: text/html' "$url" > /tmp/holding.txt || true
+              if head -1 /tmp/holding.txt | grep -q ' 503 '; then
+                break
+              fi
+              sleep 2
+            done
+            head -1 /tmp/holding.txt
+            grep -qi '^retry-after: 10' /tmp/holding.txt || { echo "$url: no Retry-After on the setup page" >&2; exit 1; }
+            grep -q 'Setting up OpenKnowledgebase' /tmp/holding.txt || { echo "$url: not the setup page" >&2; exit 1; }
+          done
+
+      # Also waits out the install: the drupal healthcheck asks for a page the
+      # setup page stands in for.
       - name: Wait for the healthchecks
         run: |
-          for i in $(seq 1 60); do
+          for i in $(seq 1 150); do
             drupal=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q drupal)")
             frontend=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q frontend)")
             echo "drupal=$drupal frontend=$frontend"
@@ -97,9 +119,6 @@ jobs:
           done
           echo "The stack did not become healthy." >&2
           exit 1
-
-      - name: Install the site
-        run: docker compose exec -T drupal openkb-install
 
       - name: Check the site answers
         run: |
@@ -255,8 +274,8 @@ jobs:
             printf '```sh\n'
             printf 'OPENKB_TAG=%s\n' "$version"
             printf 'docker compose pull && docker compose up -d\n'
-            printf 'docker compose exec drupal openkb-install   # first run only; it destroys an existing site\n'
             printf '```\n'
+            printf '\nThe `drupal` container installs the site on a first boot. On an existing site whose database updates this version brings, it holds the site until an administrator has run `<drupal url>/update.php`.\n'
             case $version in
               *-*) printf '\nA pre-release: run it on a throwaway site, not on data you keep.\n' ;;
             esac

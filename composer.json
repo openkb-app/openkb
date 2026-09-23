@@ -40,7 +40,7 @@
         "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": "^1.0@beta",
         "drupal/monitoring": "^1.20.0",
         "drupal/ohdear_integration": "^3.0.0",
-        "drupal/openkb": "1.0.0-alpha1",
+        "drupal/openkb": "1.x-dev",
         "drupal/redirect": "^1.11",
         "drupal/rest_menu_items": "^3.0.7",
         "drupal/search_api_opensearch": "2.5.0 as 2.x-dev",
@@ -94,12 +94,6 @@
             "drupal/monitoring": {
                 "OKB-156: Compare a requirement's severity as an int — Drupal 11.2 turned it into a RequirementSeverity enum, so the strict int comparison in the requirements_recap sensor matches nothing and the sensor reports zero errors on a site whose status report is full of them. CoreRequirementsSensorPlugin already handles both forms. drupal.org issue pending; swap for its patch once filed.": "patches/monitoring-requirements-recap-severity-enum.patch",
                 "OKB-156: Declare the requirements_recap sensor's settings schema. The plugin reads `severity` and `disabled_requirements`, but the module ships no monitoring.settings.requirements_recap type, so every install of a sensor using it logs a `settings missing schema` warning. drupal.org issue pending; swap for its patch once filed.": "patches/monitoring-requirements-recap-settings-schema.patch"
-            },
-            "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": {
-                "OKB-201: A failed or denied call must reach the client as an error. ToolApi::execute() answers every failure with a returned array, and the SDK wraps any returned array as a successful CallToolResult, so a refusal arrives as HTTP 200 isError: false. Throwing Mcp\\Exception\\ToolCallException is the plugin's only lever on the error channel. drupal.org #3618716 (active, no MR); attach this there rather than opening a new issue.": "patches/mcp_server_tool_bridge-failed-call-is-an-error.patch",
-                "OKB-201: Advertise a per-tool outputSchema. McpToolConfigDeriver copies outputSchema from the base plugin definition, which is always NULL, so no bridged tool describes its result. Built from the tool's own getOutputDefinitions(), describing the {success, message, data} envelope execute() answers. drupal.org issue pending.": "patches/mcp_server_tool_bridge-output-schema-from-tool-outputs.patch",
-                "OKB-201: Take readOnlyHint and idempotentHint from the tool's ToolOperation. The deriver copies both from the base plugin definition, so every bridged tool is advertised as non-read-only and non-idempotent and a client gating writes on readOnlyHint treats a read tool as a mutation. Applies on top of the outputSchema patch. drupal.org issue pending.": "patches/mcp_server_tool_bridge-hints-from-tool-operation.patch",
-                "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch"
             }
         },
         "installer-paths": {

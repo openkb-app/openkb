@@ -37,13 +37,13 @@ x-drupal-environment:
     # default covers a proxy on the docker networks and on the host.
     REVERSE_PROXY_ADDRESSES: ${REVERSE_PROXY_ADDRESSES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     OPENSEARCH_URL: ${OPENSEARCH_URL:-http://opensearch:9200}
-    # The collaboration server's own OAuth client (ADR 0001). `openkb-install`
+    # The collaboration server's own OAuth client (ADR 0001). The install
     # provisions the consumer from it; the frontend presents it at /oauth/token.
     OKB_COLLAB_CLIENT_ID: ${OKB_COLLAB_CLIENT_ID:-}
     OKB_COLLAB_CLIENT_SECRET: ${OKB_COLLAB_CLIENT_SECRET:-}
-    # Read by `openkb-install`. Unset, it generates one and prints it.
+    # Read by the install. Unset, it generates one and prints it.
     ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-    # Where `openkb-install` finds the recipes, which the image ships.
+    # Where the install finds the recipes, which the image ships.
     OPENKB_RECIPES_DIR: ${OPENKB_RECIPES_DIR:-/app/recipes}
     # Optional. Without it the chat and the chunk index stay unusable.
     OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -70,6 +70,17 @@ services:
     volumes:
       # Public and private files, config sync, OAuth keys.
       - drupal-files:/app/files
+
+  # Drupal cron every five minutes: supercronic runs docker/drupal/crontab in
+  # the drupal image, with drupal's environment and files.
+  cron:
+    extends:
+      service: drupal
+    build: !reset null
+    command: ["supercronic", "/etc/crontabs/openkb"]
+    ports: !reset []
+    healthcheck:
+      disable: true
 
   frontend:
     image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/openkb-app/openkb}-frontend:${OPENKB_TAG:-dev}

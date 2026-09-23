@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "56a1073cbf16f6a1a966eded23ed4eaa",
+    "content-hash": "3113fd6a8b9c9cf38f086be091777e18",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -3659,11 +3659,11 @@
         },
         {
             "name": "drupal/openkb",
-            "version": "1.0.0-alpha1",
+            "version": "1.x-dev",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "18df8b38041d18a8a28aa1d1efd67a0b6adac63f"
+                "reference": "c72de9c9706a810d715779be9671a81764c29df8"
             },
             "require": {
                 "drupal/ai": "^1.5.0-rc1",
@@ -3685,6 +3685,7 @@
                 "drupal/ai_provider_openai": "^1.2.5",
                 "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": "^1.0@beta"
             },
+            "default-branch": true,
             "type": "drupal-module",
             "extra": {
                 "patches": {
@@ -3716,6 +3717,12 @@
                     "drupal/mcp_server": {
                         "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call that loads an entity is answered as an event stream with the result nowhere in it. Against 2.0.0-beta2; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-shield-element-handler-from-foreign-fiber-suspends.patch"
                     },
+                    "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": {
+                        "OKB-201: A failed or denied call must reach the client as an error. ToolApi::execute() answers every failure with a returned array, and the SDK wraps any returned array as a successful CallToolResult, so a refusal arrives as HTTP 200 isError: false. Throwing Mcp\\Exception\\ToolCallException is the plugin's only lever on the error channel. drupal.org #3618716 (active, no MR); attach this there rather than opening a new issue.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-failed-call-is-an-error.patch",
+                        "OKB-201: Advertise a per-tool outputSchema. McpToolConfigDeriver copies outputSchema from the base plugin definition, which is always NULL, so no bridged tool describes its result. Built from the tool's own getOutputDefinitions(), describing the {success, message, data} envelope execute() answers. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-output-schema-from-tool-outputs.patch",
+                        "OKB-201: Take readOnlyHint and idempotentHint from the tool's ToolOperation. The deriver copies both from the base plugin definition, so every bridged tool is advertised as non-read-only and non-idempotent and a client gating writes on readOnlyHint treats a read tool as a mutation. Applies on top of the outputSchema patch. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-hints-from-tool-operation.patch",
+                        "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch"
+                    },
                     "drupal/simple_oauth": {
                         "OKB-73: Vary calculated permissions by the token subject's roles (drupal.org issue pending)": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/simple_oauth-token-subject-roles-cache-context.patch",
                         "OKB-75: Apply the scope intersect to the token subject computed under an ambient token (drupal.org issue pending)": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/simple_oauth-scope-ceiling-ambient-subject.patch"
@@ -3730,7 +3737,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-09-23T11:11:03+00:00"
+            "time": "2026-09-23T13:03:13+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -18580,7 +18587,8 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "drupal/ai_provider_mistral": 5,
-        "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": 10
+        "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": 10,
+        "drupal/openkb": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

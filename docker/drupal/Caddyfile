@@ -46,6 +46,26 @@
 	}
 	header @static Cache-Control "max-age=31536000,public,immutable"
 
+	# The marker `openkb-entrypoint` puts up for as long as the site cannot
+	# answer — the install on a first boot. Both this directory and the one the
+	# page is served from hold that one file and nothing else, so no root here
+	# reaches the site's data.
+	@holding file {
+		root /run/openkb
+		try_files /.openkb-holding
+	}
+	route @holding {
+		root * /usr/local/share/openkb
+		# Every path, so the whole site is held; only this one file is served.
+		rewrite * /holding.html
+		header Retry-After 10
+		# What the frontend reads to hold its own page.
+		header X-OpenKB-Hold install
+		file_server {
+			status 503
+		}
+	}
+
 	{$CADDY_SERVER_EXTRA_DIRECTIVES}
 
 	php_server

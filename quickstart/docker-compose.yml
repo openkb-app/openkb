@@ -2,8 +2,9 @@
 # README.md next to it walks through it.
 #
 #   docker compose up -d
-#   docker compose exec drupal openkb-install
 #
+# - The `drupal` container installs the site on its first boot and answers with
+#   a "setting up" page until it is done.
 # - Self-contained: the two images are pulled, nothing is built, and the only
 #   other file is the `.env` beside it.
 # - `frontend` runs in `drupal`'s network namespace, so `http://localhost:8642`
@@ -55,9 +56,9 @@ services:
       MARIADB_DATABASE: ${MARIADB_DATABASE:-drupal}
       MARIADB_USER: ${MARIADB_USER:-drupal}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD:?set MARIADB_PASSWORD, see .env}
-      # Read by `openkb-install`. Unset, it generates one and prints it.
+      # Read by the install. Unset, it generates one and prints it.
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # Where `openkb-install` finds the recipes, which the image ships.
+      # Where the install finds the recipes, which the image ships.
       OPENKB_RECIPES_DIR: /app/recipes
       # Optional. Without it the chat and the chunk index stay unusable.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -66,13 +67,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 20s
+      # Covers the install of a first boot, during which the setup page — a
+      # 503 — is the answer.
+      start_period: 10m
     ports:
       - "${LISTEN_IP:-127.0.0.1}:${DRUPAL_HTTP_PORT:-8643}:${DRUPAL_HTTP_PORT:-8643}"
       - "${LISTEN_IP:-127.0.0.1}:${FRONTEND_HTTP_PORT:-8642}:${FRONTEND_HTTP_PORT:-8642}"
     volumes:
       # Public and private files, config sync, OAuth keys.
       - drupal-files:/app/files
+
+  # Drupal's cron every five minutes. The same image and the same files volume,
+  # serving nothing: `extends` takes drupal's settings and this drops what only
+  # the serving container has. Its entrypoint installs nothing — the command is
+  # not the server's.
+  cron:
+    extends:
+      service: drupal
+    command: ["supercronic", "/etc/crontabs/openkb"]
+    ports: !reset []
+    healthcheck:
+      disable: true
 
   frontend:
     image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/openkb-app/openkb}-frontend:${OPENKB_TAG:?set OPENKB_TAG, see .env}

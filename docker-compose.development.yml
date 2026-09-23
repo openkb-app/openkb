@@ -26,6 +26,9 @@ x-drupal-development:
       XDG_DATA_HOME: /tmp/.local/share
       COMPOSER_CACHE_DIR: /cache/composer
       COMPOSER_MEMORY_LIMIT: -1
+      # A checkout's site is installed by `phapp init`, so the entrypoint must
+      # not install one of its own.
+      OPENKB_AUTO_BOOT: "0"
       # Development ini on top of the image's: docker/drupal/dev/php.ini.
       PHP_INI_SCAN_DIR: /usr/local/etc/php/conf.d:/app/docker/drupal/dev
     volumes: !override
@@ -48,6 +51,11 @@ services:
     networks:
       default: {}
       traefik: {}
+
+  cron:
+    << : *drupal-development
+    labels:
+      - "lupus-ci.job_name=${LUPUS_CI_JOB_NAME:-}"
 
   cli:
     extends:

@@ -5,7 +5,7 @@ FROM dunglas/frankenphp:1-php8.3-alpine@sha256:7632cbed485bb9d92cf84ee1ae00e4e0b
 
 # pdo_pgsql: a hard requirement of drupal/ai_provider_amazeeio.
 RUN install-php-extensions apcu gd intl opcache pdo_mysql pdo_pgsql zip \
- && apk add --no-cache bash curl git mariadb-client netcat-openbsd openssl patch
+ && apk add --no-cache bash curl git mariadb-client netcat-openbsd openssl patch supercronic
 
 COPY --from=composer:2@sha256:a5f59b9fd2faf31218632be4809dc6491761085e8064c31dc3b84378c48c248b /usr/bin/composer /usr/local/bin/composer
 
@@ -44,11 +44,18 @@ RUN cp "${PHP_INI_DIR}/php.ini-production" "${PHP_INI_DIR}/php.ini"
 COPY docker/drupal/php.ini ${PHP_INI_DIR}/conf.d/zz-openkb.ini
 COPY docker/drupal/Caddyfile /etc/frankenphp/Caddyfile
 COPY --from=build /app /app
-COPY --chmod=755 docker/drupal/openkb-install docker/drupal/openkb-update /usr/local/bin/
+COPY --chmod=755 docker/drupal/openkb-install docker/drupal/openkb-update \
+     docker/drupal/openkb-cron docker/drupal/openkb-boot \
+     docker/drupal/openkb-entrypoint /usr/local/bin/
+COPY docker/drupal/crontab /etc/crontabs/openkb
+# What the Caddyfile serves while the site is being set up.
+COPY docker/drupal/holding.html /usr/local/share/openkb/holding.html
 
-# - www-data owns only what it writes: the files volume and Caddy's state.
+# - www-data owns only what it writes: the files volume, Caddy's state and the
+#   runtime directory the setup-page marker lives in.
 # - :8080 needs no capability, so the binary carries none.
-RUN chown -R www-data:www-data /app/files /data/caddy /config/caddy \
+RUN mkdir -p /run/openkb \
+ && chown -R www-data:www-data /app/files /data/caddy /config/caddy /run/openkb \
  && setcap -r /usr/local/bin/frankenphp
 
 # vendor/bin comes from the image, or from a bind-mounted checkout in dev.
@@ -58,8 +65,15 @@ ENV PATH="/app/vendor/bin:${PATH}" \
 EXPOSE 8080
 USER www-data
 
-# A redirect to the installer counts: the site is served, just not installed.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+# Installs the site on a first boot; see openkb-entrypoint. An ENTRYPOINT
+# clears the CMD the base image carries, so the server command is repeated.
+ENTRYPOINT ["openkb-entrypoint"]
+CMD ["--config", "/etc/frankenphp/Caddyfile", "--adapter", "caddyfile"]
+
+# Healthy means the site answers; the setup page a held container serves is a
+# 503 and does not. The start period covers a first boot's install, so the
+# container reads as starting while that runs and not as unhealthy.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10m --retries=3 \
   CMD curl -fsS -o /dev/null http://127.0.0.1:8080/user/login || exit 1
 
 # Last, so a new revision rebuilds no layer above.

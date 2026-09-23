@@ -1,6 +1,6 @@
 # Self-hosting
 
-The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with drush) and `openkb-frontend` (the built Nuxt server with the embedded collaboration server) — next to the official `mariadb:11.4` and `opensearchproject/opensearch:3` images. `docker-compose.yml` is that stack; every setting is an environment variable, listed in [`.env.example`](../.env.example).
+The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with drush; the `cron` service runs the same image with supercronic, `drush cron` every five minutes) and `openkb-frontend` (the built Nuxt server with the embedded collaboration server) — next to the official `mariadb:11.4` and `opensearchproject/opensearch:3` images. `docker-compose.yml` is that stack; every setting is an environment variable, listed in [`.env.example`](../.env.example).
 
 Both images are published to GHCR per release; [`release.md`](release.md) covers pinning a version instead of building from this checkout.
 
@@ -11,7 +11,7 @@ Everything below describes a real host. To just look at OpenKB, run the evaluati
 ## Prerequisites
 
 - Docker with the compose plugin.
-- Two DNS names under one parent domain, both pointing at the host: one for the frontend (`kb.example.com`), one for Drupal (`cms.kb.example.com`). Drupal under a path of the frontend host is not supported.
+- Two DNS names under one parent domain, both pointing at the host: one for the frontend (`kb.example.com`), one for Drupal (`admin.kb.example.com`). Drupal under a path of the frontend host is not supported.
 - `vm.max_map_count=262144` on the host, for OpenSearch: `sysctl -w vm.max_map_count=262144`, and the same line in `/etc/sysctl.conf` to keep it. Keep memory mapping on for a real index; `OPENSEARCH_ALLOW_MMAP=false` drops the requirement at the cost of read performance, which is a trade for evaluation, not for production.
 - A reverse proxy that terminates TLS; Caddy and Traefik examples below.
 
@@ -21,10 +21,27 @@ Everything below describes a real host. To just look at OpenKB, run the evaluati
 cp .env.example .env              # the two URLs, the cookie domain, the secrets
 docker compose build              # builds openkb-drupal and openkb-frontend from this checkout
 docker compose up -d
-docker compose exec drupal openkb-install
 ```
 
-`openkb-install` installs the site from the install state the image carries, provisions the collaboration server's OAuth client from `OKB_COLLAB_CLIENT_ID` / `OKB_COLLAB_CLIENT_SECRET` and sets the `admin` password from `ADMIN_PASSWORD` — or generates one and prints it. It destroys an existing site. After changing the images, `docker compose exec drupal openkb-update` runs the database updates, imports config when the sync directory holds an export, and rebuilds caches; it is safe to run twice.
+The `drupal` container installs the site on its first boot: the install state the image carries, the collaboration server's OAuth client from `OKB_COLLAB_CLIENT_ID` / `OKB_COLLAB_CLIENT_SECRET`, and the `admin` password from `ADMIN_PASSWORD` — or a generated one, printed to the container log. Both services answer with a "setting up" page (`503`, `Retry-After`) until the install is through, and `docker compose logs -f drupal` carries it. A restart of an installed site reinstalls nothing.
+
+`docker compose exec drupal openkb-install` is the manual re-install; it destroys the site it finds.
+
+## Updating
+
+```sh
+docker compose pull
+docker compose up -d
+```
+
+Where the new images bring database updates, the site holds itself until they have been run: maintenance mode with a message naming `update.php`, cron paused, and the "setting up" page on the frontend. Updates are never run unattended — back up first (below), then:
+
+1. sign in at `https://admin.kb.example.com/user/login` as an account with *Administer software updates*,
+2. open `https://admin.kb.example.com/update.php` and run what it lists.
+
+From a shell instead, `docker compose exec drupal drush updatedb` runs the same updates; back up first either way.
+
+Both ways end in a cache rebuild, and that is what lifts the hold.
 
 Both services listen on plain HTTP, bound to `127.0.0.1`: `drupal` on `DRUPAL_HTTP_PORT` (8080), `frontend` on `FRONTEND_HTTP_PORT` (3000).
 
@@ -45,7 +62,7 @@ kb.example.com {
 	reverse_proxy 127.0.0.1:3000
 }
 
-cms.kb.example.com {
+admin.kb.example.com {
 	reverse_proxy 127.0.0.1:8080
 }
 ```
@@ -64,7 +81,7 @@ services:
   drupal:
     labels:
       - traefik.enable=true
-      - traefik.http.routers.okb-drupal.rule=Host(`cms.kb.example.com`)
+      - traefik.http.routers.okb-drupal.rule=Host(`admin.kb.example.com`)
       - traefik.http.routers.okb-drupal.entrypoints=websecure
       - traefik.http.routers.okb-drupal.tls.certresolver=le
       - traefik.http.services.okb-drupal.loadbalancer.server.port=8080
@@ -99,7 +116,7 @@ location /collaboration {
 ingress:
   - hostname: kb.example.com
     service: http://localhost:3000
-  - hostname: cms.kb.example.com
+  - hostname: admin.kb.example.com
     service: http://localhost:8080
   - service: http_status:404
 ```
@@ -109,17 +126,32 @@ ingress:
 | Volume | Holds |
 |---|---|
 | `mariadb-data` | the database |
-| `drupal-files` | `/app/files`: public and private files, the config sync directory, the OAuth keys |
+| `drupal-files` | `/app/files`: public and private files, the config sync directory, the OAuth keys, the `.openkb-installed` marker |
 | `collab-store` | the collaboration server's snapshot store: edits not yet saved to Drupal |
 | `opensearch-data` | the search index — rebuildable: `drush search-api:reset-tracker kb_chunks && drush search-api:index kb_chunks` |
 
 Back up the database, `drupal-files` and `collab-store` together, and restore them together: the snapshot store is coupled to the database. `docker compose down && docker compose up -d` keeps all four; `docker compose down -v` deletes them.
 
+A backup, from the checkout that holds the stack's `.env`. The frontend is stopped while its store is copied, so no edit lands in between:
+
+```sh
+mkdir -p backup
+docker compose stop frontend
+docker compose exec -T mariadb sh -c 'mariadb-dump --single-transaction -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' > backup/db.sql
+docker compose exec -T drupal tar cz -C /app/files . > backup/drupal-files.tgz
+docker compose run --rm --no-deps -T --entrypoint tar frontend cz -C /app/frontend/var . > backup/collab-store.tgz
+docker compose start frontend
+```
+
+Restore is the reverse, into a stack whose `frontend` is stopped: the dump through `mariadb` (`mariadb -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" < db.sql`), each archive with `tar xz` into the same directory of the same service. Then `docker compose start frontend` and `docker compose exec drupal drush cr`.
+
 ## Resources and logs
 
-Idle, freshly installed: `opensearch` ~670 MB with a 256 MB heap (the default heap is 512 MB, `OPENSEARCH_JAVA_OPTS`), `mariadb` ~110 MB, `frontend` ~45 MB, `drupal` ~40 MB. Plan for 2 GB of RAM and 5 GB of disk for the images.
+Host sizing and image sizes are in the [README](../README.md#requirements): 8 GB of RAM free for a production host. `OPENSEARCH_JAVA_OPTS` sets the OpenSearch heap; the image default is 512 MB, a production host gives it 1 GB or more (`-Xms1g -Xmx1g`).
 
-All four services log to stdout: `docker compose logs -f drupal` (Caddy's access and error log as JSON lines, PHP errors among them), `frontend`, `mariadb`, `opensearch`. Drupal's own log is at `/admin/reports/dblog`.
+All services log to stdout: `docker compose logs -f drupal` (Caddy's access and error log as JSON lines, PHP errors among them), `frontend`, `cron` (supercronic's start and result line per run, plus whatever drush printed), `mariadb`, `opensearch`. Drupal's own log is at `/admin/reports/dblog`.
+
+The cron job reads `/app/files/.openkb-installed`, which `openkb-install` and `openkb-update` write. Without the marker it exits quietly, so the service can run before the site exists. With it, a site that does not bootstrap fails the run and supercronic logs it — a broken site is visible in `docker compose logs cron` rather than passing as a successful tick.
 
 ## Hosting the collaboration server
 

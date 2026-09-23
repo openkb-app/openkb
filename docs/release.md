@@ -78,10 +78,10 @@ OPENKB_TAG=1.2.3
 ```sh
 docker compose pull
 docker compose up -d
-docker compose exec drupal openkb-install   # first run only; it destroys an existing site
 ```
 
-On an existing site, `docker compose exec drupal openkb-update` replaces the
-`openkb-install` line. `OPENKB_IMAGE_PREFIX` points the same stack at another
-registry; unset, `OPENKB_TAG` is `dev`, the name `docker compose build` writes
-locally.
+The `drupal` container installs the site on a first boot. On an existing site
+whose database updates the new images left pending, it holds the site until an
+administrator has run `<drupal url>/update.php`. `OPENKB_IMAGE_PREFIX` points
+the same stack at another registry; unset, `OPENKB_TAG` is `dev`, the name
+`docker compose build` writes locally.

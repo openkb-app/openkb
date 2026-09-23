@@ -4,7 +4,8 @@
 #
 #  - database updates and deploy hooks,
 #  - config import, when the sync directory holds an export,
-#  - cache rebuild.
+#  - cache rebuild,
+#  - the install marker the cron service reads.
 #
 # Idempotent: a second run finds nothing to do.
 set -e
@@ -21,3 +22,7 @@ if ls config/sync/*.yml >/dev/null 2>&1; then
   $DRUSH config:import -y
 fi
 $DRUSH cache:rebuild
+
+# Reaching this point means the site bootstrapped and its updates ran, so the
+# marker the cron service reads belongs there.
+touch "${PERSISTENT_FILES_DIR:-files}/.openkb-installed"

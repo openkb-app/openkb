@@ -1,0 +1,29 @@
+#!/bin/sh
+# The image's entrypoint.
+#
+# The container that serves the site boots it alongside the web server:
+# `openkb-boot` installs it on first boot and holds it when an image update
+# left database updates pending, while Caddy already answers with the setup
+# page. Every other command — the cron service's supercronic, drush, a shell —
+# runs as given.
+#
+# OPENKB_AUTO_BOOT=0 turns the boot off, for a checkout whose site is installed
+# by `phapp init` (docker-compose.development.yml).
+set -e
+
+if [ "${OPENKB_AUTO_BOOT:-1}" = 1 ]; then
+  case "$1" in
+    # docker-php-entrypoint turns an argument list starting with an option into
+    # `frankenphp run`, which is what this image's CMD expands to.
+    -* | frankenphp)
+      # The marker goes up here, not in the background boot: Caddy serves the
+      # setup page from it, so it has to stand before the server accepts its
+      # first request.
+      : > /run/openkb/.openkb-holding ||
+        echo "openkb-entrypoint: cannot write the setup-page marker." >&2
+      openkb-boot &
+      ;;
+  esac
+fi
+
+exec docker-php-entrypoint "$@"

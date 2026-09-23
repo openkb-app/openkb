@@ -1,0 +1,2 @@
+# The `cron` service's crontab, run by supercronic.
+*/5 * * * * openkb-cron
