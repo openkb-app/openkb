@@ -2,6 +2,12 @@
 
 ## [1.0.0-alpha3] - 2026-09-23
 
+### Fixes
+
+- Start the cron service after drupal, so one container fills the files volume.
+
+## [1.0.0-alpha3] - 2026-09-23
+
 ## [1.0.0-alpha2] - 2026-09-23
 
 ### Features
