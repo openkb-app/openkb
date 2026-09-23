@@ -1,0 +1,125 @@
+# Cuts a release of this repository: the changelog, the version pin and the
+# tag that `images` then builds, attests and publishes.
+#
+# The tree arrives here through the sync scripts of the development project,
+# whose commits carry one subject per line; git-cliff turns those into the
+# changelog. Syncing is a separate, manual act.
+#
+# OPENKB_APP_TOKEN is the one secret: a fine-grained PAT with contents write on
+# this repository. A push with `GITHUB_TOKEN` starts no workflow, so the tag
+# would sit there without `images` ever running.
+
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to release, without the `v`, e.g. 1.0.0-alpha1.
+        required: true
+
+concurrency: release
+
+permissions:
+  contents: read
+
+env:
+  VERSION: ${{ inputs.version }}
+  # cliff.toml is written for this release.
+  GIT_CLIFF_VERSION: 2.14.2
+  GIT_CLIFF_SHA256: 24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # The push needs the credentials, and the token is what starts `images`.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: '1.x'
+          fetch-depth: 0
+          token: ${{ secrets.OPENKB_APP_TOKEN }}
+          persist-credentials: true
+
+      - name: Check user permission
+        uses: drunomics/workflow-permission-action@6a16646e8631715d8e20e6ec293749b4bde4fee7 # 3.0.0
+        with:
+          listfile: .github/workflows/release-allowed-users
+
+      # Everything that can be known before the first push is checked here, so
+      # a release that is not ready leaves no tag behind.
+      - name: Check the version
+        run: |
+          set -euo pipefail
+          case "$VERSION" in
+            v*) echo "The version is spelled without the leading v: $VERSION" >&2; exit 1 ;;
+          esac
+          git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null \
+            && { echo "v$VERSION is already tagged." >&2; exit 1; } || true
+          # The release pins drupal/openkb to the module release of the same
+          # version; Drupal spells it without the `v`.
+          git ls-remote --exit-code --tags https://git.drupalcode.org/project/openkb.git "refs/tags/$VERSION" > /dev/null || {
+            echo "drupal/openkb $VERSION is not tagged on drupal.org — release the module first" >&2
+            exit 1
+          }
+
+      - name: Install git-cliff
+        run: |
+          set -euo pipefail
+          archive=git-cliff-$GIT_CLIFF_VERSION-x86_64-unknown-linux-gnu.tar.gz
+          curl -fsSLo "$RUNNER_TEMP/$archive" \
+            "https://github.com/orhun/git-cliff/releases/download/v$GIT_CLIFF_VERSION/$archive"
+          echo "$GIT_CLIFF_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/git-cliff-$GIT_CLIFF_VERSION/git-cliff" /usr/local/bin/git-cliff
+          git-cliff --version
+
+      - name: Generate the changelog
+        run: |
+          set -euo pipefail
+          git-cliff --tag "v$VERSION" -o CHANGELOG.md
+          # `images` reads this section as the release notes.
+          grep -qF "## [$VERSION]" CHANGELOG.md || {
+            echo "git-cliff wrote no '## [$VERSION]' section." >&2
+            exit 1
+          }
+          awk -v h="## [$VERSION]" 'index($0, h) == 1 {f = 1; print; next} f && /^## / {exit} f' CHANGELOG.md
+
+      # The tree carries `1.x-dev`; a release names the module release. The
+      # lock is re-resolved for that one package, because `composer install`
+      # refuses a lock the constraint does not match. The next sync writes
+      # `1.x-dev` back.
+      - name: Pin the module version
+        run: |
+          set -euo pipefail
+          jq --indent 4 --arg v "$VERSION" '.require["drupal/openkb"] = $v' composer.json > composer.json.tmp
+          mv composer.json.tmp composer.json
+          # The container the sync resolves the lock in, so the lock keeps its shape.
+          composer() {
+            docker run --rm -v "$PWD:/app" -w /app -u "$(id -u):$(id -g)" \
+              -e COMPOSER_HOME=/tmp/composer composer:2 composer "$@"
+          }
+          composer update drupal/openkb --no-install --no-scripts --no-plugins \
+            --ignore-platform-reqs --no-interaction --quiet
+          composer validate --no-check-all
+          git diff --unified=0 composer.json
+
+      - name: Commit, tag and push
+        run: |
+          set -euo pipefail
+          git config user.name 'OpenKB'
+          git config user.email 'noreply@openkb.app'
+          git commit -m "release: v$VERSION." CHANGELOG.md composer.json composer.lock
+          git tag -a "v$VERSION" -m "OpenKB $VERSION"
+          git push origin 1.x "v$VERSION"
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          Tagged \`v$VERSION\`. \`images\` builds, attests and opens the release:
+
+          - <https://github.com/$GITHUB_REPOSITORY/actions>
+          - <https://github.com/$GITHUB_REPOSITORY/releases/tag/v$VERSION>
+          EOF

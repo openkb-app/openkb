@@ -23,7 +23,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: The existing tag to publish again, e.g. v1.2.3.
+        description: >-
+          An existing tag to publish again, e.g. v1.2.3. This workflow only
+          re-publishes a tag; cut a new one with the release workflow.
         required: true
 
 permissions:
@@ -34,6 +36,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
+      # Without it the checkout fails three fetch retries down, saying nothing.
+      - name: Check the tag exists
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$VERSION" > /dev/null || {
+            echo "Tag $VERSION does not exist — cut it with the release workflow first; this workflow only re-publishes an existing tag." >&2
+            exit 1
+          }
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.version }}
@@ -233,7 +247,7 @@ jobs:
             found { print }
             END { if (!found) exit 1 }
           ' CHANGELOG.md > notes.md || {
-            echo "CHANGELOG.md holds no '## [$version]' section. Generate it with git-cliff and sync it before tagging $TAG." >&2
+            echo "CHANGELOG.md holds no '## [$version]' section. The release workflow writes it; $TAG was not cut with it." >&2
             exit 1
           }
           {

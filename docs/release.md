@@ -5,6 +5,19 @@ is released on [drupal.org/project/openkb](https://www.drupal.org/project/openkb
 as `X.Y.Z` — Drupal spells a pre-release without the `v` and without a dot
 before the counter, so `v1.0.0-alpha1` here is `1.0.0-alpha1` there.
 
+## Cutting one
+
+Actions → `release` → **Run workflow**, `version` = `1.2.3`, without the `v`.
+The module release `1.2.3` has to exist on drupal.org first — the workflow
+checks for the tag and stops before it writes anything when it is missing.
+
+It generates `CHANGELOG.md` from the history with git-cliff and `cliff.toml`,
+and fails when the version gets no section; pins `drupal/openkb` to `1.2.3` in
+`composer.json` and `composer.lock`, where `1.x` carries `1.x-dev`; commits
+`release: v1.2.3.`,
+tags `v1.2.3` and pushes both to `1.x`. The tag is what starts everything
+below.
+
 ## What a version tag publishes
 
 The `images` workflow builds the stack, installs the site on it and checks it
@@ -14,9 +27,6 @@ answers, then verifies the FrankenPHP base image's SLSA provenance against
 `1.2.3`, `1.2`, `1` and `latest`, each with a build-provenance attestation in
 the registry. A pre-release tag (`v1.2.3-beta.1`) publishes that exact tag
 only — no `1.2`, `1` or `latest`.
-
-The release tree pins `drupal/openkb` to the module release of the same
-version, so the images of `1.2.3` carry the `1.2.3` module.
 
 It then opens the GitHub release: the version's `CHANGELOG.md` section as the
 notes, followed by how to run that version, marked pre-release when the
@@ -49,8 +59,9 @@ OPENKB_TAG=1.x            # follows the branch
 OPENKB_TAG=sha-1a2b3c4    # one build of it, pinned
 ```
 
-The `drupal/openkb` inside the image is the commit `composer.lock` pins, not
-what `1.x-dev` resolves to at build time: the image installs from the lock.
+The `drupal/openkb` inside a development image is the commit `composer.lock`
+pins, not what `1.x-dev` resolves to at build time: the image installs from the
+lock.
 
 ## Pinning a version
 

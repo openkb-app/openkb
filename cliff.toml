@@ -1,0 +1,53 @@
+# git-cliff configuration: generates CHANGELOG.md from the history of this
+# repository, for the release workflow.
+#
+# A commit here is a sync carrying one subject per line, so every line counts
+# as one entry; the `Sync from openkb-dev-project <sha>.` line is not
+# conventional and drops out with the rest of the unconventional ones. The
+# preprocessors are the second pass over a tracker id or a pull-request number
+# the sync did not strip.
+
+[changelog]
+header = """
+# Changelog
+
+"""
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.breaking %}[**Breaking change**] {% endif %}{{ commit.message | trim | upper_first }}\
+    {% endfor %}
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+# A `!` commit is kept even when its type is skipped.
+protect_breaking_commits = true
+split_commits = true
+# Tracker ids and PR numbers never reach the generated file.
+commit_preprocessors = [
+    { pattern = '\b(OKB|CSR|MCD|LDP|MOP)-[0-9]+[:/]?[ \t]*', replace = "" },
+    { pattern = '(?m) \(#[0-9]+\)$', replace = "" },
+]
+commit_parsers = [
+    { message = "^feat", group = "<!-- 0 -->Features" },
+    { message = "^fix", group = "<!-- 1 -->Fixes" },
+    { message = "^improve", group = "<!-- 2 -->Improvements" },
+    { message = "^perf", group = "<!-- 3 -->Performance" },
+    { message = "^docs", group = "<!-- 4 -->Documentation" },
+    { message = "^(chore|ci|test|refactor|build|style)", skip = true },
+    { message = ".*", skip = true },
+]
+filter_commits = false
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"
