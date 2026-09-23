@@ -1,4 +1,0 @@
-# The entity types that may be commented on. A request naming any other type
-# is refused: the endpoint is generic, the deployment is not.
-entity_types:
-  - node

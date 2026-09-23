@@ -25,6 +25,8 @@ RUN --mount=type=cache,target=/root/.composer/cache \
  && rm -rf patches
 
 COPY web web/
+# Next to the composer-installed recipes/lupus_decoupled_recipe they build on.
+COPY recipes recipes/
 # What openkb-install and openkb-update run.
 COPY scripts/site-install.sh scripts/site-update.sh scripts/ensure-oauth-keys.sh scripts/setup-collab-oauth.sh scripts/
 

@@ -1,8 +1,0 @@
-name: 'AI RAG citations test fixtures'
-type: module
-description: 'Fixtures: a retriever whose answers the test decides, a provider that answers from a script, and a stand-in for a backend that answers processed field values.'
-package: Testing
-core_version_requirement: ^11.3
-dependencies:
-  - ai_rag_cite:ai_rag_cite
-hidden: true

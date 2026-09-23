@@ -31,7 +31,7 @@ import {
 import { mapEditorItems } from '@nuxt/ui/utils/editor'
 import { approvalStanding, blockMenuItems, NO_BLOCK_MENU, type BlockMenuNode } from '~/editor/block-menu'
 import { parseMarkdownToJson, serializeDocToMarkdown } from '~/comark/markdown-engine'
-import { comarkHandlers, slashItems, insertBlockItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
+import { comarkHandlers, insertToolbarItem, slashItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
 import { setMediaPickerNode } from '~/composables/useMediaLibraryPicker'
 import { useDocLinkSearch } from '~/composables/useDocLinkSearch'
 import { caretInBlock } from '~/editor/cite-insert'
@@ -647,14 +647,6 @@ export async function useEditorSession(
     }, 120)
   })
 
-  function insertAiPrompt() {
-    toast.add({
-      title: 'AI Prompt block',
-      description: 'Inline AI block insertion lands in beta2.',
-      icon: 'i-lucide-sparkles',
-    })
-  }
-
   function attachFile() {
     toast.add({
       title: 'Attach file',
@@ -1104,24 +1096,21 @@ export async function useEditorSession(
     editorRef.value?.editor?.chain().setNodeSelection(pos).focus().run()
   }
 
-  // The (+) insert menu: the rarer blocks, from the one shared list the slash
-  // menu also draws from, plus the AI-prompt placeholder appended here (it has
-  // no editor command yet, so it carries its own onSelect). Sits on the
-  // formatting toolbar; it is the one insert control that survives the tightest
-  // collapse (B · I · ＋).
+  /**
+   * Keeps the caret where an insert put it: the `[[` and `[^` pickers close on
+   * editor blur, and a closing dropdown gives the focus back to its trigger. A
+   * menu left without inserting never focused the editor, so the focus goes
+   * back to the (+) button, which is what a keyboard user needs.
+   */
+  function onInsertMenuCloseAutoFocus(event: Event) {
+    if (editorRef.value?.editor?.isFocused) event.preventDefault()
+  }
+
+  // The (+) insert menu. It is the one insert control that survives the
+  // tightest toolbar collapse (B · I · ＋).
   const insertMenuItem = {
-    icon: 'i-lucide-plus',
-    tooltip: { text: 'Insert block' },
-    'aria-label': 'Insert block',
-    items: [
-      insertBlockItems,
-      [{
-        label: 'AI Prompt block',
-        icon: 'i-lucide-sparkles',
-        color: 'ai' as const,
-        onSelect: insertAiPrompt,
-      }],
-    ],
+    ...insertToolbarItem,
+    content: { onCloseAutoFocus: onInsertMenuCloseAutoFocus },
   }
 
   // Undo / redo. The session runs Collaboration, so these are the Y.js
@@ -1183,7 +1172,7 @@ export async function useEditorSession(
   ))
 
   // The per-block tools beside the toolbar. Both act on the block holding the
-  // cursor. AI-prompt lives in (+), attach in the ⋯ menu. Comment is always
+  // cursor. Inserts live in (+), attach in the ⋯ menu. Comment is always
   // shown; mark-reviewed only where a step is pending, since that is the only
   // state the sign-off has something to record.
   //

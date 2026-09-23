@@ -43,7 +43,7 @@ x-drupal-environment:
     OKB_COLLAB_CLIENT_SECRET: ${OKB_COLLAB_CLIENT_SECRET:-}
     # Read by `openkb-install`. Unset, it generates one and prints it.
     ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-    # Where `openkb-install` finds the OpenKB recipes; the image ships without.
+    # Where `openkb-install` finds the recipes, which the image ships.
     OPENKB_RECIPES_DIR: ${OPENKB_RECIPES_DIR:-/app/recipes}
     # Optional. Without it the chat and the chunk index stay unusable.
     OPENAI_API_KEY: ${OPENAI_API_KEY:-}

@@ -1,7 +1,0 @@
-name: 'Inline comment'
-type: module
-description: 'Threaded comments anchored to a region of an entity — an append-only message log stored beside the commented entity, served by one JSON endpoint.'
-package: Other
-core_version_requirement: ^10.3 || ^11
-dependencies:
-  - drupal:user

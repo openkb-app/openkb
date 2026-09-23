@@ -3,6 +3,7 @@
 !composer.lock
 !patches
 !openkb
+!recipes
 !scripts
 !web
 !docker/drupal
@@ -13,6 +14,7 @@ web/files
 web/sites/*/files
 web/libraries
 web/modules/contrib
+recipes/lupus_decoupled_recipe
 web/profiles/contrib
 web/themes/contrib
 web/sites/simpletest

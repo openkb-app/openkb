@@ -1,5 +1,0 @@
-# Config schema for the ComarkIndexable search_api processor (no settings).
-search_api.processor_settings.comark_indexable:
-  type: mapping
-  label: 'Comark indexable processor settings'
-  mapping: {  }

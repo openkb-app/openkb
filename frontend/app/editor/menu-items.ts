@@ -223,39 +223,40 @@ export const comarkHandlers: Record<string, EditorHandler> = {
 }
 
 /**
- * The rarer block inserts, offered by both the slash menu and the formatting
- * toolbar's (+) menu — one list so the two never drift. `kind` routes each
- * through the editor handler map (createHandlers + comarkHandlers); the
- * AI-prompt placeholder has no command yet, so the (+) menu appends it
- * separately with the session's own handler.
+ * Every block the editor inserts, in one list — the slash menu renders it and
+ * so does the formatting toolbar's (+) menu, so the two never drift. `kind`
+ * routes a row through the editor handler map (createHandlers +
+ * comarkHandlers); a `type: 'label'` row heads the group under it.
  */
-export const insertBlockItems = [
-  { kind: 'taskList', label: 'Task list', icon: 'i-lucide-list-todo', description: 'Checklist with checkboxes' },
-  { kind: 'codeBlock', label: 'Code block', icon: 'i-lucide-code', description: 'Fenced code block' },
-  { kind: 'horizontalRule', label: 'Horizontal rule', icon: 'i-lucide-minus', description: 'Divider line' },
-  { kind: 'callout', type: 'info', label: 'Callout', icon: 'i-lucide-info', description: 'Info box — switch the type inside' },
-  { kind: 'infobox', label: 'Infobox', icon: 'i-lucide-square', description: 'Titled bordered box' },
-]
-
-const [taskList, codeBlock, horizontalRule] = insertBlockItems
-const comarkInserts = insertBlockItems.slice(3)
-
 export const slashItems = [[
   { type: 'label', label: 'Text' },
   { kind: 'heading', level: 2, label: 'Heading 2', icon: 'i-lucide-heading-2', description: 'Section heading' },
   { kind: 'heading', level: 3, label: 'Heading 3', icon: 'i-lucide-heading-3', description: 'Sub-section heading' },
   { kind: 'bulletList', label: 'Bullet list', icon: 'i-lucide-list', description: 'Unordered list' },
   { kind: 'orderedList', label: 'Ordered list', icon: 'i-lucide-list-ordered', description: 'Numbered list' },
-  taskList,
+  { kind: 'taskList', label: 'Task list', icon: 'i-lucide-list-todo', description: 'Checklist with checkboxes' },
   { kind: 'table', label: 'Table', icon: 'i-lucide-table', description: '3×3 table with header row' },
-  codeBlock,
-  horizontalRule,
+  { kind: 'codeBlock', label: 'Code block', icon: 'i-lucide-code', description: 'Fenced code block' },
+  { kind: 'horizontalRule', label: 'Horizontal rule', icon: 'i-lucide-minus', description: 'Divider line' },
   { kind: 'image', label: 'Image', icon: 'i-lucide-image', description: 'Image from the media library' },
   { kind: 'docLink', label: 'Link to a page', icon: 'i-lucide-file-symlink', description: 'Link to another page or one of its blocks' },
   { kind: 'cite', label: 'Cite a source', icon: 'i-lucide-quote', description: 'Cite the page or block this text comes from' },
   { type: 'label', label: 'Comark' },
-  ...comarkInserts,
+  { kind: 'callout', type: 'info', label: 'Callout', icon: 'i-lucide-info', description: 'Info box — switch the type inside' },
+  { kind: 'infobox', label: 'Infobox', icon: 'i-lucide-square', description: 'Titled bordered box' },
 ]]
+
+/**
+ * The (+) menu on the formatting toolbar: the slash menu's list as a dropdown,
+ * so neither surface holds a list of its own. The session adds the `content`
+ * hook that keeps the caret in the editor once the menu closes.
+ */
+export const insertToolbarItem = {
+  icon: 'i-lucide-plus',
+  tooltip: { text: 'Insert block' },
+  'aria-label': 'Insert block',
+  items: slashItems,
+}
 
 /**
  * The row and column operations, in the order every table surface offers

@@ -26,15 +26,12 @@ updates:
       e2e-deps:
         patterns: ["*"]
   - package-ecosystem: composer
-    directory: /
+    directories:
+      - /
+      - /openkb
     schedule:
       interval: weekly
     open-pull-requests-limit: 1
-    # composer-patches v2 changes the patch-declaration format and we carry four
-    # patches, so the major needs its own round — keep it off the grouped PR.
-    ignore:
-      - dependency-name: "cweagans/composer-patches"
-        update-types: ["version-update:semver-major"]
     groups:
       php-deps:
         patterns: ["*"]

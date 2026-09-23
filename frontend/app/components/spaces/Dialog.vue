@@ -7,7 +7,7 @@
  */
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from 'vue'
 import type { KbSpaceDetail, KbSpaceReadAccess } from '#shared/utils/kb-spaces'
-import { READ_ACCESS_OPTIONS, MODERATION_OPTIONS, AGENT_REVIEW_OPTIONS } from '~/utils/space-policy'
+import { READ_ACCESS_OPTIONS, MODERATION_FLAG, AGENT_REVIEW_FLAG } from '~/utils/space-policy'
 
 /** The space being edited; absent is the create mode. */
 const props = defineProps<{ space?: KbSpaceDetail | null }>()
@@ -37,8 +37,8 @@ const nameError = ref<string | null>(null)
 const opened = ref({ description: '', readAccess: 'members_only' as KbSpaceReadAccess, moderation: true, agentReview: true })
 
 const readAccessOptions = computed(() => READ_ACCESS_OPTIONS.map(option => ({ ...option, testid: idFor(`read-access-${option.value}`) })))
-const moderationOptions = computed(() => MODERATION_OPTIONS.map(option => ({ ...option, testid: idFor(`moderation-${option.value ? 'on' : 'off'}`) })))
-const agentReviewOptions = computed(() => AGENT_REVIEW_OPTIONS.map(option => ({ ...option, testid: idFor(`agent-review-${option.value ? 'on' : 'off'}`) })))
+const moderationHint = computed(() => MODERATION_FLAG.hint[moderation.value ? 'on' : 'off'])
+const agentReviewHint = computed(() => AGENT_REVIEW_FLAG.hint[agentReview.value ? 'on' : 'off'])
 
 const canSubmit = computed(() => (editing.value || !!name.value.trim()) && !submitting.value)
 
@@ -218,23 +218,31 @@ function describeFailure(e: unknown) {
             />
           </UFormField>
 
-          <UFormField label="Editing workflow">
-            <SpacePolicyOptions
+          <!-- Two yes/no flags: each switch names its on-state, the hint
+               says what the current state does. A fieldset, not a form field:
+               each switch is labelled by its own label, the legend names the
+               group. -->
+          <fieldset class="flex min-w-0 flex-col gap-3">
+            <legend class="mb-1 block text-sm font-medium text-default">
+              Publishing
+            </legend>
+            <USwitch
+              :id="idFor('moderation')"
               v-model="moderation"
-              :options="moderationOptions"
+              :label="MODERATION_FLAG.label"
+              :description="moderationHint"
               :disabled="submitting"
-              aria-label="Editing workflow"
+              :data-testid="idFor('moderation')"
             />
-          </UFormField>
-
-          <UFormField label="Agent review">
-            <SpacePolicyOptions
+            <USwitch
+              :id="idFor('agent-review')"
               v-model="agentReview"
-              :options="agentReviewOptions"
+              :label="AGENT_REVIEW_FLAG.label"
+              :description="agentReviewHint"
               :disabled="submitting"
-              aria-label="Agent review"
+              :data-testid="idFor('agent-review')"
             />
-          </UFormField>
+          </fieldset>
         </form>
 
         <!-- Its own form, outside this one: the roster saves per change, on the

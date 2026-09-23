@@ -20,7 +20,7 @@ export const SPACE_TYPE = 'openkb_space--openkb_space'
 /**
  * Permission that governs creating a space.
  *
- * `openkb_recipe_main` lists it under `lupus_decoupled_site_info.settings`, so
+ * `openkb_recipe_core` lists it under `lupus_decoupled_site_info.settings`, so
  * `/api/site-info` answers whether the session holds it and the add-space CTA
  * is drawn on that. Drupal still enforces the write.
  */
@@ -29,7 +29,7 @@ export const SPACE_CREATE_PERMISSION = 'create openkb_space'
 /**
  * The site-wide half of who may create a page — core's per-bundle one.
  *
- * `openkb_recipe_main` lists it under `lupus_decoupled_site_info.settings`
+ * `openkb_recipe_core` lists it under `lupus_decoupled_site_info.settings`
  * beside {@link SPACE_CREATE_PERMISSION}, so `/api/site-info` answers whether
  * the session holds it. It is only half the answer: a page also lands in a
  * space, and that takes write access there ({@link canCreatePageIn}).

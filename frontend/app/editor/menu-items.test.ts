@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { Editor } from '@tiptap/core'
 import type { Node as ProseNode } from '@tiptap/pm/model'
+import { createHandlers } from '@nuxt/ui/utils/editor'
 import { editorSchema } from '../../server/utils/editor-schema'
-import { comarkHandlers, insertBlockItems, slashItems, tableBubbleItems, tableOpItems, tableToolbarItem } from './menu-items'
+import { comarkHandlers, insertToolbarItem, slashItems, tableBubbleItems, tableOpItems, tableToolbarItem } from './menu-items'
 import { takeLinkSelection } from './doc-link-selection'
 
 /** An editor whose chain records the calls a handler makes on it. */
@@ -82,9 +83,37 @@ describe('the citation opener', () => {
 
 describe('the callout insert', () => {
   it('is one row; the type is switched inside the editor', () => {
-    const callouts = insertBlockItems.filter(item => item.kind === 'callout')
+    const callouts = slashItems.flat().filter(item => 'kind' in item && item.kind === 'callout')
     expect(callouts).toHaveLength(1)
     expect(callouts[0]).toMatchObject({ label: 'Callout', type: 'info' })
+  })
+})
+
+/** A row as both menus dispatch it: its `kind`, or the group label it heads. */
+function rowKinds(groups: ReadonlyArray<ReadonlyArray<Record<string, unknown>>>) {
+  return groups.flat().map(row => ('kind' in row ? row.kind : `— ${row.label}`))
+}
+
+describe('the block inserts', () => {
+  const expected = [
+    '— Text',
+    'heading', 'heading', 'bulletList', 'orderedList', 'taskList', 'table',
+    'codeBlock', 'horizontalRule', 'image', 'docLink', 'cite',
+    '— Comark',
+    'callout', 'infobox',
+  ]
+
+  it('reach the slash menu and the (+) menu as the same rows in the same order', () => {
+    expect(rowKinds(slashItems)).toEqual(expected)
+    expect(rowKinds(insertToolbarItem.items)).toEqual(expected)
+  })
+
+  it('all have a command behind them', () => {
+    const handlers = { ...createHandlers(), ...comarkHandlers }
+    for (const row of slashItems.flat()) {
+      if (!('kind' in row)) continue
+      expect(handlers[row.kind], row.label).toBeTruthy()
+    }
   })
 })
 
