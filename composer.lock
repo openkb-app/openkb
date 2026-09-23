@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d1c7fad641aa964423037ea14e0dc4dd",
+    "content-hash": "ab70d58005562ec10fad9674b9f56cc3",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -3659,7 +3659,7 @@
         },
         {
             "name": "drupal/openkb",
-            "version": "1.0.0-alpha2",
+            "version": "1.0.0-alpha3",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
