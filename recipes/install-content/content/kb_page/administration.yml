@@ -1,0 +1,74 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: b4f12fe6-da19-5c78-a1b8-ab642b1905ac
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    2323ab5c-5489-52da-ac0c-0bbb5e646fb1: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Administration'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/administration
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 2323ab5c-5489-52da-ac0c-0bbb5e646fb1
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Administration {#b-be90e9a4}
+
+        For the site administrator: the checklist after install, AI setup, user accounts, backups and updates. {#b-edf5fa8a}
+
+        ::block{#b-98d67ac4}
+        - [Initial setup](/openkb-user-guide/initial-setup)
+        - [Turning on AI](/openkb-user-guide/turning-on-ai)
+        - [Users and roles](/openkb-user-guide/users-and-roles)
+        - [Customizing page types](/openkb-user-guide/customizing-page-types)
+        - [Backups and updates](/openkb-user-guide/backups-and-updates)
+        ::

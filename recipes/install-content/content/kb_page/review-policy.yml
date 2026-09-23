@@ -1,0 +1,104 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: acdfa21a-6885-5045-877c-d31046cb596c
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    ec808cff-e174-548d-8d32-2b3b119894e8: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Review policy per space'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/review-policy
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: ec808cff-e174-548d-8d32-2b3b119894e8
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Review policy per space {#b-241e8e23}
+
+        ## Goal {#b-b582fb9d}
+
+        Choose whether edits in a space are reviewed before they go live, and whether agent edits need a person's sign-off. {#b-353fd7b9}
+
+        ## The two switches {#b-0d95d68a}
+
+        Both are in the "New space" dialog and in "Space settings", under "Publishing". Both are on for a new space. {#b-058c31e4}
+
+        ::block{#b-7dd53799}
+        - "Review before publishing". On: publishing waits until a second pair of eyes has signed the changed blocks off. Off: anyone on the roster publishes whenever they are ready. Saving is a draft either way.
+        - "Agent edits need a human sign-off". On: a block an agent wrote waits for a person to sign it off before the page can be published. Off: agent-written blocks publish like human edits.
+        ::
+
+        The second switch holds even when the first is off. A wiki-style space still keeps unreviewed agent text off the live page. {#b-bc346a50}
+
+        ## Steps {#b-222ce478}
+
+        ::block{#b-5850eacb}
+        1. Open the space's page and click "Settings".
+        2. Turn the switches under "Publishing" on or off.
+        3. Click "Save changes".
+        ::
+
+        The change applies to the next publish. Nothing has to be republished. {#b-04ba278c}
+
+        ## What changes with review on {#b-9bbf635e}
+
+        ::block{#b-813c1698}
+        - Every changed block, a moved block, a removed block and a changed title is a review item. Each needs a sign-off from someone who did not write it.
+        - Managers and members still both publish. The difference between them is managing the space.
+        - Only managers may rearrange the page tree. With review off, members may too.
+        ::
+
+        ## Related topics {#b-ad600ea9}
+
+        ::block{#b-08242e99}
+        - [Drafts, publish and sign-off](/openkb-user-guide/drafts-publish-and-sign-off)
+        - [Reviewing agent edits](/openkb-user-guide/reviewing-agent-edits)
+        ::

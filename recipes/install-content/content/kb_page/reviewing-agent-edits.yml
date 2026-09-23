@@ -1,0 +1,93 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 8ea434ad-77e1-597c-a774-051a39f96664
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Reviewing agent edits'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/reviewing-agent-edits
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Reviewing agent edits {#b-a923fdce}
+
+        ## Goal {#b-3c749099}
+
+        Sign off a block an agent wrote, so the page can be published. {#b-22718f46}
+
+        ## How an agent edit looks {#b-48eafec7}
+
+        An agent writes into the page's draft, never onto the live page. In the editor, every block it wrote shows the pill "Pending agent review" in the margin. On the read page, the block card (the ⓘ sign) shows "Agent review" with "Awaiting sign-off". The "Publish" button is greyed, and its tooltip says how many changes are waiting. {#b-53f850ec}
+
+        ## Steps {#b-417e7280}
+
+        ::block{#b-d71c33f4}
+        1. Open the page in the editor and click "Review" in the header. The pane lists the agent's blocks under "Waiting on a human to read what the agent wrote".
+        2. Click a row to jump to the block and read it.
+        3. Click the checkmark next to the pill, "Sign off the agent write".
+        4. When every block is signed off, click "Publish".
+        ::
+
+        Any person who may write in the space may sign off an agent's block, including the person the agent works for. This is not a four-eyes step: it asks for a person, not for a second one. In a space with "Review before publishing" on, the block also waits for the peer review by someone else, and shows two pills. {#b-de5af5ee}
+
+        To skip this step in a space, turn off "Agent edits need a human sign-off" in the space settings. See [Review policy per space](/openkb-user-guide/review-policy). {#b-5071080d}
+
+        ## Related topics {#b-8f12b099}
+
+        ::block{#b-49667a7a}
+        - [Working with an agent on a page](/openkb-user-guide/working-with-an-agent)
+        - [Drafts, publish and sign-off](/openkb-user-guide/drafts-publish-and-sign-off)
+        - [Agents as users](/openkb-user-guide/agents-as-users)
+        ::

@@ -1,0 +1,96 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 7fb618df-d7d9-5112-af20-a171cc08c92b
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Connect an agent by URL'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/connect-an-agent
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Connect an agent by URL {#b-1209b7ca}
+
+        ## Goal {#b-3cb0c3a1}
+
+        Connect an MCP client, for example Claude, to the knowledge base, and approve it once. {#b-acffe81e}
+
+        ## Prerequisites {#b-745493a6}
+
+        An ordinary account. A site administrator cannot own an agent. {#b-caa7dbbb}
+
+        ## Steps {#b-88d88f10}
+
+        ::block{#b-4b6cf189}
+        1. Open the account menu at the bottom of the sidebar and choose "Agents & API clients".
+        2. Under "Connect an agent (MCP)", copy the URL. It ends in `/api/mcp`.
+        3. In the client, add the URL as a custom connector. For Claude Code, the page shows the command to run.
+        4. The client registers itself and sends you to the consent screen. It is headed "Allow <client> to use OpenKnowledgebase" and lists what the client will be allowed to do.
+        5. Give the agent a name under "Name of this agent". Everything it writes is recorded as "you via <name>".
+        6. Click "Allow". You are sent back to the client.
+        ::
+
+        The client now appears under "Your clients" on the same page, marked "Active", with the date it was connected and when it was last used. {#b-4ac964d7}
+
+        ## Revoking a client {#b-7117e546}
+
+        On "Agents & API clients", click "Revoke" next to the client and confirm. Its tokens stop working. The row stays, marked "Revoked", so that what it wrote keeps its attribution. {#b-67db634d}
+
+        ## Related topics {#b-b47b6c82}
+
+        ::block{#b-bfe861c9}
+        - [Agents as users](/openkb-user-guide/agents-as-users)
+        - [Agent tokens](/openkb-user-guide/agent-tokens)
+        ::

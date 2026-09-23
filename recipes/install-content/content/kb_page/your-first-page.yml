@@ -1,0 +1,98 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 5627f83c-f3da-514c-a2ab-f32cda0c5cbb
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    7d8db27c-9c97-5673-bf38-54729776460d: taxonomy_term
+    31f88b49-522e-53ce-a819-da9df9b9862c: media
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Your first page'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/your-first-page
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 7d8db27c-9c97-5673-bf38-54729776460d
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Your first page {#b-720c0e09}
+
+        ## Goal {#b-91938944}
+
+        Create a page in a space, write a first paragraph and publish it. {#b-9f477299}
+
+        ## Prerequisites {#b-edc1bb67}
+
+        You are signed in and are a member or manager of a space. [Members and access](/openkb-user-guide/members-and-access) explains the rosters. Every signed-in user can also create a space of their own, see [Spaces](/openkb-user-guide/spaces). {#b-2211e36b}
+
+        ## Steps {#b-7c9ea654}
+
+        ::block{#b-3f393ce5}
+        1. Open the space in the sidebar, or open the home page.
+        2. Click "New page". The button is in the sidebar, on the home page and on the space's page.
+        3. Enter a title. Pick a "Type" if the default, Article, does not fit. On the home page, also pick the space.
+        4. Click "Create page". The page opens in the editor. Its address is the space's address followed by the title, for example /engineering/onboarding.
+        5. Write below the title. Press Enter to start a new paragraph. Type `- ` for a list or `## ` for a heading. See [Markdown and callouts](/openkb-user-guide/markdown-and-callouts).
+        6. Click "Publish" to put the page live. Publish takes what is in the editor; saving first is not required. In a space with review, "Publish" waits until the changes are signed off. See [Drafts, publish and sign-off](/openkb-user-guide/drafts-publish-and-sign-off).
+        7. Or click "Save" to keep the page as a draft in its history without publishing. The editor closes and the page shows the "Draft" badge.
+        ::
+
+        ::image{media="31f88b49-522e-53ce-a819-da9df9b9862c" alt="The OpenKB editor with a new page open: the title, a heading and a paragraph below it, and the block gutter beside them." #b-64ab2f8f}
+        ::
+
+        To edit an existing page later, open it and click "Edit", or double-click a paragraph. The X button, "Close editor", leaves the editor. {#b-35ecb6ce}
+
+        ## Expand your understanding {#b-b47af026}
+
+        ::block{#b-d50ad031}
+        - [Pages and blocks](/openkb-user-guide/pages-and-blocks)
+        - [Page types and tags](/openkb-user-guide/page-types-and-tags)
+        - [Keyboard shortcuts](/openkb-user-guide/keyboard-shortcuts)
+        ::

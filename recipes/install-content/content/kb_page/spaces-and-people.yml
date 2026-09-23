@@ -1,0 +1,72 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: d908a7dd-a7b0-58e0-aa32-5352164c488a
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    ec808cff-e174-548d-8d32-2b3b119894e8: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Spaces and people'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/spaces-and-people
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: ec808cff-e174-548d-8d32-2b3b119894e8
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Spaces and people {#b-ea13e3c2}
+
+        Spaces, their rosters, read access and review policy. {#b-e762531f}
+
+        ::block{#b-b4736979}
+        - [Spaces](/openkb-user-guide/spaces)
+        - [Members and access](/openkb-user-guide/members-and-access)
+        - [Review policy per space](/openkb-user-guide/review-policy)
+        ::

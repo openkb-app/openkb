@@ -1,0 +1,92 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: a9f658c2-ebe4-5edb-9836-26f95e73d7fd
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Agent tokens'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/agent-tokens
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Agent tokens {#b-85c33b75}
+
+        ## Goal {#b-227e55d9}
+
+        Give an agent that cannot open a browser, such as a script or a scheduled job, its own credentials. {#b-972d7c31}
+
+        ## Prerequisites {#b-70b1e38e}
+
+        An ordinary account. The token acts as this account. {#b-80efaea6}
+
+        ## Steps {#b-167153c9}
+
+        ::block{#b-383432d0}
+        1. Open the account menu and choose "Agents & API clients".
+        2. Under "Provision a token", enter a name for the client and click "Create API client".
+        3. Copy the "Client ID" and the "Client secret". The secret is shown once, on this page only.
+        4. Give both to the agent. It exchanges them at `/oauth/token` on the administration host for a short-lived access token (the client credentials grant), and sends that token as a bearer token to the `/api/mcp` endpoint.
+        ::
+
+        ## Revoking {#b-14bc3319}
+
+        Click "Revoke" next to the client under "Your clients" and confirm. Existing tokens stop working and no new ones are issued. {#b-3bf5ee03}
+
+        ## Related topics {#b-5953fc72}
+
+        ::block{#b-345f1cec}
+        - [Connect an agent by URL](/openkb-user-guide/connect-an-agent): the path for a client with a browser.
+        - [Agents as users](/openkb-user-guide/agents-as-users)
+        ::

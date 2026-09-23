@@ -1,0 +1,92 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 5262ab56-09a8-5017-9dae-291b0b0bfc24
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    2323ab5c-5489-52da-ac0c-0bbb5e646fb1: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Initial setup'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/initial-setup
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 2323ab5c-5489-52da-ac0c-0bbb5e646fb1
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Initial setup {#b-c387bc10}
+
+        ## Goal {#b-2745f762}
+
+        Take a freshly installed site from the install output to a knowledge base people can use. {#b-d38e5e84}
+
+        ## Prerequisites {#b-b3f29846}
+
+        The install finished and printed the site's address, the administration address and the `admin` password. See [Installation](https://github.com/openkb-app/openkb/blob/1.x/README.md#installation). {#b-999802d6}
+
+        ## Steps {#b-8aea9094}
+
+        ::block{#b-20a80beb}
+        1. Open the site's address and sign in as `admin` with the password from the install output.
+        2. Set your own account. Open the account menu at the bottom of the sidebar, choose "Edit profile" and set the email address and a password of your own.
+        3. Create an editor account for yourself and use it for everyday work: writing, the chat and agents. Editing from the chat and every agent run under an agent token, which an administrator account cannot hold. Keep the `admin` account for administration. See [Users and roles](/openkb-user-guide/users-and-roles).
+        4. Turn on the AI. Put the provider key in the site's environment and re-feed the index, as [Turning on AI](/openkb-user-guide/turning-on-ai) and [AI setup](https://github.com/openkb-app/openkb/blob/1.x/README.md#ai-setup) describe. Without it, search by words, editing, review and agents work; the assistant stays off.
+        5. Decide where content goes. The [home page](/) lists the spaces. Start in one of the starter spaces, [Knowledge base](/knowledge-base) for reviewed documentation and [Team wiki](/team-wiki) for notes without review, or click "New space" and make your own. See [Spaces](/openkb-user-guide/spaces).
+        6. Create accounts for the people who will use the site, see [Users and roles](/openkb-user-guide/users-and-roles). An account reads the spaces open to all users; to let a person write in a space, add them to its members, see [Members and access](/openkb-user-guide/members-and-access).
+        7. Set up backups before the first real content lands. See [Backups and updates](/openkb-user-guide/backups-and-updates).
+        8. Sign in with the editor account and write the first page. See [Your first page](/openkb-user-guide/your-first-page).
+        ::
+
+        ## Related topics {#b-d1c7966e}
+
+        ::block{#b-327e1d12}
+        - [Welcome to OpenKnowledgebase](/openkb-user-guide/welcome)
+        - [Customizing page types](/openkb-user-guide/customizing-page-types)
+        ::

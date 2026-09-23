@@ -1,0 +1,101 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: c02724c8-01ec-514c-a915-f79930e26138
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    7d8db27c-9c97-5673-bf38-54729776460d: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Welcome to OpenKnowledgebase'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/welcome
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 7d8db27c-9c97-5673-bf38-54729776460d
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Welcome to OpenKnowledgebase {#b-908c1685}
+
+        ## What is OpenKnowledgebase? {#b-dcd52cea}
+
+        OpenKnowledgebase is a knowledge base for people and AI agents. Pages are written in Markdown and edited together in the browser. Agents read and write the same pages through the same store. {#b-60a7ec43}
+
+        A knowledge base is organised in spaces. A space holds pages, decides who may read and write them, and whether edits are reviewed before they go live. {#b-fcdaf8ac}
+
+        ## What this space is {#b-bc779f61}
+
+        OpenKB User guide is a space like any other. Every signed-in user can read it. Members of this space can edit these pages; every change is reviewed before it is published. {#b-79f4aa96}
+
+        The guide has five parts: {#b-c7b1a698}
+
+        ::block{#b-3c562201}
+        - [First steps](/openkb-user-guide/first-steps): sign in, make a page, find things.
+        - [Writing](/openkb-user-guide/writing): blocks, Markdown, collaborative editing, drafts and review, history.
+        - [Spaces and people](/openkb-user-guide/spaces-and-people): spaces, rosters, read access and review policy.
+        - [AI](/openkb-user-guide/ai): the assistant, search by meaning, and agents.
+        - [Administration](/openkb-user-guide/administration): the checklist after install, AI setup, user accounts, backups and updates.
+        ::
+
+        ## Where things are {#b-f1c29a13}
+
+        ::block{#b-c521f825}
+        - The sidebar on the left shows the space you are in and its page tree. The space switcher at its top lists every space you may read.
+        - The home page shows what changed recently and the spaces you may read.
+        - The account menu is at the bottom of the sidebar. It holds "Shortcuts", "Edit profile", "Agents & API clients" and "Log out".
+        - The "Ask OpenKnowledgebase" button in the bottom right corner opens the assistant.
+        ::
+
+        ## Related topics {#b-74a1ddff}
+
+        ::block{#b-e1b28042}
+        - [Your first page](/openkb-user-guide/your-first-page)
+        - [Finding things](/openkb-user-guide/finding-things)
+        - [Spaces](/openkb-user-guide/spaces)
+        ::

@@ -1,0 +1,100 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: d7321af1-9626-50aa-8dd3-9ae9f5eabaf8
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    6aa3a5ad-6beb-545f-8f66-86c3a78c7508: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Page types and tags'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/page-types-and-tags
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 6aa3a5ad-6beb-545f-8f66-86c3a78c7508
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Page types and tags {#b-5aca5765}
+
+        ## Goal {#b-833253f4}
+
+        Set a page's type, tags, summary and owner. {#b-060765be}
+
+        ## Steps {#b-883dbf68}
+
+        ::block{#b-14b299b3}
+        1. Open the page and click "Edit".
+        2. Click "Details" above the title. The form shows the page's fields. Clicking the type pill next to the title opens it too.
+        3. Choose a "Type": Article, ADR, Guide or Runbook. The type is required. It shows on the page and is a filter on the search page.
+        4. Add "Tags". Type to search the existing tags and pick one, or type a new one to create it. Tags show in search results.
+        5. Fill in "Summary" for a one-paragraph abstract used in listings and search.
+        6. Set an "Owner": the person accountable for keeping the page current.
+        7. Click "Save". The fields are part of the page's draft and go live with it.
+        ::
+
+        The space is not a field here. A page is created in a space and moved with "Move to space…" in the "More" menu. {#b-947d5332}
+
+        ## The four types {#b-b47269aa}
+
+        ::block{#b-66dc1c85}
+        - Article: the default. Anything written to be read.
+        - ADR: an architecture decision record. A decision, its context and its consequences.
+        - Guide: a how-to, like this page.
+        - Runbook: the steps to run when something happens.
+        ::
+
+        These four are the defaults. An administrator can add or rename types, see [Customizing page types](/openkb-user-guide/customizing-page-types). {#b-70b5a919}
+
+        ## Related topics {#b-d833114f}
+
+        ::block{#b-2ae8941c}
+        - [Finding things](/openkb-user-guide/finding-things)
+        - [Your first page](/openkb-user-guide/your-first-page)
+        ::

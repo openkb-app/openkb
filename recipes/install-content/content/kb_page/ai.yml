@@ -1,0 +1,76 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 901efb18-fc26-5223-8ff8-642c90023894
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'AI'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/ai
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # AI {#b-cc3f33cd}
+
+        The assistant, search by meaning, and agents. {#b-7ad59135}
+
+        ::block{#b-ad9459cf}
+        - [Ask OpenKnowledgebase](/openkb-user-guide/ask-openknowledgebase)
+        - [Semantic search](/openkb-user-guide/semantic-search)
+        - [Agents as users](/openkb-user-guide/agents-as-users)
+        - [Connect an agent by URL](/openkb-user-guide/connect-an-agent)
+        - [Agent tokens](/openkb-user-guide/agent-tokens)
+        - [Reviewing agent edits](/openkb-user-guide/reviewing-agent-edits)
+        - [Working with an agent on a page](/openkb-user-guide/working-with-an-agent)
+        ::

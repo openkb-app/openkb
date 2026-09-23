@@ -1,0 +1,27 @@
+_meta:
+  version: '1.0'
+  entity_type: openkb_space
+  uuid: 3749b229-05a5-5926-a833-8624a4c98d4a
+default:
+  status:
+    -
+      value: true
+  label:
+    -
+      value: 'Team wiki'
+  description:
+    -
+      value: 'Notes and how-tos, live as soon as you publish them. An agent''s edits wait for a person''s sign-off.'
+  managers:
+    # The site administrator alone: uid 1, which the applying account is too.
+    -
+      target_id: 1
+  read_access:
+    -
+      value: all_users
+  field_moderation:
+    -
+      value: false
+  field_agent_review:
+    -
+      value: true

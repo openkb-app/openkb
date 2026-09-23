@@ -1,0 +1,97 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 8121ada1-e93e-5a40-93a9-db1083abd9c5
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    2323ab5c-5489-52da-ac0c-0bbb5e646fb1: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Users and roles'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/users-and-roles
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 2323ab5c-5489-52da-ac0c-0bbb5e646fb1
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Users and roles {#b-411a2436}
+
+        ## Goal {#b-7be0e19c}
+
+        Create accounts for the people who will use the site. {#b-89856368}
+
+        ## How accounts work {#b-fc98806d}
+
+        ::block{#b-28c79094}
+        - Self-registration and invitations from the app are not available yet. Until then, an administrator creates accounts at `/admin/people/create` on the administration host; `/admin/people` lists them with their roles.
+        - Every signed-in account may read the spaces open to "All users", write in the spaces it is a member of, and create spaces of its own.
+        - What a person may do in a space is decided by the space's roster, not by a site role. See [Members and access](/openkb-user-guide/members-and-access).
+        - The "Administrator" role reaches every space and every page, the Drupal administration, and the "Admin backend" entry in the account menu.
+        ::
+
+        ## Steps {#b-ad1b0dc0}
+
+        ::block{#b-2a4b7b63}
+        1. Open the account menu and choose "Admin backend". The Drupal administration opens.
+        2. Go to People and choose "Add user".
+        3. Enter an email address, a username and a password, and set the status to active. Give the Administrator role to administrators only.
+        4. Click "Create new account".
+        5. Give the person their username and password. They sign in on the site's "Sign in" page. A password reset goes through the login page on the administration host.
+        6. Add the person to the spaces they should work in. See [Members and access](/openkb-user-guide/members-and-access).
+        ::
+
+        The password of the `admin` account is set when the site is installed. See [Installation](https://github.com/openkb-app/openkb/blob/1.x/README.md#installation). {#b-bb385de3}
+
+        ## Related topics {#b-2d19ed1f}
+
+        ::block{#b-9b65bc4f}
+        - [Spaces](/openkb-user-guide/spaces)
+        - [Backups and updates](/openkb-user-guide/backups-and-updates)
+        ::

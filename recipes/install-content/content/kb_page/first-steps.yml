@@ -1,0 +1,73 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 89c40991-c167-56f8-a43a-8260c7b31d39
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    7d8db27c-9c97-5673-bf38-54729776460d: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'First steps'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/first-steps
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 7d8db27c-9c97-5673-bf38-54729776460d
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # First steps {#b-2be051f7}
+
+        Sign in, make a page, find things and learn the keys. {#b-aff93510}
+
+        ::block{#b-aa1e2916}
+        - [Welcome to OpenKnowledgebase](/openkb-user-guide/welcome)
+        - [Your first page](/openkb-user-guide/your-first-page)
+        - [Finding things](/openkb-user-guide/finding-things)
+        - [Keyboard shortcuts](/openkb-user-guide/keyboard-shortcuts)
+        ::

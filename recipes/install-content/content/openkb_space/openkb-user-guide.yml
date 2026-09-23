@@ -1,0 +1,27 @@
+_meta:
+  version: '1.0'
+  entity_type: openkb_space
+  uuid: 0309780f-4ed8-5116-9778-d38b97adaea3
+default:
+  status:
+    -
+      value: true
+  label:
+    -
+      value: 'OpenKB User guide'
+  description:
+    -
+      value: 'How to use OpenKnowledgebase: first steps, writing, spaces and people, AI, and administration.'
+  managers:
+    # The site administrator alone: uid 1, which the applying account is too.
+    -
+      target_id: 1
+  read_access:
+    -
+      value: all_users
+  field_moderation:
+    -
+      value: true
+  field_agent_review:
+    -
+      value: true

@@ -1,0 +1,107 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: d7ade8ee-3368-50d5-866b-b3bde8b0d219
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    6aa3a5ad-6beb-545f-8f66-86c3a78c7508: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Drafts, publish and sign-off'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/drafts-publish-and-sign-off
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 6aa3a5ad-6beb-545f-8f66-86c3a78c7508
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Drafts, publish and sign-off {#b-ef1d327d}
+
+        ## Save, Publish, sign off {#b-74cadaf0}
+
+        Three things can happen to a change, and none of them happens on its own. {#b-df8f4f51}
+
+        ::block{#b-99e71fd0}
+        | Action | Who | What it does |
+        |---|---|---|
+        | Save | anyone who may edit the page | Writes a draft revision to the page's history. Never publishes. |
+        | Publish | anyone who may publish in the space | Puts the current draft on the live page. Refused while a change still waits for a review the space requires. |
+        | Sign off | a second pair of eyes | Marks one changed block as reviewed. Does not publish. |
+        ::
+
+        ## What a draft is {#b-08ae1d37}
+
+        A draft is a revision on top of the published one. Readers keep seeing the published page. The read page shows a badge: "Draft" for a page that was never published, "Unpublished changes" for a draft over a live page, "Published" when nothing is pending. {#b-f1d5cf87}
+
+        "Revert to published" on the read page discards the draft. The discarded revision stays in the history. {#b-714fe4b3}
+
+        ## Review before publishing {#b-3ea194b4}
+
+        In a space with "Review before publishing" on, every changed block needs a sign-off from someone who did not write it. Each pending block shows a pill in the editor's margin: "Pending peer review" on a block you may sign off, "Waiting for peer review" on a block somebody else has to clear. {#b-0ac5e64b}
+
+        To sign a block off: {#b-7503be36}
+
+        ::block{#b-6fc81acb}
+        1. Open the page in the editor and click "Review" in the header. The review pane lists every change that is waiting, and says which of them are yours to sign off.
+        2. Click a row to jump to the block.
+        3. Click the checkmark next to the pill, "Mark reviewed". The toolbar's "Mark this block reviewed" and the block's ⠿ menu do the same.
+        4. When every change is signed off, "Publish" becomes available.
+        ::
+
+        A sign-off you may not give is greyed and says why, for example "This block needs a second pair of eyes: its only contributor is the account approving it." A site administrator may sign off their own writing. {#b-0dd85d02}
+
+        In a space with "Review before publishing" off, anyone on the roster publishes whenever they are ready. Saving is still a draft. {#b-ab1bf61f}
+
+        ## Related topics {#b-70a934fe}
+
+        ::block{#b-5e32e442}
+        - [Review policy per space](/openkb-user-guide/review-policy)
+        - [Reviewing agent edits](/openkb-user-guide/reviewing-agent-edits)
+        - [Revisions](/openkb-user-guide/revisions)
+        ::

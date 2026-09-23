@@ -1,0 +1,92 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 676a8116-5a5b-5e69-b0c3-1b843333aaf6
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    6aa3a5ad-6beb-545f-8f66-86c3a78c7508: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Revisions'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/revisions
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 6aa3a5ad-6beb-545f-8f66-86c3a78c7508
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Revisions {#b-237f6a57}
+
+        ## Goal {#b-61407700}
+
+        See what changed on a page, who changed it and when. {#b-728afc62}
+
+        ## Steps {#b-66375b72}
+
+        ::block{#b-09aff67c}
+        1. Open the page.
+        2. Open the "More" menu and choose "Versions". The entry is greyed when the page has no history you may see.
+        3. The "Version history" page lists every revision, newest first: who saved it, when, its state (Draft, In review or Published) and the log message. "Live" marks the published revision, "Working copy" the one the editor holds.
+        4. Click "Back to the page" to return.
+        ::
+
+        The card of a block (the ⓘ sign) links to the same list with "Page history". {#b-627f6e6e}
+
+        There is no compare view and no restore from a revision. To drop an unpublished draft, use "Revert to published" on the page. To drop edits that are not saved yet, use "Revert unsaved changes" in the editor's "More" menu. {#b-09feb80e}
+
+        ## Deleting a page {#b-ea138625}
+
+        "Delete page…" in the "More" menu moves the page to the trash, and it stops being readable. A site administrator can restore it from the Drupal administration, with its history, until the trash is purged after 30 days. {#b-f4a242fc}
+
+        ## Related topics {#b-730a1560}
+
+        ::block{#b-95549b23}
+        - [Drafts, publish and sign-off](/openkb-user-guide/drafts-publish-and-sign-off)
+        - [Pages and blocks](/openkb-user-guide/pages-and-blocks)
+        ::

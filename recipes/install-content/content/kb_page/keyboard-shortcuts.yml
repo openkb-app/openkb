@@ -1,0 +1,90 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: e04c8890-7edb-5758-a3b2-2665e88f6edd
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    7d8db27c-9c97-5673-bf38-54729776460d: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Keyboard shortcuts'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/keyboard-shortcuts
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 7d8db27c-9c97-5673-bf38-54729776460d
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Keyboard shortcuts {#b-463f9e0f}
+
+        ## Goal {#b-5f665165}
+
+        Know where the complete list of keys and typed triggers lives, and the few you need on day one. {#b-03f5e73d}
+
+        The app keeps its own list at [Shortcuts](/help/shortcuts). Open it from the account menu at the bottom of the sidebar, or from the "More" menu on any page. It lists the keyboard shortcuts, the typed triggers and the Markdown the editor converts as you type. It is always current. {#b-5443fcfe}
+
+        ## The ones to start with {#b-8803e36b}
+
+        The modifier is ⌘ on a Mac and Ctrl everywhere else. {#b-40a64f14}
+
+        ::block{#b-73362b63}
+        - Ctrl+K: go to search, with the cursor in the search box.
+        - Ctrl+J: open or close the assistant.
+        - In the editor, type `/` to open the block menu.
+        - In the editor, type `[[` to link to another page.
+        - In the editor, type `@` to mention a person.
+        - Escape leaves a picker and keeps what you typed as text.
+        ::
+
+        ## Related topics {#b-f378ce2b}
+
+        ::block{#b-74af157e}
+        - [Markdown and callouts](/openkb-user-guide/markdown-and-callouts)
+        - [Your first page](/openkb-user-guide/your-first-page)
+        ::

@@ -1,0 +1,94 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 4352bac4-feef-530e-b5cd-0d7a2ac29af8
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Working with an agent on a page'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/working-with-an-agent
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Working with an agent on a page {#b-401fe224}
+
+        ## Goal {#b-2b523cf0}
+
+        Have an agent correct a page while you watch, and publish the result. {#b-5e7602b6}
+
+        ## Prerequisites {#b-c0df787a}
+
+        An agent connected to your account, see [Connect an agent by URL](/openkb-user-guide/connect-an-agent). You may write in the page's space. The agent's client is what you named it on the consent screen; this page calls it "Claude". {#b-f0d9a20a}
+
+        ## Steps {#b-1e196030}
+
+        ::block{#b-71c04bd0}
+        1. Tell the agent to follow the page: it calls the `waitForChanges` tool with the page's path. The call joins the agent to the page's live session, so it appears among the avatars in the editor's header with a robot badge and keeps its seat while it waits.
+        2. Open the page in the editor. Put the cursor in the block to correct and click "Comment on this block". Write what should change and mention the agent with `@Claude`. Click "Comment".
+        3. The agent is woken by the comment. It reads the working copy with `getPageForEditing`, writes its correction with `updateBlocks` and answers in the thread with `commentOnBlock`. Its edit lands in the working copy as you watch, in the same editor.
+        4. Each block the agent wrote shows the pill "Pending agent review" in the margin, and "Publish" is greyed until every one is signed off.
+        5. Read the block. Click the checkmark next to the pill, "Sign off the agent write". The block's ⠿ menu offers the same. Repeat for every block. If a correction is wrong, reply in the thread and let the agent try again, or edit the block yourself.
+        6. Click "Mark as done" on the thread, or "Resolve this comment". The agent cannot close it.
+        7. Click "Publish".
+        ::
+
+        An agent that was not connected finds the thread later: mention it, and it reads the thread with `tool_api__list_assignments` on its next connection. {#b-90d3c906}
+
+        ## Related topics {#b-2eec5673}
+
+        ::block{#b-25f2c4e1}
+        - [Reviewing agent edits](/openkb-user-guide/reviewing-agent-edits)
+        - [Collaborative editing](/openkb-user-guide/collaborative-editing): comments and assignees in detail.
+        - [Agents as users](/openkb-user-guide/agents-as-users)
+        ::

@@ -1,0 +1,91 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: f8b8aeeb-406f-540a-898d-4997b04c75b9
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    7d8db27c-9c97-5673-bf38-54729776460d: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Finding things'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/finding-things
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 7d8db27c-9c97-5673-bf38-54729776460d
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Finding things {#b-ce03c885}
+
+        Search finds pages by their words and by their meaning in one query, over every page and its blocks. A result is a page, collapsed to the sections that matched. Filters narrow by space, type, author and last update. The chat and the agents use the same search. It respects space permissions: you only ever find what you may read, and so do the chat and the agents acting for you. {#b-32ad8508}
+
+        ## Goal {#b-35c4dab1}
+
+        Find a page by its words, narrow the results, or ask the assistant instead. {#b-ab827773}
+
+        ## Steps {#b-370b332e}
+
+        ::block{#b-7727ce51}
+        1. Press Ctrl+K (⌘K on a Mac), or click "Search" in the sidebar. The search page opens with the cursor in the search box.
+        2. Type a few words. While you type, matching page titles are suggested. Press Enter to run the search, or pick a suggestion to open that page.
+        3. Read the results. Each result is a page, opened on the section that matched best. Matching words are highlighted.
+        4. Narrow the results with the chips above the list: "Space", "Author", "Updated" (past week, past month or past year) and "Type" (Article, ADR, Guide or Runbook).
+        5. On a wide screen, the "AI summary" pane on the right answers the question from the results. Click "Open in chat" to continue with the assistant.
+        ::
+
+        To search one space only, use the search box on the space's page. It is labelled with the space's name. {#b-7a7f4378}
+
+        If nothing matches, try fewer or different words, or click "Ask the assistant instead". A page is found when it is about the question, or when it holds every word of it. {#b-657be2d2}
+
+        ## Expand your understanding {#b-0926708d}
+
+        ::block{#b-a8dcba7d}
+        - [Semantic search](/openkb-user-guide/semantic-search): what the index holds and when a new page appears in it.
+        - [Ask OpenKnowledgebase](/openkb-user-guide/ask-openknowledgebase)
+        ::
