@@ -84,6 +84,12 @@ services:
   cron:
     extends:
       service: drupal
+    # Both containers mount the same files volume; on the first start the image's
+    # files are copied into it by the container that starts first, and two
+    # starting at once collide on the copy.
+    depends_on:
+      drupal:
+        condition: service_started
     command: ["supercronic", "/etc/crontabs/openkb"]
     ports: !reset []
     healthcheck:
