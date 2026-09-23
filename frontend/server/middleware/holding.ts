@@ -22,6 +22,9 @@ type Hold = 'install' | 'update'
 /** How long one probe's answer stands for. */
 const PROBE_TTL_MS = 10_000
 
+/** A backend that does not answer in this is treated as not holding. */
+const PROBE_TIMEOUT_MS = 5_000
+
 let hold: Hold | null = null
 let probedAt = 0
 
@@ -45,7 +48,7 @@ async function currentHold(): Promise<Hold | null> {
   }
   probedAt = now
   try {
-    const res = await fetch(`${drupalBaseUrl()}/openkb/schema`, { method: 'HEAD' })
+    const res = await fetch(`${drupalBaseUrl()}/openkb/schema`, { method: 'HEAD', signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
     const header = res.headers.get('x-openkb-hold')
     hold = header === 'install' || header === 'update' ? header : null
   }

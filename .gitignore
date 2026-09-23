@@ -281,6 +281,8 @@ tests/playwright/results/
 read-page.png
 # The brand icon set the app serves (docs/branding.md).
 !/frontend/public/*.png
+# The images the recipes' default content ships, beside their file entities.
+!/recipes/*/content/file/*.png
 
 # Drupal runtime files dirs (configured via PERSISTENT_FILES_DIR).
 /web/files

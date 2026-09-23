@@ -39,6 +39,7 @@
     "@tiptap/starter-kit": "3.31.3",
     "@tiptap/vue-3": "3.31.3",
     "@tiptap/y-tiptap": "^3.0.9",
+    "@vue/shared": "^3.5.42",
     "ai": "^7.0.66",
     "comark": "^0.6.2",
     "drupal-jsonapi-params": "^3.0.1",

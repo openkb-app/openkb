@@ -275,7 +275,11 @@ jobs:
             printf 'OPENKB_TAG=%s\n' "$version"
             printf 'docker compose pull && docker compose up -d\n'
             printf '```\n'
-            printf '\nThe `drupal` container installs the site on a first boot. On an existing site whose database updates this version brings, it holds the site until an administrator has run `<drupal url>/update.php`.\n'
+            # A quoted heredoc: the markdown backticks are not command substitution.
+            cat <<'NOTE'
+
+          The `drupal` container installs the site on a first boot. On an existing site whose database updates this version brings, it holds the site until an administrator has run `<drupal url>/update.php`.
+          NOTE
             case $version in
               *-*) printf '\nA pre-release: run it on a throwaway site, not on data you keep.\n' ;;
             esac
