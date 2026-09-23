@@ -134,8 +134,9 @@ const { spaces } = useSpaces()
 /**
  * One filter chip: the route parameter it writes, and what may be picked.
  *
- * `options` is the closed set a menu offers. The Author chip has none — an
- * account is found by typing, on the picker the frontmatter form uses.
+ * `options` names what may be picked, and gives a pick its wording. The Author
+ * chip has none — an account is found by typing, on the picker the frontmatter
+ * form uses.
  */
 interface FilterChip {
   key: 'space' | 'author' | 'updated' | 'type'
@@ -193,7 +194,7 @@ function chipValue(chip: FilterChip): string {
   return chip.options.find(option => option.value === chip.picked)?.label ?? chip.picked
 }
 
-/** A chip's menu: every option, and one click back to all of them. */
+/** A closed set's menu: every option, and one click back to all of them. */
 function chipItems(chip: FilterChip): DropdownMenuItem[][] {
   return [
     [{
@@ -216,6 +217,9 @@ function narrowTo(key: FilterChip['key'], value: string) {
   const { [key]: _replaced, page: _reset, ...rest } = route.query
   void router.push({ query: value ? { ...rest, [key]: value } : rest })
 }
+
+/** Whether the Space chip's menu is open. */
+const spaceOpen = ref(false)
 
 /** Whether the Author chip's picker is open. */
 const authorOpen = ref(false)
@@ -507,9 +511,27 @@ onMounted(() => {
 
       <div class="mb-5 flex flex-wrap items-center gap-1.5">
         <template v-for="chip in filterChips" :key="chip.key">
+          <!-- A space is picked the same way everywhere: the shared menu, with
+               its search field and colour marks. -->
+          <SpaceMenu
+            v-if="chip.key === 'space'"
+            v-model:open="spaceOpen"
+            :selected="chip.picked || null"
+            :all-label="chip.any.clear"
+            @select="slug => narrowTo('space', slug ?? '')"
+          >
+            <KbSearchFilterChip
+              :filter-key="chip.key"
+              :icon="chip.icon"
+              :label="chip.label"
+              :value="chipValue(chip)"
+              :picked="chip.picked !== ''"
+            />
+          </SpaceMenu>
+
           <!-- An account is not a closed set, so the Author chip opens a
                type-to-search field rather than a menu of everyone. -->
-          <UPopover v-if="chip.key === 'author'" v-model:open="authorOpen">
+          <UPopover v-else-if="chip.key === 'author'" v-model:open="authorOpen">
             <KbSearchFilterChip
               :filter-key="chip.key"
               :icon="chip.icon"

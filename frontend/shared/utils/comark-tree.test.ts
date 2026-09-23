@@ -1,44 +1,7 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { parse as parseYaml } from 'yaml'
 import { describe, it, expect } from 'vitest'
-import { citationsByBlock, markdownToTree, parseComark, referencesByBlock, liftTitleBlockId, COMPONENT_TAGS, HTML_ELEMENTS, type AllowedHtml, type AttrRule, type ComarkNode } from './comark-tree'
+import { shippedAllowedHtml } from '~~/test/shipped-comark-format'
+import { citationsByBlock, markdownToTree, parseComark, referencesByBlock, liftTitleBlockId, COMPONENT_TAGS, HTML_ELEMENTS, type AllowedHtml, type ComarkNode } from './comark-tree'
 import { CITATION_TAG } from './citations'
-
-const RECIPES = new URL('../../../recipes/', import.meta.url)
-
-/**
- * The shipped `allowed_html` setting, read the way `filter_html` reads it: a
- * bare attribute takes any value, a quoted one lists the values it accepts.
- */
-function shippedAllowedHtml(): AllowedHtml {
-  const yaml = readFileSync(new URL('openkb_recipe_core/config/filter.format.comark.yml', RECIPES), 'utf8')
-  const setting = /allowed_html: '(.*)'/.exec(yaml)?.[1] ?? ''
-  // Core adds these to every tag, whatever the setting says.
-  const listed: AllowedHtml = { '*': { lang: true, dir: { ltr: true, rtl: true } } }
-  for (const [, tag, attributes] of setting.matchAll(/<([a-z][a-z0-9]*)((?:[^>"]|"[^"]*")*)>/g)) {
-    const rules: Record<string, AttrRule> = {}
-    for (const [, name, values] of (attributes ?? '').matchAll(/([a-zA-Z][\w:.*-]*)(?:="([^"]*)")?/g)) {
-      rules[name!] = values === undefined
-        ? true
-        : Object.fromEntries(values.split(/\s+/).filter(Boolean).map(value => [value, true]))
-    }
-    listed[tag!] = rules
-  }
-  return listed
-}
-
-/** Every page body the demo recipe ships. */
-function demoBodies(): string[] {
-  const dir = new URL('openkb_recipe_demo_pages/content/kb_page/', RECIPES)
-  return readdirSync(dir).flatMap((file) => {
-    const doc = parseYaml(readFileSync(new URL(file, dir), 'utf8')) as Record<string, Record<string, unknown>>
-    return Object.entries(doc)
-      .filter(([key]) => key !== '_meta')
-      .flatMap(([, translation]) => (translation.field_kb_body as Array<{ value?: string }> | undefined) ?? [])
-      .map(item => item.value)
-      .filter((value): value is string => typeof value === 'string')
-  })
-}
 
 type Element = [string, Record<string, unknown>, ...ComarkNode[]]
 
@@ -708,16 +671,6 @@ describe('the shipped format', () => {
 
   it('lists the attributes a citation needs to name a source and its version', () => {
     expect(listed.citation).toEqual({ nid: true, block: true, v: true, url: true })
-  })
-
-  it('renders every demo body exactly as it does without the list', async () => {
-    const bodies = demoBodies()
-    expect(bodies.length).toBeGreaterThan(0)
-    for (const markdown of bodies) {
-      const filtered = await markdownToTree(markdown, { allowedHtml: listed })
-      const unfiltered = await markdownToTree(markdown)
-      expect(filtered).toEqual(unfiltered)
-    }
   })
 })
 

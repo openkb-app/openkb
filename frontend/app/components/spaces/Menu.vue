@@ -112,8 +112,10 @@ function onArrow(event: KeyboardEvent) {
           Your spaces
         </div>
 
+        <!-- A session can read more spaces than fit on screen, and a row
+             below the fold is a row nobody can reach, so the list scrolls. -->
         <div
-          class="flex flex-col gap-px"
+          class="flex max-h-72 flex-col gap-px overflow-y-auto"
           :role="allLabel ? 'menu' : undefined"
           :aria-label="allLabel ? 'Search scope' : undefined"
         >

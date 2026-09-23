@@ -1,0 +1,436 @@
+# Changelog
+
+## [Unreleased]
+
+### Features
+
+- Add configuration for GitHub Codespaces.
+- Allow .c12 routes to support nuxt layers.
+- Allow .c12 routes to support nuxt layers.
+- Issue #3518196 improve codespaces setup, remove gitpod
+- Better claude instructions for entity displays
+- Install via Lupus Decoupled standard site recipe
+- Install canvas by default
+- Add drupal-cms nuxt-starter support and devcontainer
+- Prototype OpenKB with Nuxt UI Editor + comark + Hocuspocus.
+- Upgrade to Nuxt 4 + Nuxt UI v4 + TipTap v3, verify with Playwright.
+- Live Callout NodeView + Y.js collab on latest @nuxt/ui 4, TipTap 3.23.
+- Cookie-auth via lupus_decoupled_cors + editor Insert Callout toolbar.
+- Filter_comark module — Drupal Comark text format emitting CE-markup.
+- Migrate field_kb_body to text_long + comark text format.
+- Flip read page to CE-API path; drop client-side comark parsing.
+- Comark module consolidates filter + search_api processor + REST search.
+- Infobox component end-to-end, multi-user editing verified.
+- Comark body ships as CE-API tree, drop client-side HTML walker.
+- Catch-all routing — any Drupal alias works, edit at /node/<id>/edit.
+- Nested fences via variable-length openers (MDC convention).
+- GFM + ExternalLink + HeadingPermalink extensions; code-block lang + trailing-fence-newline fixes.
+- TipTap mentions + slash-command palette.
+- Per-user Hocuspocus auth via Drupal CE-API local-tasks check.
+- Nuxt comark proxy + JS-first read & edit paths (PHP code kept).
+- OpenKB pipeline rewrite — raw markdown CE-API, JS comark proxy, OpenSearch indexing, recipe rename.
+- Collab persistence — Hocuspocus SQLite snapshots, Drupal reconcile, save-to-history UX.
+- Callout type picker — replace cycle button with USelect dropdown
+- After save, toast + navigate back to the article
+- Wipe Y.Doc fragment on save when this peer is alone
+- OpenKB v2 design — app shell, view + edit + home reskin
+- Ask openKB drawer with mocked AI streaming + cited sources
+- Real LLM backend via drupal/ai + AI SDK UIMessage proxy
+- Per-surface design parity for home / view / edit / search / chat
+- Filter chips + structured result rows per design (S4)
+- Frontmatter form above body editor per S1 design
+- Enable open_kb_recipe_chat by default
+- Auth middleware + login + edit variants
+- Add kb_article field model v1, frontmatter form mode and derived schema endpoint.
+- Headless commit service with auto-checkpoints.
+- Record the commit trigger in the revision log message.
+- Fields join the collab session: Y.Map seeding + useEntityFields().
+- .md wire format — YAML frontmatter projection on GET, parse on PUT.
+- Schema-driven frontmatter form from /openkb/schema.
+- Table + task-list insertion from the editor UI.
+- Entity fields join the commit payload: field diff, ref validation, per-field 422 mapping.
+- Server-derived collab identity, drop the openkb_username cookie.
+- Per-field dry-run validation while typing (debounced, advisory, commit stays the gate).
+- @tiptap/markdown engine behind A/B gate: tokenizers, canonical renderers, corpus green.
+- Editor load/save on the @tiptap/markdown engine; CE-HTML hydration hop deleted; mention uid round-trips.
+- Read-page styling for the :mention custom element.
+- Agent auth: owner-bound personal consumers, scope ceiling, token profile UI.
+- Media-image markdown engine — ::image{media} fence, editor image node, corpus fixtures.
+- Read-path media rendering — server-side resolution in the CE walker, /api/media/resolve.
+- Drupal media-library dialog in the editor — native in-page dialog, assets endpoint, Nitro proxy; access delegated to article update-access.
+- Bump comark to 0.5.x; block-id corpus always-on, `#id` fence-prop round-trip.
+- Collaborator presence avatar strip in the editor chrome.
+- In-place edit mode on the article page; drop the two unused edit routes.
+- Bearer forwarding + shared actor resolution in the Nuxt server layer.
+- Read-only MCP server (getPage/searchPages) in the Nuxt server layer.
+- Agent writes through the collab session — agent-peer adapter + session router.
+- Promote native-block ids to a structured attribute (foundation)
+- Block-provenance sidecar model, storage field, and commit persistence
+- Client contributor accounting — the producing peer records its own edits
+- Add Spaces data model, article↔space assignment and space member management.
+- MCP write tools through the session router, full auth matrix.
+- Attribute an agent's body write like a browser peer's.
+- Editorial moderation for kb_article (Draft / In review / Published).
+- Document moderation surface: state badge, Publish, Revert.
+- Honest draft semantics for the .md wire format.
+- Merge concurrent same-block contributions per contributor.
+- Space-scoped access control — private spaces and one grants realm.
+- View access management in the space settings, and a 404 for what is hidden.
+- In-app page creation and the deliberate move to another space.
+- Honest home page and read-page metadata, no sample data.
+- Moderation is a per-space policy, overrulable by space admins.
+- Carry the article's space as an object in the page response.
+- Delete an article, settling its collab session first.
+- Soft-delete an article instead of removing it.
+- Article tree navigation — per-space outline, drag reordering and breadcrumbs.
+- Real user menu, real space switcher, no dead chrome controls.
+- Add the reviewed-by record to the block-provenance sidecar.
+- Mark a block reviewed, and show the state, in the editor.
+- Render a per-block byline on the read page.
+- Usable on a phone, operable from the keyboard.
+- Publish only once every block has been signed off.
+- Let the servers say who wrote which block, and no one else.
+- C-lane catch-up — editor review UX, inline comments, read-page cards (C1+C2+C3)
+- Read an article's history without leaving the app.
+- Seed test editors and demo spaces, and let admins see every space.
+- Space creation — who may, and the add-space UI.
+- Space roles v2 — Manager/Member/Viewer roster and read access.
+- Space-scoped article paths via pathauto.
+- A durable home for inline comments, delivered by the checkpoint.
+- Copy a page as Markdown from the read surface.
+- MCP connect-by-URL — OAuth discovery + automatic client registration.
+- Give the collaboration server an OAuth identity of its own.
+- One home for block actions, on the drag handle.
+- Add AI provider modules: OpenAI, Anthropic, Mistral, amazee.ai.
+- Commit surface moves to openkb_collab_api
+- CI wall-clock + per-doc collab settle
+- Render the OAuth login and consent in the frontend.
+- Let agent tokens create pages, and answer block writes in schema.
+- Sweep unclaimed personal consumers, and know when one was created and last used.
+- Write as the collaboration server, under its own OAuth client.
+- Show the real account in the user menu, with its picture and an admin backend link.
+- Say how to connect an agent, where the product already lives.
+- Let an avatar lead to the person behind it.
+- Refuse a stale block write, and show where an agent is working.
+- Answer the version of every block a write touched.
+- Report where a page stands as data, not as prose to infer from.
+- Tell an agent where it may work — over Drupal's own MCP endpoint.
+- Refuse a join whose fields the account may not edit.
+- Give the chat the tools agents already reach over MCP.
+- Search runs in the frontend, against OpenSearch.
+- Show which blocks I can review and which need somebody else.
+- Let an agent create a page it can then write.
+- Tell an agent step apart from a peer step in the gutter.
+- Make chat a native tool consumer and declare the frontend's tools.
+- Split the read: getPage is Drupal's, getPageForEditing is the frontend's.
+- Approve a block from the gutter, one step per press.
+- Let the build read the site's own health report.
+- Make a block linkable from the read page.
+- Make a block linkable with a fragment anchor
+- Apply the OpenKnowledgebase brand identity to the app.
+- Linking between documents — a picker, and a rendering that says only what the reader may know.
+- Render comark components inside streamed chat answers.
+- Render every comark component as a Vue component, inline ones included.
+- Render the comark tree with @comark/vue, and delete the walker's own renderer.
+- Let the body's text format say what an author may write.
+- Apply the B5 brand to the OpenKB app theme.
+- Filter a search run in Drupal to the spaces the account may read.
+- Run the knowledge-base search in Drupal, for the chat and for agents alike.
+- Ground the assistant's answers in the knowledge base, and cite what they used.
+- Say what an answer is standing on, or that it found nothing.
+- Let each assistant say what to do when it finds nothing.
+- Answer the chat from a keyless provider, and key OpenAI to switch off it.
+- Add the Lupus Decoupled docs as a reviewed demo space.
+- Let an agent collaborate live: comments, replies and a wait.
+- Assign inline comments to people and agents.
+- Find pages with unfinished work by their title.
+- Badge agent peers with a robot, and show every presence avatar.
+- Wrap the selected words into a document link's label.
+- Open the editor at the block a reader double-clicks.
+- Comment from the block margin, and post with Ctrl+Enter.
+- Let Tab pick the highlighted assignee.
+- Open the account menu on hover, for a mouse.
+- A side pane the reader controls, and a rail that collapses.
+- Put the table controls at the table.
+- Put the search summary in the pane the reader controls.
+- Open the collapsed rail under the pointer.
+- Key OpenAI from the environment.
+- Let a checkpoint carry the sign-offs its peers made.
+- Grey the Publish control with the reason, on the edit page.
+- Run the session tools from the Drupal AI chat.
+- Ship the chat's OAuth client and the environment setup as recipes.
+- Answer the chat what changed in the page, at once.
+- Open a comment by clicking the passage it is about.
+- Assign a thread to an agent that is not in the page.
+- Add the openkb_space content entity: model, access, admin View, tests.
+- Name an agent for its reader, in the chips and in the words.
+- Count a reader's agents' threads in the header badge.
+- Lay out the chunk index, and bring in the vector store it reads.
+- Review every change, not only the blocks a body holds.
+- Cut the pages into sections, and embed one row each.
+- Retrieve sections, and cite the block each one opens on.
+- Follow a citation to the block it names, and floor what the index answers.
+- Search the chunk index, one row per page with its matching sections.
+- Rank on both arms at once, and gate where the score still measures.
+- Carry the frontmatter on every chunk, and narrow a search by type.
+- List the newest pages off Drupal, not off the lexical index.
+- Make the space overview a dashboard, its settings a dialog.
+- Scope the chat, and let the scope reach retrieval.
+- Ship openkb-drupal and openkb-frontend images, and run dev and CI on them.
+- Let a block name the source it was derived from.
+- Carry the edges a section holds into the chunk index.
+- Type [^ to cite a source; citation in the slash menu, one callout entry, URL citations.
+- Show the assistant's tool calls as advanced info under the answer.
+- Add an in-app help page for shortcuts and markdown.
+- Add the publish scripts: public project tree and drupal.org module sync.
+- Expose the agent-review setting in the space dialogs.
+
+### Fixes
+
+- Fix variable name
+- Fix PHPStorm port (that should be ignored)
+- Backend and Frontend links are mixed up
+- Make gitpod setup work with d11
+- Allow files with path /.nuxt/ and /.cache/ for nuxt dev tools.
+- Update frontend repository names
+- Make sure frontend URL is correctly applied
+- Codespaces must init ddev before doing changes
+- Prebuilt codespaces needs to wait for docker
+- Remove outdated funding info
+- Make port settings more robust
+- Fix component-preview on codespaces
+- Fix codespaces robustness and error handling
+- Try-fix codespace prebuilds bying scaling them down
+- Stick to 11.2 for now
+- Remove outdated, unfinished cms-1 recipes
+- Default to http in localdev
+- Make ddev launch work with http
+- Pre-configure composer for easy cms install
+- Slug-based article lookup + enable JSON:API writes.
+- Move frontend host to nuxt.lupus-decoupled-dev.ddev.site
+- Opensearch ssl_verification=false to silence connector warning
+- Link articles by canonical alias, not field_kb_slug
+- Share Drupal session cookie across *.lupus-decoupled-dev subdomains
+- Connect WS to the Drupal host, not the page host
+- Collaboration caret label was rendering full-width
+- Race-free hydration from Drupal on empty Y.Doc
+- Seed Y.Doc directly so Drupal markdown actually hydrates
+- Design tokens from prototype styles.css + visual audit
+- Wipe stale config sync dir before site-install
+- Wait for OpenSearch + explicit reindex of seed content
+- Wrap facets + result list in white card surfaces
+- Route page content through UDashboardPanel's #body slot
+- Lock color-mode to light; expand frontmatter sections by default
+- Hide repeated body h1; collapsed frontmatter; sticky editor toolbar
+- INF-667 fetch GitHub release assets via api.github.com (avoids web-tier 504s)
+- Transform the round-trip suites as SSR modules so node builtins resolve.
+- Wire the deployed frontend's Drupal base URL from the env.
+- Load prosemirror-tables once in dev, run the editor specs on CI.
+- Reconcile the commit schema with the GFM nodes.
+- Reconcile session-less documents with Drupal on content, not only on time.
+- Parse the hydration HTML against the editor's own schema.
+- Real peer names on editing indicators, seed kb_tags terms.
+- Lift table insertion out of an enclosing list.
+- Serialize a blank line between a list and a following table.
+- Inherited dangling refs no longer block field commits; auto-checkpoint failures logged.
+- Anchor file_private_path to DRUPAL_ROOT.
+- Sync PM selection from the DOM before keydown handling.
+- Fall back to an explicit id prop when a block id cannot use the #id shorthand.
+- Grant non-admin editors the comark format so commits validate.
+- Collab session for content-editor-only users; honest no-access state.
+- Refuse admin accounts as personal-consumer owners.
+- Enable core media in EditorCommitTest for recipe media grants.
+- Enforce the agent-token scope ceiling under cache poisoning.
+- Ensure simple_oauth keys on every deploy path, before anything can fail.
+- Serialize deploy-app before the test stages.
+- Rebuild caches between drush si and the additional recipe applies.
+- Write the confirmed-checkpoint signal after the post-commit hooks.
+- Create the agent-write-matrix probe article in a space.
+- Stop the kb_article fixture teardown racing a checkpoint PATCH.
+- Keep unpublished articles out of anonymous search results.
+- Stop the chat bridge inventing citations and answers.
+- Re-check the personal-consumer admin-owner ceiling at access time.
+- Patch core against the getAlias-on-null fatal in PathItem::postSave().
+- Give drush a site URI in the cli container.
+- Skip a checkpoint that would commit an empty body.
+- Index article bodies via the decoupled frontend's own base URL.
+- Name the space permissions in the agent scopes.
+- Make a fresh install index article bodies, or fail.
+- Read every prop-value quoting style comark accepts.
+- Make the advertised frontend URL true on local stacks too.
+- Stop a deletion stamp outliving the node it describes.
+- Tell the truth about what deleting an article does.
+- Keep a session-bound logout URL out of shared caches.
+- Anchor a passage-less comment to the whole block, not "this block".
+- Attribution soundness (element 8)
+- Fix callout menu, table padding, URL-backed edit mode, gated Publish
+- Reinstall node1's node_modules at container start.
+- Editors can read the working copy of an article they do not own
+- Rank on the boost that is configured, not its square.
+- Publish is withdrawn by an unsaved edit, and a held draft is shown.
+- Let the collaboration permission add to a seat, not replace one.
+- Resolve status report fails: remove insecure unused canvas, add config sync dir, fix trusted host patterns.
+- Answer a mis-pointed MCP client in its own format.
+- Fetch the space listing once, and stop stampeding the access probe.
+- Name every avatar in the presence strip.
+- Give the test suites the timeout CI was meant to have.
+- Make the block gutter honest about what it is.
+- Do not lose the revision a disconnecting session owes.
+- Ask Drupal for a permission instead of loading a page to guess it.
+- Archive the artifacts of the build that ran, not the one before it.
+- Refuse a stale commit in Drupal and drop the client-side lock.
+- Open the presence profile probe at the article's path, not its nid.
+- Import the chat recipe's config entities so the assistant exists.
+- Stop Save to history emptying the document the editor still holds.
+- Reset the collab snapshot store around node1, not under it.
+- Publish the run that happened, not the one before it.
+- Enable openkb_schema in the space access map test.
+- Say what a refused write ran into, and stop reading an outage as one.
+- Read a body the way a write would hold it.
+- Key a space collection by who may read it.
+- Let the comment drawer outlive the menu that opened it.
+- Draft state is wrong in three places: revert, badges, and a review a wiki does not owe.
+- Name the history entry Versions and offer it in both modes.
+- Gate the new-page CTA, restore the space CTA for the demo editors.
+- Read a sign-off's time as seconds, collapse the read-page byline to its icon.
+- Give the outline its own write, so an editor can restructure a space.
+- Hydrate the article read view without mismatches
+- Scope the block rules and make the landing assertions real
+- Save is the whole of publishing where nothing needs review.
+- Sign off on the step the block owes, and say why a save was refused.
+- Match a page title while the picker's author is still typing it.
+- Keep the title heading out of the document and in the stored bytes.
+- Follow a rename in the listings, not only on the page.
+- Give the favicon its dark-scheme colours.
+- Keep the agent's seat for as long as its wait runs.
+- List every space, not the first fifty.
+- Fill a page that holds no blocks from an anchorless first op.
+- Open the bubble menu on a selection, and comment from it.
+- Shield MCP request handlers from foreign fiber suspends.
+- Read drafts by space seat, not by ownership.
+- Keep the renderer's required contexts off JSON:API normalizations.
+- Carry the fiber shield in mcp_server, not in the SDK.
+- Serve every icon from the site's own bundle.
+- Decode the serializer's entities at the tool boundary.
+- Redo what an undo took back.
+- Leave focus where a click outside the account menu put it.
+- Restore a caret click a transaction overwrote.
+- Comment on the words marked in a block, not on the block.
+- Answer a selection with the menu, and keep the triple click.
+- Land a block anchor below the navbar, not under it.
+- Give a plain image's block id somewhere to ride.
+- Publish, not Save, is what puts a wiki page live.
+- Keep the breadcrumb out of the edit navbar.
+- Render every data: image the format admits, and keep the one written as characters.
+- Let the search summary follow the query, and fit the pane.
+- Say no to a sign-off the rule refuses, before it is recorded.
+- Retrieve like the search page, and make a citation followable.
+- Hand a joining agent the threads waiting for it, and keep its own presence out.
+- Keep a caret move ProseMirror has not read yet across a transaction.
+- Report a comment from the cursor's own millisecond exactly once in waitForChanges.
+- Keep the chat open until it is closed, the summary with the search page, and the answer's first line on screen.
+- Keep a finished short answer and its question on screen.
+- OpenSearch 3, and titles and excerpts as the page has them.
+- Carry a space's pages along when its URL moves.
+- Rebuild caches before the config read, drop the stale chunk collection.
+- Name the release the stubs promise, drop TODO.md
+- Cite the section an answer came from, not the page.
+- Follow the page-body rename in the block ⓘ reveal and its spec.
+- Run a streamed tool call, and show a refused write as the tool's own reason.
+- Take Contributors off the frontmatter form.
+- Wait for editor focus before selecting the words for the link toolbar.
+- Sign off the block the undo/redo spec means.
+- Keep Drupal's CSS out of the app when the media-library dialog opens.
+
+### Improvements
+
+- Use drupalBaseUrl option and environment variable of nuxtjs-drupal-ce
+- Improve Github code spaces setup to have some options
+- Update default settings
+- Add phpcs config
+- Add phpunit config
+- Allow installing Drupal 10.4 also
+- Add optional search_api modules to project
+- Harden embedded Hocuspocus hosting for container deploys.
+- Branded, honest failure states across auth and content pages.
+- Carry the simple_oauth calculated-permissions cache fix as a composer patch; slim the local module.
+- Give the reworked chrome controls a focus ring and a thumb-sized target.
+- Manual-testing UX round — brand, titles, one account menu, read-only state, seed.
+- The JSON:API filter-access answer rests on the grants alone — no roster condition; kernel cases pin that no account lists another space's draft or any unpublished node outside the realm.
+- Edit navbar cleanup — one state chip, insert menu, More consolidation, responsive collapse
+- Give Publish its own indigo hue, distinct from Save.
+- Refuse what a self-registered client may not have
+- Make the block handle read like a control, and its menu whole.
+- Let the person name their agent, and say plainly what it may do.
+- Let lupus_decoupled own the API-clients URLs, and give the listing a table.
+- Serve the page once, and drop the widget noise from the write schema.
+- One tab stop back from the block tools into the editor.
+- Reach Drupal's tools without paying for them on every call.
+- Say which block op is at fault, and let one chain after another.
+- Say which review a block is waiting for, in one pill per step.
+- Make the block board read at a glance.
+- Draw a review mark when the edit earns it, not when the checkpoint does.
+- Scope the sidebar roster to the active space, reach its home, add a page.
+- Drop the all-spaces roster, split the CTA in two, nest a new page.
+- Make the gutter checkmark a real pointer target.
+- Heavy checkmark, coloured ring, and a checkmark the pointer can reach.
+- INF-687 Let the OOM killer pick OpenSearch of review envs before Jenkins.
+- Colour-scheme switch beside the user menu, larger lockup
+- Serve the article's editorial standing from one service.
+- Make the agent's claim mark on a block readable.
+- Leave the grounding verdict to the chat panel.
+- Drop the content_editor role, grant authenticated the wiki rights.
+- Replace the kb_spaces term with the openkb_space entity everywhere.
+- Keep the Jenkins console to the stages, archive the bulk output.
+- Lift the search suggest list onto a surface of its own.
+- Keep the retrieval scope out of the model's prompt.
+- Set READ COMMITTED on the MariaDB server, not per Drupal connection.
+- Show the block ⓘ on demand instead of always.
+- Small UI fixes from the 1.x test round (PR A).
+- Keep the words in the page linker, and fix the meta strip in edit mode.
+- Run the assistant, the vector store and the embeddings on the site-wide AI defaults.
+- Chat surface — suggestions, scope-named found-nothing, ungrounded badge.
+- Match the app shortcuts on the physical key, whatever the keyboard layout.
+- Offer the same blocks in the slash menu and the (+) menu.
+- Show the two publishing flags as switches in the space dialogs.
+
+### Performance
+
+- Open the editor where it lives, not through a redirect that renders.
+- Key the space gate by nothing, not by the account.
+- Read the served body and its canonical form off one parse.
+
+### Documentation
+
+- Document how to develop the template
+- Improve README file.
+- Improve README.
+- Update README + PROTOTYPE for Infobox and updated test counts.
+- Rewrite project README around OpenKB; fix install path.
+- Document the Nitro-Hocuspocus integration.
+- Record why the space permissions must be named in an agent scope.
+- Architecture overview (diagrams: actors, APIs, collab server, trust boundaries)
+- Architecture decision records (ADR 0001–0005)
+- A11y fundamentals are a standing convention on every UI change
+- ADR 0006 — inline review comments vs document comments
+- Record the code-distribution and naming strategy as ADR 0007.
+- Vercel_ai_sdk states its relationship to contrib ai_decoupled.
+- Agent access — provisioning, token grant, MCP testing instructions.
+- ADR 0001 — the collab server is an OAuth client.
+- ADR rewrite rule carries the beta1 boundary.
+- Decide where agent tools live.
+- Correct the "no CRDT seat" wording: agents are CRDT peers.
+- ADR 0010 search in the frontend; ADR 0009 gains the MCP wire and tool configuration.
+- List the space gate's cacheability constraints.
+- State ADR 0012's context as the constraints it answers, not the path to it.
+- Mark k-NN search and RAG grounding as in progress.
+- Say article content, not column, where the prose list applies.
+- Split search between the runtimes: UI in the frontend, AI retrieval in Drupal.
+- Point the body-format presave at the core todo it stands in for.
+- Record the wire-format entity decision as ADR 0014.
+- Tell agents the write format is comark markdown, never HTML.
+- Pin the comment style: plain words, existing vocabulary.
+- Re-wrap the session-tools paragraph.
+- Record that seeded entities and per-environment setup ship as recipes.
+
+
