@@ -11,12 +11,16 @@ Actions → `release` → **Run workflow**, `version` = `1.2.3`, without the `v`
 The module release `1.2.3` has to exist on drupal.org first — the workflow
 checks for the tag and stops before it writes anything when it is missing.
 
-It generates `CHANGELOG.md` from the history with git-cliff and `cliff.toml`,
-and fails when the version gets no section; pins `drupal/openkb` to `1.2.3` in
-`composer.json` and `composer.lock`, where `1.x` carries `1.x-dev`; commits
-`release: v1.2.3.`,
-tags `v1.2.3` and pushes both to `1.x`. The tag is what starts everything
-below.
+It prepends the version's section to `CHANGELOG.md` with git-cliff and
+`cliff.toml`, covering the commits since the previous tag; pins `drupal/openkb`
+to `1.2.3` in `composer.json` and `composer.lock`, where `1.x` carries
+`1.x-dev`; points the quickstart at the release — `OPENKB_TAG` in
+`quickstart/.env` and the tag in the fetch URL both READMEs show — and stops
+when either has moved; commits `release: v1.2.3.`, tags `v1.2.3` and pushes
+both to `1.x`. The tag is what starts everything below.
+
+Only the new section is written, so the sections below it are yours to correct
+by hand between releases.
 
 ## What a version tag publishes
 

@@ -4,11 +4,15 @@ The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with dr
 
 Both images are published to GHCR per release; [`release.md`](release.md) covers pinning a version instead of building from this checkout.
 
+## Evaluating on a laptop
+
+Everything below describes a real host. To just look at OpenKB, run the evaluation stack instead and skip the rest of this page: two files, no hostnames, no secrets, described in [`quickstart/README.md`](../quickstart/README.md).
+
 ## Prerequisites
 
 - Docker with the compose plugin.
 - Two DNS names under one parent domain, both pointing at the host: one for the frontend (`kb.example.com`), one for Drupal (`cms.kb.example.com`). Drupal under a path of the frontend host is not supported.
-- `vm.max_map_count=262144` on the host, for OpenSearch: `sysctl -w vm.max_map_count=262144`, and the same line in `/etc/sysctl.conf` to keep it.
+- `vm.max_map_count=262144` on the host, for OpenSearch: `sysctl -w vm.max_map_count=262144`, and the same line in `/etc/sysctl.conf` to keep it. Keep memory mapping on for a real index; `OPENSEARCH_ALLOW_MMAP=false` drops the requirement at the cost of read performance, which is a trade for evaluation, not for production.
 - A reverse proxy that terminates TLS; Caddy and Traefik examples below.
 
 ## Bring-up

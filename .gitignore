@@ -141,6 +141,8 @@ web/sites/simpletest
 
 # Ignore sensitive files
 .env
+# The evaluation stack ships its settings; they are public by design.
+!quickstart/.env
 
 # Ignore CI config that is not our's.
 /web/**/.travis.yml

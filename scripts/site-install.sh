@@ -203,4 +203,14 @@ $DRUSH cache:rebuild
 
 echo ""
 echo "Site installation complete."
-echo "Next, from the host: ./scripts/reset-collab-store.sh"
+# The collab snapshot store belongs to the frontend and outlives this install,
+# so a reinstall needs it dropped; how depends on the tree.
+if [ -x scripts/reset-collab-store.sh ]; then
+  echo "Reinstall: drop the collab snapshot store from the host with ./scripts/reset-collab-store.sh"
+else
+  echo "Reinstall over a running stack: the collab snapshot store still holds the old site's edits — 'docker compose down -v', then install again."
+fi
+echo ""
+echo "  Site:  $FRONTEND_URL"
+echo "  Admin: ${DRUPAL_BASE_URL:-}/admin"
+echo "  Sign in as 'admin', with the ADMIN_PASSWORD from .env."

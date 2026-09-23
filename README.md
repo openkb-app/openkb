@@ -4,6 +4,18 @@
 
 Website, product overview and documentation: **[openkb.app](https://openkb.app)**.
 
+## Try it in five minutes
+
+Two files into an empty directory, and the published images do the rest. Docker with the compose plugin is the only prerequisite.
+
+```sh
+mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha1/quickstart/{docker-compose.yml,.env}"
+docker compose up -d
+docker compose exec drupal openkb-install
+```
+
+Then open <http://localhost:8642> and sign in as `admin` / `admin`; `docker compose down -v` throws the stack away. [`quickstart/README.md`](quickstart/README.md) has the walk-through: what to try, the ports, the image tag, and why an evaluation stack runs OpenSearch without memory mapping. It is for evaluation only — a real install is [`docs/self-hosting.md`](docs/self-hosting.md).
+
 ## What you get
 
 - **Pages in Markdown**, organised in spaces, with a block-level editor that several people and agents edit at the same time.
@@ -26,9 +38,9 @@ Website, product overview and documentation: **[openkb.app](https://openkb.app)*
 
 The backend and the frontend talk over JSON:API and custom elements; agents talk to the backend over MCP.
 
-## Run it
+## Self-host it
 
-Prerequisites: Docker with the compose plugin, two hostnames under one parent domain (one for the frontend, one for Drupal), a reverse proxy that terminates TLS, and `vm.max_map_count=262144` on the host for OpenSearch.
+For a real site, on a real host. Prerequisites: Docker with the compose plugin, two hostnames under one parent domain (one for the frontend, one for Drupal), a reverse proxy that terminates TLS, and `vm.max_map_count=262144` on the host for OpenSearch.
 
 ```sh
 git clone https://github.com/openkb-app/openkb.git && cd openkb

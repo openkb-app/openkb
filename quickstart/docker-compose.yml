@@ -1,0 +1,137 @@
+# The OpenKB evaluation stack: the published images on localhost, ready to run.
+# README.md next to it walks through it.
+#
+#   docker compose up -d
+#   docker compose exec drupal openkb-install
+#
+# - Self-contained: the two images are pulled, nothing is built, and the only
+#   other file is the `.env` beside it.
+# - `frontend` runs in `drupal`'s network namespace, so `http://localhost:8642`
+#   and `http://localhost:8643` mean the same thing in the browser and inside
+#   both containers. `drupal` publishes both ports.
+# - Evaluation only: the `.env` carries published passwords and both ports stay
+#   on 127.0.0.1. A real install is the project's own docker-compose.yml with
+#   .env.example; docs/self-hosting.md covers it.
+
+x-container:
+  &container-defaults
+    restart: unless-stopped
+
+# The two own images run without capabilities; mariadb and opensearch drop
+# privileges themselves and need theirs.
+x-hardening:
+  &hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+x-stack-urls:
+  &stack-urls
+    DRUPAL_BASE_URL: ${DRUPAL_BASE_URL:-http://localhost:8643}
+    DRUPAL_FRONTEND_BASE_URL: ${DRUPAL_FRONTEND_BASE_URL:-http://localhost:8642}
+    OKB_COLLAB_CLIENT_ID: ${OKB_COLLAB_CLIENT_ID:?set OKB_COLLAB_CLIENT_ID, see .env}
+    OKB_COLLAB_CLIENT_SECRET: ${OKB_COLLAB_CLIENT_SECRET:?set OKB_COLLAB_CLIENT_SECRET, see .env}
+
+services:
+  drupal:
+    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/openkb-app/openkb}-drupal:${OPENKB_TAG:?set OPENKB_TAG, see .env}
+    << : [*container-defaults, *hardening]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    environment:
+      << : *stack-urls
+      # The port FrankenPHP listens on, published 1:1 below so the port in
+      # DRUPAL_BASE_URL holds inside the namespace too.
+      SERVER_NAME: ":${DRUPAL_HTTP_PORT:-8643}"
+      DRUSH_OPTIONS_URI: ${DRUPAL_BASE_URL:-http://localhost:8643}
+      DRUPAL_HASH_SALT: ${DRUPAL_HASH_SALT:?set DRUPAL_HASH_SALT, see .env}
+      # One host for both ports, so the session cookie needs no domain.
+      SESSION_COOKIE_DOMAIN: ""
+      OPENSEARCH_URL: http://opensearch:9200
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-drupal}
+      MARIADB_USER: ${MARIADB_USER:-drupal}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?set MARIADB_PASSWORD, see .env}
+      # Read by `openkb-install`. Unset, it generates one and prints it.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Where `openkb-install` finds the recipes, which the image ships.
+      OPENKB_RECIPES_DIR: /app/recipes
+      # Optional. Without it the chat and the chunk index stay unusable.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:${DRUPAL_HTTP_PORT:-8643}/user/login"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    ports:
+      - "${LISTEN_IP:-127.0.0.1}:${DRUPAL_HTTP_PORT:-8643}:${DRUPAL_HTTP_PORT:-8643}"
+      - "${LISTEN_IP:-127.0.0.1}:${FRONTEND_HTTP_PORT:-8642}:${FRONTEND_HTTP_PORT:-8642}"
+    volumes:
+      # Public and private files, config sync, OAuth keys.
+      - drupal-files:/app/files
+
+  frontend:
+    image: ${OPENKB_IMAGE_PREFIX:-ghcr.io/openkb-app/openkb}-frontend:${OPENKB_TAG:?set OPENKB_TAG, see .env}
+    << : [*container-defaults, *hardening]
+    # Drupal's namespace: the two reach each other on localhost, as the browser
+    # does.
+    network_mode: service:drupal
+    # The shutdown flushes the collab store; give it time before SIGKILL.
+    stop_grace_period: 30s
+    environment:
+      << : *stack-urls
+      NITRO_PORT: ${FRONTEND_HTTP_PORT:-8642}
+    volumes:
+      # The collab snapshot store. Coupled to the database: `down -v` drops both.
+      - collab-store:/app/frontend/var
+
+  mariadb:
+    image: mariadb:11.4
+    << : *container-defaults
+    # The isolation level Drupal asks for.
+    command:
+      - --transaction-isolation=READ-COMMITTED
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-drupal}
+      MARIADB_USER: ${MARIADB_USER:-drupal}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?set MARIADB_PASSWORD, see .env}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?set MARIADB_ROOT_PASSWORD, see .env}
+      MARIADB_AUTO_UPGRADE: "1"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  opensearch:
+    image: opensearchproject/opensearch:3
+    << : *container-defaults
+    environment:
+      discovery.type: single-node
+      # The cluster is reachable from the stack's own network only.
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      # False drops the host's `vm.max_map_count` requirement.
+      node.store.allow_mmap: ${OPENSEARCH_ALLOW_MMAP:-true}
+      OPENSEARCH_JAVA_OPTS: ${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+volumes:
+  drupal-files:
+  collab-store:
+  mariadb-data:
+  opensearch-data:

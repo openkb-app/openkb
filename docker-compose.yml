@@ -130,6 +130,9 @@ services:
       # The cluster is reachable from the stack's own network only.
       DISABLE_SECURITY_PLUGIN: "true"
       DISABLE_INSTALL_DEMO_CONFIG: "true"
+      # False drops the host's `vm.max_map_count` requirement, at the cost of
+      # read performance.
+      node.store.allow_mmap: ${OPENSEARCH_ALLOW_MMAP:-true}
       OPENSEARCH_JAVA_OPTS: ${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health >/dev/null"]

@@ -35,6 +35,7 @@ jobs:
     timeout-minutes: 30
     steps:
       # The push needs the credentials, and the token is what starts `images`.
+      # The full history brings the tags git-cliff measures the release from.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: '1.x'
@@ -75,11 +76,16 @@ jobs:
           sudo install "$RUNNER_TEMP/git-cliff-$GIT_CLIFF_VERSION/git-cliff" /usr/local/bin/git-cliff
           git-cliff --version
 
+      # Only this release's section is written, on top of what is there, so
+      # earlier sections keep any correction made to them by hand.
       - name: Generate the changelog
         run: |
           set -euo pipefail
-          git-cliff --tag "v$VERSION" -o CHANGELOG.md
-          # `images` reads this section as the release notes.
+          # --prepend needs the file; the header comes from cliff.toml.
+          touch CHANGELOG.md
+          git-cliff --unreleased --tag "v$VERSION" --prepend CHANGELOG.md
+          # `images` reads this section as the release notes. A release whose
+          # commits are all of a skipped type gets the heading and no bullets.
           grep -qF "## [$VERSION]" CHANGELOG.md || {
             echo "git-cliff wrote no '## [$VERSION]' section." >&2
             exit 1
@@ -104,13 +110,32 @@ jobs:
             --ignore-platform-reqs --no-interaction --quiet
           composer validate --no-check-all
           git diff --unified=0 composer.json
+          # The quickstart runs the images of this version and is fetched by
+          # this tag. A renamed variable or moved URL fails the release here
+          # rather than shipping a stale tag.
+          sed -i "s#^OPENKB_TAG=.*#OPENKB_TAG=$VERSION#" quickstart/.env
+          grep -qx "OPENKB_TAG=$VERSION" quickstart/.env || {
+            echo "quickstart/.env has no OPENKB_TAG line to pin." >&2
+            exit 1
+          }
+          sed -i "s#/openkb-app/openkb/v[^/]*/quickstart/#/openkb-app/openkb/v$VERSION/quickstart/#g" \
+            README.md quickstart/README.md
+          for file in README.md quickstart/README.md; do
+            grep -qF "/openkb-app/openkb/v$VERSION/quickstart/" "$file" || {
+              echo "$file has no quickstart fetch URL to pin." >&2
+              exit 1
+            }
+          done
+          git diff --unified=0 quickstart/.env README.md quickstart/README.md
 
       - name: Commit, tag and push
         run: |
           set -euo pipefail
           git config user.name 'OpenKB'
           git config user.email 'noreply@openkb.app'
-          git commit -m "release: v$VERSION." CHANGELOG.md composer.json composer.lock
+          git commit -m "release: v$VERSION." \
+            CHANGELOG.md composer.json composer.lock \
+            quickstart/.env README.md quickstart/README.md
           git tag -a "v$VERSION" -m "OpenKB $VERSION"
           git push origin 1.x "v$VERSION"
 
