@@ -1,0 +1,25 @@
+_meta:
+  version: '1.0'
+  entity_type: media
+  uuid: 31f88b49-522e-53ce-a819-da9df9b9862c
+  bundle: image
+  default_langcode: en
+  depends:
+    763861a6-da15-56be-baeb-4c9a76212407: file
+default:
+  status:
+    -
+      value: true
+  uid:
+    -
+      target_id: 1
+  name:
+    -
+      value: 'The editor with a first page open'
+  field_media_image:
+    -
+      entity: 763861a6-da15-56be-baeb-4c9a76212407
+      alt: 'The OpenKB editor with a new page open: the title, a heading and a paragraph below it, and the block gutter beside them.'
+      title: ''
+      width: 1280
+      height: 800

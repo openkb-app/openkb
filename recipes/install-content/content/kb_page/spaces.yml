@@ -1,0 +1,103 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 6b7e5acd-4edb-5135-8551-cb3185d0e396
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    ec808cff-e174-548d-8d32-2b3b119894e8: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Spaces'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/spaces
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: ec808cff-e174-548d-8d32-2b3b119894e8
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Spaces {#b-002d5f1b}
+
+        ## What is a space? {#b-9d16324e}
+
+        A space is where pages live. Every page belongs to exactly one space. The space decides who may read and write its pages and whether edits are reviewed before they are published. The space's address is its name, for example /engineering, and its pages sit below it. {#b-b83a0aeb}
+
+        The sidebar shows the space you are in and its page tree. The space's own page lists what changed in it recently. It has a search box for the space, a "New page" button and, for managers, a "Settings" button. {#b-78be9384}
+
+        ## Creating a space {#b-921c555a}
+
+        Every signed-in user can create a space. {#b-c4c1ee6f}
+
+        ::block{#b-b03321e1}
+        1. Click "New space" in the sidebar or on the home page.
+        2. Enter a name. The name becomes the address, so pick it with care. Renaming is done in the Drupal administration.
+        3. Add a description, choose "Read access" and set the two switches under "Publishing". See [Members and access](/openkb-user-guide/members-and-access) and [Review policy per space](/openkb-user-guide/review-policy).
+        4. Click "Create space". You are its first manager.
+        ::
+
+        ## The page tree {#b-baf0fb0f}
+
+        The page tree in the sidebar is the space's outline. Its order and nesting are set by hand, not by title or date. {#b-dc7fb5b8}
+
+        ::block{#b-909b0438}
+        - A new page lands at the end of the tree, at the top level. Tick "Child of current page" in the "New page" dialog to file it under the page you are on.
+        - To move a page, drag its row. Drop it on the upper or lower edge of another row to put it before or after that page. Drop it on the middle of a row to make it a child.
+        - Managers may drag. Members may too when "Review before publishing" is off.
+        - A move changes no page and creates no revision.
+        ::
+
+        ## Moving a page to another space {#b-f8c459ff}
+
+        Open the page, open the "More" menu and choose "Move to space…". Pick the space and click "Move page". The page gets a new address under the new space, and the old address redirects to it. Only members and managers of the target space may move a page into it. {#b-7cd3ec93}
+
+        ## Related topics {#b-c9805f91}
+
+        ::block{#b-56a3786a}
+        - [Members and access](/openkb-user-guide/members-and-access)
+        - [Your first page](/openkb-user-guide/your-first-page)
+        ::

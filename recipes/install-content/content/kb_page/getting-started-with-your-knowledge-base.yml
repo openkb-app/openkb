@@ -1,0 +1,100 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: df75d510-d373-5e75-869d-dd7dfcb0b008
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    f8bb0b55-9b83-51be-b3e9-3efd8c5ac6de: openkb_space
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Getting started with your knowledge base'
+  created:
+    -
+      value: 1790121600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /knowledge-base/getting-started-with-your-knowledge-base
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the tests and other pages
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: f8bb0b55-9b83-51be-b3e9-3efd8c5ac6de
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Getting started with your knowledge base {#b-32b8b658}
+
+        ## Goal {#b-770d798f}
+
+        Understand what this space is for and how a change reaches the live page: written as a draft, signed off by a second person, then published. {#b-81c0d38d}
+
+        ## What this space is for {#b-508668e7}
+
+        The Knowledge base is the space for pages the whole team relies on: how things work, decisions, procedures. Every signed-in user can read it. A change goes live only after somebody who did not write it has signed it off, so what readers find here has been checked. {#b-6b86d198}
+
+        Members of this space can write here. An administrator adds members: open the space's page, click "Settings" and add each person under "Members". See [Members and access](/openkb-user-guide/members-and-access). {#b-49eda6bb}
+
+        ## Steps {#b-fe4097af}
+
+        ::block{#b-70192b13}
+        1. Open a page and click "Edit", or create one with "New page". Make your change.
+        2. Click "Save". The change is a draft: readers keep seeing the published page, and the read page shows the badge "Unpublished changes", or "Draft" for a page that was never published.
+        3. Ask a colleague to review. In the editor, each changed block shows a pill in the margin: "Waiting for peer review" for you, "Pending peer review" for the reviewer.
+        4. The reviewer opens the page in the editor, clicks "Review" in the header, reads each change and clicks the checkmark next to its pill, "Mark reviewed".
+        5. When every change is signed off, "Publish" becomes available. Either of you clicks it, and the change is live.
+        ::
+
+        ## Who signs off {#b-3071a570}
+
+        Any manager or member of the space who did not write the change. You cannot sign off your own writing; a site administrator can. A block an agent wrote also waits for a person to sign it off, with "Sign off the agent write". {#b-46c3809a}
+
+        ## Where to see what waits for you {#b-a4882c18}
+
+        ::block{#b-0424a343}
+        - On the read page, the badge "Unpublished changes" says a draft is waiting. The space's own page lists the pages that changed lately under "Recently updated".
+        - In the editor, "Review" in the header lists every change that is waiting and says which of them are yours to sign off. A greyed "Publish" says how many changes still wait.
+        ::
+
+        ## Related topics {#b-abb17b48}
+
+        ::block{#b-0c95478d}
+        - [Drafts, publish and sign-off](/openkb-user-guide/drafts-publish-and-sign-off)
+        - [Review policy per space](/openkb-user-guide/review-policy)
+        - [Members and access](/openkb-user-guide/members-and-access)
+        - [Your first page](/openkb-user-guide/your-first-page)
+        ::

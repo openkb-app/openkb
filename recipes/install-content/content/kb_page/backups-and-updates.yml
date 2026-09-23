@@ -1,0 +1,97 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 5543f92b-9b1b-583e-b241-75eabca34859
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    2323ab5c-5489-52da-ac0c-0bbb5e646fb1: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Backups and updates'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/backups-and-updates
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 2323ab5c-5489-52da-ac0c-0bbb5e646fb1
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Backups and updates {#b-056825f4}
+
+        ## Goal {#b-2c839641}
+
+        Keep the site safe and current. {#b-c86a6be3}
+
+        ## Backups {#b-06d47746}
+
+        Back up three things together: the database, the Drupal files volume, and the collaboration store that holds edits not yet saved to Drupal. The search index is not backed up; it is rebuilt. The exact commands, and how to restore, are in the public documentation: [Volumes and backup](https://github.com/openkb-app/openkb/blob/1.x/docs/self-hosting.md#volumes-and-backup). {#b-8948655a}
+
+        ## Updates {#b-481e09f1}
+
+        ::block{#b-7ad083b1}
+        1. Back up first.
+        2. Set the new version in `OPENKB_TAG` in the `.env` file, then pull the images and restart.
+        3. Run the database updates at `/update.php` on the administration host. The steps are in [Updates](https://github.com/openkb-app/openkb/blob/1.x/README.md#updates).
+        ::
+
+        Nothing updates unattended. The release notes are on the releases page of the public repository. {#b-5030829a}
+
+        ## Where to look when something is off {#b-d6323ea5}
+
+        ::block{#b-32ce4031}
+        - The site's own log: `/admin/reports/dblog` on the administration host.
+        - The status report: `/admin/reports/status` on the administration host.
+        - Logs, resources and the install marker: [Resources and logs](https://github.com/openkb-app/openkb/blob/1.x/docs/self-hosting.md#resources-and-logs).
+        ::
+
+        ## Related topics {#b-5eead124}
+
+        ::block{#b-466bf899}
+        - [Turning on AI](/openkb-user-guide/turning-on-ai)
+        - [Users and roles](/openkb-user-guide/users-and-roles)
+        ::

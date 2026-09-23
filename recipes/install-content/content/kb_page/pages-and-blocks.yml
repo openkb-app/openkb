@@ -1,0 +1,91 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: a62ea5de-2275-5706-80f4-af6449145418
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    6aa3a5ad-6beb-545f-8f66-86c3a78c7508: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Pages and blocks'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/pages-and-blocks
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 6aa3a5ad-6beb-545f-8f66-86c3a78c7508
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Pages and blocks {#b-16c2d337}
+
+        ## What is a page? {#b-9bcf3ca6}
+
+        A page is a Markdown document in one space. It has a title, a body, a type, and optional tags, a summary and an owner. Its address is the space's address followed by the title, for example /engineering/onboarding. Moving a page to another space gives it a new address, see [Spaces](/openkb-user-guide/spaces). {#b-ce6563d9}
+
+        ## What is a block? {#b-929bb6c8}
+
+        The body is a sequence of blocks: a paragraph, a heading, a list, a table, a code block, an image, a callout. Each block carries a stable id. The id stays with the block when the block moves or when other blocks are added around it. {#b-403a81f0}
+
+        The ids are what make a block addressable: {#b-ba1b1ff7}
+
+        ::block{#b-770f9bcd}
+        - Link to it. Hover a block on a page and click the ¶ sign. The block's address is copied.
+        - Cite it. The assistant's answers cite blocks, and a citation opens the page on that block. See [Ask OpenKnowledgebase](/openkb-user-guide/ask-openknowledgebase).
+        - Review it. Every changed block is one review item. See [Drafts, publish and sign-off](/openkb-user-guide/drafts-publish-and-sign-off).
+        - Comment on it. Comments hang on a block.
+        - See who wrote it. Hover a block and click the ⓘ sign. The card "About this block" shows who edited it, its review state and its sources.
+        ::
+
+        You never type a block id. In the Markdown of a page (the ".md" link and "Copy as Markdown") the ids appear as `{#b-…}` after a paragraph, or as a `::block{#b-…}` wrapper around a list or a table. {#b-2dfd9805}
+
+        ## Related topics {#b-981b6f8b}
+
+        ::block{#b-f5440271}
+        - [Markdown and callouts](/openkb-user-guide/markdown-and-callouts)
+        - [Revisions](/openkb-user-guide/revisions)
+        ::

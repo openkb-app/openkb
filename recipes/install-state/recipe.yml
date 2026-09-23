@@ -13,7 +13,6 @@ install:
   - ai_rag_cite
   - ai_search
   - ai_vdb_provider_opensearch
-  - automated_cron
   - basic_auth
   - block
   - block_content
@@ -77,6 +76,7 @@ install:
   - openkb_space
   - openkb_space_access
   - openkb_tools
+  - openkb_update_hold
   - openkb_workflow
   - options
   - page_cache

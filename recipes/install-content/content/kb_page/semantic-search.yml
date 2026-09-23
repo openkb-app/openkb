@@ -1,0 +1,95 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 7cfaae29-8bae-5003-b362-9dad5f402dd7
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Semantic search'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/semantic-search
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Semantic search {#b-b64c5a09}
+
+        What search does, and where to start, is on [Finding things](/openkb-user-guide/finding-things). This page is about the index behind it. {#b-a5791e13}
+
+        ## What the index holds {#b-bf5e79f8}
+
+        Every published page is cut into sections: a heading and the blocks under it. Each section is stored in the search index with its meaning (an embedding) and its words. A search combines both: pages about the question, and pages holding its words. {#b-673a671c}
+
+        The index feeds everything that finds pages: the search page, the "AI summary", the assistant, the `[[` link picker and the agents' search tool. {#b-e446559f}
+
+        ## When a page appears {#b-69b5dbd1}
+
+        ::block{#b-5dbdf5dd}
+        - A page is indexed when it is published. Saving a draft changes nothing in the index.
+        - Indexing happens at save time. A published page is usually found right away. Cron catches up on anything left over.
+        - The index only ever answers with pages you may read. Read access is checked at query time.
+        ::
+
+        ## Why an answer may miss a page {#b-0e258b26}
+
+        ::block{#b-39ec78e0}
+        - The page is not published yet.
+        - The AI is not turned on. Search by meaning needs it, see [Turning on AI](/openkb-user-guide/turning-on-ai).
+        - The words are spelled differently. The index folds case and accents but does not stem words.
+        ::
+
+        ## Related topics {#b-3d4b95dd}
+
+        ::block{#b-39451ac3}
+        - [Finding things](/openkb-user-guide/finding-things)
+        - [Ask OpenKnowledgebase](/openkb-user-guide/ask-openknowledgebase)
+        ::

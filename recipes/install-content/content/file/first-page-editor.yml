@@ -1,0 +1,26 @@
+_meta:
+  version: '1.0'
+  entity_type: file
+  uuid: 763861a6-da15-56be-baeb-4c9a76212407
+  default_langcode: en
+default:
+  uid:
+    -
+      target_id: 1
+  filename:
+    -
+      value: first-page-editor.png
+  # The importer copies the binary from beside this file, by the basename of
+  # the URI.
+  uri:
+    -
+      value: 'public://user-guide/first-page-editor.png'
+  filemime:
+    -
+      value: image/png
+  filesize:
+    -
+      value: 74217
+  status:
+    -
+      value: true

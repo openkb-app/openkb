@@ -1,0 +1,103 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 32fbc04b-b078-5abb-afaf-d9c2d96f8883
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Ask OpenKnowledgebase'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/ask-openknowledgebase
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Ask OpenKnowledgebase {#b-f28b870f}
+
+        ## Goal {#b-b1241fc5}
+
+        Ask a question and get an answer that cites the pages it came from. {#b-bd558362}
+
+        ## Prerequisites {#b-7f6f2712}
+
+        The site administrator has turned the AI on, see [Turning on AI](/openkb-user-guide/turning-on-ai). Without it, the assistant reports that it is unavailable. {#b-80947d56}
+
+        ## Steps {#b-c9cfac69}
+
+        ::block{#b-954830c3}
+        1. Click "Ask OpenKnowledgebase" in the bottom right corner, or press Ctrl+J (⌘J on a Mac). On a wide screen the chat opens in the pane on the right.
+        2. Pick the scope with the pill above the box: "All spaces I can see", or one space.
+        3. Type the question and send it.
+        4. Read the answer. Numbers like [1] are citations. Hover one to see the page; click it to open the page on the cited block. The "Sources" list under the answer holds every cited section.
+        5. Ask a follow-up. The conversation keeps its context while you move between pages. "Clear conversation" in the ⋯ menu starts over. Closing the chat with the X does too.
+        ::
+
+        ## When there is no source {#b-acda7b22}
+
+        ::block{#b-d7076741}
+        - "From AI knowledge" on an answer means it comes from the model's general knowledge, not from a page. When nothing matched at all, the answer also says which pages were searched.
+        - You then get three ways on: "Ask in other words", "Search the pages yourself" and "Write the page".
+        ::
+
+        The assistant only reads what you may read. It answers from published pages; a draft is not in the index. {#b-9c461ecb}
+
+        ## What the assistant can do for you {#b-65905a96}
+
+        The assistant can also act: search, list your spaces, find drafts, create a page, edit the blocks of a draft and leave a comment. Its actions are listed under the answer as "tool calls". A page it writes is a draft, its blocks are marked for review, and nothing is published. It writes as you, through the client "OpenKB AI". An administrator account cannot hold that token, so use an editor account for the chat, see [Initial setup](/openkb-user-guide/initial-setup). {#b-e69ec73b}
+
+        ## Related topics {#b-d994dd22}
+
+        ::block{#b-29d1e5de}
+        - [Semantic search](/openkb-user-guide/semantic-search)
+        - [Working with an agent on a page](/openkb-user-guide/working-with-an-agent)
+        - [Reviewing agent edits](/openkb-user-guide/reviewing-agent-edits)
+        ::

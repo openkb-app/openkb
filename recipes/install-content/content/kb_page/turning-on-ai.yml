@@ -1,0 +1,92 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 11b5c605-2fa4-5814-8807-e1903fee9f17
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    2323ab5c-5489-52da-ac0c-0bbb5e646fb1: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Turning on AI'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/turning-on-ai
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 2323ab5c-5489-52da-ac0c-0bbb5e646fb1
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Turning on AI {#b-e9a1400a}
+
+        ## Goal {#b-aaa64e7a}
+
+        Turn on the assistant and search by meaning. {#b-5ec839af}
+
+        ## Prerequisites {#b-521f3192}
+
+        Access to the server that runs the site, and an API key of a supported provider. The public documentation lists the providers and what each enables: [AI setup](https://github.com/openkb-app/openkb/blob/1.x/README.md#ai-setup). {#b-5c0e17aa}
+
+        ## Steps {#b-10c8c6ba}
+
+        ::block{#b-67ca7fed}
+        1. Put the key in the site's environment: `OPENAI_API_KEY` in the `.env` file next to the compose file. Restart the `drupal` service. The key is read from the environment and is never stored in the database.
+        2. Check that the provider answers: open `/admin/config/ai/explorers` on the administration host and run a test.
+        3. Re-feed the search index so every page is embedded. The commands are in [AI setup](https://github.com/openkb-app/openkb/blob/1.x/README.md#ai-setup).
+        4. Open the site and ask a question with "Ask OpenKnowledgebase".
+        ::
+
+        To use another provider, or another chat or embeddings model, set the defaults at `/admin/config/ai/settings` on the administration host, then re-feed the index. Changing the embeddings model needs the index dropped first. The same section of the public documentation shows how. {#b-b68d7ca8}
+
+        Without a key, editing, review, keyword search and agents work. The assistant, the "AI summary" and search by meaning stay off. {#b-bc4748a2}
+
+        ## Related topics {#b-28b409a8}
+
+        ::block{#b-32b4e79b}
+        - [Semantic search](/openkb-user-guide/semantic-search)
+        - [Backups and updates](/openkb-user-guide/backups-and-updates)
+        ::

@@ -1,0 +1,92 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 1490e4dd-3489-5fca-acca-06b41e9d4b3b
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    6aa3a5ad-6beb-545f-8f66-86c3a78c7508: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Markdown and callouts'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/markdown-and-callouts
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 6aa3a5ad-6beb-545f-8f66-86c3a78c7508
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Markdown and callouts {#b-cef4f8a0}
+
+        ## Goal {#b-9e12a2f9}
+
+        Format text, and add a list, a table, a callout, an infobox, an image or a link. {#b-079e9a65}
+
+        ## Steps {#b-ebc7163c}
+
+        ::block{#b-0aca3939}
+        1. Open a page and click "Edit".
+        2. Type Markdown and the editor converts it as you type: `# ` for a heading, `- ` for a bullet list, `1. ` for a numbered list, `[ ] ` for a task list, `> ` for a quote, three backticks for a code block, `---` for a rule, `**bold**`, `*italic*`, `~~strike~~` and backticks for inline code.
+        3. Or type `/`. The block menu lists headings, lists, a table, a code block, a horizontal rule, an image, a link to a page, a citation, and the two components "Callout" and "Infobox". The "+" button in the toolbar opens the same menu.
+        4. Select text to get the bubble toolbar: bold, italic, strikethrough, inline code, link, link to a page, heading, and comment.
+        5. To add a callout, pick "Callout" from the block menu and choose its type in the box: Info, Warning, Success or Danger. An "Infobox" is a bordered box with a title.
+        6. To add a table, pick "Table". You get three columns and three rows with a header row. With the cursor in the table, the toolbar offers "Add row above", "Add row below", "Delete row", "Add column left", "Add column right", "Delete column" and "Delete table".
+        7. To add an image, pick "Image". The media library opens. Upload a file and fill in "Alternative text", or select an existing one, then click "Insert selected".
+        8. To link to another page, type `[[` and part of its title, then pick the page. Type `#` after the title to link to one of its blocks. If text was selected, it becomes the link's label.
+        ::
+
+        A page's own first heading is its title. Headings in the body start at level 2. {#b-61a8aafa}
+
+        There is no Markdown source mode. The ".md" link on a page shows the stored Markdown, and "Copy as Markdown" copies it. {#b-b6a80826}
+
+        ## Expand your understanding {#b-8659fcb7}
+
+        ::block{#b-631eb837}
+        - [Keyboard shortcuts](/openkb-user-guide/keyboard-shortcuts)
+        - [Pages and blocks](/openkb-user-guide/pages-and-blocks)
+        ::

@@ -1,0 +1,104 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 302717e4-9d2e-5d5f-ace8-e93603e9e30b
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    3749b229-05a5-5926-a833-8624a4c98d4a: openkb_space
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Getting started with your team wiki'
+  created:
+    -
+      value: 1790121600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /team-wiki/getting-started-with-your-team-wiki
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the tests and other pages
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 3749b229-05a5-5926-a833-8624a4c98d4a
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Getting started with your team wiki {#b-94773fd9}
+
+        ## Goal {#b-40aeb5bc}
+
+        Understand what this space is for, how to write in it, and what happens when an agent edits a page here. {#b-fb490eae}
+
+        ## What this space is for {#b-3d60a873}
+
+        The Team wiki is the space for notes, meeting minutes, how-tos and everything else that should be quick to write down. Every signed-in user can read it. Members publish their own changes at once; no second person has to sign them off. {#b-d3e36e91}
+
+        Members of this space can write here. An administrator adds members: open the space's page, click "Settings" and add each person under "Members". See [Members and access](/openkb-user-guide/members-and-access). {#b-88952700}
+
+        ## Steps {#b-5b1b6b47}
+
+        ::block{#b-5d9a8c68}
+        1. Click "New page", enter a title and click "Create page". Or open a page and click "Edit".
+        2. Write. Type `- ` for a list or `## ` for a heading. See [Markdown and callouts](/openkb-user-guide/markdown-and-callouts).
+        3. Click "Publish". The change is live. Click "Save" instead to keep it as a draft.
+        ::
+
+        Members may also arrange the page tree in the sidebar: drag a row to move a page. {#b-8197d01d}
+
+        ## When an agent edits {#b-4768d2af}
+
+        An agent writes into the page's draft, never onto the live page. Every block it wrote shows the pill "Pending agent review" in the editor's margin, and the page cannot be published until each of them is signed off by a person, even if the other changes on the page are your own. "Publish" is greyed and says how many changes are waiting. {#b-c4c88a63}
+
+        To approve the agent's work: {#b-b7609193}
+
+        ::block{#b-2be7c0b0}
+        1. Open the page in the editor and click "Review" in the header. The pane lists the agent's blocks under "Waiting on a human to read what the agent wrote".
+        2. Click a row to jump to the block and read it.
+        3. Click the checkmark next to the pill, "Sign off the agent write".
+        4. When every block is signed off, click "Publish".
+        ::
+
+        Any member or manager may sign off an agent's block, including the person the agent works for. {#b-c809c116}
+
+        ## Related topics {#b-c9786210}
+
+        ::block{#b-966267d8}
+        - [Working with an agent on a page](/openkb-user-guide/working-with-an-agent)
+        - [Reviewing agent edits](/openkb-user-guide/reviewing-agent-edits)
+        - [Review policy per space](/openkb-user-guide/review-policy)
+        - [Your first page](/openkb-user-guide/your-first-page)
+        ::

@@ -1,0 +1,27 @@
+_meta:
+  version: '1.0'
+  entity_type: openkb_space
+  uuid: f8bb0b55-9b83-51be-b3e9-3efd8c5ac6de
+default:
+  status:
+    -
+      value: true
+  label:
+    -
+      value: 'Knowledge base'
+  description:
+    -
+      value: 'Pages the whole team relies on. Every change is signed off by a second person before it is published.'
+  managers:
+    # The site administrator alone: uid 1, which the applying account is too.
+    -
+      target_id: 1
+  read_access:
+    -
+      value: all_users
+  field_moderation:
+    -
+      value: true
+  field_agent_review:
+    -
+      value: true

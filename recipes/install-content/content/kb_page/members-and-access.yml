@@ -1,0 +1,109 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 5d837da7-9e58-5f20-8a1d-433669e168f8
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    ec808cff-e174-548d-8d32-2b3b119894e8: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Members and access'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/members-and-access
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: ec808cff-e174-548d-8d32-2b3b119894e8
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Members and access {#b-55268f9f}
+
+        ## Goal {#b-d36e4d53}
+
+        Decide who may read a space and who may write in it. {#b-ec651a44}
+
+        ## The roster {#b-6ca9b48a}
+
+        A space has three rosters. A person is on one of them. {#b-cf0a523e}
+
+        ::block{#b-525cb9f3}
+        | Role | May do |
+        |---|---|
+        | Manager | Read, write and publish, and manage the space: its settings, its roster and its page tree. |
+        | Member | Read, write and publish. |
+        | Viewer | Read only. |
+        ::
+
+        Plus "Read access": {#b-e72d3733}
+
+        ::block{#b-c74aa09e}
+        - "Members only": only the roster can find and read the space. The space is invisible to everyone else. This is the default for a new space.
+        - "All users": everyone signed in can read the space. Managers and members still write.
+        ::
+
+        A person who may not read a space does not see it in the sidebar, in search or in the assistant's answers, and gets "This page doesn't exist" at its address. {#b-f488ee9f}
+
+        ## Steps {#b-6b5a4489}
+
+        ::block{#b-c7665d06}
+        1. Open the space's page and click "Settings". Only managers see the button.
+        2. In the "Space settings" dialog, choose "Read access".
+        3. Under "Members", add a person: type a name in "Add a person…", pick the role and click "Add". Change a role with the select next to the name, or remove the person with the X. Roster changes are saved at once.
+        4. Click "Save changes" for the description, the read access and the switches under "Publishing".
+        ::
+
+        ## The site administrator {#b-7c98833d}
+
+        The site administrator reads and writes every space, whatever its roster, and creates the user accounts. See [Users and roles](/openkb-user-guide/users-and-roles). Anyone who creates a space is that space's first manager. {#b-f14cb32e}
+
+        ## Related topics {#b-87e87f56}
+
+        ::block{#b-51ddfd75}
+        - [Review policy per space](/openkb-user-guide/review-policy)
+        - [Spaces](/openkb-user-guide/spaces)
+        ::

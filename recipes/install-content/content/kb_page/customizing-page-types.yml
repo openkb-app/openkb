@@ -1,0 +1,96 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 89dd5028-2b2d-5292-8a53-476b3c3bb61e
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    2323ab5c-5489-52da-ac0c-0bbb5e646fb1: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Customizing page types'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/customizing-page-types
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 2323ab5c-5489-52da-ac0c-0bbb5e646fb1
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Customizing page types {#b-a6028dc6}
+
+        ## Goal {#b-7daf37e6}
+
+        Add or rename a page type, and manage the tags. {#b-b122778e}
+
+        ## Prerequisites {#b-2665927a}
+
+        The Administrator role. The lists live in the Drupal administration; open it with "Admin backend" in the account menu. {#b-f26ad7c4}
+
+        ## Page types {#b-45d9e9a1}
+
+        The four types, Article, ADR, Guide and Runbook, are the allowed values of the "Type" field of the page content type. The app reads the list from the site: a change shows in the "New page" dialog, under "Details" and in the search page's "Type" filter, with no cache clear. {#b-9993028e}
+
+        ::block{#b-1bd33314}
+        1. The field settings need the Field UI module, which is not enabled by default. Go to Extend, tick "Field UI" and click "Install".
+        2. Go to Structure, then Content types, then the "Manage fields" tab of the "KB page" content type. Open the "Type" field.
+        3. Under "Allowed values list", add a row: a key, which is what is stored and what agents read, and a label, which is what people see. Or change a label to rename a type. Click "Save settings".
+        4. A value that pages use cannot be removed; the row says "Cannot be removed: option in use." Change those pages' type first.
+        ::
+
+        Renaming a label changes nothing on existing pages: they keep their key and show the new label. {#b-3ee345cc}
+
+        ## Tags {#b-37e601de}
+
+        Tags are terms of the "KB tags" vocabulary. Anyone editing a page creates a tag by typing a new name under "Details". To rename, reorder or delete them, go to Structure, then Taxonomy, then "KB tags". Deleting a term removes it from every page that carried it. {#b-d404b3a2}
+
+        ## Related topics {#b-3fec99ad}
+
+        ::block{#b-055c4455}
+        - [Page types and tags](/openkb-user-guide/page-types-and-tags)
+        - [Users and roles](/openkb-user-guide/users-and-roles)
+        ::

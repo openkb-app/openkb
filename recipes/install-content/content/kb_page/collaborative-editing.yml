@@ -1,0 +1,121 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 849f13a5-29a4-5f66-808b-176480e69b1a
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    6aa3a5ad-6beb-545f-8f66-86c3a78c7508: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Collaborative editing'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/collaborative-editing
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 6aa3a5ad-6beb-545f-8f66-86c3a78c7508
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Collaborative editing {#b-e5fd9097}
+
+        ## What happens when two people edit {#b-0fc8dafa}
+
+        A page has one live working copy. Everyone who opens the editor works on it at the same time. Your keystrokes reach the others as you type, and theirs reach you. There is no lock and no merge step. {#b-8e256a38}
+
+        ::block{#b-8b30ad8f}
+        - The avatars in the editor's header show who is connected. An agent shows with a robot badge.
+        - Each person's cursor is drawn in the text, in their colour, with their name.
+        - The fields under "Details" show a coloured dot next to a field somebody else is editing.
+        ::
+
+        ## The sync state {#b-d01d9d1f}
+
+        The chip in the editor's header tells you where your edits are: {#b-d62ad2a8}
+
+        ::block{#b-2c1f7f2f}
+        - "Synced": nothing is waiting to be saved.
+        - "Unsaved changes": the working copy holds edits that are not yet in the page's history. Click "Save".
+        - "Saving…" and "Save failed": while and after a save.
+        - "Connecting…" and "Offline": the connection is lost. Keep typing. Your edits are kept in this browser and sent when the connection is back.
+        - "No edit access" and "Not signed in": you cannot write here.
+        ::
+
+        ## When something changed elsewhere {#b-c7c06946}
+
+        If someone saved a new revision to the history outside the working copy, a banner says "This page was changed elsewhere". Click "Reload" to take the latest revision. Live edits not yet in the history are lost. {#b-304a18ef}
+
+        To drop your own unsaved edits, open the "More" menu and choose "Revert unsaved changes". {#b-81988dcc}
+
+        ## Comments {#b-a33291ca}
+
+        A comment hangs on one block, or on a passage of it. Comments live in the editor and in the "Review" pane; a reader of the published page does not see them. {#b-9c88dffe}
+
+        ::block{#b-10660160}
+        1. Open the page in the editor and put the cursor in the block. Click "Comment on this block" in the toolbar. To comment on some words, select them and click "Comment" in the bubble toolbar. The block's ⠿ menu offers "Comment" too.
+        2. The "Review" pane opens with the composer. Write the note and click "Comment", or press Ctrl+Enter.
+        3. To answer, click "Reply" under the thread and write. A thread lists its messages with author and time.
+        4. When the point is settled, click "Resolve this comment", the checkmark on the thread. Resolved threads stay under "Resolved", where "Reopen" brings one back.
+        ::
+
+        ## Assigning a comment {#b-24b0ebc8}
+
+        A thread has one assignee at a time: the person or agent who should act on it. {#b-1b1317fa}
+
+        ::block{#b-3e6a5774}
+        - Type `@` in the comment, or click "Mention somebody", and pick a name. The picker lists the people in the page, the space's editors, the agents connected here and your own agents. The note "Assigns this to <name>" shows who will hold the thread.
+        - On an open thread, "Assign this comment to somebody" assigns it later; the chip "Assigned to <name>" reassigns or unassigns it.
+        - The assignee sees the thread under the "Assigned to me" tab of the pane's "Comments" list, marked "Assigned to you", with a "Mark as done" button. Your own agents' threads are under "Assigned to my agents". The "Review" button in the editor's header carries the count.
+        - An agent reads its assignments with the `tool_api__list_assignments` tool on its next connection, and answers in the thread. Only a person closes a thread: "Mark as done" and "Resolve this comment" are not offered to agents.
+        ::
+
+        ## Related topics {#b-e99ec084}
+
+        ::block{#b-12562f4e}
+        - [Working with an agent on a page](/openkb-user-guide/working-with-an-agent)
+        - [Drafts, publish and sign-off](/openkb-user-guide/drafts-publish-and-sign-off)
+        ::

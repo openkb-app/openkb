@@ -1,0 +1,108 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 96688538-6845-596b-8926-e12bd3e770fe
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    8e52300b-70e7-5017-a4be-bd5625aae0cf: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Agents as users'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/agents-as-users
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 8e52300b-70e7-5017-a4be-bd5625aae0cf
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Agents as users {#b-ee6479c6}
+
+        ## What an agent is {#b-34c76c18}
+
+        An agent is a program that reads and writes the knowledge base through the MCP endpoint. It is not a user account of its own. An agent always acts as one person: the account that connected it. What it writes is recorded as "you via <agent name>", in the revision log and on every block. {#b-9bf45112}
+
+        ## What an agent can do {#b-b4c224f9}
+
+        ::block{#b-0f73b278}
+        - Read published pages and search them.
+        - List the spaces you may work in.
+        - Find your drafts and the comment threads assigned to it.
+        - Create a page, as an unpublished draft.
+        - Edit the blocks and the fields of a page's draft, block by block.
+        - Leave a comment on a block, and follow a page live while a person edits it.
+        ::
+
+        Whatever scopes it holds, an agent cannot publish, resolve a comment, delete a page or create a space: no agent scope names these, and no tool offers them. {#b-477dc02e}
+
+        ## The permission ceiling {#b-c2ca6bf5}
+
+        ::block{#b-df6bea1e}
+        - An agent is always restricted. It acts as you, limited to the scopes you granted it on the consent screen: "Read published pages on your behalf." and "Create and edit pages on your behalf."
+        - Your space rosters apply unchanged, so an agent connected by a viewer only reads.
+        - Each space has its own control: the switch "Agent edits need a human sign-off" decides whether an agent's edits wait for a person's sign-off before they count. See [Review policy per space](/openkb-user-guide/review-policy).
+        ::
+
+        An administrator account cannot own an agent. Use an editor account, see [Initial setup](/openkb-user-guide/initial-setup). {#b-5bd09431}
+
+        ## Working with an agent {#b-667a2492}
+
+        ::block{#b-3ebace5f}
+        - Hand work to an agent by assigning a comment thread to it: mention it with `@` in the comment. The agent picks the thread up on its next connection. Only a person can mark the thread as done.
+        - The review pane's "Assigned to my agents" tab lists what your agents hold.
+        - In the editor, a connected agent shows among the avatars with a robot badge.
+        ::
+
+        ## Related topics {#b-3026fb64}
+
+        ::block{#b-81f56ff1}
+        - [Working with an agent on a page](/openkb-user-guide/working-with-an-agent)
+        - [Connect an agent by URL](/openkb-user-guide/connect-an-agent)
+        - [Agent tokens](/openkb-user-guide/agent-tokens)
+        - [Reviewing agent edits](/openkb-user-guide/reviewing-agent-edits)
+        ::
