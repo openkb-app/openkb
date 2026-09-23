@@ -283,7 +283,6 @@ config:
         - 'view kb_page revisions'
         - 'view latest version'
         - 'view media'
-        - 'view the administration theme'
     user.role.collab_server:
       grantPermissions:
         - 'access content'
