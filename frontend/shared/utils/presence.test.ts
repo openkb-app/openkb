@@ -30,7 +30,12 @@ describe('collabColor', () => {
   it('is stable per uid and distinct for adjacent uids', () => {
     expect(collabColor(1)).toBe(collabColor(1))
     expect(collabColor(1)).not.toBe(collabColor(2))
-    expect(collabColor(1)).toMatch(/^hsl\(\d+ 65% 45%\)$/)
+  })
+
+  it('is a 6-digit hex colour, the only notation the collaboration caret accepts', () => {
+    for (let uid = 0; uid < 1000; uid++) expect(collabColor(uid)).toMatch(/^#[0-9a-f]{6}$/)
+    // uid 0 → hue 0: hsl(0 65% 45%).
+    expect(collabColor(0)).toBe('#bd2828')
   })
 })
 
@@ -41,16 +46,16 @@ describe('readableInkOn', () => {
     return (light + 0.05) / (dark + 0.05)
   }
 
-  it('reads the two notations awareness carries', () => {
+  it('reads hex in both lengths', () => {
     expect(luminanceOf('#000000')).toBe(0)
     expect(luminanceOf('#ffffff')).toBe(1)
-    expect(luminanceOf('hsl(60 65% 45%)')).toBeCloseTo(0.4756, 4)
+    expect(luminanceOf('#fff')).toBe(1)
     expect(luminanceOf(FALLBACK_COLOR)).toBeCloseTo(0.3595, 4)
   })
 
   it('turns with the background, not with the colour scheme', () => {
-    expect(readableInkOn('hsl(60 65% 45%)')).toBe('#000000')
-    expect(readableInkOn('hsl(240 65% 45%)')).toBe('#ffffff')
+    expect(readableInkOn('#bdbd28')).toBe('#000000')
+    expect(readableInkOn('#2828bd')).toBe('#ffffff')
   })
 
   it('clears 4.5:1 on every colour an avatar can be painted', () => {

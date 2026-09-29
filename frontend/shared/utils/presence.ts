@@ -71,24 +71,23 @@ export const FALLBACK_COLOR = '#94a3b8'
  * golden-angle hue walk — adjacent uids land far apart on the wheel. This is
  * the single color source for carets, per-field indicators and the presence
  * strip alike (published once into the awareness `user` object).
+ *
+ * `#rrggbb`: the collaboration caret accepts no other notation.
  */
 export function collabColor(uid: number): string {
   const hue = Math.round((uid * 137.508) % 360)
-  return `hsl(${hue} 65% 45%)`
+  const [s, l] = [0.65, 0.45]
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1))
+  const m = l - c / 2
+  const wheel: [number, number, number][] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]]
+  return '#' + wheel[Math.floor(hue / 60) % 6]!
+    .map(channel => Math.round((channel + m) * 255).toString(16).padStart(2, '0'))
+    .join('')
 }
 
-/** The two notations awareness carries, as 0-1 sRGB channels. */
+/** A `#rgb` or `#rrggbb` colour as 0-1 sRGB channels. */
 function srgbOf(color: string): [number, number, number] {
-  const hsl = /^hsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%\s*\)$/.exec(color)
-  if (hsl) {
-    const [h, s, l] = [Number(hsl[1]), Number(hsl[2]) / 100, Number(hsl[3]) / 100]
-    const c = (1 - Math.abs(2 * l - 1)) * s
-    const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-    const m = l - c / 2
-    const wheel: [number, number, number][] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]]
-    const [r, g, b] = wheel[Math.floor(h / 60) % 6]!
-    return [r + m, g + m, b + m]
-  }
   const hex = color.replace('#', '')
   const full = hex.length === 3 ? [...hex].map(digit => digit + digit).join('') : hex
   return [0, 2, 4].map(i => parseInt(full.slice(i, i + 2), 16) / 255) as [number, number, number]

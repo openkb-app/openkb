@@ -543,8 +543,8 @@ custom-mention,
    Two parts, at two volumes:
 
    - a coloured rule down the left margin, on every marked block, so the state
-     is readable while scrolling. It takes the FIRST pill's colour, which on a
-     block owing both steps is the agent's;
+     is readable while scrolling. It takes the colour of the block's waiting
+     state, whichever step is owed;
    - one pill per step still owed, on the block in hand only — under the
      pointer, holding the caret, or node-selected. Two owed steps are two
      pills, in two colours.
@@ -726,9 +726,9 @@ custom-mention,
 }
 
 /* One palette, read three times: by the block for its left rule, by each pill
-   for its own colour, and by the checkmark standing beside that pill. A block
-   owing both steps carries both classes, so the rule takes the agent colour
-   — the first pill's colour — while the pills keep one colour each.
+   for its own colour, and by the checkmark standing beside that pill. The
+   block's rule follows its waiting state, whichever step is owed; the pills
+   keep one colour each.
 
    The three waiting states say whose move it is. Only the reader's own queue
    is drawn to catch the eye; a block waiting on somebody else is stated and
@@ -755,12 +755,10 @@ custom-mention,
   --okb-review-ink: var(--ui-error);
 }
 
-/* The agent step, in the colour the brand reserves for agent attribution. On
-   the block it wins over the state colours above wherever both steps are owed,
-   because that is the approval to give first — and its pill leads for the
-   same reason. A reader who cannot tell the agent colour from blue reads
+/* The agent step's pill and checkmark, in the colour the brand reserves for
+   agent attribution. A reader who cannot tell the agent colour apart reads
    "agent" in the pill and sees a diamond rather than a circle. */
-.inplace-editor .ProseMirror :is(.okb-review--agent, .okb-review-pill--agent, .okb-review-approve--agent) {
+.inplace-editor .ProseMirror :is(.okb-review-pill--agent, .okb-review-approve--agent) {
   --okb-review-rule: var(--okb-agent);
   --okb-review-ink: var(--okb-agent-text);
 }

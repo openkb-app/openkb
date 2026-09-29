@@ -118,6 +118,32 @@ describe('MCP server', () => {
     expect(instructions).not.toMatch(/\bgetPage\b/)
   })
 
+  it('tells an agent it never publishes, and to ask for review and then wait for it', async () => {
+    const { server } = await connect()
+    const instructions = (server as unknown as { _instructions: string })._instructions
+    expect(instructions).toContain('You never publish, and no tool does')
+    expect(instructions).toContain('`agent_review`')
+    expect(instructions).toContain('`moderated`')
+    expect(instructions).toMatch(/Ask before you stop/)
+    expect(instructions).toMatch(/drafts for an editor to publish/)
+    expect(instructions).toMatch(/On a yes, loop on waitForChanges/)
+    expect(instructions).toMatch(/each with its own cursor/)
+    expect(instructions).toMatch(/A `session` event ends the wait on that page/)
+    expect(instructions).toMatch(/Stop when no page is left, after ten rounds in a row with no event/)
+    expect(instructions).toMatch(/answer it with commentOnBlock/)
+    expect(instructions).toMatch(/`draft_exists` true means the working copy holds changes that are not live/)
+    expect(instructions).toMatch(/you still do not publish/)
+    for (const field of ['draft_exists', 'blocks_pending', 'can_publish']) {
+      expect(instructions).toContain(`\`${field}\``)
+    }
+  })
+
+  it('tells an agent how to place a new page under a parent', async () => {
+    const { server } = await connect()
+    const instructions = (server as unknown as { _instructions: string })._instructions
+    expect(instructions).toMatch(/Pass `parent` .* to place the new page under it/)
+  })
+
   // The three session tools, and the same three Drupal declares as Tool API
   // plugins so one plugin manager knows the whole surface (openkb_tools,
   // ToolParityTest). Drupal offers none of them — it cannot execute them —

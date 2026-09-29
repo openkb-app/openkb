@@ -417,8 +417,7 @@ export interface ReviewPill {
  * sign-off it has.
  *
  * A block owing both steps draws two, because they are two approvals by two
- * people. The agent pill leads, and its colour is the one the left rule
- * carries.
+ * people. The agent pill leads.
  */
 export function reviewPills(mark: ReviewMark): ReviewPill[] {
   if (mark.state === 'reviewed') {

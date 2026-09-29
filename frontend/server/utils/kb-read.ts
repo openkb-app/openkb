@@ -71,6 +71,17 @@ export interface KbPage {
    * read carries them, and that read is the editors' (ADR 0006).
    */
   comments?: CommentThread[]
+  /**
+   * The page this one sits under in its space's tree. Absent for a top-level
+   * page and a parent the reader may not see.
+   */
+  parent?: PageRef
+}
+
+/** A page named by its path and node id. */
+export interface PageRef {
+  path: string
+  nid: number
 }
 
 /**
@@ -148,6 +159,8 @@ export async function getKbPage(
   if (!found) return null
   const { page, props, canEdit } = found
   const specs = await fetchFrontmatterSpecs(event)
+  // The tree is the space's, not a revision's, so the page read answers it.
+  const parent = pageRef(props.parent)
 
   if (options.version !== 'working-copy') {
     return project(
@@ -157,6 +170,8 @@ export async function getKbPage(
       page.body,
       mapCeFieldValues(specs, props),
       await pageStatus(event, options, found, page.blockMeta),
+      undefined,
+      parent,
     )
   }
 
@@ -179,6 +194,7 @@ export async function getKbPage(
     live ? { ...values, ...live.fields } : values,
     await pageStatus(event, options, found, draft.page.blockMeta, draft.page.blockMeta),
     await pageComments(options, page.nid),
+    parent,
   )
 }
 
@@ -301,6 +317,7 @@ function project(
   values: FieldValues,
   status?: PageStatus,
   comments?: CommentThread[],
+  parent?: PageRef,
 ): KbPage {
   const { body, canonical } = bodyForms(storedBody)
   return {
@@ -314,5 +331,13 @@ function project(
     versions: blockVersions(canonical),
     ...(status ? { status } : {}),
     ...(comments ? { comments } : {}),
+    ...(parent ? { parent } : {}),
   }
+}
+
+/** The CE page's `parent` prop, or `undefined` when it names none. */
+function pageRef(raw: unknown): PageRef | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const { path, nid } = raw as { path?: unknown, nid?: unknown }
+  return typeof path === 'string' && typeof nid === 'number' ? { path, nid } : undefined
 }

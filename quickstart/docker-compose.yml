@@ -136,14 +136,25 @@ services:
     << : *container-defaults
     environment:
       discovery.type: single-node
-      # A nearly full host disk would otherwise make the indexes read-only.
-      cluster.routing.allocation.disk.threshold_enabled: "false"
+      # One node, so a replica has nowhere to go: it would stay unassigned and
+      # hold cluster health at yellow. A default, not a cap -- an index asking
+      # for replicas still gets them.
+      cluster.default_number_of_replicas: "0"
       # The cluster is reachable from the stack's own network only.
       DISABLE_SECURITY_PLUGIN: "true"
       DISABLE_INSTALL_DEMO_CONFIG: "true"
       # False drops the host's `vm.max_map_count` requirement.
       node.store.allow_mmap: ${OPENSEARCH_ALLOW_MMAP:-true}
       OPENSEARCH_JAVA_OPTS: ${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+      # Plugins to keep; everything else is removed at container start.
+      #   knn               knn_vector field of the chunk index
+      #   neural-search     normalization-processor of the hybrid query's search pipeline
+      #   custom-codecs     index compression codecs
+      #   system-templates  built-in index templates
+      OPENSEARCH_PLUGINS: opensearch-knn opensearch-neural-search opensearch-custom-codecs opensearch-system-templates
+    command: |
+      bash -c 'for p in $$(ls plugins); do case " $$OPENSEARCH_PLUGINS " in *" $$p "*) ;; *) rm -rf plugins/$$p config/$$p bin/$$p ;; esac; done
+      exec ./opensearch-docker-entrypoint.sh opensearch'
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health >/dev/null"]
       interval: 10s

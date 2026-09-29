@@ -56,9 +56,10 @@ export function waitForChangesTool(): KbTool {
       + 'An answer with no events means the wait timed out and nothing happened; '
       + 'call again with the cursor it gave you. `editors` is how many people '
       + 'have the page open, so a quiet page and an empty one are not the same '
-      + 'answer. A `session` event is terminal — the editors have left or the '
-      + 'session is gone — so stop the loop, and say what you did rather than '
-      + 'waiting on an empty room. What you did yourself is never reported back '
+      + 'answer. A `session` event means the page\'s editing session closed — '
+      + 'the editors have left or the session is gone — so it ends the wait on '
+      + 'this page: stop calling for it. When you stop waiting, say what you '
+      + 'did. What you did yourself is never reported back '
       + 'to you. Waiting joins the page\'s editing session, so it needs the same '
       + 'write access as updateBlocks.',
     inputSchema: {
@@ -248,7 +249,7 @@ function eventLine(event: ChangeEvent): string {
       return `${event.who.name ?? 'someone'} ${event.event}`
         + `${event.blockId ? ` in ${event.blockId}` : ''}`
     case 'session':
-      return `the session closed (${event.reason}) — stop waiting`
+      return `the session closed (${event.reason}) — stop waiting on this page`
   }
 }
 

@@ -149,6 +149,22 @@ describe('getKbPage', () => {
     expect(fetchCeWorkingCopy).toHaveBeenCalledWith({}, 7, editable)
   })
 
+  it('reports the parent the page read names, on either revision', async () => {
+    const parent = { path: '/team-wiki/handbook', nid: 3 }
+    fetchCePage.mockResolvedValue({ ...CE_PAGE, canEdit: true, props: { ...CE_PAGE.props, parent } })
+    fetchCeWorkingCopy.mockResolvedValue(workingCopy({ body: 'Draft body.' }))
+
+    expect(await getKbPage(EVENT, 'team-wiki/getting-started')).toMatchObject({ parent })
+    expect(await getKbPage(EVENT, 'team-wiki/getting-started', { version: 'working-copy' }))
+      .toMatchObject({ parent })
+  })
+
+  it('leaves `parent` off a top-level page', async () => {
+    fetchCePage.mockResolvedValue({ ...CE_PAGE, props: { ...CE_PAGE.props, parent: null } })
+
+    expect(await getKbPage(EVENT, 'team-wiki/getting-started')).not.toHaveProperty('parent')
+  })
+
   it('reads the stored conversations as the collab server, not as the caller', async () => {
     // `use inline comments api` is a permission no agent scope names, so the
     // caller's own Bearer would be refused where the collab server's is not.

@@ -68,7 +68,7 @@ describe('getPageForEditing', () => {
     const tool = (await client.listTools()).tools.find(t => t.name === 'getPageForEditing')!
     const output = tool.outputSchema as Record<string, any>
     expect(Object.keys(output.properties).sort())
-      .toEqual(['comments', 'frontmatter', 'markdown', 'path', 'status', 'title', 'versions'])
+      .toEqual(['comments', 'frontmatter', 'markdown', 'parent', 'path', 'status', 'title', 'versions'])
     expect(output.required).not.toContain('body')
 
     // Enforced, not merely undeclared: the schema is closed, so a second copy
@@ -96,6 +96,26 @@ describe('getPageForEditing', () => {
       'intro',
       { version: 'working-copy', withStatus: true, withComments: true },
     )
+  })
+
+  it('reports the parent page, so an agent can check where a page sits', async () => {
+    getKbPage.mockResolvedValue({ ...PAGE, parent: { path: '/dx-marketing/brands', nid: 35 } })
+    const { client } = await connect()
+    await client.listTools()
+
+    const res = await client.callTool({ name: 'getPageForEditing', arguments: { path: 'intro' } })
+
+    expect((res.structuredContent as any).parent).toEqual({ path: '/dx-marketing/brands', nid: 35 })
+  })
+
+  it('reports a top-level page\'s parent as path "" and nid 0, as tool_api__get_page does', async () => {
+    getKbPage.mockResolvedValue(PAGE)
+    const { client } = await connect()
+    await client.listTools()
+
+    const res = await client.callTool({ name: 'getPageForEditing', arguments: { path: 'intro' } })
+
+    expect((res.structuredContent as any).parent).toEqual({ path: '', nid: 0 })
   })
 
   it('a page without an editorial standing is still a valid page', async () => {

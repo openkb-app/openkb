@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "563e47dd77d59954fd6749d2c90424c5",
+    "content-hash": "7711cc9d96df6b04d7f495a6028f460a",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -1368,6 +1368,58 @@
                 "source": "https://github.com/drunomics/service-utils/tree/11.0.0"
             },
             "time": "2025-10-28T14:01:51+00:00"
+        },
+        {
+            "name": "drupal/administerusersbyrole",
+            "version": "3.6.0",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/administerusersbyrole.git",
+                "reference": "8.x-3.6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/administerusersbyrole-8.x-3.6.zip",
+                "reference": "8.x-3.6",
+                "shasum": "ab94307f3b47eac5c18d8c584a14516c6c54327f"
+            },
+            "require": {
+                "drupal/core": "^10 || ^11"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "8.x-3.6",
+                    "datestamp": "1762439804",
+                    "security-coverage": {
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "adamps",
+                    "homepage": "https://www.drupal.org/user/2650563"
+                },
+                {
+                    "name": "mrfelton",
+                    "homepage": "https://www.drupal.org/user/305669"
+                },
+                {
+                    "name": "smokris",
+                    "homepage": "https://www.drupal.org/user/161913"
+                }
+            ],
+            "description": "Allows site builders to set up fine-grained permissions for allowing \"sub-admin\" users to edit and delete other users.",
+            "homepage": "https://www.drupal.org/project/administerusersbyrole",
+            "support": {
+                "source": "https://git.drupalcode.org/project/administerusersbyrole"
+            }
         },
         {
             "name": "drupal/ai",
@@ -3659,11 +3711,11 @@
         },
         {
             "name": "drupal/openkb",
-            "version": "1.0.0-beta1",
+            "version": "1.x-dev",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "8c3478ccfa760298afd4a9bf0ac07db3f103391c"
+                "reference": "b2d2eb835073dfab2e4edc97ebb5380338a5f938"
             },
             "require": {
                 "drupal/ai": "^1.5.0-rc1",
@@ -3685,6 +3737,7 @@
                 "drupal/ai_provider_openai": "^1.2.5",
                 "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": "^1.0@beta"
             },
+            "default-branch": true,
             "type": "drupal-module",
             "extra": {
                 "patches": {
@@ -3714,7 +3767,7 @@
                         "#3466974: Answer configured permissions for the current user in /api/site-info, so a frontend can ask whether it may offer an action instead of rendering a page to read roles off it. Varies by the user.permissions cache context; anonymous stays one shared entry. Pending upstream, swap for its patch once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_decoupled-3466974-site-info-permissions.patch"
                     },
                     "drupal/mcp_server": {
-                        "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call that loads an entity is answered as an event stream with the result nowhere in it. Against 2.0.0-beta2; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-shield-element-handler-from-foreign-fiber-suspends.patch"
+                        "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call or completion/complete that loads an entity is answered as text/event-stream instead of application/json. src/ part of MR !69, against 2.0.0-beta2; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-fiber-shield.patch"
                     },
                     "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": {
                         "OKB-201: A failed or denied call must reach the client as an error. ToolApi::execute() answers every failure with a returned array, and the SDK wraps any returned array as a successful CallToolResult, so a refusal arrives as HTTP 200 isError: false. Throwing Mcp\\Exception\\ToolCallException is the plugin's only lever on the error channel. drupal.org #3618716 (active, no MR); attach this there rather than opening a new issue.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-failed-call-is-an-error.patch",
@@ -3736,7 +3789,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-09-23T14:27:09+00:00"
+            "time": "2026-09-29T12:18:25+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -18586,7 +18639,8 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "drupal/ai_provider_mistral": 5,
-        "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": 10
+        "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": 10,
+        "drupal/openkb": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

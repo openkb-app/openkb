@@ -141,7 +141,7 @@ done
 echo "Enabling services_env_parameter..."
 $DRUSH en services_env_parameter -y
 
-# 5c. Passwords for the seeded test editors. Only where an environment recipe
+# 5c. Passwords for the seeded test accounts. Only where an environment recipe
 # brought them: production installs no demo content and has no such accounts.
 #
 # The accounts themselves come from openkb_recipe_demo_pages' content, which
@@ -153,7 +153,7 @@ $DRUSH en services_env_parameter -y
 case "$RECIPE" in
   *openkb_recipe_dev*|*openkb_recipe_ci*)
     TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-${APP_SECRET:-lupus123}}
-    for account in editor1 editor2; do
+    for account in editor1 editor2 siteadmin; do
       echo "Setting $account password..."
       $DRUSH user:password "$account" "$TEST_USER_PASSWORD"
     done

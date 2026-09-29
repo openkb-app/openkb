@@ -529,8 +529,8 @@ describe('reviewDecorations', () => {
 
   /**
    * Two pills rather than one joined label: two approvals by two people, each
-   * in its own colour. The block carries both step classes, so the left rule
-   * takes the agent's — the first pill's — colour.
+   * in its own colour. The block carries both step classes; its state is the
+   * first pill's.
    */
   it('draws a block owing both steps as two pills, the agent step first', () => {
     const map: BlockMetaMap = { 'b-1': awaitingBoth([3]) }

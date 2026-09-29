@@ -56,7 +56,7 @@ export function parseOutline(raw: string | null | undefined): Outline {
  *
  * Every tree the frontend holds passes through this — a stored field value, a
  * response — so an omitted `children` and an explicit empty one are the same
- * tree. `OutlineResource::normalise()` is the same reading in Drupal, which is
+ * tree. `Outline::normalize()` is the same reading in Drupal, which is
  * what lets the endpoint compare a tree the client sends against the one it
  * stored.
  */
@@ -264,9 +264,10 @@ export interface KbSpaceListItem extends KbSpaceSummary {
  *
  * Structure follows content: a space that holds writing to a review bar holds
  * restructuring to the manager bar, and a space with no review lets its writers
- * do both. `OutlineResource::access()` is the same rule in Drupal, which is
- * what the write actually answers to. A space whose flag never arrived reads as
- * moderated, so the stricter bar is what an absent value gets.
+ * do both. The space's `restructure` access in Drupal
+ * (`openkb_space_access_openkb_space_access()`) is the same rule, and what the
+ * write answers to. A space whose flag never arrived reads as moderated, so
+ * the stricter bar is what an absent value gets.
  */
 export function canRestructure(space: KbSpaceListItem): boolean {
   return space.moderation === false ? space.canWrite === true : space.canManage === true

@@ -82,8 +82,9 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
             draft_exists: {
               type: 'boolean',
               description:
-                'A draft sits on top of the published page: what is live is '
-                + 'behind what this tool reads.',
+                'The working copy holds changes that are not live yet. A '
+                + 'never-published page reads true in a wiki space and false '
+                + 'in a moderated one.',
             },
             blocks_pending: {
               type: 'integer',
@@ -103,6 +104,18 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
           required: ['draft_exists', 'blocks_pending', 'can_publish'],
           additionalProperties: false,
         },
+        parent: {
+          type: 'object',
+          description:
+            'The page this one sits under in the space\'s page tree; path "" '
+            + 'and nid 0 for a top-level page.',
+          properties: {
+            path: { type: 'string' },
+            nid: { type: 'integer' },
+          },
+          required: ['path', 'nid'],
+          additionalProperties: false,
+        },
         comments: {
           type: 'array',
           description:
@@ -115,7 +128,7 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
           items: THREAD_SCHEMA,
         },
       },
-      required: ['path', 'title', 'frontmatter', 'markdown', 'versions'],
+      required: ['path', 'title', 'frontmatter', 'markdown', 'versions', 'parent'],
       additionalProperties: false,
     },
     async run(args, { event }) {
@@ -141,10 +154,11 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
         )
       }
       if (!page) return refused(`No page found at path "${path}".`)
-      const { comments, ...rest } = page
+      const { comments, parent, ...rest } = page
       const threads = comments ? projectThreads(comments, args.includeResolved === true) : undefined
       return answered(page.markdown, {
         ...rest,
+        parent: parent ?? { path: '', nid: 0 },
         ...(threads ? { comments: threads } : {}),
       })
     },
