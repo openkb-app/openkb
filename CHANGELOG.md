@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0-beta2] - 2026-09-30
+
+### Fixes
+
+- The quickstart OpenSearch ignores the disk watermarks, so a nearly full host disk leaves the indexes writable.
+- Demo pages carry the site manager recipe their siteadmin account needs.
+- Unpublished pages are readable by space editors only.
+- The module tests pass cspell, phpstan and phpunit on drupal.org.
+
+### Improvements
+
+- The sync scripts start from the published branch head, push with --push, and name the missing module sync.
+
 ## [1.0.0-beta1] - 2026-09-23
 
 ## [1.0.0-alpha3] - 2026-09-23

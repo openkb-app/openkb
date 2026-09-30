@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d852a53597147cfe95f39b05e8266e26",
+    "content-hash": "fa1f38c34811477ebb2f71a0061247c7",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -3711,7 +3711,7 @@
         },
         {
             "name": "drupal/openkb",
-            "version": "1.x-dev",
+            "version": "1.0.0-beta2",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
@@ -3737,7 +3737,6 @@
                 "drupal/ai_provider_openai": "^1.2.5",
                 "drupal/mcp_server_tool_bridge": "1.0.0-beta3"
             },
-            "default-branch": true,
             "type": "drupal-module",
             "extra": {
                 "patches": {
@@ -18636,8 +18635,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "drupal/ai_provider_mistral": 5,
-        "drupal/mcp_server_tool_bridge": 10,
-        "drupal/openkb": 20
+        "drupal/mcp_server_tool_bridge": 10
     },
     "prefer-stable": true,
     "prefer-lowest": false,
