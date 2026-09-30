@@ -70,10 +70,11 @@ default:
         ## How accounts work {#b-fc98806d}
 
         ::block{#b-28c79094}
-        - Self-registration and invitations from the app are not available yet. Until then, an administrator creates accounts at `/admin/people/create` on the administration host; `/admin/people` lists them with their roles.
+        - Self-registration and invitations from the app are not available yet. Until then, an administrator or a site manager creates accounts at `/admin/people/create` on the administration host; `/admin/people` lists them with their roles.
         - Every signed-in account may read the spaces open to "All users", write in the spaces it is a member of, and create spaces of its own.
         - What a person may do in a space is decided by the space's roster, not by a site role. See [Members and access](/openkb-user-guide/members-and-access).
         - The "Administrator" role reaches every space and every page, the Drupal administration, and the "Admin backend" entry in the account menu.
+        - The "Site manager" role runs the accounts below the administrator: it creates, edits, blocks and deletes accounts that hold no role or only "Site manager", and gives or takes the "Site manager" role. It reaches the Drupal administration through "Admin backend" and reads the recent log messages under Reports. Administrator accounts, the AI settings and the rest of the site configuration are out of its reach.
         ::
 
         ## Steps {#b-ad1b0dc0}
@@ -81,7 +82,7 @@ default:
         ::block{#b-2a4b7b63}
         1. Open the account menu and choose "Admin backend". The Drupal administration opens.
         2. Go to People and choose "Add user".
-        3. Enter an email address, a username and a password, and set the status to active. Give the Administrator role to administrators only.
+        3. Enter an email address, a username and a password, and set the status to active. Give the Administrator role to administrators only, and the Site manager role to the people who run the accounts.
         4. Click "Create new account".
         5. Give the person their username and password. They sign in on the site's "Sign in" page. A password reset goes through the login page on the administration host.
         6. Add the person to the spaces they should work in. See [Members and access](/openkb-user-guide/members-and-access).
