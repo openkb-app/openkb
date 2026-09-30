@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7711cc9d96df6b04d7f495a6028f460a",
+    "content-hash": "d852a53597147cfe95f39b05e8266e26",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -3369,37 +3369,37 @@
         },
         {
             "name": "drupal/mcp_server",
-            "version": "2.0.0-beta2",
+            "version": "2.0.0-beta5",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/mcp_server.git",
-                "reference": "2.0.0-beta2"
+                "reference": "2.0.0-beta5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/mcp_server-2.0.0-beta2.zip",
-                "reference": "2.0.0-beta2",
-                "shasum": "18c92231f75e4cd4a9155b707f213ca952b62c66"
+                "url": "https://ftp.drupal.org/files/projects/mcp_server-2.0.0-beta5.zip",
+                "reference": "2.0.0-beta5",
+                "shasum": "31ab95bf2dcbd58688a0cafbfc0f206d2c9ba1fd"
             },
             "require": {
                 "drupal/core": "^10 || ^11",
-                "mcp/sdk": "^0.6 || ^0.7",
+                "mcp/sdk": "^0.7.1 || ^0.8",
                 "php": "^8.3",
                 "psr/simple-cache": "^3.0"
             },
             "require-dev": {
                 "drupal/coder": "^8",
                 "drupal/tool": "1.0.0-beta2",
-                "mglaman/phpstan-drupal": "^2.0",
+                "mglaman/phpstan-drupal": "^1.2.12 || ^2.0",
                 "phpstan/extension-installer": "^1.4",
-                "phpstan/phpstan": "^2.1",
-                "phpstan/phpstan-deprecation-rules": "^2.0"
+                "phpstan/phpstan": "^1.12 || ^2.1",
+                "phpstan/phpstan-deprecation-rules": "^1.2 || ^2.0"
             },
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "2.0.0-beta2",
-                    "datestamp": "1788367283",
+                    "version": "2.0.0-beta5",
+                    "datestamp": "1790174303",
                     "security-coverage": {
                         "status": "not-covered",
                         "message": "Beta releases are not covered by Drupal security advisories."
@@ -3452,34 +3452,30 @@
             }
         },
         {
-            "name": "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge",
-            "version": "1.0.0-beta1",
+            "name": "drupal/mcp_server_tool_bridge",
+            "version": "1.0.0-beta3",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/mcp_server_tool_bridge.git",
-                "reference": "1.0.0-beta1"
+                "reference": "1.0.0-beta3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/mcp_server_tool_bridge-1.0.0-beta1.zip",
-                "reference": "1.0.0-beta1",
-                "shasum": "7a7ac4ca583122c203eaf5190bbf8861d9a2b7f2"
+                "url": "https://ftp.drupal.org/files/projects/mcp_server_tool_bridge-1.0.0-beta3.zip",
+                "reference": "1.0.0-beta3",
+                "shasum": "c45f8d1134cc3eaa375bf244a19298ac989c8f41"
             },
             "require": {
                 "drupal/core": "^10 || ^11",
-                "drupal/mcp_server": "^2.0@alpha",
-                "drupal/tool": "^1.0@alpha",
+                "drupal/mcp_server": "^2.0.0-beta5",
+                "drupal/tool": "^1.0.0-beta8",
                 "php": "^8.3"
-            },
-            "require-dev": {
-                "drupal/mcp_server": "^2.0",
-                "drupal/tool": "*"
             },
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.0.0-beta1",
-                    "datestamp": "1785339171",
+                    "version": "1.0.0-beta3",
+                    "datestamp": "1790174604",
                     "security-coverage": {
                         "status": "not-covered",
                         "message": "Beta releases are not covered by Drupal security advisories."
@@ -3499,6 +3495,10 @@
                 {
                     "name": "e0ipso",
                     "homepage": "https://www.drupal.org/user/550110"
+                },
+                {
+                    "name": "mglaman",
+                    "homepage": "https://www.drupal.org/user/2416470"
                 }
             ],
             "description": "Bridges Drupal Tool API tools into the MCP protocol via McpToolConfig entities.",
@@ -3715,27 +3715,27 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "b2d2eb835073dfab2e4edc97ebb5380338a5f938"
+                "reference": "cb409bf1cf8816dc779f9730a3c88097714cdf2c"
             },
             "require": {
-                "drupal/ai": "^1.5.0-rc1",
-                "drupal/ai_vdb_provider_opensearch": "^1.1.0-alpha2",
-                "drupal/consumers": "^1.17",
-                "drupal/custom_elements": "^3.5.0-beta1",
-                "drupal/key": "^1.18",
+                "drupal/ai": "1.5.0-rc3",
+                "drupal/ai_vdb_provider_opensearch": "1.1.0-alpha2",
+                "drupal/consumers": "^1.24.0",
+                "drupal/custom_elements": "3.5.0-beta1",
+                "drupal/key": "^1.22.0",
                 "drupal/lupus_ce_renderer": "^2.6.1",
                 "drupal/lupus_decoupled": "^1.5.1",
-                "drupal/mcp_server": "2.0.0-beta2",
-                "drupal/pathauto": "^1.13",
-                "drupal/search_api": "^1.39",
-                "drupal/search_api_opensearch": "^2.5",
-                "drupal/simple_oauth": "^6",
-                "drupal/tool": "^1.0@beta",
+                "drupal/mcp_server": "2.0.0-beta5",
+                "drupal/pathauto": "^1.15.0",
+                "drupal/search_api": "^1.41.0",
+                "drupal/search_api_opensearch": "^2.5.0",
+                "drupal/simple_oauth": "^6.1.1",
+                "drupal/tool": "1.0.0-beta8",
                 "php": ">=8.3"
             },
             "require-dev": {
                 "drupal/ai_provider_openai": "^1.2.5",
-                "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": "^1.0@beta"
+                "drupal/mcp_server_tool_bridge": "1.0.0-beta3"
             },
             "default-branch": true,
             "type": "drupal-module",
@@ -3767,12 +3767,9 @@
                         "#3466974: Answer configured permissions for the current user in /api/site-info, so a frontend can ask whether it may offer an action instead of rendering a page to read roles off it. Varies by the user.permissions cache context; anonymous stays one shared entry. Pending upstream, swap for its patch once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_decoupled-3466974-site-info-permissions.patch"
                     },
                     "drupal/mcp_server": {
-                        "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call or completion/complete that loads an entity is answered as text/event-stream instead of application/json. src/ part of MR !69, against 2.0.0-beta2; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-fiber-shield.patch"
+                        "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call or completion/complete that loads an entity is answered as text/event-stream instead of application/json. src/ part of MR !69, against 2.0.0-beta5; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-fiber-shield.patch"
                     },
-                    "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": {
-                        "OKB-201: A failed or denied call must reach the client as an error. ToolApi::execute() answers every failure with a returned array, and the SDK wraps any returned array as a successful CallToolResult, so a refusal arrives as HTTP 200 isError: false. Throwing Mcp\\Exception\\ToolCallException is the plugin's only lever on the error channel. drupal.org #3618716 (active, no MR); attach this there rather than opening a new issue.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-failed-call-is-an-error.patch",
-                        "OKB-201: Advertise a per-tool outputSchema. McpToolConfigDeriver copies outputSchema from the base plugin definition, which is always NULL, so no bridged tool describes its result. Built from the tool's own getOutputDefinitions(), describing the {success, message, data} envelope execute() answers. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-output-schema-from-tool-outputs.patch",
-                        "OKB-201: Take readOnlyHint and idempotentHint from the tool's ToolOperation. The deriver copies both from the base plugin definition, so every bridged tool is advertised as non-read-only and non-idempotent and a client gating writes on readOnlyHint treats a read tool as a mutation. Applies on top of the outputSchema patch. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-hints-from-tool-operation.patch",
+                    "drupal/mcp_server_tool_bridge": {
                         "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch"
                     },
                     "drupal/simple_oauth": {
@@ -3789,7 +3786,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-09-29T12:18:25+00:00"
+            "time": "2026-09-30T13:54:35+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -18639,7 +18636,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "drupal/ai_provider_mistral": 5,
-        "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": 10,
+        "drupal/mcp_server_tool_bridge": 10,
         "drupal/openkb": 20
     },
     "prefer-stable": true,

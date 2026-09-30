@@ -38,7 +38,7 @@
         "drupal/core-project-message": "^11.1",
         "drupal/core-recommended": "11.4.*",
         "drupal/lupus_decoupled_recipe": "^2.0",
-        "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge": "^1.0@beta",
+        "drupal/mcp_server_tool_bridge": "^1.0@beta",
         "drupal/monitoring": "^1.20.0",
         "drupal/ohdear_integration": "^3.0.0",
         "drupal/openkb": "1.x-dev",
@@ -103,9 +103,6 @@
             ],
             "web/libraries/{$name}": [
                 "type:drupal-library"
-            ],
-            "web/modules/contrib/mcp_server_tool_bridge": [
-                "drupal/mcp_server_tool_bridge-mcp_server_tool_bridge"
             ],
             "web/modules/contrib/{$name}": [
                 "type:drupal-module"
