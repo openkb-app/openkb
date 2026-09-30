@@ -5,6 +5,7 @@ description: >-
   not edited by hand.
 type: 'Site'
 install:
+  - administerusersbyrole
   - ai
   - ai_api_explorer
   - ai_assistant_api
@@ -112,6 +113,11 @@ config:
   # refuse the difference instead.
   strict: false
   actions:
+    administerusersbyrole.settings:
+      simpleConfigUpdate:
+        roles:
+          site_manager: safe
+          collab_server: unsafe
     ai.settings:
       simpleConfigUpdate:
         prompt_logging: false
@@ -151,6 +157,7 @@ config:
           - 'access administration pages'
     mcp_server.settings:
       simpleConfigUpdate:
+        langcode: en
         server_name: OpenKB
         server_version: 1.0.0
         server_instructions: 'The OpenKB knowledge base. Content lives in spaces, and a space is an access boundary: call tool_api__list_spaces to see which ones you may work in and what you may do in each. Before creating a page, call tool_api__list_spaces with access="write" and create only into a space it returns — the first segment of a page path is its space slug, and a space is never created as a side effect of a page write. Read a page with tool_api__get_page, by its path; it answers the page as it stands published. Find one with tool_api__search_pages, which answers only pages you may read — it reads the published index, so unfinished work is found with tool_api__find_drafts instead. When you connect, call tool_api__list_assignments: it answers the comment threads people handed to you while you were away.'
@@ -297,6 +304,19 @@ config:
         - 'view kb_page revisions'
         - 'view latest version'
         - 'view space content'
+    user.role.site_manager:
+      grantPermissions:
+        - 'access administration pages'
+        - 'access navigation'
+        - 'access site reports'
+        - 'access users overview'
+        - 'cancel users by role'
+        - 'create users'
+        - 'edit users by role'
+        - 'role-assign users by role'
+        - 'select account cancellation method'
+        - 'view the administration theme'
+        - 'view users by role'
     user.settings:
       simpleConfigUpdate:
         langcode: en
