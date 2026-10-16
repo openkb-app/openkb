@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: update_blocks
+tool_id: openkb_update_blocks
+description: null

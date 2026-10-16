@@ -1,2 +1,4 @@
+default_format: json
 redirect_response:
   add_drupal_messages: false
+route_layouts: {  }

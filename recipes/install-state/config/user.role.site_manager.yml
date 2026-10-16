@@ -3,6 +3,7 @@ status: true
 dependencies:
   module:
     - administerusersbyrole
+    - ai
     - navigation
     - system
 id: site_manager
@@ -14,6 +15,8 @@ permissions:
   - 'access navigation'
   - 'access site reports'
   - 'access users overview'
+  - 'administer guardrail sets'
+  - 'administer guardrails'
   - 'cancel users by role'
   - 'create users'
   - 'edit users by role'

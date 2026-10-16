@@ -1,0 +1,20 @@
+langcode: en
+status: true
+dependencies: {  }
+id: liability_medical_advice
+label: 'Liability: Medical Advice'
+description: 'Detects requests for medical diagnosis, treatment recommendations, or medication guidance. Applicable to almost any public-facing AI interaction to avoid liability.'
+guardrail: restrict_to_topic
+guardrail_settings:
+  valid_topics: ''
+  invalid_topics: |-
+    medical diagnosis
+    disease diagnosis
+    treatment recommendations
+    medication dosage
+    prescription advice
+    clinical advice
+    mental health crisis intervention
+    medical prognosis
+  invalid_topics_present_message: 'This assistant cannot provide medical advice. Please consult a qualified healthcare professional.'
+  valid_topics_missing_message: ''

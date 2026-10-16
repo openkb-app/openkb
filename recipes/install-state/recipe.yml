@@ -14,7 +14,6 @@ install:
   - ai_rag_cite
   - ai_search
   - ai_vdb_provider_opensearch
-  - basic_auth
   - block
   - block_content
   - ckeditor5
@@ -39,6 +38,7 @@ install:
   - inline_comment
   - inline_form_errors
   - jsonapi
+  - jsonapi_role_access
   - key
   - layout_builder
   - layout_discovery
@@ -133,7 +133,8 @@ config:
         request_timeout: 60
         allowed_hosts: {  }
         allowed_hosts_rewrite_links: false
-        global_guardrails: {  }
+        global_guardrails:
+          - prompt_safety_security
     ai_provider_openai.settings:
       simpleConfigUpdate:
         api_key: openai_env
@@ -145,6 +146,11 @@ config:
         maintenance_header_retry_seconds:
           min: 5
           max: 10
+    jsonapi_role_access.settings:
+      simpleConfigUpdate:
+        negate: false
+        roles:
+          authenticated: authenticated
     lupus_decoupled_site_info.settings:
       simpleConfigUpdate:
         expose:
@@ -160,7 +166,7 @@ config:
         langcode: en
         server_name: OpenKB
         server_version: 1.0.0
-        server_instructions: 'The OpenKB knowledge base. Content lives in spaces, and a space is an access boundary: call tool_api__list_spaces to see which ones you may work in and what you may do in each. Before creating a page, call tool_api__list_spaces with access="write" and create only into a space it returns — the first segment of a page path is its space slug, and a space is never created as a side effect of a page write. Read a page with tool_api__get_page, by its path; it answers the page as it stands published. Find one with tool_api__search_pages, which answers only pages you may read — it reads the published index, so unfinished work is found with tool_api__find_drafts instead. When you connect, call tool_api__list_assignments: it answers the comment threads people handed to you while you were away.'
+        server_instructions: 'The OpenKB knowledge base. Content lives in spaces, and a space is an access boundary: call tool_api__list_spaces to see which ones you may work in and what you may do in each. Before creating a page, call tool_api__list_spaces with access="write" and create only into a space it returns — the first segment of a page path is its space slug, and a space is never created as a side effect of a page write. Read a page with tool_api__get_page, by its path; it answers the page as it stands published. Find one with tool_api__search_pages, which answers only pages you may read — it reads the published index, so unfinished work is found with tool_api__find_drafts instead. When you connect, call tool_api__list_assignments: it answers the comment threads people handed to you while you were away. To find out what a page used to say, list its revisions with tool_api__list_revisions, read every version of one block with tool_api__get_block_history, and find the revision a wording was added or removed in with tool_api__search_history.'
         pagination_limit: 50
         pending:
           poll_interval_ms: 300
@@ -282,7 +288,6 @@ config:
         - 'use editorial transition create_new_draft'
         - 'use editorial transition publish'
         - 'use editorial transition submit_for_review'
-        - 'use inline comments api'
         - 'use text format basic_html'
         - 'use text format comark'
         - 'use vercel ai sdk chat'
@@ -310,6 +315,8 @@ config:
         - 'access navigation'
         - 'access site reports'
         - 'access users overview'
+        - 'administer guardrail sets'
+        - 'administer guardrails'
         - 'cancel users by role'
         - 'create users'
         - 'edit users by role'

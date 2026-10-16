@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies: {  }
+id: security_dangerous_html_tags
+label: 'Security: Dangerous HTML Tags'
+description: 'Detects HTML tags that can be used to embed external content or execute code, including <iframe>, <object>, <embed>, and <form>.'
+guardrail: regexp_guardrail
+guardrail_settings:
+  regexp_pattern: '/<\s*(iframe|object|embed|form|base)[\s>]/i'
+  violation_message: 'This message was blocked because it contains potentially malicious content.'

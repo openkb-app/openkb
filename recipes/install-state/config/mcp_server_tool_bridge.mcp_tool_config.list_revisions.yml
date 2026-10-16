@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: list_revisions
+tool_id: openkb_list_revisions
+description: null

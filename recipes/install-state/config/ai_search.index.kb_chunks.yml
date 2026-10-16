@@ -18,6 +18,9 @@ indexing_options:
   path:
     field_name: path
     indexing_option: attributes
+  space_id:
+    field_name: space_id
+    indexing_option: attributes
   space:
     field_name: space
     indexing_option: attributes

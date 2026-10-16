@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: comment_on_block
+tool_id: openkb_comment_on_block
+description: null

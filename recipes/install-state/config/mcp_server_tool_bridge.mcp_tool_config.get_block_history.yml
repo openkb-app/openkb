@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: get_block_history
+tool_id: openkb_get_block_history
+description: null

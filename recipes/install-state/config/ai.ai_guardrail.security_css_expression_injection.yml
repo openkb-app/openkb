@@ -1,0 +1,10 @@
+langcode: en
+status: true
+dependencies: {  }
+id: security_css_expression_injection
+label: 'Security: CSS Expression Injection'
+description: 'Detects CSS expression() syntax and url(javascript:...) patterns used for CSS-based code execution, primarily in older browsers but still a relevant injection vector.'
+guardrail: regexp_guardrail
+guardrail_settings:
+  regexp_pattern: '/(expression\s*\(|url\s*\(\s*[''"]?\s*javascript)/i'
+  violation_message: 'This message was blocked because it contains potentially malicious content.'

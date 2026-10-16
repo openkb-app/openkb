@@ -83,7 +83,7 @@ default:
         ## The permission ceiling {#b-c2ca6bf5}
 
         ::block{#b-df6bea1e}
-        - An agent is always restricted. It acts as you, limited to the scopes you granted it on the consent screen: "Read published pages on your behalf." and "Create and edit pages on your behalf."
+        - An agent is always restricted. It acts as you, limited to the scopes you granted it on the consent screen: "Read published pages on your behalf." and "Create and edit pages on your behalf, and delete pages it created that nobody else touched."
         - Your space rosters apply unchanged, so an agent connected by a viewer only reads.
         - Each space has its own control: the switch "Agent edits need a human sign-off" decides whether an agent's edits wait for a person's sign-off before they count. See [Review policy per space](/openkb-user-guide/review-policy).
         ::

@@ -1,0 +1,20 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - ai.ai_guardrail.security_dangerous_html_tags
+    - ai.ai_guardrail.security_html_event_handler_injection
+    - ai.ai_guardrail.security_prompt_manipulation
+    - ai.ai_guardrail.security_script_tag_injection
+id: prompt_safety_security
+label: 'Prompt Safety: Security'
+description: 'Blocks structurally malicious input and semantic prompt attacks. Combines regex checks for HTML, JavaScript, and CSS injection patterns with AI-based detection of prompt manipulation attempts including jailbreaks, system prompt overrides, and role hijacking. Apply this guardrail set to any public-facing AI interaction as a baseline security layer.'
+stop_threshold: 0.8
+pre_generate_guardrails:
+  plugin_id:
+    - security_dangerous_html_tags
+    - security_html_event_handler_injection
+    - security_script_tag_injection
+    - security_prompt_manipulation
+post_generate_guardrails:
+  plugin_id: {  }

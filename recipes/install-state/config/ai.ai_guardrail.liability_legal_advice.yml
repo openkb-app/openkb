@@ -1,0 +1,19 @@
+langcode: en
+status: true
+dependencies: {  }
+id: liability_legal_advice
+label: 'Liability: Legal Advice'
+description: 'Detects requests for legal opinions, contract interpretation, or litigation guidance.'
+guardrail: restrict_to_topic
+guardrail_settings:
+  valid_topics: ''
+  invalid_topics: |-
+    legal advice
+    legal opinion
+    contract interpretation
+    litigation strategy
+    regulatory compliance advice
+    criminal defence advice
+    legal liability assessment
+  invalid_topics_present_message: 'This assistant cannot provide legal advice. Please consult a qualified legal professional.'
+  valid_topics_missing_message: ''

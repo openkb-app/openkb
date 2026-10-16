@@ -1,0 +1,15 @@
+langcode: en
+status: true
+dependencies: {  }
+id: agent_write_delete
+name: 'agent:write:delete'
+description: 'Delete the pages the agent created and nobody else touched — child of agent:write.'
+grant_types:
+  client_credentials:
+    status: true
+    description: ''
+umbrella: false
+parent: agent_write
+granularity_id: permission
+granularity_configuration:
+  permission: 'delete own kb_page content'

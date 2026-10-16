@@ -12,7 +12,6 @@ dependencies:
     - content_moderation
     - file
     - filter
-    - inline_comment
     - mcp_server
     - media
     - node
@@ -45,7 +44,6 @@ permissions:
   - 'use editorial transition create_new_draft'
   - 'use editorial transition publish'
   - 'use editorial transition submit_for_review'
-  - 'use inline comments api'
   - 'use text format basic_html'
   - 'use text format comark'
   - 'use vercel ai sdk chat'

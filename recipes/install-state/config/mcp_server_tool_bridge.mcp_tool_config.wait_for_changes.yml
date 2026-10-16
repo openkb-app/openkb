@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: wait_for_changes
+tool_id: openkb_wait_for_changes
+description: null
