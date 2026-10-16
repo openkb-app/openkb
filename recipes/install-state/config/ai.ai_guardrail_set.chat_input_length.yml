@@ -1,0 +1,14 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - ai.ai_guardrail.input_length_limit
+id: chat_input_length
+label: 'Chat: Input length'
+description: 'Refuses an over-long chat before the chat model is called. Named by the chat assistant, so it screens what the reader sent and not the calls other guardrails make.'
+stop_threshold: 0.8
+pre_generate_guardrails:
+  plugin_id:
+    - input_length_limit
+post_generate_guardrails:
+  plugin_id: {  }

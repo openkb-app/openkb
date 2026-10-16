@@ -3,6 +3,7 @@ status: true
 dependencies:
   module:
     - ai_rag_cite
+    - vercel_ai_sdk
 third_party_settings:
   ai_rag_cite:
     grounding:
@@ -24,6 +25,9 @@ third_party_settings:
       no_sources_instruction: "Nothing in %1$s was found for this question. If it asks about the knowledge base's content, say so plainly, name %1$s as what was searched, and stop; otherwise answer briefly, and cite nothing."
       whole_scope: 'the knowledge base'
       ground_explorer_calls: false
+  vercel_ai_sdk:
+    guardrail_sets:
+      - chat_input_length
 id: openkb
 label: 'Ask openKB'
 description: 'Knowledge-base assistant for the Ask openKB drawer and the search-page summary sidecar.'

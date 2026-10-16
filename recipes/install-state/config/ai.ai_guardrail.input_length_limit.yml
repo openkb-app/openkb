@@ -1,0 +1,12 @@
+langcode: en
+status: true
+dependencies: {  }
+id: input_length_limit
+label: 'Input Length Limit'
+description: 'Refuses a chat whose user messages together pass 32,000 characters, before the chat model is called.'
+guardrail: input_length_limit
+guardrail_settings:
+  max_length: 32000
+  use_tokens: false
+  scan_all_user_messages: true
+  violation_message: 'This conversation is too long (@count @unit, at most @max). Please start a new chat.'
