@@ -23,7 +23,7 @@ import { collabAuthHeaders, collabIdentityConfigured, forgetCollabToken } from '
  */
 const BRIDGE_PATH = '/openkb/agent/register'
 
-/** Five redirect URIs of 2048 characters, the most Drupal accepts, fit with room to spare. */
+/** Five redirect URIs at the consumer `redirect` field's max_length fit with room to spare. */
 export const MAX_BODY_BYTES = 64 * 1024
 
 export default defineEventHandler(async (event) => {
