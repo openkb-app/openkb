@@ -1,8 +1,8 @@
 # Cuts a release of this repository: the changelog, the version pin and the
 # tag that `images` then builds, attests and publishes.
 #
-# The tree arrives here through the sync scripts of the development project,
-# whose commits carry one subject per line; git-cliff turns those into the
+# The tree arrives here through the sync script of the development project,
+# one commit per dev commit with its subject; git-cliff turns those into the
 # changelog. Syncing is a separate, manual act.
 #
 # OPENKB_APP_TOKEN is the one secret: a fine-grained PAT with contents write on

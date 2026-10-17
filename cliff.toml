@@ -1,9 +1,10 @@
 # git-cliff configuration: generates CHANGELOG.md from the history of this
 # repository, for the release workflow.
 #
-# A commit here is a sync carrying one subject per line, so every line counts
-# as one entry; the `Sync from openkb-dev-project <sha>.` line is not
-# conventional and drops out with the rest of the unconventional ones. The
+# A commit here is a sync of one dev commit: its subject, then the
+# `Sync from openkb-dev-project <sha>.` line, which is not conventional and
+# drops out with the rest of the unconventional ones. Every line counts as one
+# entry. The
 # preprocessors are the second pass over a tracker id or a pull-request number
 # the sync did not strip.
 
