@@ -185,6 +185,9 @@ config:
       simpleConfigUpdate:
         chunk_index: kb_chunks
         vector_floor: 0.75
+        query:
+          lexical_bytes: 250
+          embed_bytes: 8000
         chunk:
           target_tokens: 300
           max_tokens: 500
