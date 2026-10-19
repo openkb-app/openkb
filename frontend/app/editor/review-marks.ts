@@ -59,7 +59,7 @@ import {
  * The widget holds no state of its own: it is rebuilt from the sidecar on
  * every redraw and keyed by what it draws, so there is nothing that can
  * desynchronise from the block it describes. It is placed inside the block, so
- * it is anchored to the block it is about; a leaf block has no inside, and
+ * it is anchored to the block it is about; where {@link marksInside} says no,
  * {@link pillsDom} says what happens there.
  *
  * A pill for a step still owed carries the checkmark that clears it, so the
@@ -255,6 +255,17 @@ export function addressableBlocks(doc: PMNode): AddressableBlock[] {
     out.push({ id: blockIdOf(node), pos: offset, node, text: node.textContent })
   })
   return out
+}
+
+/**
+ * Whether a block's margin marks hang inside it, or ride an anchor after it.
+ * - A leaf has no inside.
+ * - A code block's highlight tokens re-wrap its text as it is typed. A widget
+ *   beside that text is re-drawn with it, which moves Chrome's caret to the
+ *   block start.
+ */
+export function marksInside(node: PMNode): boolean {
+  return !node.isLeaf && !node.type.spec.code
 }
 
 /**
@@ -539,8 +550,8 @@ interface PillsDomOptions {
   /** The block's id, which the pills' aria wiring keys on. */
   blockId: string
   /**
-   * False for a leaf block (an image, a rule): it has no inside to hang the
-   * pills in, so they ride an empty anchor placed right after it. The anchor
+   * False where {@link marksInside} says so (a leaf, a code block): the
+   * pills ride an empty anchor placed right after the block. The anchor
    * carries no height, border or padding, so the prose margins around it
    * collapse through it and nothing moves.
    */
@@ -628,14 +639,14 @@ function pillsDom(pills: readonly ReviewPill[], options: PillsDomOptions): HTMLE
 }
 
 /**
- * The block a pills widget belongs to: the one it hangs inside, or the leaf it
+ * The block a pills widget belongs to: the one it hangs inside, or the one it
  * rides the gap after.
  */
 function widgetBlockPos(doc: PMNode, pos: number): number | null {
   const $pos = doc.resolve(pos)
   if ($pos.depth > 0) return $pos.before(1)
-  const leaf = $pos.nodeBefore
-  return leaf ? pos - leaf.nodeSize : null
+  const block = $pos.nodeBefore
+  return block ? pos - block.nodeSize : null
 }
 
 /** What the projection needs beyond the document and the sidecar. */
@@ -670,7 +681,7 @@ export function reviewDecorations(
       class: `okb-review okb-review--${mark.state}${steps}`,
     }))
     const pills = reviewPills(mark)
-    const inside = !node.isLeaf
+    const inside = marksInside(node)
     const inHand = activePos === pos
     decorations.push(Decoration.widget(
       inside ? pos + 1 : pos + node.nodeSize,

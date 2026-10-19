@@ -565,6 +565,17 @@ describe('reviewDecorations', () => {
     expect(widget!.from).toBe(rule.nodeSize)
   })
 
+  // Its text is re-drawn on every key, and a widget beside it with it.
+  it('hangs a code block\u2019s pills in the gap after it', () => {
+    const code = editorSchema.node('codeBlock', { id: 'b-1', language: 'js' }, editorSchema.text('const x = 1'))
+    const d = doc(code, para('after', 'b-2'))
+    const map: BlockMetaMap = { 'b-1': awaiting() }
+    const widget = reviewDecorations(d, sidecarLookup(map, undefined, OTHER))
+      .find()
+      .find(deco => deco.from === deco.to)
+    expect(widget!.from).toBe(code.nodeSize)
+  })
+
   it('draws no chip in a space that does not enforce the pending step', () => {
     const map: BlockMetaMap = { 'b-1': awaiting() }
     const d = doc(para('untouched by any policy', 'b-1'))

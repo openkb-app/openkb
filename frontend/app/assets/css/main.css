@@ -588,9 +588,12 @@ custom-mention,
   pointer-events: none;
   user-select: none;
 }
-/* A leaf block (an image, a rule) has no inside, so its marks ride an empty
-   anchor placed after it — the prose margins collapse through it, so nothing
-   moves — and are drawn upwards into the same margin line. */
+/* A leaf block (an image, a rule) and a code block keep their marks out of
+   their content (`marksInside`, review-marks.ts): they ride an empty anchor
+   placed after the block — the prose margins collapse through it, so nothing
+   moves — and are drawn upwards into the same margin line. The review pills
+   and the comment control each bring their own anchor, in either order, so
+   the rules reaching into an anchor match the first and the second. */
 .inplace-editor .ProseMirror .okb-margin-gap {
   display: block;
   position: relative;
@@ -635,13 +638,14 @@ custom-mention,
   content: "◆ " attr(data-review-label);
 }
 /* Under the pointer: the block, or the row itself. The row is needed as well,
-   for a leaf block — its marks ride the gap after the block rather than
+   for a leaf or code block — its marks ride the gap after the block rather than
    hanging inside it, so the pointer reaching the checkmark leaves the block
    entirely. Nothing in a hidden row takes the pointer, so this rule only holds
    a row open, never opens one. */
 @media (hover: hover) {
   .inplace-editor .ProseMirror > .okb-review:hover .okb-review-pills,
   .inplace-editor .ProseMirror > .okb-review:hover + .okb-margin-gap .okb-review-pills,
+  .inplace-editor .ProseMirror > .okb-review:hover + .okb-margin-gap + .okb-margin-gap .okb-review-pills,
   .inplace-editor .ProseMirror .okb-review-pills:hover {
     opacity: 1;
     --okb-pill-events: auto;
@@ -649,8 +653,10 @@ custom-mention,
 }
 .inplace-editor .ProseMirror-focused > .okb-review.okb-block-active .okb-review-pills,
 .inplace-editor .ProseMirror-focused > .okb-review.okb-block-active + .okb-margin-gap .okb-review-pills,
+.inplace-editor .ProseMirror-focused > .okb-review.okb-block-active + .okb-margin-gap + .okb-margin-gap .okb-review-pills,
 .inplace-editor .ProseMirror > .okb-review.ProseMirror-selectednode .okb-review-pills,
-.inplace-editor .ProseMirror > .okb-review.ProseMirror-selectednode + .okb-margin-gap .okb-review-pills {
+.inplace-editor .ProseMirror > .okb-review.ProseMirror-selectednode + .okb-margin-gap .okb-review-pills,
+.inplace-editor .ProseMirror > .okb-review.ProseMirror-selectednode + .okb-margin-gap + .okb-margin-gap .okb-review-pills {
   opacity: 1;
   --okb-pill-events: auto;
 }
@@ -869,17 +875,10 @@ custom-mention,
   inset-block-start: 100%;
   block-size: 0.75em;
 }
-/* A block that scrolls its own content clips the margin line under it, and
-   the code block is the one the prose scale gives `overflow-x: auto`. It wraps
-   its lines, so nothing of it depends on that scroll — and a control nobody
-   can see or point at is the alternative. */
+/* The hover strip below the block (`::after`) must not scroll or clip; the
+   code block wraps its lines. */
 .inplace-editor .ProseMirror pre.okb-margin-host {
   overflow: visible;
-}
-/* The marks describe the block, they are not part of it, so they keep the
-   page's own type wherever the block sets another — the code block does. */
-.inplace-editor .ProseMirror :is(.okb-review-pills, .okb-comment-badge, .okb-comment-start) {
-  font-family: var(--font-sans);
 }
 .inplace-editor .ProseMirror .okb-comment-badge::before {
   content: '💬 ' attr(data-count);
@@ -960,6 +959,7 @@ custom-mention,
 @media (hover: hover) {
   .inplace-editor .ProseMirror .okb-margin-host:hover .okb-comment-start,
   .inplace-editor .ProseMirror .okb-margin-host:hover + .okb-margin-gap .okb-comment-start,
+  .inplace-editor .ProseMirror .okb-margin-host:hover + .okb-margin-gap + .okb-margin-gap .okb-comment-start,
   .inplace-editor .ProseMirror .okb-comment-start:hover {
     opacity: 1;
     --okb-offer-events: auto;

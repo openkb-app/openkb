@@ -190,6 +190,16 @@ describe('the control in a block\'s margin', () => {
     expect(spy.started).toEqual([0])
   })
 
+  it('rides an anchor after a code block, out of its text', () => {
+    const spy = actions()
+    const d = doc(editorSchema.node('codeBlock', { id: 'b-code', language: 'js' }, editorSchema.text('const x = 1')))
+    const [host] = margins(d, [], spy)
+
+    expect(host!.className).toBe('okb-margin-gap')
+    ;(host!.firstElementChild as HTMLElement).dispatchEvent(new Event('click'))
+    expect(spy.started).toEqual([0])
+  })
+
   it('offers one on a block that carries no id yet', () => {
     const spy = actions()
     const d = doc(para('Nobody has touched this', null))

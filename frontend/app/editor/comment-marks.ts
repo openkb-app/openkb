@@ -3,7 +3,7 @@ import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { addressableBlocks, blockAt, blockAtSelection, ensureBlockId, topLevelBlockPos, type AddressableBlock } from './review-marks'
+import { addressableBlocks, blockAt, blockAtSelection, ensureBlockId, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
 import { openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
 
 /**
@@ -266,7 +266,7 @@ export function marginDecorations(
   const decorations: Decoration[] = []
   for (const { id, pos, node } of addressableBlocks(doc)) {
     const count = id ? counts.get(id) ?? 0 : 0
-    const inside = !node.isLeaf
+    const inside = marksInside(node)
     // The block's own position, which is what a fresh thread is opened on.
     const offset = inside ? 1 : node.nodeSize
     decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: 'okb-margin-host' }))
@@ -294,8 +294,9 @@ export function marginDecorations(
 }
 
 /**
- * A leaf block (an image, a rule) has no inside, so its control rides an empty
- * anchor after it — the prose margins collapse through it, so nothing moves.
+ * A block that keeps marks out of its content ({@link marksInside}) has its
+ * control on an empty anchor after it — the prose margins collapse through
+ * it, so nothing moves.
  */
 function marginGap(control: HTMLElement): HTMLElement {
   const anchor = document.createElement('span')
