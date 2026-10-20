@@ -34,11 +34,11 @@ export interface PageFileChoice {
   url: string
 }
 
-/** This page's files for the bubble: the list, and an upload into it. */
+/** This page's files for the bubble: the list, and the file picker. */
 export interface PageFileSource {
   list: () => PageFileChoice[]
-  /** Uploads one picked file to the page. Its UUID, or null on cancel or refusal. */
-  upload: () => Promise<string | null>
+  /** Puts the file the picker gives on the page once `link` embeds it (an upload is listed anyway). */
+  pick: (link: (uuid: string) => boolean) => Promise<void>
 }
 
 /** The bubble's own plugin key, so the editor surface can show and hide it. */
@@ -49,7 +49,7 @@ export const LINK_BUBBLE_KEY = new PluginKey('linkTargetBubble')
  *
  * - `actions`: show the bubble and focus its first button.
  * - `url`: open its URL field. On a selection without a link this creates one.
- * - `files`: open the list of this page's files.
+ * - `files`: open the file picker to link a file.
  *
  * Kept while the selection it was made on stands. A co-editor's change keeps
  * it on the selection y-tiptap restores.

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * The file card of a page file (ADR 0020): icon by MIME type, the name linking
+ * The file card of a page file (ADR 0020): a thumbnail for an image, an icon
+ * by MIME type otherwise, the name linking
  * to the file, size, a download link, and the author's optional description.
  * Slots: `description` replaces the description, `actions` adds buttons.
  * `inline` is the link alone, for a file
@@ -29,6 +30,8 @@ const size = computed(() => formatFileSize(props.file?.size))
   <a
     v-if="file && inline"
     :href="file.url"
+    target="_blank"
+    rel="noopener"
     class="inline-flex items-baseline gap-1"
     data-test="attachment-link"
   >
@@ -43,7 +46,8 @@ const size = computed(() => formatFileSize(props.file?.size))
     class="not-prose flex items-center gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3"
     data-test="attachment-card"
   >
-    <UIcon :name="fileIcon(file.mime)" class="size-6 shrink-0 text-muted" aria-hidden="true" />
+    <img v-if="file.mime.startsWith('image/')" :src="file.url" alt="" loading="lazy" class="size-10 shrink-0 rounded object-cover">
+    <UIcon v-else :name="fileIcon(file.mime)" class="size-6 shrink-0 text-muted" aria-hidden="true" />
     <div class="min-w-0 flex-1">
       <a :href="file.url" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
       <slot name="description">

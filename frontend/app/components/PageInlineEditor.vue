@@ -9,7 +9,7 @@ import { readUnreadSelection } from '~/editor/selection-sync'
 import { LINK_BUBBLE_KEY, bubbleTargetAt } from '~/editor/link-target'
 import { useEditorSession } from '~/composables/useEditorSession'
 import { useMediaDialogRequest } from '~/composables/useMediaLibraryPicker'
-import { useFilePickerRequest, useFilePickerStatus } from '~/editor/page-file-insert'
+import { selectedEmbed, useFilePickerRequest, useFilePickerStatus } from '~/editor/page-file-insert'
 import type { ReviewStep } from '#shared/page-blocks'
 
 /**
@@ -50,7 +50,7 @@ emit('session', session)
 
 const {
   editorRef, extensions, comarkHandlers,
-  slashItems, bubbleItems,
+  slashItems, bubbleItems, embedBubbleItems,
   mentionQuery, mentionItems,
   docItems, searchDocs, docLabel, resolveTarget, pageFiles, editorPageFiles,
   blockMenu, hoveredBlock, openBlockMenu, closeBlockMenu, onBlockMenuCloseAutoFocus,
@@ -101,6 +101,10 @@ const bubbleOptions = computed(() => ({ flip: { padding: { top: headerHeight.val
  * on the finished selection.
  */
 const bubbleKey = new PluginKey('bubbleMenu')
+const embedBubbleKey = new PluginKey('embedBubbleMenu')
+
+/** A selected image or file card. */
+const embedSelected = (editor: Editor): boolean => selectedEmbed(editor.state) !== null
 /** Whether a mouse button is down in the surface. */
 let pressed = false
 const isPressed = () => pressed
@@ -112,13 +116,14 @@ watch(() => editorRef.value?.editor, (editor, _old, onCleanup) => {
    * The `show` meta positions before it shows, and positioning is a no-op
    * while hidden — hence the second dispatch. A blurred editor gets nothing:
    * the plugin hid the menu on the blur. In a table a bare caret is enough.
-   * A link, page link or citation gets the link bubble instead.
+   * A link, page link or citation gets the link bubble instead, an image or
+   * a file card the embed bubble.
    * The release can come before PM has read the click's selection.
    */
   const show = (): void => {
     if (editor.isDestroyed || !editor.view.hasFocus()) return
     readUnreadSelection(editor.view)
-    const key = bubbleTargetAt(editor.state) ? LINK_BUBBLE_KEY : bubbleKey
+    const key = bubbleTargetAt(editor.state) ? LINK_BUBBLE_KEY : embedSelected(editor) ? embedBubbleKey : bubbleKey
     if (key === bubbleKey && editor.state.selection.empty && !editor.isActive('table')) return
     editor.view.dispatch(editor.state.tr.setMeta(key, 'show'))
     editor.view.dispatch(editor.state.tr.setMeta(key, 'updatePosition'))
@@ -176,8 +181,13 @@ function bubbleShouldShow(
   const isEmptyTextBlock = !doc.textBetween(from, to).trim().length && isTextSelection(selection)
   const isChildOfMenu = element.contains(document.activeElement)
   if (!(view.hasFocus() || isChildOfMenu) || !editor.isEditable) return false
-  if (bubbleTargetAt(state)) return false
+  if (bubbleTargetAt(state) || embedSelected(editor)) return false
   return editor.isActive('table') || (!selection.empty && !isEmptyTextBlock)
+}
+
+/** The embed bubble: a selected image or file card in the focused editor. */
+function embedBubbleShouldShow({ editor, view }: { editor: Editor, view: EditorView }): boolean {
+  return !pressed && editor.isEditable && view.hasFocus() && embedSelected(editor)
 }
 
 /**
@@ -247,6 +257,17 @@ const dragHandleOptions = {
           :options="bubbleOptions"
           :should-show="bubbleShouldShow"
           data-testid="bubble-toolbar"
+          class="rounded-md border border-default bg-default shadow-lg"
+        />
+        <UEditorToolbar
+          :editor="editor"
+          :items="embedBubbleItems"
+          layout="bubble"
+          :update-delay="0"
+          :plugin-key="embedBubbleKey"
+          :options="bubbleOptions"
+          :should-show="embedBubbleShouldShow"
+          data-testid="embed-bubble-toolbar"
           class="rounded-md border border-default bg-default shadow-lg"
         />
         <EditorLinkTargetBubble
@@ -329,6 +350,7 @@ const dragHandleOptions = {
       v-if="filePickerRequest"
       :token="filePickerRequest.token"
       :images="filePickerRequest.images"
+      :multiple="filePickerRequest.multiple"
       :files="editorPageFiles"
     />
     <!-- Outside the modal: `aria-live` keeps it exposed while the modal hides the page. -->

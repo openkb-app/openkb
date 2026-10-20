@@ -2,18 +2,19 @@
 /**
  * The image and file picker, laid out like a media library:
  * - an upload dropzone on top; a cancelled file dialog leaves the picker open;
- * - this page's files, each with a Select button, in a scroll area;
- * - "my files": the caller's own uploads, newest first, in a `UCommandPalette`,
- *   so the filter and the keyboard are the palette's. The modal body scrolls
- *   it: the palette's own scroller holds nothing tabbable.
+ * - this page's files, in a scroll area;
+ * - "my files": the caller's newest uploads, in a `UCommandPalette`, so the
+ *   filter and the keyboard are the palette's; the filter finds the older ones.
+ *   The modal body scrolls it: the palette's own scroller holds nothing tabbable.
+ * Both lists use `FilePickerItem`; clicking a row chooses it.
  * Choosing puts the file on the page; Escape leaves the page as it was.
  */
 import { closeFilePicker, pageFileLimits, useFilePickerStatus, type FilePickerChoice } from '~/editor/page-file-insert'
 import { nameListbox } from '~/editor/name-listbox'
-import { fileAccept, fileIcon, formatFileSize, type MyFile } from '#shared/utils/files'
+import { fileAccept, type MyFile } from '#shared/utils/files'
 import type { EditorPageFiles } from '~/composables/useEditorPageFiles'
 
-const props = defineProps<{ token: number, images: boolean, files: EditorPageFiles }>()
+const props = defineProps<{ token: number, images: boolean, multiple: boolean, files: EditorPageFiles }>()
 
 const { data, status, error } = useFetch<{ items: MyFile[] }>('/api/files/mine', {
   query: props.images ? { images: 1 } : {},
@@ -30,19 +31,23 @@ const mineTitle = computed(() => props.images ? 'My images' : 'My files')
 
 const onPage = computed(() => props.files.lists.value[props.images ? 'images' : 'attachments'].flatMap((id) => {
   const file = props.files.resolved.value[id]
-  return file ? [{ id, ...file }] : []
+  return file ? [{ id, ...file, detail: props.files.descriptions.value[id] ?? null }] : []
 }))
 
+/** Rows "my files" shows: the newest without a filter, the best matches with one. */
+const MINE_SHOWN = 6
+const searchTerm = ref('')
+const mine = computed(() => data.value?.items ?? [])
 const groups = computed(() => [{
   id: 'files',
-  items: (data.value?.items ?? []).map(file => ({
+  items: (searchTerm.value ? mine.value : mine.value.slice(0, MINE_SHOWN)).map(file => ({
     label: file.name,
-    description: file.usedOn.length ? `On ${file.usedOn.join(', ')}` : undefined,
-    suffix: formatFileSize(file.size),
-    icon: fileIcon(file.mime),
+    file,
+    detail: file.usedOn.length ? `On ${file.usedOn.join(', ')}` : null,
     onSelect: () => close(file),
   })),
 }])
+const mineHidden = computed(() => searchTerm.value ? 0 : Math.max(0, mine.value.length - MINE_SHOWN))
 const nameFilesListbox = nameListbox(props.images ? 'Your images' : 'Your files')
 
 const announcement = useFilePickerStatus()
@@ -65,6 +70,12 @@ function focusUpload(event: Event): void {
   dropzone.focus()
 }
 
+/** UFileUpload answers a list, or one file without `multiple`. */
+function picked(value: File[] | File | null | undefined): void {
+  const files = value instanceof File ? [value] : value ?? []
+  if (files.length) close({ upload: [...files] })
+}
+
 function close(choice: FilePickerChoice | null): void {
   closeFilePicker(props.token, choice)
 }
@@ -82,31 +93,28 @@ function close(choice: FilePickerChoice | null): void {
       <div class="flex flex-col gap-5">
         <UFileUpload
           :accept="fileAccept(limits ?? undefined)"
-          multiple
+          :multiple="multiple"
           :icon="images ? 'i-lucide-image-up' : 'i-lucide-upload'"
           :label="images ? 'Upload a new image' : 'Upload a new file'"
           description="Click or drop files here"
           class="w-full min-h-32"
-          @update:model-value="files => files?.length && close({ upload: [...files] })"
+          @update:model-value="picked"
         />
 
         <section v-if="onPage.length" aria-labelledby="file-picker-page-heading">
           <h3 id="file-picker-page-heading" class="mb-2 text-sm font-semibold text-highlighted">
             On this page
           </h3>
-          <ul class="max-h-48 divide-y divide-default overflow-y-auto rounded-md border border-default" data-test="file-picker-page">
-            <li v-for="file in onPage" :key="file.id" class="flex items-center gap-3 px-3 py-2">
-              <img v-if="images" :src="file.url" alt="" class="size-10 shrink-0 rounded object-cover">
-              <UIcon v-else :name="fileIcon(file.mime)" class="size-5 shrink-0 text-muted" aria-hidden="true" />
-              <span class="min-w-0 flex-1 truncate text-sm">{{ file.name }}</span>
-              <UButton
-                label="Select"
-                size="xs"
-                color="neutral"
-                variant="outline"
+          <ul class="max-h-48 overflow-y-auto rounded-md border border-default p-1" data-test="file-picker-page">
+            <li v-for="file in onPage" :key="file.id">
+              <button
+                type="button"
+                class="group flex w-full rounded-md p-1.5 hover:bg-elevated/50 focus-visible:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-primary"
                 :aria-label="`Select ${file.name}`"
                 @click="close(file)"
-              />
+              >
+                <EditorFilePickerItem :name="file.name" :url="file.url" :mime="file.mime" :size="file.size" :detail="file.detail" />
+              </button>
             </li>
           </ul>
         </section>
@@ -117,15 +125,19 @@ function close(choice: FilePickerChoice | null): void {
           </h3>
           <UCommandPalette
             :ref="nameFilesListbox"
+            v-model:search-term="searchTerm"
             :groups="groups"
             :loading="status === 'pending'"
-            :fuse="{ fuseOptions: { keys: ['label'] }, resultLimit: 200 }"
+            :fuse="{ fuseOptions: { keys: ['label'] }, resultLimit: Number.POSITIVE_INFINITY }"
             :input="{ 'aria-label': 'Filter your files by name' }"
             :autofocus="false"
             placeholder="Filter by name"
             class="rounded-md border border-default"
             data-test="my-files"
           >
+            <template #item="{ item }">
+              <EditorFilePickerItem :name="item.file.name" :url="item.file.url" :mime="item.file.mime" :size="item.file.size" :detail="item.detail" />
+            </template>
             <template #empty>
               <p v-if="error" class="p-2 text-sm text-error" role="alert">
                 Your files could not be loaded. Close this dialog and try again.
@@ -135,6 +147,9 @@ function close(choice: FilePickerChoice | null): void {
               </p>
             </template>
           </UCommandPalette>
+          <p v-if="mineHidden" class="mt-1 text-xs text-muted">
+            {{ mineHidden }} more — filter by name to find them.
+          </p>
         </section>
       </div>
     </template>

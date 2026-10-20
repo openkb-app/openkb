@@ -19,6 +19,16 @@ watch(() => props.node.attrs.description as string | null, (value) => {
   description.value = value ?? ''
 }, { immediate: true })
 
+// Shown while the card is selected or the field is in use, so an unselected
+// card without a description is as tall as on the read page.
+const editingDescription = ref(false)
+const showDescription = computed(() => props.selected || editingDescription.value || !!description.value)
+
+/** A plain click on the file name selects the card or link; Ctrl/Cmd+Click opens it (LinkOpen). The download button stays a link. */
+function keepClick(event: MouseEvent): void {
+  if (props.editor.isEditable && !event.ctrlKey && !event.metaKey && (event.target as Element).closest('a[href]:not([download])')) event.preventDefault()
+}
+
 function saveDescription(): void {
   props.updateAttributes({ description: description.value || null })
 }
@@ -31,6 +41,7 @@ function saveDescription(): void {
     :class="{ 'rounded-lg ring-2 ring-primary': props.selected }"
     data-type="attachment"
     contenteditable="false"
+    @click="keepClick"
   >
     <AttachmentCard
       :file="file"
@@ -41,12 +52,15 @@ function saveDescription(): void {
     >
       <template v-if="props.editor.isEditable" #description>
         <input
+          v-if="showDescription"
           v-model="description"
           placeholder="Add a description"
           aria-label="Attachment description"
           class="w-full rounded-sm bg-transparent px-1 -mx-1 text-sm text-muted outline-none placeholder:text-dimmed focus:text-default focus-visible:ring-2 focus-visible:ring-primary"
           data-test="attachment-description-input"
           @change="saveDescription"
+          @focus="editingDescription = true"
+          @blur="editingDescription = false"
         >
       </template>
     </AttachmentCard>

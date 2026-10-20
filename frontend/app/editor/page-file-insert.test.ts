@@ -9,7 +9,7 @@ import { parseMarkdownToJson } from '~/comark/markdown-engine'
 import { addPageFile, fileArray } from '#shared/utils/page-files'
 import { CollabHistory } from './collab-history'
 import { redo, undo } from '@tiptap/y-tiptap'
-import { closeFilePicker, insertPageFile, removeFileEmbeds, removeFileFromPage, uploadIntoEditor, useFilePickerRequest } from './page-file-insert'
+import { closeFilePicker, insertPageFile, pickPageAttachment, removeFileEmbeds, removeFileFromPage, replacePageFile, uploadIntoEditor, useFilePickerRequest } from './page-file-insert'
 
 const FILE = '66666666-7777-4888-9999-000000000000'
 
@@ -69,7 +69,8 @@ function mountShared(markdown: string): void {
 }
 
 /** Block types and texts of our document, in order. */
-const blocks = () => editor.state.doc.content.content.map(node => node.type.name === 'image' ? `image:${node.attrs.file}` : node.textContent)
+const blocks = () => editor.state.doc.content.content.map(node => ['image', 'attachment'].includes(node.type.name) ? `${node.type.name}:${node.attrs.file}` : node.textContent)
+const sessionYDoc = () => editor.extensionManager.extensions.find(extension => extension.name === 'collaboration')!.options.document as Y.Doc
 
 beforeEach(() => {
   sent.length = 0
@@ -170,6 +171,16 @@ describe('insertPageFile', () => {
     expect(blocks()).toEqual(['Peer: First.', `image:${FILE}`, 'Second.'])
   })
 
+  it('puts an image picked as a file on the page as a file card', async () => {
+    mountShared('First.\n\nSecond.')
+    const done = insertPageFile(editor, false, editor.state.doc.child(0).nodeSize)
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
+    await done
+    expect(blocks()).toEqual(['First.', `attachment:${FILE}`, 'Second.'])
+    expect(fileArray(sessionYDoc(), 'attachments').toArray()).toEqual([FILE])
+    expect(fileArray(sessionYDoc(), 'images').toArray()).toEqual([])
+  })
+
   it('leaves the page as it was on dismiss', async () => {
     mountShared('First.')
     const done = insertPageFile(editor, false, editor.state.doc.content.size)
@@ -179,27 +190,69 @@ describe('insertPageFile', () => {
   })
 })
 
+describe('pickPageAttachment', () => {
+  it('opens the file picker for one file and lists the chosen file once linked', async () => {
+    mountShared('First.')
+    const link = vi.fn(() => true)
+    const picked = pickPageAttachment(editor, link)
+    expect(useFilePickerRequest().value).toMatchObject({ images: false, multiple: false })
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
+    await picked
+    expect(link).toHaveBeenCalledWith(FILE)
+    expect(fileArray(sessionYDoc(), 'attachments').toArray()).toEqual([FILE])
+  })
+
+  it('leaves a chosen file off the list when the link fails', async () => {
+    mountShared('First.')
+    const picked = pickPageAttachment(editor, () => false)
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
+    await picked
+    expect(fileArray(sessionYDoc(), 'attachments').toArray()).toEqual([])
+  })
+
+  it('uploads the file the picker gives', async () => {
+    mountShared('First.')
+    const link = vi.fn(() => true)
+    const picked = pickPageAttachment(editor, link)
+    closeFilePicker(useFilePickerRequest().value!.token, { upload: [shot()] })
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    sent[0]!.answer()
+    await picked
+    expect(link).toHaveBeenCalledWith(FILE)
+    expect(fileArray(sessionYDoc(), 'attachments').toArray()).toEqual([FILE])
+  })
+
+  it('links nothing on dismiss', async () => {
+    mountShared('First.')
+    const link = vi.fn(() => true)
+    const picked = pickPageAttachment(editor, link)
+    closeFilePicker(useFilePickerRequest().value!.token, null)
+    await picked
+    expect(link).not.toHaveBeenCalled()
+  })
+})
+
 describe('removeFileEmbeds', () => {
   const OTHER = '11111111-2222-4333-8444-555555555555'
 
   it('takes the file\'s cards out and leaves its inline link\'s words', () => {
     mountShared(`Intro.\n\n::attachment{file="${FILE}"}\n::\n\nSee :attachment[the plan]{file="${FILE}"} now.\n\n::attachment{file="${OTHER}"}\n::\n\nEnd.`)
-    removeFileEmbeds(editor, 'attachments', FILE)
+    removeFileEmbeds(editor, ['attachments'], FILE)
     expect(editor.state.doc.content.content.map(node => node.type.name === 'attachment' ? `attachment:${node.attrs.file}` : node.textContent))
       .toEqual(['Intro.', 'See the plan now.', `attachment:${OTHER}`, 'End.'])
   })
 
   it('takes an image out only for the images list', () => {
     mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\nText.`)
-    removeFileEmbeds(editor, 'attachments', FILE)
+    removeFileEmbeds(editor, ['attachments'], FILE)
     expect(blocks()).toEqual([`image:${FILE}`, 'Text.'])
-    removeFileEmbeds(editor, 'images', FILE)
+    removeFileEmbeds(editor, ['images'], FILE)
     expect(blocks()).toEqual(['Text.'])
   })
 
   it('keeps the file\'s name as the words of a label-less inline link', () => {
     mountShared(`See :attachment{file="${FILE}"} now.`)
-    removeFileEmbeds(editor, 'attachments', FILE, 'plan.pdf')
+    removeFileEmbeds(editor, ['attachments'], FILE, 'plan.pdf')
     expect(blocks()).toEqual(['See plan.pdf now.'])
   })
 })
@@ -210,7 +263,7 @@ describe('removeFileFromPage', () => {
     mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\nText.`)
     const doc = editor.extensionManager.extensions.find(extension => extension.name === 'collaboration')!.options.document as Y.Doc
     addPageFile(doc, 'images', FILE)
-    removeFileFromPage(editor, 'images', FILE)
+    removeFileFromPage(editor, ['images'], FILE)
     expect(blocks()).toEqual(['Text.'])
     expect(fileArray(doc, 'images').toArray()).toEqual([])
     undo(editor.state)
@@ -219,5 +272,60 @@ describe('removeFileFromPage', () => {
     redo(editor.state)
     expect(blocks()).toEqual(['Text.'])
     expect(fileArray(doc, 'images').toArray()).toEqual([])
+  })
+  it('is one undo step for a file in both lists', () => {
+    mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\n::attachment{file="${FILE}"}\n::\n\nText.`)
+    const doc = editor.extensionManager.extensions.find(extension => extension.name === 'collaboration')!.options.document as Y.Doc
+    addPageFile(doc, 'images', FILE)
+    addPageFile(doc, 'attachments', FILE)
+    removeFileFromPage(editor, ['images', 'attachments'], FILE)
+    expect(blocks()).toEqual(['Text.'])
+    expect([fileArray(doc, 'images').length, fileArray(doc, 'attachments').length]).toEqual([0, 0])
+    undo(editor.state)
+    expect(blocks()).toEqual([`image:${FILE}`, `attachment:${FILE}`, 'Text.'])
+    expect(fileArray(doc, 'images').toArray()).toEqual([FILE])
+    expect(fileArray(doc, 'attachments').toArray()).toEqual([FILE])
+  })
+})
+
+describe('replacePageFile', () => {
+  const OLD = '11111111-2222-4333-8444-555555555555'
+  const sessionDoc = () => (editor.extensionManager.extensions.find(e => e.name === 'collaboration')!.options as { document: Y.Doc }).document
+
+  it('swaps the image\'s file, keeps its alt text and drops the old file from the list', async () => {
+    mountShared(`Peer text.\n\n::image{file="${OLD}" alt="Plan"}\n::`)
+    fileArray(sessionDoc(), 'images').push([OLD])
+    const pos = editor.state.doc.child(0).nodeSize
+    const done = replacePageFile(editor, pos)
+    peer.commands.insertContentAt(1, 'More ')
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
+    await done
+    const image = editor.state.doc.content.content.find(node => node.type.name === 'image')!
+    expect(image.attrs).toMatchObject({ file: FILE, alt: 'Plan' })
+    expect(fileArray(sessionDoc(), 'images').toArray()).toEqual([FILE])
+  })
+
+  it('keeps the old file listed while another embed still shows it', async () => {
+    mountShared(`::image{file="${OLD}" alt="A"}\n::\n\n::image{file="${OLD}" alt="B"}\n::`)
+    fileArray(sessionDoc(), 'images').push([OLD])
+    const done = replacePageFile(editor, 0)
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
+    await done
+    expect(blocks().filter(Boolean)).toEqual([`image:${FILE}`, `image:${OLD}`])
+    expect(fileArray(sessionDoc(), 'images').toArray()).toEqual([OLD, FILE])
+  })
+
+  it('is one undo step: undo brings back the old file, in the image and in the list', async () => {
+    mountShared(`::image{file="${OLD}" alt="Plan"}\n::`)
+    fileArray(sessionDoc(), 'images').push([OLD])
+    const done = replacePageFile(editor, 0)
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
+    await done
+    undo(editor.state)
+    expect(blocks().filter(Boolean)).toEqual([`image:${OLD}`])
+    expect(fileArray(sessionDoc(), 'images').toArray()).toEqual([OLD])
+    redo(editor.state)
+    expect(blocks().filter(Boolean)).toEqual([`image:${FILE}`])
+    expect(fileArray(sessionDoc(), 'images').toArray()).toEqual([FILE])
   })
 })

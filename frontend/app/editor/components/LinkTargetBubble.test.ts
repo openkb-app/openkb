@@ -215,78 +215,65 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
     await nextTick()
   }
 
-  const source = (upload: PageFileSource['upload'] = async () => null): PageFileSource => ({ list: () => files, upload })
+  /** A file source whose picker gives what `choose` resolves with. */
+  const source = (choose: () => Promise<string | null> = async () => FILE): PageFileSource => ({
+    list: () => files,
+    pick: async (link) => {
+      const uuid = await choose()
+      if (uuid) link(uuid)
+    },
+  })
   const markdown = () => serializeDocToMarkdown(editor.getJSON()).trim()
-  const pick = () => root.querySelector<HTMLButtonElement>('[data-testid="link-target-file"]')!.click()
 
-  it('lists the page\'s files and links the selected words to a picked one', async () => {
-    await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), source())
+  it('links the selected words to the file the picker gives', async () => {
+    const pick = vi.fn(async () => FILE)
+    await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), source(pick))
     requestLinkBubble(editor, 'files')
-    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-files"]')).not.toBeNull())
-    expect(text('link-target-file')).toContain('plan.pdf')
-    expect(text('link-target-file')).toContain('2.0 KB')
-    pick()
-    expect(markdown()).toBe(`See :attachment[here]{file="${FILE}"}.`)
+    await vi.waitFor(() => expect(markdown()).toBe(`See :attachment[here]{file="${FILE}"}.`))
+    expect(pick).toHaveBeenCalledOnce()
   })
 
   it('turns selected words into the link\'s label, from the URL field', async () => {
-    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source())
+    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(async () => NEW))
     requestLinkBubble(editor, 'url')
     await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-choose-file"]')).not.toBeNull())
     root.querySelector<HTMLButtonElement>('[data-testid="link-target-choose-file"]')!.click()
-    await nextTick()
-    pick()
-    expect(markdown()).toBe(`See :attachment[the plan]{file="${FILE}"} here.`)
-  })
-
-  it('says when the page has no files yet', async () => {
-    await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), { list: () => [], upload: async () => null })
-    requestLinkBubble(editor, 'files')
-    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-files"]')).not.toBeNull())
-    expect(text('link-target-files-empty')).toContain('No files on this page yet')
-    expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull()
-  })
-
-  it('links an upload made from the list', async () => {
-    const upload = vi.fn(async () => NEW)
-    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(upload))
-    requestLinkBubble(editor, 'files')
-    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
-    root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
     await vi.waitFor(() => expect(markdown()).toBe(`See :attachment[the plan]{file="${NEW}"} here.`))
-    expect(upload).toHaveBeenCalledOnce()
   })
 
-  it('links the same words when text moves during the upload', async () => {
-    let finish!: (uuid: string) => void
-    const upload = vi.fn(() => new Promise<string>((resolve) => { finish = resolve }))
-    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(upload))
+  it('leaves the words as they were when the picker is dismissed', async () => {
+    await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), source(async () => null))
     requestLinkBubble(editor, 'files')
-    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
-    root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
-    await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce())
+    await new Promise(resolve => setTimeout(resolve))
+    expect(markdown()).toBe('See here.')
+  })
+
+  it('links the same words when text moves while the picker is open', async () => {
+    let finish!: (uuid: string) => void
+    const pick = vi.fn(() => new Promise<string>((resolve) => { finish = resolve }))
+    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(pick))
+    requestLinkBubble(editor, 'files')
+    await vi.waitFor(() => expect(pick).toHaveBeenCalledOnce())
     editor.view.dispatch(editor.state.tr.insertText('Bob wrote this. ', 1))
     finish(NEW)
     await vi.waitFor(() => expect(markdown()).toBe(`Bob wrote this. See :attachment[the plan]{file="${NEW}"} here.`))
   })
 
-  it('links nothing when the words are deleted during the upload', async () => {
+  it('links nothing when the words are deleted while the picker is open', async () => {
     let finish!: (uuid: string) => void
-    const upload = vi.fn(() => new Promise<string>((resolve) => { finish = resolve }))
-    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(upload))
+    const pick = vi.fn(() => new Promise<string>((resolve) => { finish = resolve }))
+    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(pick))
     requestLinkBubble(editor, 'files')
-    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
-    root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
-    await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(pick).toHaveBeenCalledOnce())
     editor.view.dispatch(editor.state.tr.delete(5, 14))
     finish(NEW)
     await new Promise(resolve => setTimeout(resolve))
     expect(markdown()).toBe('See here.')
   })
 
-  describe('with a co-editor typing during the upload', () => {
+  describe('with a co-editor typing while the picker is open', () => {
     let finish!: (uuid: string) => void
-    const upload = () => new Promise<string>((resolve) => { finish = resolve })
+    const pick = vi.fn(() => new Promise<string>((resolve) => { finish = resolve }))
     const plan = (doc: Editor['state']['doc']) => {
       let at = -1
       doc.descendants((node, pos) => {
@@ -295,11 +282,10 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
       return TextSelection.create(doc, at, at + 'the plan'.length)
     }
     async function start(): Promise<Editor> {
-      const them = await mountShared('Intro.\n\nSee the plan here.', plan, source(upload))
+      pick.mockClear()
+      const them = await mountShared('Intro.\n\nSee the plan here.', plan, source(pick))
       requestLinkBubble(editor, 'files')
-      await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
-      root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
-      await nextTick()
+      await vi.waitFor(() => expect(pick).toHaveBeenCalledOnce())
       return them
     }
 

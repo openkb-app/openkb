@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { PAGE_FILE_KEYS, fileArray, liveFileLists, removePageFile, type PageFileLists } from '#shared/utils/page-files'
-import type { PageFileKey, ResolvedFile } from '#shared/utils/files'
+import type { ResolvedFile } from '#shared/utils/files'
 import type { Editor } from '@tiptap/core'
 import type { PageFileChoice } from '~/editor/link-target'
 import { removeFileFromPage } from '~/editor/page-file-insert'
@@ -19,8 +19,8 @@ export interface EditorPageFiles {
   settled: Ref<boolean>
   /** Each file's description: its first `::attachment` embed's, as on the read page. */
   descriptions: Ref<Record<string, string>>
-  /** Takes a file off the page: out of its list and its embeds out of the text. */
-  remove: (key: PageFileKey, uuid: string) => void
+  /** Takes a file off the page: out of every list that has it, its embeds out of the text. */
+  remove: (uuid: string) => void
   attachments: Ref<PageFileChoice[]>
 }
 
@@ -57,10 +57,11 @@ export function useEditorPageFiles(ydoc: Y.Doc, editor: () => Editor | undefined
     return file ? [{ uuid, name: file.name, size: file.size, url: file.url }] : []
   }))
 
-  const remove = (key: PageFileKey, uuid: string) => {
+  const remove = (uuid: string) => {
+    const keys = PAGE_FILE_KEYS.filter(key => lists.value[key].includes(uuid))
     const live = editor()
-    if (live && !live.isDestroyed) removeFileFromPage(live, key, uuid, resolved.value[uuid]?.name)
-    else removePageFile(ydoc, key, uuid)
+    if (live && !live.isDestroyed) removeFileFromPage(live, keys, uuid, resolved.value[uuid]?.name)
+    else for (const key of keys) removePageFile(ydoc, key, uuid)
   }
 
   return { lists, resolved, settled, descriptions, remove, attachments }

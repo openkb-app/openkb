@@ -6,7 +6,7 @@ import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import { buildEditorExtensions } from '~/editor/extensions'
 import { PageFileLinks } from '~/editor/page-file-links'
 import type { PageFileSource } from '~/editor/link-target'
-import { uploadOneAttachment } from '~/editor/page-file-insert'
+import { pickPageAttachment, replacePageFile, selectedEmbed } from '~/editor/page-file-insert'
 import { BlockIdMinter } from '~/editor/block-id-minter'
 import { CollabHistory } from '~/editor/collab-history'
 import { ReviewMarks, refreshReviewMarks, sidecarLookup, topLevelBlockPos } from '~/editor/review-marks'
@@ -496,10 +496,12 @@ export async function useEditorSession(
     return true
   }
 
-  // The link bubble's files: this page's attachments and an upload into them.
+  // The link bubble's files: this page's attachments and the file picker.
   const pageFiles: PageFileSource = {
     list: () => editorPageFiles.attachments.value,
-    upload: async () => editorRef.value?.editor ? uploadOneAttachment(editorRef.value.editor) : null,
+    pick: async (link) => {
+      if (editorRef.value?.editor) await pickPageAttachment(editorRef.value.editor, link)
+    },
   }
 
   const extensions = computed(() => [
@@ -583,8 +585,8 @@ export async function useEditorSession(
   /** Whether the caret sits in a table — what the bubble's table group keys on. */
   const caretInTable = ref(false)
 
-  /** Whether an image or a file card is selected: no text to format or link. */
-  const selectionOnEmbed = ref(false)
+  /** The selected image or file card: its position and file. */
+  const embedSelection = ref<ReturnType<typeof selectedEmbed>>(null)
 
   // Hydration: y-prosemirror owns the doc, so seed the Y.Doc directly
   // by applying a binary update from a temporary Y.Doc holding the
@@ -610,7 +612,7 @@ export async function useEditorSession(
       const node = selectedBlock()?.node
       caretBlockId.value = node ? blockIdOf(node) : null
       caretInTable.value = editor.isActive('table')
-      selectionOnEmbed.value = editor.isActive('image') || editor.isActive('attachment')
+      embedSelection.value = selectedEmbed(editor.state)
     }
     editor.on('selectionUpdate', trackCaret)
     // Also on doc change: BlockIdMinter can give the caret's block an id it
@@ -1191,18 +1193,19 @@ export async function useEditorSession(
 
   // Bubble toolbar: selection ops from toolbarItems, plus Comment on the
   // passage — and, with the caret in a table, that table's row and column
-  // controls. A selected image or file card gets Comment only.
+  // controls. A selected image or file card gets embedBubbleItems instead.
   const bubbleItems = computed(() => [
-    ...(selectionOnEmbed.value ? [] : [[
+    [
       { kind: 'mark', mark: 'bold', icon: 'i-lucide-bold', 'aria-label': 'Bold', tooltip: { text: 'Bold' } },
       { kind: 'mark', mark: 'italic', icon: 'i-lucide-italic', 'aria-label': 'Italic', tooltip: { text: 'Italic' } },
       { kind: 'mark', mark: 'strike', icon: 'i-lucide-strikethrough', 'aria-label': 'Strikethrough', tooltip: { text: 'Strikethrough' } },
       { kind: 'mark', mark: 'code', icon: 'i-lucide-code', 'aria-label': 'Inline code', tooltip: { text: 'Inline code' } },
       { kind: 'link', icon: 'i-lucide-link', 'aria-label': 'Link', tooltip: { text: 'Link' } },
       { kind: 'docLink', icon: 'i-lucide-file-symlink', 'aria-label': 'Link to page', tooltip: { text: 'Link to a page' } },
-    ], [
+    ],
+    [
       { kind: 'heading', level: 2, icon: 'i-lucide-heading-2', 'aria-label': 'Heading 2', tooltip: { text: 'Heading 2' } },
-    ]]),
+    ],
     ...(caretInTable.value ? [tableBubbleItems] : []),
     [
       {
@@ -1213,6 +1216,43 @@ export async function useEditorSession(
       },
     ],
   ])
+
+  // The bubble on a selected image or file card, as Nuxt UI's editor docs lay
+  // out the image one: download, replace, delete, plus Comment.
+  const embedBubbleItems = computed(() => {
+    const embed = embedSelection.value
+    const url = embed?.file ? editorPageFiles.resolved.value[embed.file]?.url : undefined
+    const editor = () => editorRef.value?.editor
+    return [
+      [
+        ...(url ? [{ icon: 'i-lucide-download', to: url, download: true, target: '_blank', 'aria-label': 'Download', tooltip: { text: 'Download' } }] : []),
+        {
+          icon: 'i-lucide-refresh-cw',
+          'aria-label': 'Replace',
+          tooltip: { text: 'Replace' },
+          onClick: () => {
+            const live = editor()
+            const now = live && selectedEmbed(live.state)
+            if (now) void replacePageFile(live, now.pos)
+          },
+        },
+        {
+          icon: 'i-lucide-trash',
+          'aria-label': 'Delete',
+          tooltip: { text: 'Delete' },
+          onClick: () => editor()?.chain().focus().deleteSelection().run(),
+        },
+      ],
+      [
+        {
+          icon: 'i-lucide-message-square-plus',
+          'aria-label': 'Comment',
+          tooltip: { text: 'Comment on this block' },
+          onClick: () => commentOnSelection(),
+        },
+      ],
+    ]
+  })
 
   return {
     page: page as Ref<Page>,
@@ -1255,6 +1295,7 @@ export async function useEditorSession(
     toolbarOverflowItems,
     toolbarTrailingItems,
     bubbleItems,
+    embedBubbleItems,
     mentionQuery,
     mentionItems,
     docItems,

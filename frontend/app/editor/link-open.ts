@@ -61,7 +61,7 @@ function decorate(doc: ProseNode): DecorationSet {
   const title = linkOpenHint()
   const decorations: Decoration[] = []
   doc.descendants((node, pos) => {
-    if (node.type.name === 'docLink' || node.type.name === CITATION_TAG) {
+    if (node.type.name === 'docLink' || node.type.name === CITATION_TAG || node.type.name === 'attachmentInline') {
       decorations.push(Decoration.node(pos, pos + node.nodeSize, { title }))
     }
     else if (node.isText && node.marks.some(mark => mark.type.name === 'link')) {
@@ -73,8 +73,8 @@ function decorate(doc: ProseNode): DecorationSet {
 
 /**
  * Opens a link in a new tab on Ctrl+Click (Cmd+Click on macOS) or a
- * middle-click; a plain click keeps editing. Covers link marks, page links and
- * citations.
+ * middle-click; a plain click keeps editing. Covers link marks, page links,
+ * citations and file links.
  * Every link gets a hover hint as a decoration, so it never reaches the markdown.
  */
 export const LinkOpen = Extension.create({

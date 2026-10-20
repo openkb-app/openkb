@@ -1,9 +1,8 @@
 import type { Editor } from '@tiptap/core'
-import { useFileDialog } from '@vueuse/core'
-import { effectScope } from 'vue'
+import { NodeSelection, type EditorState } from '@tiptap/pm/state'
 import type * as Y from 'yjs'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
-import { PAGE_FILE_FIELDS, fileAccept, formatFileSize, type PageAttachment, type PageFileKey, type PageFileLimits, type PageFileLimitsByField } from '#shared/utils/files'
+import { PAGE_FILE_FIELDS, formatFileSize, type PageAttachment, type PageFileKey, type PageFileLimits, type PageFileLimitsByField } from '#shared/utils/files'
 import { addPageFile, removePageFile } from '#shared/utils/page-files'
 import { trackRange } from '~/editor/tracked-range'
 import { csrfToken } from '~/utils/csrf'
@@ -33,20 +32,6 @@ export function pageFileLimits(key: PageFileKey): Promise<PageFileLimits | undef
 }
 
 let lastId = 0
-
-/** Opens the browser's file dialog; resolves with the chosen files, empty on cancel. */
-async function pickFiles(key: PageFileKey, multiple = true): Promise<File[]> {
-  const accept = fileAccept(await pageFileLimits(key))
-  const scope = effectScope()
-  return new Promise<File[]>((resolve) => {
-    scope.run(() => {
-      const dialog = useFileDialog({ accept, multiple })
-      dialog.onChange(files => resolve([...(files ?? [])]))
-      dialog.onCancel(() => resolve([]))
-      dialog.open()
-    })
-  }).finally(() => scope.stop())
-}
 
 /** The message a refused upload shows. */
 function refusal(status: number, body: string): string {
@@ -153,17 +138,6 @@ export async function uploadIntoEditor(editor: Editor, key: PageFileKey, files: 
   }
 }
 
-/** Picks one file and uploads it as an attachment of the page. Its UUID, or null. */
-export async function uploadOneAttachment(editor: Editor): Promise<string | null> {
-  const files = await pickFiles('attachments', false)
-  if (files.length === 0) return null
-  if (!navigator.onLine) {
-    refuseOffline(files)
-    return null
-  }
-  return uploadPageFile(sessionDoc(editor), 'attachments', files[0]!)
-}
-
 /**
  * The editor's picker (ADR 0020): upload a new file, or put one of this
  * page's files or of the caller's own uploads on the page — the same file,
@@ -174,6 +148,8 @@ export async function uploadOneAttachment(editor: Editor): Promise<string | null
 export interface FilePickerRequest {
   /** Images only, for the image action. */
   images: boolean
+  /** Several uploads at once; Replace takes one. */
+  multiple: boolean
   token: number
 }
 
@@ -196,10 +172,10 @@ let settle: ((choice: FilePickerChoice | null) => void) | null = null
 let lastToken = 0
 
 /** Opens the picker; resolves with the choice or null on dismiss. */
-function requestFilePick(images: boolean): Promise<FilePickerChoice | null> {
+function requestFilePick(images: boolean, multiple = true): Promise<FilePickerChoice | null> {
   const request = useFilePickerRequest()
   if (request.value !== null) return Promise.resolve(null)
-  request.value = { images, token: ++lastToken }
+  request.value = { images, multiple, token: ++lastToken }
   return new Promise((resolve) => {
     settle = resolve
   })
@@ -225,7 +201,7 @@ export async function insertPageFile(editor: Editor, images: boolean, insertAt: 
     if (!choice || editor.isDestroyed) return
     const pos = at.current()?.from ?? editor.state.doc.content.size
     if ('upload' in choice) return await uploadIntoEditor(editor, images ? 'images' : 'attachments', choice.upload, pos)
-    const key = choice.mime.startsWith('image/') ? 'images' : 'attachments'
+    const key: PageFileKey = images ? 'images' : 'attachments'
     const doc = sessionDoc(editor)
     if (doc) addPageFile(doc, key, choice.id)
     const node = key === 'images'
@@ -238,6 +214,24 @@ export async function insertPageFile(editor: Editor, images: boolean, insertAt: 
   }
 }
 
+/**
+ * Opens the file picker for one file and hands it to `link`: an upload, a file
+ * on this page or one of the caller's own. A chosen file joins the page's
+ * attachments only when `link` embedded it; an upload is listed anyway.
+ */
+export async function pickPageAttachment(editor: Editor, link: (uuid: string) => boolean): Promise<void> {
+  const choice = await requestFilePick(false, false)
+  if (!choice || editor.isDestroyed) return
+  const doc = sessionDoc(editor)
+  if (!('upload' in choice)) {
+    if (link(choice.id) && doc) addPageFile(doc, 'attachments', choice.id)
+    return
+  }
+  if (!navigator.onLine) return refuseOffline(choice.upload)
+  const uuid = choice.upload[0] ? await uploadPageFile(doc, 'attachments', choice.upload[0]) : null
+  if (uuid && !editor.isDestroyed) link(uuid)
+}
+
 /** The node types that embed a file of each list. */
 const EMBEDS: Record<PageFileKey, string[]> = {
   images: ['image'],
@@ -245,14 +239,15 @@ const EMBEDS: Record<PageFileKey, string[]> = {
 }
 
 /**
- * Takes the embeds of a file out of the text: a card or an image goes, an
- * inline link keeps its label or, without one, `fileName`.
+ * Takes the embeds of a file in `keys` out of the text: a card or an image
+ * goes, an inline link keeps its label or, without one, `fileName`.
  */
-export function removeFileEmbeds(editor: Editor, key: PageFileKey, uuid: string, fileName = ''): void {
+export function removeFileEmbeds(editor: Editor, keys: PageFileKey[], uuid: string, fileName = ''): void {
+  const types = keys.flatMap(key => EMBEDS[key])
   const { state } = editor
   const tr = state.tr
   state.doc.descendants((node, pos) => {
-    if (!EMBEDS[key].includes(node.type.name) || node.attrs.file !== uuid) return
+    if (!types.includes(node.type.name) || node.attrs.file !== uuid) return
     const from = tr.mapping.map(pos)
     const to = tr.mapping.map(pos + node.nodeSize)
     const words = node.type.name === 'attachmentInline' ? String(node.attrs.label || fileName) : ''
@@ -274,8 +269,69 @@ export function undoableFileChange(editor: Editor, change: (doc: Y.Doc) => void)
   if (doc) doc.transact(() => change(doc), ySyncPluginKey)
 }
 
-/** Takes a file off the page, as one undo step: its embeds out of the text, then out of its list. */
-export function removeFileFromPage(editor: Editor, key: PageFileKey, uuid: string, fileName = ''): void {
-  removeFileEmbeds(editor, key, uuid, fileName)
-  undoableFileChange(editor, doc => removePageFile(doc, key, uuid))
+/** Takes a file off the page, as one undo step: its embeds out of the text, then out of the lists `keys`. */
+export function removeFileFromPage(editor: Editor, keys: PageFileKey[], uuid: string, fileName = ''): void {
+  removeFileEmbeds(editor, keys, uuid, fileName)
+  undoableFileChange(editor, (doc) => {
+    for (const key of keys) removePageFile(doc, key, uuid)
+  })
+}
+
+/** The selected image or file card: its position and file. */
+export function selectedEmbed(state: EditorState): { pos: number, file: string | null } | null {
+  const { selection } = state
+  if (!(selection instanceof NodeSelection) || !['image', 'attachment'].includes(selection.node.type.name)) return null
+  return { pos: selection.from, file: (selection.node.attrs.file as string | null) ?? null }
+}
+
+/** Whether the text still embeds `uuid` as one of `key`'s node types. */
+function embeds(editor: Editor, key: PageFileKey, uuid: string): boolean {
+  let found = false
+  editor.state.doc.descendants((node) => {
+    if (EMBEDS[key].includes(node.type.name) && node.attrs.file === uuid) found = true
+    return !found
+  })
+  return found
+}
+
+/**
+ * Swaps the file of the image or card at `pos` for one the picker gives: an
+ * upload, a file on this page or one of the caller's own. Alt text,
+ * description and block id stay. The old file leaves the page's list once
+ * nothing embeds it. One undo step: the swap and the list change (an upload
+ * stays listed, as after undoing its insert).
+ */
+export async function replacePageFile(editor: Editor, pos: number): Promise<void> {
+  const node = editor.state.doc.nodeAt(pos)
+  if (!node || (node.type.name !== 'image' && node.type.name !== 'attachment')) return
+  const key: PageFileKey = node.type.name === 'image' ? 'images' : 'attachments'
+  const old = node.attrs.file as string | null
+  const at = trackRange(editor, pos)
+  try {
+    const choice = await requestFilePick(key === 'images', false)
+    if (!choice || editor.isDestroyed) return
+    const doc = sessionDoc(editor)
+    let uuid: string | null
+    if ('upload' in choice) {
+      if (!navigator.onLine) return refuseOffline(choice.upload)
+      uuid = choice.upload[0] ? await uploadPageFile(doc, key, choice.upload[0]) : null
+    }
+    else {
+      uuid = choice.id
+    }
+    const current = at.current()?.from
+    const target = current === undefined ? null : editor.state.doc.nodeAt(current)
+    if (!uuid || editor.isDestroyed || !target || target.type !== node.type || target.attrs.file !== old) return
+    editor.chain().focus().command(({ tr }) => {
+      tr.setNodeMarkup(current!, undefined, { ...target.attrs, file: uuid })
+      return true
+    }).run()
+    undoableFileChange(editor, (doc) => {
+      addPageFile(doc, key, uuid)
+      if (old && old !== uuid && !embeds(editor, key, old)) removePageFile(doc, key, old)
+    })
+  }
+  finally {
+    at.stop()
+  }
 }

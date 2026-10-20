@@ -30,8 +30,7 @@ import { CITE_STATE_NOTE, citeState, citeTarget, citeUrlTitle } from '#shared/ut
 /**
  * Shows where a link, page link, file link or citation points, with Open,
  * Change and Remove (editor/link-target.ts holds the model and the commands).
- * A new link can instead point at one of this page's files, or one uploaded
- * on the spot.
+ * A new link can instead point at a file from the file picker.
  *
  * Shown for a caret in a link or a selected page link or citation, and on
  * request (`Mod-k`, the Link button). Tab from the editor moves into it,
@@ -55,9 +54,8 @@ const target = shallowRef<LinkTarget | null>(bubbleTargetAt(props.editor.state))
 /** The resolved page of a page target; undefined while it loads. */
 const resolved = ref<ResolvedTarget | null | undefined>(undefined)
 const editing = ref(false)
-/** Showing the list of this page's files. */
-const choosing = ref(false)
-const uploading = ref(false)
+/** The file picker is open for the target. */
+const picking = ref(false)
 const url = ref('')
 const invalid = ref(false)
 const panel = ref<HTMLElement | null>(null)
@@ -139,38 +137,27 @@ function startEdit(): void {
   nextTick(() => field.value?.inputRef?.focus())
 }
 
-function startChoosing(): void {
-  choosing.value = true
+/** Links the target to the file the picker gives, wherever the target moved meanwhile. */
+async function pickFile(): Promise<void> {
+  if (!props.files || !target.value || picking.value) return
   editing.value = false
-  nextTick(focusFirst)
-}
-
-function pickFile(uuid: string): void {
-  if (target.value && setFileLink(props.editor, target.value, uuid)) choosing.value = false
-}
-
-async function uploadFile(): Promise<void> {
-  if (!props.files) return
-  if (!target.value) return
   const tracked = trackLinkTarget(props.editor, target.value)
-  uploading.value = true
+  picking.value = true
   try {
-    const uuid = await props.files.upload()
-    const current = tracked.current()
-    if (uuid && current && !props.editor.isDestroyed) {
-      if (setFileLink(props.editor, current, uuid)) choosing.value = false
-    }
+    await props.files.pick((uuid) => {
+      const current = tracked.current()
+      return !!current && !props.editor.isDestroyed && setFileLink(props.editor, current, uuid)
+    })
   }
   finally {
     tracked.stop()
-    uploading.value = false
+    picking.value = false
   }
 }
 
 /** Back to the text, selection unchanged. A new link that was never applied is dropped. */
 function close(): void {
   editing.value = false
-  choosing.value = false
   clearLinkBubbleRequest(props.editor)
   props.editor.view.focus()
 }
@@ -218,11 +205,7 @@ function tabIn(event: KeyboardEvent): void {
 
 function onTransaction({ transaction }: { transaction: Transaction }): void {
   const next = bubbleTargetAt(props.editor.state)
-  // An upload in flight keeps the list: the pick lands on the target it started on.
-  if (!sameTarget(next, target.value) && !uploading.value) {
-    editing.value = false
-    choosing.value = false
-  }
+  if (!sameTarget(next, target.value)) editing.value = false
   target.value = next
   // Only selection and doc changes re-run `shouldShow`; a request or a dropped
   // one changes neither.
@@ -237,7 +220,7 @@ function onTransaction({ transaction }: { transaction: Transaction }): void {
     emit('request')
     toggle('show')
     if (request.focus === 'url') startEdit()
-    else if (request.focus === 'files') startChoosing()
+    else if (request.focus === 'files') void pickFile()
     else focusFirst()
   })
 }
@@ -294,42 +277,7 @@ onBeforeUnmount(() => {
       class="flex items-center gap-1 p-1 text-sm"
       @keydown="onKeydown"
     >
-      <div v-if="choosing" class="w-80 p-1" data-testid="link-target-files">
-        <p id="link-target-files-heading" class="px-1 pb-1 text-xs font-medium text-muted">
-          File on this page
-        </p>
-        <p v-if="!files?.list().length" class="px-1 py-1 text-muted" data-testid="link-target-files-empty">
-          No files on this page yet. Upload one to link it.
-        </p>
-        <ul v-else aria-labelledby="link-target-files-heading" class="max-h-60 overflow-y-auto">
-          <li v-for="file in files?.list() ?? []" :key="file.uuid">
-            <button
-              type="button"
-              class="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-elevated focus-visible:bg-elevated"
-              data-testid="link-target-file"
-              @click="pickFile(file.uuid)"
-            >
-              <span class="min-w-0 flex-1 truncate">{{ file.name }}</span>
-              <span class="shrink-0 text-xs text-muted">{{ formatFileSize(file.size) }}</span>
-            </button>
-          </li>
-        </ul>
-        <div class="mt-1 flex items-center gap-1">
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-upload"
-            :loading="uploading"
-            data-testid="link-target-upload"
-            @click="uploadFile"
-          >
-            Upload…
-          </UButton>
-          <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-x" aria-label="Cancel" class="ml-auto" @click="close" />
-        </div>
-      </div>
-      <form v-else-if="editing || isNewLink" class="flex items-center gap-1" @submit.prevent="apply">
+      <form v-if="editing || isNewLink" class="flex items-center gap-1" @submit.prevent="apply">
         <UInput
           ref="field"
           v-model="url"
@@ -351,9 +299,9 @@ onBeforeUnmount(() => {
           color="neutral"
           variant="ghost"
           icon="i-lucide-paperclip"
-          aria-label="File on this page"
+          aria-label="Link to a file"
           data-testid="link-target-choose-file"
-          @click="startChoosing"
+          @click="pickFile"
         />
         <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-x" aria-label="Cancel" @click="close" />
       </form>
