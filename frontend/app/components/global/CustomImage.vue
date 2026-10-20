@@ -1,15 +1,17 @@
 <script setup lang="ts">
 /**
- * Renderer for an `::image{media="…"}` embed. The comark tree passes
- * (`shared/utils/comark-tree.ts`) have already resolved the media UUID to
- * `src`/`alt`/`width`/`height`; a missing `src` means the media is gone or the
- * viewer may not see it, and a placeholder stands in. `inline` is an embed
+ * Renderer for an `::image{media="…"}` or `::image{file="…"}` embed. The
+ * comark tree passes (`shared/utils/comark-tree.ts`) have already resolved the
+ * media or page file to `src` (and for media `alt`/`width`/`height`); a
+ * missing `src` means it is gone or the viewer may not see it, and a
+ * placeholder stands in. `inline` is an embed
  * sitting in a paragraph, where a figure may not go.
  *
  * Neither wrapper states a margin: an image is a block of the column like any
  * other, and `okb-prose` sets the rhythm for both modes.
  */
 defineProps<{
+  file?: string
   media?: string
   src?: string
   alt?: string

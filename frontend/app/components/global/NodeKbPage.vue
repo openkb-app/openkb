@@ -22,6 +22,7 @@ import { BLOCK_ID_PREFIX, TITLE_REVIEW_KEY, type BlockByline, type ReviewStep } 
 import { assigneeCandidates } from '~/editor/comment-assignee'
 import { itemName, reviewMarkOf } from '~/editor/review-marks'
 import type { CommentAssignee } from '#shared/block-comments'
+import type { PageAttachment } from '#shared/utils/files'
 
 // Flat props off the CE display — no defaults, no placeholders: a field the
 // editor left empty renders as nothing at all. The body arrives as the comark
@@ -40,6 +41,8 @@ const props = defineProps<{
   blockProvenance?: Record<string, BlockByline>
   /** Each block's own citations, projected off the resolved body tree. */
   blockCitations?: Record<string, CitationSource[]>
+  /** The page's files this reader may download (ADR 0020). */
+  pageFiles?: PageAttachment[]
   bodyTree?: ComarkNode[]
 }>()
 
@@ -529,6 +532,8 @@ const { wide } = useSidePane()
               @session="setSession"
             />
           </div>
+
+          <ViewPageAttachments v-if="mode !== 'edit' && pageFiles?.length" :files="pageFiles" />
 
           <!-- Phone and tablet: no second column, so the outline follows the
                page as a collapsible. The box is a class and the outline in it

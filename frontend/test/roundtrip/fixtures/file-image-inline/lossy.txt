@@ -1,0 +1,1 @@
+inline images are hoisted to standalone blocks (the editor image node is block-level), splitting the paragraph

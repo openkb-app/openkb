@@ -1,4 +1,6 @@
 import { createError } from 'h3'
+import { changePageFiles, type PageFileChange } from '#shared/utils/page-files'
+import type { PageFileKey } from '#shared/utils/files'
 import * as Y from 'yjs'
 import { removeAwarenessStates } from 'y-protocols/awareness'
 import { initProseMirrorDoc, updateYFragment } from '@tiptap/y-tiptap'
@@ -524,6 +526,8 @@ export class UnknownThreadError extends Error {
 export interface AgentOps {
   /** Frontmatter keys (plus `title`) → new values. */
   fields?: FieldValues
+  /** Files to add to and take off the page's file lists, by field (ADR 0020). */
+  files?: Partial<Record<PageFileKey, PageFileChange>>
   /** Replacement body, as comark markdown. */
   body?: string
   /** Block-level writes, applied in order. */
@@ -698,6 +702,9 @@ export async function openAgentSession(
         // leave the document exactly as it found it, fields included.
         if (ops.blocks?.length) refuseStaleBlocks(document, ops.blocks)
         if (ops.fields) result.fields = applyFieldValues(document, ops.fields)
+        for (const [key, change] of Object.entries(ops.files ?? {}) as Array<[PageFileKey, PageFileChange]>) {
+          if (changePageFiles(document, key, change)) result.fields.push(key)
+        }
         if (ops.body !== undefined) {
           applyBodyMarkdown(document, ops.body, true)
           result.body = true

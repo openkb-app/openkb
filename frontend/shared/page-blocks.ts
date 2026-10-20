@@ -605,6 +605,7 @@ export const ID_BEARING_TYPES = new Set([
   'callout',
   'infobox',
   'image',
+  'attachment',
 ])
 
 /**

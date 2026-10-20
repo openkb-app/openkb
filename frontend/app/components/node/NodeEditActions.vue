@@ -134,7 +134,6 @@ const reviewLabel = computed(() => reviewToggleLabel({
     :dirty="dirty"
     :history-href="historyHref"
     :markdown-href="markdownHref"
-    @attach="session.attachFile"
     @revert="session.revert"
     @deleted="emit('deleted')"
   />

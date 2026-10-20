@@ -1,7 +1,21 @@
 import type { FieldValues } from '../entity-fields'
+import { isFileUuid, PAGE_FILE_FIELDS, type PageFileKey } from '#shared/utils/files'
+import type { PageFileChange } from '#shared/utils/page-files'
 import { TARGET_PROPERTIES, WRITE_OUTPUT_SCHEMA } from './schemas'
 import { runWrite, writeRefusal } from './write'
 import type { JsonSchema, KbTool } from './types'
+
+const UUID_LIST = { type: 'array', items: { type: 'string', format: 'uuid' } }
+
+const FILES_DESCRIPTION = 'File UUIDs to add to and remove from the page\'s file lists, per list: '
+  + '"attachments" and "images", each {add, remove}. A file no revision of the page holds is kept '
+  + 'only if it is the agent owner\'s own file or a fresh upload of someone editing the page.'
+
+function isFileChange(change: unknown): change is PageFileChange {
+  if (typeof change !== 'object' || change === null || Array.isArray(change)) return false
+  return Object.entries(change).every(([op, uuids]) =>
+    (op === 'add' || op === 'remove') && Array.isArray(uuids) && uuids.every(isFileUuid))
+}
 
 /**
  * Writes frontmatter fields into the page's live editing session.
@@ -24,24 +38,43 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
       + 'fields you pass are touched; the body is left alone. The edit is applied '
       + "inside the page's collaborative editing session, so a human with the "
       + 'page open sees it arrive live. It does not publish — read it back with '
-      + 'getPageForEditing.',
+      + 'getPageForEditing. `files` adds file UUIDs to and removes them from the '
+      + 'page\'s file lists (attachments, images); files you do not name stay.',
     inputSchema: {
       type: 'object',
       properties: {
         ...TARGET_PROPERTIES,
         // The shapes Drupal accepts, tracking the `frontmatter` form display.
         fields: { ...contract, description: 'Field keys to write, with their new values.' },
+        files: {
+          type: 'object',
+          description: FILES_DESCRIPTION,
+          properties: Object.fromEntries(Object.keys(PAGE_FILE_FIELDS).map(key => [key, {
+            type: 'object',
+            properties: { add: UUID_LIST, remove: UUID_LIST },
+            additionalProperties: false,
+          }])),
+          additionalProperties: false,
+        },
       },
-      required: ['fields'],
       additionalProperties: false,
     },
     outputSchema: WRITE_OUTPUT_SCHEMA,
     async run(args, { event }) {
-      const fields = args.fields
+      const fields = args.fields ?? {}
       if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) {
         return writeRefusal('updateFields requires a "fields" object.')
       }
-      return runWrite(event, args, { fields: fields as FieldValues })
+      const files = (args.files ?? {}) as Partial<Record<PageFileKey, PageFileChange>>
+      const bad = Object.entries(files).filter(([key, change]) =>
+        !Object.hasOwn(PAGE_FILE_FIELDS, key) || !isFileChange(change))
+      if (bad.length > 0) {
+        return writeRefusal('"files" takes "add" and "remove" lists of file UUIDs.', Object.fromEntries(bad.map(([key]) => [key, ['Not "add" / "remove" lists of file UUIDs.']])))
+      }
+      return runWrite(event, args, {
+        fields: fields as FieldValues,
+        ...(Object.keys(files).length > 0 ? { files } : {}),
+      })
     },
   }
 }

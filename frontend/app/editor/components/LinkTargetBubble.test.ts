@@ -9,7 +9,8 @@ import { NodeSelection, TextSelection } from '@tiptap/pm/state'
 import type { Selection } from '@tiptap/pm/state'
 import { buildCommitSchemaExtensions } from '~~/server/utils/editor-schema'
 import { parseMarkdownToJson } from '~/comark/markdown-engine'
-import { LinkTargetKeys, requestLinkBubble } from '~/editor/link-target'
+import { LinkTargetKeys, requestLinkBubble, type PageFileSource } from '~/editor/link-target'
+import { serializeDocToMarkdown } from '~/comark/markdown-engine'
 import type { ResolvedTarget } from '~/composables/useDocLinkSearch'
 import LinkTargetBubble from './LinkTargetBubble.vue'
 
@@ -52,7 +53,7 @@ async function mount(markdown: string, type: string, resolved: ResolvedTarget | 
  * The bubble on an editor that shares `markdown` with a co-editor over Yjs,
  * the selection set by `select`. Returns the co-editor.
  */
-async function mountShared(markdown: string, select: (doc: Editor['state']['doc']) => Selection): Promise<Editor> {
+async function mountShared(markdown: string, select: (doc: Editor['state']['doc']) => Selection, files?: PageFileSource): Promise<Editor> {
   const ours = new Y.Doc()
   const theirs = new Y.Doc()
   ours.on('update', (update: Uint8Array, origin: unknown) => origin !== theirs && Y.applyUpdate(theirs, update, ours))
@@ -64,8 +65,8 @@ async function mountShared(markdown: string, select: (doc: Editor['state']['doc'
   editor.view.dispatch(editor.state.tr.setSelection(select(editor.state.doc)))
   root = document.createElement('div')
   document.body.appendChild(root)
-  app = createApp({ render: () => h(LinkTargetBubble as never, { editor, resolve: async () => null }) })
-  app.component('UButton', { props: ['to', 'icon'], setup: (props, { attrs }) => () => h(props.to ? 'a' : 'button', { ...attrs, href: props.to }) })
+  app = createApp({ render: () => h(LinkTargetBubble as never, { editor, resolve: async () => null, files }) })
+  app.component('UButton', { props: ['to', 'icon', 'loading'], setup: (props, { attrs, slots }) => () => h(props.to ? 'a' : 'button', { ...attrs, href: props.to }, slots.default?.()) })
   app.component('UInput', { setup: () => () => h('input') })
   app.mount(root)
   await nextTick()
@@ -196,3 +197,144 @@ describe('LinkTargetBubble', () => {
     })
   })
 })
+
+describe('LinkTargetBubble: links to this page\'s files', () => {
+  const FILE = '11111111-2222-4333-8444-555555555555'
+  const NEW = '66666666-7777-4888-9999-000000000000'
+  const files = [{ uuid: FILE, name: 'plan.pdf', size: 2048, url: 'http://drupal.test/system/files/attachments/plan.pdf' }]
+
+  async function mountFiles(markdown: string, select: (doc: Editor['state']['doc']) => Selection, source: PageFileSource): Promise<void> {
+    editor = new Editor({ extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: parseMarkdownToJson(markdown) })
+    editor.view.dispatch(editor.state.tr.setSelection(select(editor.state.doc)))
+    root = document.createElement('div')
+    document.body.appendChild(root)
+    app = createApp({ render: () => h(LinkTargetBubble as never, { editor, resolve: async () => null, files: source }) })
+    app.component('UButton', { props: ['to', 'icon', 'loading'], setup: (props, { attrs, slots }) => () => h(props.to ? 'a' : 'button', { ...attrs, href: props.to }, slots.default?.()) })
+    app.component('UInput', { setup: () => () => h('input') })
+    app.mount(root)
+    await nextTick()
+  }
+
+  const source = (upload: PageFileSource['upload'] = async () => null): PageFileSource => ({ list: () => files, upload })
+  const markdown = () => serializeDocToMarkdown(editor.getJSON()).trim()
+  const pick = () => root.querySelector<HTMLButtonElement>('[data-testid="link-target-file"]')!.click()
+
+  it('lists the page\'s files and links the selected words to a picked one', async () => {
+    await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), source())
+    requestLinkBubble(editor, 'files')
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-files"]')).not.toBeNull())
+    expect(text('link-target-file')).toContain('plan.pdf')
+    expect(text('link-target-file')).toContain('2.0 KB')
+    pick()
+    expect(markdown()).toBe(`See :attachment[here]{file="${FILE}"}.`)
+  })
+
+  it('turns selected words into the link\'s label, from the URL field', async () => {
+    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source())
+    requestLinkBubble(editor, 'url')
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-choose-file"]')).not.toBeNull())
+    root.querySelector<HTMLButtonElement>('[data-testid="link-target-choose-file"]')!.click()
+    await nextTick()
+    pick()
+    expect(markdown()).toBe(`See :attachment[the plan]{file="${FILE}"} here.`)
+  })
+
+  it('says when the page has no files yet', async () => {
+    await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), { list: () => [], upload: async () => null })
+    requestLinkBubble(editor, 'files')
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-files"]')).not.toBeNull())
+    expect(text('link-target-files-empty')).toContain('No files on this page yet')
+    expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull()
+  })
+
+  it('links an upload made from the list', async () => {
+    const upload = vi.fn(async () => NEW)
+    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(upload))
+    requestLinkBubble(editor, 'files')
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
+    root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
+    await vi.waitFor(() => expect(markdown()).toBe(`See :attachment[the plan]{file="${NEW}"} here.`))
+    expect(upload).toHaveBeenCalledOnce()
+  })
+
+  it('links the same words when text moves during the upload', async () => {
+    let finish!: (uuid: string) => void
+    const upload = vi.fn(() => new Promise<string>((resolve) => { finish = resolve }))
+    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(upload))
+    requestLinkBubble(editor, 'files')
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
+    root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
+    await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce())
+    editor.view.dispatch(editor.state.tr.insertText('Bob wrote this. ', 1))
+    finish(NEW)
+    await vi.waitFor(() => expect(markdown()).toBe(`Bob wrote this. See :attachment[the plan]{file="${NEW}"} here.`))
+  })
+
+  it('links nothing when the words are deleted during the upload', async () => {
+    let finish!: (uuid: string) => void
+    const upload = vi.fn(() => new Promise<string>((resolve) => { finish = resolve }))
+    await mountFiles('See the plan here.', doc => TextSelection.create(doc, 5, 13), source(upload))
+    requestLinkBubble(editor, 'files')
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
+    root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
+    await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce())
+    editor.view.dispatch(editor.state.tr.delete(5, 14))
+    finish(NEW)
+    await new Promise(resolve => setTimeout(resolve))
+    expect(markdown()).toBe('See here.')
+  })
+
+  describe('with a co-editor typing during the upload', () => {
+    let finish!: (uuid: string) => void
+    const upload = () => new Promise<string>((resolve) => { finish = resolve })
+    const plan = (doc: Editor['state']['doc']) => {
+      let at = -1
+      doc.descendants((node, pos) => {
+        if (at < 0 && node.isText && node.text?.includes('the plan')) at = pos + node.text.indexOf('the plan')
+      })
+      return TextSelection.create(doc, at, at + 'the plan'.length)
+    }
+    async function start(): Promise<Editor> {
+      const them = await mountShared('Intro.\n\nSee the plan here.', plan, source(upload))
+      requestLinkBubble(editor, 'files')
+      await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-upload"]')).not.toBeNull())
+      root.querySelector<HTMLButtonElement>('[data-testid="link-target-upload"]')!.click()
+      await nextTick()
+      return them
+    }
+
+    it('links the same words when the peer types before them', async () => {
+      const them = await start()
+      them.commands.insertContentAt(plan(them.state.doc).from - 4, 'Bob: ')
+      finish(NEW)
+      await vi.waitFor(() => expect(markdown()).toBe(`Intro.\n\nBob: See :attachment[the plan]{file="${NEW}"} here.`))
+    })
+
+    it('links the same words when the peer types in another paragraph', async () => {
+      const them = await start()
+      them.commands.insertContentAt(1, 'Short ')
+      finish(NEW)
+      await vi.waitFor(() => expect(markdown()).toBe(`Short Intro.\n\nSee :attachment[the plan]{file="${NEW}"} here.`))
+    })
+
+    it('links nothing when the peer deletes the words', async () => {
+      const them = await start()
+      const { from, to } = plan(them.state.doc)
+      them.commands.deleteRange({ from, to: to + 1 })
+      finish(NEW)
+      await new Promise(resolve => setTimeout(resolve))
+      expect(markdown()).toBe('Intro.\n\nSee here.')
+    })
+  })
+
+  it('names a file link\'s file, and Remove leaves its words', async () => {
+    await mountFiles(`See :attachment[the plan]{file="${FILE}"} here.`, doc => NodeSelection.create(doc, find(doc, 'attachmentInline')), source())
+    await nextTick()
+    expect(root.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('File link')
+    expect(text('link-target')).toBe('plan.pdf')
+    expect(root.querySelector('[aria-label="Open in a new tab"]')?.getAttribute('href')).toBe(files[0]!.url)
+    root.querySelector<HTMLButtonElement>('[aria-label="Remove file link"]')!.click()
+    expect(markdown()).toBe('See the plan here.')
+  })
+})
+

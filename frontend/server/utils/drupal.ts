@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import { SPACE_TYPE, type KbSpace } from '#shared/utils/kb-spaces'
+import { PAGE_FILE_FIELDS } from '#shared/utils/files'
 import type { InlineCommentRecord } from '#shared/block-comments'
 import { fetchUpstream, upstreamError, UPSTREAM_UNAVAILABLE } from './upstream'
 import { forwardedAuthHeaders } from './actor'
@@ -447,6 +448,8 @@ export interface CommittedRevision {
   changed: number
   /** Null where the checkpoint stated no sign-offs. */
   review: ReviewOutcome | null
+  /** The file UUIDs the revision holds, per page file field the write named. */
+  files: Record<string, string[]>
 }
 
 export interface KbPagePatchExtra {
@@ -487,7 +490,10 @@ export async function commitKbPageWithAuth(
   extra: KbPagePatchExtra = {},
 ): Promise<CommittedRevision> {
   const result = await drupalFetchWithAuth<{
-    data?: { attributes?: { changed: string } }
+    data?: {
+      attributes?: { changed: string }
+      relationships?: Record<string, { data?: Array<{ id?: string }> | null }>
+    }
     meta?: { review?: ReviewOutcome }
   }>(
     auth,
@@ -511,9 +517,19 @@ export async function commitKbPageWithAuth(
   // Drupal answers with the written revision, so the caller can advance its
   // optimistic-concurrency token (`changed`) without an extra GET.
   const iso = result?.data?.attributes?.changed
+  // What Drupal kept of the page files: a checkpoint's own list less any file
+  // it dropped (ADR 0020).
+  const files: Record<string, string[]> = {}
+  for (const name of Object.keys(extra.relationships ?? {})) {
+    const data = result?.data?.relationships?.[name]?.data
+    if ((Object.values(PAGE_FILE_FIELDS) as string[]).includes(name) && Array.isArray(data)) {
+      files[name] = data.flatMap(item => typeof item?.id === 'string' ? [item.id] : [])
+    }
+  }
   return {
     changed: iso ? Math.floor(new Date(iso).getTime() / 1000) : Math.floor(Date.now() / 1000),
     review: result?.meta?.review ?? null,
+    files,
   }
 }
 
@@ -713,6 +729,47 @@ export async function deleteKbPageWithAuth(
     console.warn(`[drupal] DELETE ${path} deadlocked (attempt ${attempt}), retrying`)
     await new Promise(r => setTimeout(r, DELETE_BACKOFF_MS * attempt))
   }
+}
+
+/**
+ * A file name as a header value core's parser reads back unchanged: ASCII,
+ * no quote, backslash or control character. Core takes no `filename*`.
+ */
+export function headerFilename(name: string): string {
+  const safe = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]|["\\]/g, '_').trim()
+  return safe || 'file'
+}
+
+/**
+ * Streams one file into core's JSON:API file upload for a page file field
+ * (ADR 0020). The result is a temporary file owned by the carrier's account;
+ * the checkpoint that names it in the field makes it permanent. Size and
+ * extension refusals come back as Drupal's 413 / 422.
+ */
+export async function uploadPageFileWithAuth(
+  auth: Record<string, string>,
+  field: string,
+  filename: string,
+  body: ReadableStream<Uint8Array> | Uint8Array,
+): Promise<{ id: string }> {
+  const path = `/jsonapi/node/kb_page/${field}`
+  const headers = {
+    Accept: 'application/vnd.api+json',
+    'Content-Type': 'application/octet-stream',
+    'Content-Disposition': `file; filename="${headerFilename(filename)}"`,
+    ...auth,
+  }
+  const res = await fetchUpstream(`${drupalBaseUrl()}${path}`, {
+    method: 'POST',
+    headers,
+    body,
+    // Node's fetch streams a request body only in half-duplex mode.
+    ...({ duplex: 'half' } as RequestInit),
+  })
+  if (!res.ok) throw await upstreamError(res, `POST ${path}`)
+  const doc = await res.json() as { data?: { id?: string } }
+  if (!doc.data?.id) throw await upstreamError(new Response(null, { status: 502 }), `POST ${path}: no file id`)
+  return { id: doc.data.id }
 }
 
 export function deleteKbPage(event: H3Event, id: string): Promise<void> {

@@ -4,6 +4,9 @@ import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import { buildEditorExtensions } from '~/editor/extensions'
+import { PageFileLinks } from '~/editor/page-file-links'
+import type { PageFileSource } from '~/editor/link-target'
+import { uploadOneAttachment } from '~/editor/page-file-insert'
 import { BlockIdMinter } from '~/editor/block-id-minter'
 import { CollabHistory } from '~/editor/collab-history'
 import { ReviewMarks, refreshReviewMarks, sidecarLookup, topLevelBlockPos } from '~/editor/review-marks'
@@ -39,6 +42,7 @@ import type { WritableComputedRef } from 'vue'
 import type { FieldValidationApi } from '~/composables/useFieldValidation'
 import { TITLE_KEY, type FieldValue } from '~~/server/utils/entity-fields'
 import { FALLBACK_COLOR, FALLBACK_NAME, claimsByBlock, collabColor, presenceFromStates, readableInkOn, type AwarenessUser } from '#shared/utils/presence'
+import { PAGE_FILE_KEYS, fileArray } from '#shared/utils/page-files'
 
 export interface Page {
   id: string
@@ -315,6 +319,7 @@ export async function useEditorSession(
   // The schema-driven frontmatter form (OKB-47) plugs into those bindings.
   // Its useFetch is registered here — before the page await — so it keeps
   // Nuxt's async-data context, like every other lifecycle-bound composable.
+  const editorPageFiles = useEditorPageFiles(ydoc, () => editorRef.value?.editor)
   const frontmatter = useFrontmatterForm({
     seeded: fieldsSeeded,
     field: touchingField,
@@ -491,8 +496,15 @@ export async function useEditorSession(
     return true
   }
 
+  // The link bubble's files: this page's attachments and an upload into them.
+  const pageFiles: PageFileSource = {
+    list: () => editorPageFiles.attachments.value,
+    upload: async () => editorRef.value?.editor ? uploadOneAttachment(editorRef.value.editor) : null,
+  }
+
   const extensions = computed(() => [
     ...buildEditorExtensions(),
+    PageFileLinks.configure({ files: pageFiles.list }),
     Collaboration.configure({ document: ydoc }),
     CollaborationCaret.configure({
       provider: provider.value,
@@ -571,6 +583,9 @@ export async function useEditorSession(
   /** Whether the caret sits in a table — what the bubble's table group keys on. */
   const caretInTable = ref(false)
 
+  /** Whether an image or a file card is selected: no text to format or link. */
+  const selectionOnEmbed = ref(false)
+
   // Hydration: y-prosemirror owns the doc, so seed the Y.Doc directly
   // by applying a binary update from a temporary Y.Doc holding the
   // initial markdown, parsed sync + DOM-free by the shared engine — the
@@ -589,10 +604,13 @@ export async function useEditorSession(
       Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(seedDoc))
     }
     editor.on('update', markDirty)
+    // The file lists are their own lane: their edits fire no editor update.
+    for (const key of PAGE_FILE_KEYS) fileArray(ydoc, key).observe(markDirty)
     const trackCaret = () => {
       const node = selectedBlock()?.node
       caretBlockId.value = node ? blockIdOf(node) : null
       caretInTable.value = editor.isActive('table')
+      selectionOnEmbed.value = editor.isActive('image') || editor.isActive('attachment')
     }
     editor.on('selectionUpdate', trackCaret)
     // Also on doc change: BlockIdMinter can give the caret's block an id it
@@ -624,14 +642,6 @@ export async function useEditorSession(
   }
 
   function reload() { window.location.reload() }
-
-  function attachFile() {
-    toast.add({
-      title: 'Attach file',
-      description: 'Attachments land in beta2.',
-      icon: 'i-lucide-paperclip',
-    })
-  }
 
   /**
    * The thread being composed — a block and, when the comment was opened on a
@@ -1119,7 +1129,8 @@ export async function useEditorSession(
       { kind: 'blockquote', icon: 'i-lucide-quote', 'aria-label': 'Quote', tooltip: { text: 'Quote' } },
     ],
     [
-      { kind: 'image', icon: 'i-lucide-image', 'aria-label': 'Image from media library', tooltip: { text: 'Image from media library' } },
+      { kind: 'image', icon: 'i-lucide-image', 'aria-label': 'Insert image', tooltip: { text: 'Insert image' } },
+      { kind: 'attachment', icon: 'i-lucide-paperclip', 'aria-label': 'Insert file', tooltip: { text: 'Insert file' } },
     ],
     [tableToolbarItem],
   ]
@@ -1180,19 +1191,18 @@ export async function useEditorSession(
 
   // Bubble toolbar: selection ops from toolbarItems, plus Comment on the
   // passage — and, with the caret in a table, that table's row and column
-  // controls.
+  // controls. A selected image or file card gets Comment only.
   const bubbleItems = computed(() => [
-    [
+    ...(selectionOnEmbed.value ? [] : [[
       { kind: 'mark', mark: 'bold', icon: 'i-lucide-bold', 'aria-label': 'Bold', tooltip: { text: 'Bold' } },
       { kind: 'mark', mark: 'italic', icon: 'i-lucide-italic', 'aria-label': 'Italic', tooltip: { text: 'Italic' } },
       { kind: 'mark', mark: 'strike', icon: 'i-lucide-strikethrough', 'aria-label': 'Strikethrough', tooltip: { text: 'Strikethrough' } },
       { kind: 'mark', mark: 'code', icon: 'i-lucide-code', 'aria-label': 'Inline code', tooltip: { text: 'Inline code' } },
       { kind: 'link', icon: 'i-lucide-link', 'aria-label': 'Link', tooltip: { text: 'Link' } },
       { kind: 'docLink', icon: 'i-lucide-file-symlink', 'aria-label': 'Link to page', tooltip: { text: 'Link to a page' } },
-    ],
-    [
+    ], [
       { kind: 'heading', level: 2, icon: 'i-lucide-heading-2', 'aria-label': 'Heading 2', tooltip: { text: 'Heading 2' } },
-    ],
+    ]]),
     ...(caretInTable.value ? [tableBubbleItems] : []),
     [
       {
@@ -1251,11 +1261,12 @@ export async function useEditorSession(
     searchDocs,
     docLabel,
     resolveTarget,
+    pageFiles,
+    editorPageFiles,
     markdown,
     save,
     revert,
     reload,
-    attachFile,
     approveItem,
     markSelectedBlockReviewed,
     threads,

@@ -2,9 +2,14 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { yUndoPluginKey } from '@tiptap/y-tiptap'
 import type * as Y from 'yjs'
+import { PAGE_FILE_KEYS, fileArray } from '#shared/utils/page-files'
 
 /**
- * Keeps the collaborative undo redoable.
+ * Keeps the collaborative undo redoable, and makes it cover the page file lists.
+ *
+ * The lists (ADR 0020) live outside the text's XmlFragment, so the UndoManager
+ * gets them added to its scope (idempotent): removing a file and its embeds is
+ * one step.
  *
  * Undo/redo are the Y.js UndoManager's, and an undo is only redoable if the
  * manager tracks the transaction its own undo writes — which it does by holding
@@ -30,7 +35,10 @@ export const CollabHistory = Extension.create({
         view: (view) => {
           const state = yUndoPluginKey.getState(view.state) as { undoManager: Y.UndoManager } | undefined
           const undoManager = state?.undoManager
-          if (undoManager) undoManager.trackedOrigins.add(undoManager)
+          if (undoManager) {
+            undoManager.trackedOrigins.add(undoManager)
+            undoManager.addToScope(PAGE_FILE_KEYS.map(key => fileArray(undoManager.doc, key)))
+          }
           return {}
         },
       }),

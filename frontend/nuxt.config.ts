@@ -110,6 +110,8 @@ export default defineNuxtConfig({
       '/views/ajax',
       '/admin/content/media-widget/image',
       '/admin/content/media-widget-table/image',
+      // The page file upload streams its body on to Drupal itself.
+      '/api/files/upload',
     ],
     // The Canvas page builder is not part of this app, so the component
     // preview endpoint and its component-index build step are off.

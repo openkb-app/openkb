@@ -76,6 +76,22 @@ describe('updateFields', () => {
     })
   })
 
+  it('updateFields routes file adds and removes, and refuses a bare list', async () => {
+    const A = '11111111-2222-4333-8444-555555555555'
+    const { client } = await connect()
+    const files = { attachments: { remove: [A] }, images: { add: [A] } }
+    const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files } })
+    expect(res.isError).toBeFalsy()
+    expect(routeAgentEdit).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: {}, files }, undefined,
+    )
+
+    routeAgentEdit.mockClear()
+    const bare = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { attachments: [A] } } })
+    expect(bare.isError).toBe(true)
+    expect(routeAgentEdit).not.toHaveBeenCalled()
+  })
+
   it('an unknown field key is answered per field, not refused as an undeclared argument', async () => {
     routeAgentEdit.mockRejectedValue(new AgentOpsError({ not_a_field: ['Unknown field.'] }))
     const { client } = await connect()

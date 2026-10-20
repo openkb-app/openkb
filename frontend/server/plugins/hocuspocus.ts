@@ -11,6 +11,8 @@ import { commitDocument, mergeCommitHooks, type CommitIdentity, type CommitResul
 import { drupalGateDeps, validateFieldValues, type RouterDeps } from '../utils/session-router'
 import { closeAgentSessions } from '../utils/agent-sessions'
 import { dirtyFieldKeys, fieldsCommitHooks } from '../utils/commit-fields'
+import { ceFileLists, filesCommitHooks, hasNewFile } from '../utils/commit-files'
+import type { PageFileLists } from '#shared/utils/page-files'
 import { blockIdCommitHooks } from '../utils/commit-block-ids'
 import { seedBlockMeta, seedFromDrupal, type SeedDeps, type SeedOutcome } from '../utils/doc-seed'
 import { sharedFieldSource } from '../utils/drupal-fields'
@@ -28,7 +30,7 @@ import { mapCeFieldValues, TITLE_KEY, type FieldValues } from '../utils/entity-f
 import { CheckpointScheduler } from '../utils/commit-scheduler'
 import { TtlCache } from '../utils/ttl-cache'
 import { settleDocument, unloadMayRelease, type CollabControl, type CollabControlDeps, type SettleableDocument } from '../utils/collab-control'
-import { COLLAB_COMMIT_MAX_DIRTY_MS, COLLAB_COMMIT_QUIET_MS, COLLAB_MARK_THROTTLE_MS } from '../utils/collab-timing'
+import { COLLAB_COMMIT_MAX_DIRTY_MS, COLLAB_COMMIT_QUIET_MS, COLLAB_MARK_THROTTLE_MS, COLLAB_UPLOAD_COMMIT_MS } from '../utils/collab-timing'
 import { MarkMirror } from '../utils/collab-sidecar'
 import { noEditAccessReason, noFieldAccessReason } from '#shared/utils/collab-auth'
 import { joinAccessUrl, parseJoinAnswer, type JoinAccount } from '../utils/collab-join'
@@ -257,6 +259,12 @@ export default defineNitroPlugin((nitroApp) => {
     if (!read) return null
     const specs = await fieldSource.fetchSpecs()
     return specs === null ? null : mapCeFieldValues(specs, read.props)
+  }
+
+  /** The page file lists, off the same working-copy read. */
+  async function fetchWorkingCopyFiles(nid: number): Promise<PageFileLists | null> {
+    const read = await fetchWorkingCopy(nid)
+    return read ? ceFileLists(read.props) : null
   }
 
   /**
@@ -796,6 +804,7 @@ export default defineNitroPlugin((nitroApp) => {
     fetchChanged: fetchDrupalChanged,
     fetchBody: fetchDrupalBody,
     fetchFields: fetchWorkingCopyFields,
+    fetchFiles: fetchWorkingCopyFiles,
     fetchBlockMeta: fetchDrupalBlockMeta,
     fetchComments: fetchStoredComments,
   }
@@ -966,9 +975,10 @@ export default defineNitroPlugin((nitroApp) => {
     // Every doc mutation re-arms the quiet timer (and arms the max-dirty
     // backstop once per window). Meta-only writes from a commit also land here
     // and harmlessly re-arm; the next quiet fire is a clean no-op.
-    async onChange({ documentName }) {
+    async onChange({ documentName, document }) {
       if (!/^node:\d+$/.test(documentName) || isRetired(documentName)) return
-      scheduler.onActivity(documentName)
+      if (hasNewFile(document as unknown as Y.Doc)) scheduler.onUpload(documentName, COLLAB_UPLOAD_COMMIT_MS)
+      else scheduler.onActivity(documentName)
 
     },
 
@@ -1084,6 +1094,7 @@ export default defineNitroPlugin((nitroApp) => {
         // Fields and block ids ride the checkpoint payload.
         hooks: mergeCommitHooks(
           fieldsCommitHooks(fieldSource.fetchSpecs),
+          filesCommitHooks(),
           // Two reasons to write that the body hash cannot see.
           //  - A window whose writers Drupal has not recorded yet: the text
           //    may already be in Drupal (an agent wrote it) and the credit is

@@ -28,10 +28,10 @@ import type {
 } from '@tiptap/core'
 
 // Fence-serialized nodes an outer fence must out-length (comark matches a
-// close by the opener's colon count). The image fence is always length 2
-// (childless — see ./image.ts); callout/infobox/blockWrapper grow past
-// their content.
-const FENCE_NODES = new Set(['callout', 'infobox', 'image', 'blockWrapper'])
+// close by the opener's colon count). The image and attachment fences are
+// always length 2 (childless — see ./image.ts, ./attachment.ts);
+// callout/infobox/blockWrapper grow past their content.
+const FENCE_NODES = new Set(['callout', 'infobox', 'image', 'attachment', 'blockWrapper'])
 
 /**
  * Parses MDC props and the `#id` shorthand.
@@ -62,6 +62,11 @@ export function parseMdcProps(propString: string): Record<string, string> {
 }
 
 /**
+ * The inside of a prop brace: a `}` inside a quoted value does not close it.
+ */
+export const MDC_PROPS_SOURCE = String.raw`(?:"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|[^}"'\n])*`
+
+/**
  * Serializes props as `key="val"` pairs; `"` in values escapes to `\"`.
  * `id` renders as the `#id` shorthand, last; an id with characters outside
  * `[\w-]` can't round-trip through the shorthand, so it falls back to an
@@ -84,7 +89,7 @@ export function serializeMdcProps(props: Record<string, string>): string {
  * fences of other component types tokenize through their own tokenizers.
  */
 export function mdcFenceTokenizer(name: string): MarkdownTokenizer {
-  const openRe = new RegExp(`^(:{2,})${name}(?:\\{([^}]*)\\})?[ \\t]*(?:\\n|$)`)
+  const openRe = new RegExp(`^(:{2,})${name}(?:\\{(${MDC_PROPS_SOURCE})\\})?[ \\t]*(?:\\n|$)`)
   return {
     name,
     level: 'block',

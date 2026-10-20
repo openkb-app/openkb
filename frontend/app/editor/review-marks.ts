@@ -258,6 +258,25 @@ export function addressableBlocks(doc: PMNode): AddressableBlock[] {
 }
 
 /**
+ * What a block reads as in the review and comment lists: its text, or for a
+ * block holding only an image or a file, that embed's alt text or description.
+ */
+export function blockLabel(node: PMNode): string {
+  if (node.textContent.trim()) return node.textContent
+  let label = ''
+  const name = (embed: PMNode) => {
+    if (embed.type.name === 'image') label = embed.attrs.alt ? `Image: ${embed.attrs.alt}` : 'Image'
+    else if (embed.type.name === 'attachment') label = embed.attrs.description ? `File: ${embed.attrs.description}` : 'File'
+  }
+  name(node)
+  node.descendants((child) => {
+    if (!label) name(child)
+    return !label
+  })
+  return label
+}
+
+/**
  * Whether a block's margin marks hang inside it, or ride an anchor after it.
  * - A leaf has no inside.
  * - A code block's highlight tokens re-wrap its text as it is typed. A widget
@@ -464,8 +483,8 @@ export interface ReviewQueueRow {
   kind: ReviewItemKind
   /** Position in the document, or null for an item it holds no block for. */
   pos: number | null
-  /** The block's text, for an excerpt the editor will recognise. Empty where
-   *  the document holds no block. */
+  /** The block's {@link blockLabel}, for an excerpt the editor will
+   *  recognise. Empty where the document holds no block. */
   text: string
   /** The steps this item owes, in blocker-list order. */
   steps: ReviewStep[]
@@ -511,7 +530,7 @@ export function reviewQueue(
 ): ReviewQueueRow[] {
   const rows: ReviewQueueRow[] = []
   const placed = new Set<string>()
-  for (const { id, pos, text } of addressableBlocks(doc)) {
+  for (const { id, pos, node } of addressableBlocks(doc)) {
     const steps = id ? awaiting[id] : undefined
     if (!id || !steps?.length) continue
     placed.add(id)
@@ -519,7 +538,7 @@ export function reviewQueue(
       id,
       kind: meta[id]?.moved ? 'moved' : 'block',
       pos,
-      text,
+      text: blockLabel(node),
       steps,
       state: waitingState(meta[id], steps, reviewer),
       approvals: approvalsFor(meta[id], steps, reviewer, 'This block'),

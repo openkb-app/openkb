@@ -262,6 +262,8 @@ export interface CommitResult {
   fields?: Record<string, string[]>
   /** On `committed`: Drupal's answer to the sign-offs this checkpoint stated. */
   review?: ReviewOutcome
+  /** On `committed`: the file UUIDs Drupal kept, per page file field written. */
+  files?: Record<string, string[]>
 }
 
 /** One name as the log prints it — "fago", or "fago via Claude". */
@@ -576,7 +578,7 @@ export async function commitDocument(
     // to the document (server/utils/title-heading.ts). The heading is spelt
     // from the title this write leaves behind, so a rename carries it.
     const stored = storedBody(page.titleHeading, extra.attributes?.title ?? page.title, markdown)
-    const { changed, review } = await commitKbPageWithAuth(auth, nid, stored, extra)
+    const { changed, review, files } = await commitKbPageWithAuth(auth, nid, stored, extra)
 
     const at = now()
     Y.transact(doc, () => {
@@ -599,6 +601,7 @@ export async function commitDocument(
       hash,
       changed,
       ...(review ? { review } : {}),
+      ...(files && Object.keys(files).length > 0 ? { files } : {}),
     }
 
     // Lane bookkeeping (fields baseline, provenance baseline) writes to the

@@ -232,6 +232,63 @@ describe('inline components', () => {
     expect(find(nodes, 'image')?.[1]).toMatchObject({ src: '/files/pic.png', inline: true })
   })
 
+  it('resolves page files for attachments and images, in one batch', async () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    const asked: string[][] = []
+    const resolveFiles = async (uuids: string[]) => {
+      asked.push(uuids)
+      return { [file]: { url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf', owner: null, created: null } }
+    }
+    const nodes = await markdownToTree(
+      `::attachment{file="${file}"}\n::\n\nSee :attachment{file="${file}"}.\n\n::image{file="${file}" alt="Plan"}\n::\n`,
+      { resolveFiles },
+    )
+    expect(asked).toEqual([[file]])
+    expect(nodes[0]?.[1]).toMatchObject({ file, url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf' })
+    expect(find(children(at(nodes, 1)), 'attachment')?.[1]).toMatchObject({ inline: true, name: 'a.pdf' })
+    expect(find(nodes, 'image')?.[1]).toMatchObject({ file, src: '/system/files/a.pdf', alt: 'Plan' })
+  })
+
+  it('keeps an attachment description, resolved or not', async () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    const source = `::attachment{file="${file}" description="Signed contract"}\n::\n`
+    expect((await markdownToTree(source, { resolveFiles: async () => ({}) }))[0]?.[1]).toEqual({ file, description: 'Signed contract' })
+    const resolved = await markdownToTree(source, {
+      resolveFiles: async () => ({ [file]: { url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf', owner: null, created: null } }),
+    })
+    expect(resolved[0]?.[1]).toMatchObject({ file, description: 'Signed contract', name: 'a.pdf' })
+  })
+
+  it('keeps an inline file link\'s words as its slot, resolved or not', async () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    const source = `See :attachment[the plan]{file="${file}"} now.\n`
+    const unresolved = await markdownToTree(source, { resolveFiles: async () => ({}) })
+    expect(find(children(at(unresolved)), 'attachment')).toEqual(['attachment', { file, inline: true }, 'the plan'])
+    const resolved = await markdownToTree(source, {
+      resolveFiles: async () => ({ [file]: { url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf', owner: null, created: null } }),
+    })
+    expect(find(children(at(resolved)), 'attachment')).toEqual(['attachment', { file, url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf', inline: true }, 'the plan'])
+  })
+
+  it('leaves a page file the reader may not download unresolved', async () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    const nodes = await markdownToTree(`::attachment{file="${file}"}\n::\n`, { resolveFiles: async () => ({}) })
+    expect(nodes[0]?.[1]).toEqual({ file })
+  })
+
+  it('drops author-written file props, resolved or not', async () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    const forged = `url="javascript:alert(1)" name="x.pdf" size="1" mime="text/html" src="javascript:alert(1)"`
+    const unresolved = await markdownToTree(`::attachment{file="${file}" ${forged}}\n::\n\n::image{file="${file}" ${forged}}\n::\n`, { resolveFiles: async () => ({}) })
+    expect(unresolved[0]?.[1]).toEqual({ file })
+    expect(find(unresolved, 'image')?.[1]).toEqual({ file })
+
+    const resolved = await markdownToTree(`::attachment{file="${file}" ${forged}}\n::\n`, {
+      resolveFiles: async () => ({ [file]: { url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf', owner: null, created: null } }),
+    })
+    expect(resolved[0]?.[1]).toEqual({ file, url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf' })
+  })
+
   it('leaves a block-level component alone', async () => {
     const nodes = await markdownToTree('::callout{type="info"}\ninside\n::\n')
     expect(at(nodes)[1]).not.toHaveProperty('inline')
@@ -677,6 +734,13 @@ describe('the shipped format', () => {
 
   it('lists the attributes a citation needs to name a source and its version', () => {
     expect(listed.citation).toEqual({ nid: true, block: true, v: true, url: true })
+  })
+
+  it('keeps an attachment\'s description', async () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    const source = `::attachment{file="${file}" description="Signed contract"}\n::\n`
+    const nodes = await markdownToTree(source, { resolveFiles: async () => ({}), allowedHtml: listed })
+    expect(nodes[0]?.[1]).toMatchObject({ file, description: 'Signed contract' })
   })
 })
 

@@ -6,6 +6,8 @@ import {
   type KbPagePatchExtra,
 } from './drupal'
 import { createRefTypeResolver, fieldsPatchPayload } from './commit-fields'
+import { ceFileLists } from './commit-files'
+import type { PageFileLists } from '#shared/utils/page-files'
 import { mapCeFieldValues, TITLE_KEY, type FieldSpec, type FieldValues } from './entity-fields'
 import type { ModerationStatus } from '#shared/utils/moderation'
 
@@ -91,6 +93,8 @@ export interface PublishedContent {
    */
   blockMeta: string
   values: FieldValues
+  /** The published page file lists (ADR 0020). */
+  files: PageFileLists
   payload: KbPagePatchExtra
   /**
    * The working copy's `changed` this revert was assembled against.
@@ -138,6 +142,7 @@ export async function publishedContent(
       titleHeading: published.page.titleHeading,
       blockMeta: published.page.blockMeta,
       values: {},
+      files: ceFileLists(published.props),
       payload: {},
       basedOnChanged,
     }
@@ -157,6 +162,7 @@ export async function publishedContent(
     titleHeading: published.page.titleHeading,
     blockMeta: published.page.blockMeta,
     values,
+    files: ceFileLists(published.props),
     payload,
     basedOnChanged,
   }

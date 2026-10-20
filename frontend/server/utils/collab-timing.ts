@@ -25,6 +25,13 @@ export const COLLAB_IDLE_MS = envMs('OKB_COLLAB_IDLE_MS', 100)
 export const COLLAB_COMMIT_QUIET_MS = envMs('OKB_COLLAB_COMMIT_QUIET_MS', 5 * 60_000)
 
 /**
+ * Checkpoint this long after a file joins the page's file lists (ADR 0020).
+ * Until that checkpoint only the uploader may download the file, so peers
+ * show a placeholder. Coalesced: an upload burst shares one revision.
+ */
+export const COLLAB_UPLOAD_COMMIT_MS = envMs('OKB_COLLAB_UPLOAD_COMMIT_MS', 2_500)
+
+/**
  * Hard backstop: checkpoint this long after the first edit of a dirty window,
  * so a continuously-edited document still reaches Drupal.
  */

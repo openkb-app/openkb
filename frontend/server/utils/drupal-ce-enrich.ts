@@ -1,6 +1,9 @@
 import { citationsByBlock, markdownToTree, type AllowedHtml, type CitationSource } from '#shared/utils/comark-tree'
 import { highlightToTokens } from '#shared/utils/code-highlight'
 import { resolveMediaUuids } from './media'
+import { resolveFileUuids } from './files'
+import { ceFileLists } from './commit-files'
+import type { PageAttachment, ResolvedFile } from '#shared/utils/files'
 import { resolveCiteNids, resolveDocNids } from './doc-links'
 import { blockByline, hasRecord, parseBlockMeta, type BlockByline } from '#shared/page-blocks'
 
@@ -22,10 +25,37 @@ export interface CePage {
       blockMeta?: RawBodyValue | string
       blockProvenance?: Record<string, BlockByline>
       blockCitations?: Record<string, CitationSource[]>
+      pageFiles?: PageAttachment[]
     } & Record<string, unknown>
     slots?: Record<string, unknown[]>
   } & Record<string, unknown>
   [k: string]: unknown
+}
+
+/**
+ * The read page's attachments: `field_kb_attachments` in field order, then the
+ * files the text embeds as `::attachment` that the field lacks. Only what this
+ * reader may download. A file's description is its first embed's.
+ */
+function pageAttachments(
+  fieldIds: string[],
+  bodyTree: unknown,
+  resolved: Record<string, ResolvedFile>,
+): PageAttachment[] {
+  const embedded: string[] = []
+  const descriptions: Record<string, string> = {}
+  const walk = (node: unknown): void => {
+    if (!Array.isArray(node)) return
+    const [tag, props, ...children] = node as [unknown, Record<string, unknown> | undefined, ...unknown[]]
+    if (tag === 'attachment' && typeof props?.file === 'string') {
+      embedded.push(props.file)
+      if (typeof props.description === 'string' && props.description) descriptions[props.file] ??= props.description
+    }
+    children.forEach(walk)
+  }
+  ;(bodyTree as unknown[]).forEach(walk)
+  return [...new Set([...fieldIds, ...embedded])]
+    .flatMap(id => resolved[id] ? [{ id, ...resolved[id], description: descriptions[id] ?? null }] : [])
 }
 
 /** A `raw`-formatted string field arrives as the field-item assoc, or bare. */
@@ -105,16 +135,26 @@ export async function enrichCePage(
   if (!content || content.element !== 'node-kb-page') return page
   const markdown = rawValue(content.props?.body)
   if (markdown === null || markdown.trim() === '') return page
+  // One file lookup for the text and the field: the tree asks first, the
+  // field's files it did not name are asked for after.
+  const files: Record<string, ResolvedFile> = {}
+  const fieldIds = ceFileLists(content.props ?? {}).attachments
   const bodyTree = await markdownToTree(markdown, {
     resolveMedia: uuids => resolveMediaUuids(auth, uuids),
+    resolveFiles: async uuids => Object.assign(files, await resolveFileUuids(auth, uuids)),
     resolveDocs: nids => resolveDocNids(auth, nids),
     resolveCites: nids => resolveCiteNids(auth, nids),
     allowedHtml,
     highlightCode: highlightToTokens,
     blockLinks: true,
   })
+  const asked = new Set(Object.keys(files))
+  const rest = fieldIds.filter(id => !asked.has(id))
+  if (rest.length > 0) Object.assign(files, await resolveFileUuids(auth, rest))
+  const pageFiles = pageAttachments(fieldIds, bodyTree, files)
   const blockCitations = citationsByBlock(bodyTree)
-  const { body: _drop, blockMeta: _dropMeta, ...restProps } = content.props ?? {}
+  // The raw file lists are consumed into `pageFiles` and `::image{file}`.
+  const { body: _drop, blockMeta: _dropMeta, attachments: _files, images: _images, ...restProps } = content.props ?? {}
   const blockProvenance = blockProvenanceFrom(rawValue(content.props?.blockMeta))
   return {
     ...page,
@@ -127,6 +167,7 @@ export async function enrichCePage(
         ...(Object.keys(blockProvenance).length > 0 ? { blockProvenance } : {}),
         // Likewise omitted where the page cites nothing.
         ...(Object.keys(blockCitations).length > 0 ? { blockCitations } : {}),
+        ...(pageFiles.length > 0 ? { pageFiles } : {}),
         bodyTree,
       },
     },

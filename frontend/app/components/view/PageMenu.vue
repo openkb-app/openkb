@@ -5,10 +5,9 @@ import type { DropdownMenuItem } from '@nuxt/ui'
  * The page's own action menu — actions about the page rather than about its
  * text. One menu holds them all, so the navbar never grows a second kebab.
  *
- * Read and edit mode offer the same entries. Only the two that act on a live
- * editing session — Attach file, Revert unsaved changes — are edit-only; every
- * other entry is gated on its own signal, so the menu does not change shape
- * with the mode.
+ * Read and edit mode offer the same entries. Only Revert unsaved changes acts
+ * on a live editing session and is edit-only; every other entry is gated on
+ * its own signal, so the menu does not change shape with the mode.
  *
  * Move and Delete carry separate signals because they are separate Drupal
  * permissions: under editorial moderation an editor who may update a page
@@ -45,7 +44,7 @@ const props = defineProps<{
   /** The page's raw-markdown endpoint. */
   markdownHref?: string
 }>()
-const emit = defineEmits<{ (e: 'deleted'): void, (e: 'attach'): void, (e: 'revert'): void }>()
+const emit = defineEmits<{ (e: 'deleted'): void, (e: 'revert'): void }>()
 
 const toast = useToast()
 const moveOpen = ref(false)
@@ -71,17 +70,8 @@ async function loadCurrentSpace() {
 
 const items = computed<DropdownMenuItem[][]>(() => {
   const groups: DropdownMenuItem[][] = []
-  // What the reader can do with the document. Only Attach needs a live editing
-  // session; the rest are true of the page in either mode, so they are gated
-  // on their own signal rather than on `edit`.
+  // What the reader can do with the document, in either mode.
   const docGroup: DropdownMenuItem[] = []
-  if (props.edit) {
-    docGroup.push({
-      label: 'Attach file',
-      icon: 'i-lucide-paperclip',
-      onSelect: () => emit('attach'),
-    })
-  }
   // Always offered, disabled when there is nothing behind it: an entry that
   // vanishes reads as a broken page, a greyed one states that this page has
   // no revisions this session may open.

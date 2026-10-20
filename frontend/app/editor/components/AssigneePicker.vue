@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // Explicit, not auto-imported: the component is rendered by its own vitest
 // suite outside a Nuxt app.
-import { computed, ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { AssigneeCandidate } from '../comment-assignee'
 import { ownedLabel } from '#shared/utils/attribution'
 import EditorPeerAvatar from './PeerAvatar.vue'
+import { nameListbox } from '../name-listbox'
 import type { CommentAssignee } from '#shared/block-comments'
 
 /**
@@ -89,15 +90,7 @@ function commitOnTab(event: KeyboardEvent): void {
   row.click()
 }
 
-/**
- * The palette passes no attributes to its listbox, which needs a name.
- * Its root is a fragment, so the listbox is looked up from the popover around it.
- */
-function nameListbox(palette: Element | ComponentPublicInstance | null): void {
-  if (!palette || !('$el' in palette)) return
-  const popover = (palette.$el as Node).parentElement
-  popover?.querySelector('[role="listbox"]')?.setAttribute('aria-label', 'People and agents to assign')
-}
+const nameAssigneeListbox = nameListbox('People and agents to assign')
 
 function itemOf(candidate: AssigneeCandidate) {
   return {
@@ -186,7 +179,7 @@ const groups = computed(() => {
     <slot />
     <template #content>
       <UCommandPalette
-        :ref="nameListbox"
+        :ref="nameAssigneeListbox"
         v-model:search-term="searchTerm"
         :groups="groups"
         :fuse="{ fuseOptions: { keys: ['label'] }, resultLimit: RESTING_ROWS }"

@@ -49,7 +49,7 @@ export function serializeDocToMarkdown(doc: ProseNode | JSONContent): string {
   return markdownManager().serialize(lowerBlockIds(json))
 }
 
-const COMPONENT_NODES = new Set(['callout', 'infobox', 'image'])
+const COMPONENT_NODES = new Set(['callout', 'infobox', 'image', 'attachment'])
 
 /**
  * Rewrites parsed JSON into the shape the editor schema can represent —

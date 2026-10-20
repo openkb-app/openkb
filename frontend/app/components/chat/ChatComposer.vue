@@ -29,8 +29,7 @@ const text = computed({
 const toast = useToast()
 
 function attach() {
-  // Stub until multipart prompts carry a file part. Same promise as the
-  // editor's own Attach file.
+  // Stub until multipart prompts carry a file part.
   toast.add({
     title: 'Attachments',
     description: 'File uploads land in beta2.',

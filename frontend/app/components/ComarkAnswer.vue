@@ -14,6 +14,7 @@ import { MarkdownDocument } from '@comark/vue'
 import { comarkComponents } from '~/comark/components'
 import { markdownToTree, type CitationChip, type ComarkNode } from '#shared/utils/comark-tree'
 import type { ResolvedMedia } from '#shared/utils/media'
+import type { ResolvedFile } from '#shared/utils/files'
 
 const props = defineProps<{
   /** Accumulated markdown. Grows chunk by chunk while the answer streams. */
@@ -29,33 +30,35 @@ const allowedHtml = useAllowedHtml()
 let latest = 0
 
 /**
- * Media this answer has asked for, held as the in-flight request so the deltas
- * arriving during one round-trip share it. Every delta re-parses the whole text.
- * A resolved `null` is a UUID the route had nothing for.
+ * A batch resolve route, memoized per UUID as the in-flight request so the
+ * deltas arriving during one round-trip share it. Every delta re-parses the
+ * whole text. A resolved `null` is a UUID the route had nothing for.
  */
-const seen = new Map<string, Promise<ResolvedMedia | null>>()
-
-/** Same route the editor's ImageNodeView resolves through. */
-async function resolveMedia(uuids: string[]): Promise<Record<string, ResolvedMedia>> {
-  const missing = uuids.filter(uuid => !seen.has(uuid))
-  if (missing.length > 0) {
-    const request = $fetch<{ items: Record<string, ResolvedMedia> }>(
-      '/api/media/resolve',
-      { query: { uuids: missing.join(',') } },
-    ).then(({ items }) => items).catch(() => null)
-    for (const uuid of missing) {
-      seen.set(uuid, request.then(items => items?.[uuid] ?? null))
+function batchResolver<T>(route: string): (uuids: string[]) => Promise<Record<string, T>> {
+  const seen = new Map<string, Promise<T | null>>()
+  return async (uuids) => {
+    const missing = uuids.filter(uuid => !seen.has(uuid))
+    if (missing.length > 0) {
+      const request = $fetch<{ items: Record<string, T> }>(route, { query: { uuids: missing.join(',') } })
+        .then(({ items }) => items).catch(() => null)
+      for (const uuid of missing) {
+        seen.set(uuid, request.then(items => items?.[uuid] ?? null))
+      }
+      // A failed request is forgotten so the next delta can retry it.
+      if (await request === null) for (const uuid of missing) seen.delete(uuid)
     }
-    // A failed request is forgotten so the next delta can retry it.
-    if (await request === null) for (const uuid of missing) seen.delete(uuid)
+    const items: Record<string, T> = {}
+    await Promise.all(uuids.map(async (uuid) => {
+      const item = await seen.get(uuid)
+      if (item) items[uuid] = item
+    }))
+    return items
   }
-  const items: Record<string, ResolvedMedia> = {}
-  await Promise.all(uuids.map(async (uuid) => {
-    const item = await seen.get(uuid)
-    if (item) items[uuid] = item
-  }))
-  return items
 }
+
+/** The same routes the editor's node views resolve through. */
+const resolveMedia = batchResolver<ResolvedMedia>('/api/media/resolve')
+const resolveFiles = batchResolver<ResolvedFile>('/api/files/resolve')
 
 /** Loaded with the first fence an answer holds, so an answer without code ships no highlighter. */
 async function highlightCode(code: string, info: string) {
@@ -78,6 +81,7 @@ watch([
   const seq = ++latest
   const next = await markdownToTree(text, {
     resolveMedia,
+    resolveFiles,
     highlightCode,
     citationChips: props.citationChips,
     allowedHtml: allowedHtml.value,

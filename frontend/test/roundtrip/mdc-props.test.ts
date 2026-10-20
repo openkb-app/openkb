@@ -53,6 +53,16 @@ describe('parseMdcProps', () => {
 describe('unquoted props survive the load path', () => {
   const firstBlock = (markdown: string) => parseMarkdownToJson(markdown).content?.[0]
 
+  test('a `}` inside a quoted value does not close the brace', () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    expect(firstBlock(`::attachment{file="${file}" description="Plan {v2} \\"final\\""}\n::`))
+      .toMatchObject({ type: 'attachment', attrs: { file, description: 'Plan {v2} "final"' } })
+    expect(firstBlock(`::image{file="${file}" alt="a } b"}\n::`))
+      .toMatchObject({ type: 'image', attrs: { file, alt: 'a } b' } })
+    expect(firstBlock('::callout{type="info" title="x } y"}\nHi.\n::')?.attrs)
+      .toMatchObject({ type: 'info' })
+  })
+
   test('callout keeps an unquoted type instead of falling back to the default', () => {
     expect(firstBlock('::callout{type=warning #b-note}\nHi.\n::')?.attrs)
       .toMatchObject({ type: 'warning', id: 'b-note' })

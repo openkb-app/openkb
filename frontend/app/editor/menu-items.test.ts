@@ -98,7 +98,7 @@ describe('the block inserts', () => {
   const expected = [
     '— Text',
     'heading', 'heading', 'bulletList', 'orderedList', 'taskList', 'table',
-    'codeBlock', 'horizontalRule', 'image', 'docLink', 'cite',
+    'codeBlock', 'horizontalRule', 'image', 'attachment', 'docLink', 'cite',
     '— Comark',
     'callout', 'infobox',
   ]

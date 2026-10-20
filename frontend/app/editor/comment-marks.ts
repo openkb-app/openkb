@@ -3,7 +3,7 @@ import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { addressableBlocks, blockAt, blockAtSelection, ensureBlockId, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
+import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
 import { openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
 
 /**
@@ -165,7 +165,7 @@ export interface CommentThreadView extends CommentThread {
 
 /**
  * The threads as the drawer lists them — in the order they were opened, each
- * carrying the text of the block it is on.
+ * carrying the {@link blockLabel} of the block it is on.
  *
  * The block's text rides along because a thread names the passage it is about,
  * and one opened on a whole block — or one whose passage has since been
@@ -174,7 +174,7 @@ export interface CommentThreadView extends CommentThread {
  * send anybody, exactly as in the review queue beside it.
  */
 export function commentRows(doc: PMNode, threads: CommentThread[]): CommentThreadView[] {
-  const text = new Map(addressableBlocks(doc).map(b => [b.id, b.text]))
+  const text = new Map(addressableBlocks(doc).map(b => [b.id, blockLabel(b.node)]))
   return threads
     .filter(thread => text.has(thread.blockId))
     .map(thread => ({ ...thread, blockText: text.get(thread.blockId) ?? '' }))

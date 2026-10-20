@@ -1,4 +1,5 @@
 import type { AllowedHtml } from '#shared/utils/comark-tree'
+import type { PageFileLimitsByField } from '#shared/utils/files'
 
 /**
  * Entity fields for the collab session — the `fields` Y.Map lane.
@@ -73,6 +74,8 @@ export interface FrontmatterSchema {
   properties?: Record<string, SchemaProperty>
   /** The body text format's allowed list. Absent where it restricts nothing. */
   body?: { allowedHtml?: AllowedHtml }
+  /** Each file field's upload limits. */
+  files?: PageFileLimitsByField
 }
 
 /**

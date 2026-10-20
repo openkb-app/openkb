@@ -1,27 +1,45 @@
 import { Extension, getMarkRange, isTextSelection } from '@tiptap/core'
 import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import type { Editor } from '@tiptap/core'
-import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state'
+import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { keydownHandler } from '@tiptap/pm/keymap'
 import type { EditorState } from '@tiptap/pm/state'
 import type { Node } from '@tiptap/pm/model'
 import { recordLinkSelection } from './doc-link-selection'
+import { trackRange } from './tracked-range'
 import type { LinkSelection } from './doc-link-selection'
 import { docLinkHref } from '#shared/utils/doc-links'
 import { CITATION_TAG, citeTarget } from '#shared/utils/citations'
 
 /**
- * What the link bubble is about: a link mark, a page link or a citation, and
- * where it sits. Vue-free, so the bubble (components/LinkTargetBubble.vue),
+ * What the link bubble is about: a link mark, a page link, a link to a page
+ * file or a citation, and where it sits. Vue-free, so the bubble (components/LinkTargetBubble.vue),
  * the toolbar's Link button and the keymap share one reading of the state.
  */
 export type LinkTarget =
   | { kind: 'link', from: number, to: number, attrs: { href: string } }
   | { kind: 'docLink', from: number, to: number, attrs: DocLinkAttrs }
   | { kind: 'citation', from: number, to: number, attrs: CitationAttrs }
+  | { kind: 'attachment', from: number, to: number, attrs: AttachmentLinkAttrs }
 
+interface AttachmentLinkAttrs { file: string | null, label: string }
 interface DocLinkAttrs { nid: number | null, block: string | null, label: string }
 interface CitationAttrs { nid: number | null, block: string | null, v: string | null, url: string | null }
+
+/** A file of this page, as the bubble offers it. */
+export interface PageFileChoice {
+  uuid: string
+  name: string
+  size: number
+  url: string
+}
+
+/** This page's files for the bubble: the list, and an upload into it. */
+export interface PageFileSource {
+  list: () => PageFileChoice[]
+  /** Uploads one picked file to the page. Its UUID, or null on cancel or refusal. */
+  upload: () => Promise<string | null>
+}
 
 /** The bubble's own plugin key, so the editor surface can show and hide it. */
 export const LINK_BUBBLE_KEY = new PluginKey('linkTargetBubble')
@@ -31,12 +49,13 @@ export const LINK_BUBBLE_KEY = new PluginKey('linkTargetBubble')
  *
  * - `actions`: show the bubble and focus its first button.
  * - `url`: open its URL field. On a selection without a link this creates one.
+ * - `files`: open the list of this page's files.
  *
  * Kept while the selection it was made on stands. A co-editor's change keeps
  * it on the selection y-tiptap restores.
  */
 export interface BubbleRequest {
-  focus: 'actions' | 'url'
+  focus: 'actions' | 'url' | 'files'
   from: number
   to: number
 }
@@ -50,6 +69,7 @@ export function linkTargetAt(state: EditorState): LinkTarget | null {
     const { node, from, to } = selection
     if (node.type.name === 'docLink') return { kind: 'docLink', from, to, attrs: node.attrs as DocLinkAttrs }
     if (node.type.name === CITATION_TAG) return { kind: 'citation', from, to, attrs: node.attrs as CitationAttrs }
+    if (node.type.name === 'attachmentInline') return { kind: 'attachment', from, to, attrs: node.attrs as AttachmentLinkAttrs }
     return null
   }
   const type = state.schema.marks.link
@@ -64,26 +84,29 @@ export function linkTargetAt(state: EditorState): LinkTarget | null {
  * The target the bubble shows, or null to keep it hidden.
  *
  * Words selected inside a link belong to the formatting bubble, unless a
- * request asked for this one. A URL request on words without a link offers an
+ * request asked for this one. A request on words without a link offers an
  * empty link over them.
  */
 export function bubbleTargetAt(state: EditorState): LinkTarget | null {
   const target = linkTargetAt(state)
-  if (BUBBLE_REQUEST_KEY.getState(state)) {
+  const request = BUBBLE_REQUEST_KEY.getState(state)
+  if (request) {
     if (target) return target
     const { from, to, empty } = state.selection
-    return !empty && isTextSelection(state.selection) ? { kind: 'link', from, to, attrs: { href: '' } } : null
+    if (!isTextSelection(state.selection) || empty) return null
+    return { kind: 'link', from, to, attrs: { href: '' } }
   }
   if (target?.kind === 'link' && !state.selection.empty) return null
   return target
 }
 
 /**
- * Where Open goes. `path` is the resolved alias of a page target, if any.
- * Empty for a page target without a page.
+ * Where Open goes. `path` is the resolved alias of a page target, or the
+ * download URL of a file, if any. Empty for a target without either.
  */
 export function openHref(target: LinkTarget, path: string | null): string {
   if (target.kind === 'link') return target.attrs.href
+  if (target.kind === 'attachment') return path ?? ''
   if (target.kind === 'citation' && target.attrs.url) return target.attrs.url
   return target.attrs.nid ? docLinkHref(target.attrs.nid, path, target.attrs.block) : ''
 }
@@ -113,6 +136,39 @@ export function setLinkHref(editor: Editor, target: LinkTarget, href: string): b
     .run()
 }
 
+/**
+ * Makes the target a link to page file `file`: the words of a link or a
+ * selection become its label, a file link keeps its own.
+ */
+export function setFileLink(editor: Editor, target: LinkTarget, file: string): boolean {
+  if (target.kind !== 'link' && target.kind !== 'attachment') return false
+  const label = target.kind === 'attachment' ? target.attrs.label : editor.state.doc.textBetween(target.from, target.to, ' ')
+  return editor.chain().focus().command(({ tr, state }) => {
+    const type = state.schema.nodes.attachmentInline
+    if (!type) return false
+    const node = type.create({ file, label: target.kind === 'link' && label === target.attrs.href ? '' : label })
+    tr.replaceWith(target.from, target.to, node)
+    tr.setSelection(TextSelection.create(tr.doc, target.from + node.nodeSize))
+    tr.setMeta(BUBBLE_REQUEST_KEY, null)
+    return true
+  }).run()
+}
+
+/**
+ * Follows a target through later edits, e.g. a peer typing while an upload
+ * runs. `current()` is null once the target's words are deleted.
+ */
+export function trackLinkTarget(editor: Editor, target: LinkTarget): { current: () => LinkTarget | null, stop: () => void } {
+  const range = trackRange(editor, target.from, target.to)
+  return {
+    current: () => {
+      const now = range.current()
+      return now ? { ...target, ...now } as LinkTarget : null
+    },
+    stop: range.stop,
+  }
+}
+
 /** Removes the link mark; the words stay. */
 export function unsetLinkAt(editor: Editor, target: LinkTarget): boolean {
   if (target.kind !== 'link') return false
@@ -132,17 +188,21 @@ export function setCitationUrl(editor: Editor, target: LinkTarget, url: string):
   }).run()
 }
 
+const NODE_NAME = { docLink: 'docLink', citation: CITATION_TAG, attachment: 'attachmentInline' } as const
+
 /**
- * Removes the target. A page link leaves its label behind as plain text. A
+ * Removes the target. A page link leaves its label behind as plain text, a
+ * file link its label or the file's name. A
  * citation takes the space before it along, where that space has no word
  * after it to separate.
  */
-export function removeTarget(editor: Editor, target: LinkTarget): boolean {
+export function removeTarget(editor: Editor, target: LinkTarget, fileName = ''): boolean {
   if (target.kind === 'link') return unsetLinkAt(editor, target)
   return editor.chain().focus().command(({ tr, state }) => {
-    if (tr.doc.nodeAt(target.from)?.type.name !== (target.kind === 'docLink' ? 'docLink' : CITATION_TAG)) return false
-    if (target.kind === 'docLink' && target.attrs.label) {
-      tr.replaceWith(target.from, target.to, state.schema.text(target.attrs.label))
+    if (tr.doc.nodeAt(target.from)?.type.name !== NODE_NAME[target.kind]) return false
+    const words = target.kind === 'docLink' ? target.attrs.label : target.kind === 'attachment' ? target.attrs.label || fileName : ''
+    if (words) {
+      tr.replaceWith(target.from, target.to, state.schema.text(words))
       return true
     }
     const $from = tr.doc.resolve(target.from)
@@ -162,6 +222,7 @@ export function removeTarget(editor: Editor, target: LinkTarget): boolean {
  */
 export function retarget(editor: Editor, target: LinkTarget): boolean {
   if (target.kind === 'link') return false
+  if (target.kind === 'attachment') return requestLinkBubble(editor, 'files')
   const label = target.kind === 'docLink' ? target.attrs.label : ''
   recordLinkSelection(label, target.to, { from: target.from, to: target.to })
   return editor.chain().focus().setTextSelection(target.to)

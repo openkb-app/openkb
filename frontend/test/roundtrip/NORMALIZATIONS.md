@@ -45,3 +45,4 @@ saved markdown; everything else is pure re-formatting.
 | L3 | Mentions inserted in the editor | Serialize as plain `@label`; the uid attribute is dropped. A Drupal-side mention filter re-resolves `@label` at render |
 | L4 | Heading auto-ids (`id="slug"` from comark) | Never stored in the editor; regenerated from text at next parse |
 | L5 | Unescaped `data:` URI in an image (`data:image/svg+xml;utf8,<svg …/>`) | Not parsed as a link; the URI content after the comma is lost. Base64 and percent-encoded `data:` URIs round-trip. Agent writes are percent-encoded at the write door (`server/utils/comark-data-uri.ts`), so a body arriving that way carries no such URI; a destination that does not close after its payload is refused with a 422 |
+| L6 | A mark around an inline page or file link (`**see :doc[Intro]{nid="7"} here**`, `*:attachment[plan]{file="…"}*`) | The mark splits around the link (`**see** :doc[…] **here**`): `@tiptap/markdown` marks text nodes only |

@@ -1,7 +1,6 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
-import type { Transaction } from '@tiptap/pm/state'
-import { requestMediaSelection } from '~/composables/useMediaLibraryPicker'
+import { insertPageFile } from '~/editor/page-file-insert'
 import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
 import { CITATION_TAG } from '#shared/utils/citations'
@@ -197,43 +196,26 @@ export const comarkHandlers: Record<string, EditorHandler> = {
     execute: editor => editor.chain().focus().setTextSelection(editor.state.selection.to).insertContent('[^'),
     isActive: editor => editor.isActive(CITATION_TAG),
   },
-  // Replaces UEditor's built-in image handler (a bare URL prompt): opens
-  // Drupal's media-library dialog and inserts one media-image node per
-  // selected UUID. The selection is async — execute() captures the insert
-  // position and kicks the dialog off, returning an unmodified chain; the
-  // insertion runs when the dialog settles. The position is captured at
-  // execute() time because the dialog steals focus and selection — reading
-  // it at settle time lands the insert at the doc start. While the dialog
-  // is open the captured position is mapped through every transaction, so
-  // it stays anchored to the same spot when the document changes under it
-  // (collaborative edits, stray selection resets). Like tables, images are
-  // lifted out of lists (GFM has no block content in list items the editor
-  // could keep canonical).
+  // Replaces UEditor's built-in image handler (a bare URL prompt): opens the
+  // picker to upload or choose a page file (ADR 0020). The picker and the
+  // upload are async, so execute() captures the insert position and returns
+  // an unmodified chain; insertPageFile follows the position until the file
+  // lands. Like tables, images and attachments are lifted out of lists.
   image: {
     canExecute: editor => editor.can().insertContent(''),
     execute: (editor) => {
-      let insertPos = posAfterEnclosingList(editor) ?? editor.state.selection.to
-      const track = ({ transaction }: { transaction: Transaction }) => {
-        insertPos = transaction.mapping.map(insertPos)
-      }
-      editor.on('transaction', track)
-      requestMediaSelection().then((uuids) => {
-        if (!uuids || uuids.length === 0) return
-        const images = uuids.map(uuid => ({ type: 'image', attrs: { media: uuid, alt: '' } }))
-        // Belt and braces on top of the mapping: never insert past the end.
-        const pos = Math.min(insertPos, editor.state.doc.content.size)
-        // Text cursor after the images, not the NodeSelection insertContentAt
-        // leaves: with the image node-selected, the next typed character
-        // would REPLACE the image.
-        editor.chain().focus().insertContentAt(pos, images).setTextSelection(pos + images.length).run()
-      }).catch((error) => {
-        console.error('Media-library dialog failed', error)
-      }).finally(() => {
-        editor.off('transaction', track)
-      })
+      void insertPageFile(editor, true, posAfterEnclosingList(editor) ?? editor.state.selection.to)
       return editor.chain()
     },
     isActive: editor => editor.isActive('image'),
+  },
+  attachment: {
+    canExecute: editor => editor.can().insertContent(''),
+    execute: (editor) => {
+      void insertPageFile(editor, false, posAfterEnclosingList(editor) ?? editor.state.selection.to)
+      return editor.chain()
+    },
+    isActive: editor => editor.isActive('attachment'),
   },
 }
 
@@ -253,7 +235,8 @@ export const slashItems = [[
   { kind: 'table', label: 'Table', icon: 'i-lucide-table', description: '3×3 table with header row' },
   { kind: 'codeBlock', label: 'Code block', icon: 'i-lucide-code', description: 'Fenced code block' },
   { kind: 'horizontalRule', label: 'Horizontal rule', icon: 'i-lucide-minus', description: 'Divider line' },
-  { kind: 'image', label: 'Image', icon: 'i-lucide-image', description: 'Image from the media library' },
+  { kind: 'image', label: 'Image', icon: 'i-lucide-image', description: 'Upload an image or choose one you have' },
+  { kind: 'attachment', label: 'File', icon: 'i-lucide-paperclip', description: 'Upload a file or choose one you have' },
   { kind: 'docLink', label: 'Link to a page', icon: 'i-lucide-file-symlink', description: 'Link to another page or one of its blocks' },
   { kind: 'cite', label: 'Cite a source', icon: 'i-lucide-quote', description: 'Cite the page or block this text comes from' },
   { type: 'label', label: 'Comark' },

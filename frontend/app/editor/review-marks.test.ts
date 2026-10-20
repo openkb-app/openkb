@@ -16,6 +16,7 @@ import {
   activeBlockDecoration,
   addressableBlocks,
   approveActionLabel,
+  blockLabel,
   createActiveBlockPlugin,
   blockAtSelection,
   createReviewMarksPlugin,
@@ -945,6 +946,18 @@ describe('the plugin', () => {
     sidecar['b-1'] = signedOff('peer')
     const refreshed = state.apply(state.tr.setMeta('okb-review-refresh', true))
     expect(reviewMarksKey.getState(refreshed)!.find()).toHaveLength(2)
+  })
+})
+
+describe('blockLabel', () => {
+  it('names a block holding only an image or a file by its embed', () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    expect(blockLabel(editorSchema.node('image', { file, alt: 'Floor plan' }))).toBe('Image: Floor plan')
+    expect(blockLabel(editorSchema.node('image', { file, alt: '' }))).toBe('Image')
+    expect(blockLabel(editorSchema.node('attachment', { file, description: 'Q3 numbers' }))).toBe('File: Q3 numbers')
+    expect(blockLabel(editorSchema.node('attachment', { file }))).toBe('File')
+    expect(blockLabel(para('text wins', 'b-1'))).toBe('text wins')
+    expect(blockLabel(para('', 'b-1'))).toBe('')
   })
 })
 

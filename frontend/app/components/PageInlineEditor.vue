@@ -9,6 +9,7 @@ import { readUnreadSelection } from '~/editor/selection-sync'
 import { LINK_BUBBLE_KEY, bubbleTargetAt } from '~/editor/link-target'
 import { useEditorSession } from '~/composables/useEditorSession'
 import { useMediaDialogRequest } from '~/composables/useMediaLibraryPicker'
+import { useFilePickerRequest, useFilePickerStatus } from '~/editor/page-file-insert'
 import type { ReviewStep } from '#shared/page-blocks'
 
 /**
@@ -37,6 +38,8 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: 'session', session: EditorSession): void }>()
 
 const mediaDialogRequest = useMediaDialogRequest()
+const filePickerRequest = useFilePickerRequest()
+const filePickerStatus = useFilePickerStatus()
 
 const session = await useEditorSession(
   computed(() => props.nid),
@@ -49,7 +52,7 @@ const {
   editorRef, extensions, comarkHandlers,
   slashItems, bubbleItems,
   mentionQuery, mentionItems,
-  docItems, searchDocs, docLabel, resolveTarget,
+  docItems, searchDocs, docLabel, resolveTarget, pageFiles, editorPageFiles,
   blockMenu, hoveredBlock, openBlockMenu, closeBlockMenu, onBlockMenuCloseAutoFocus,
   selectBlockAt,
 } = session
@@ -249,6 +252,7 @@ const dragHandleOptions = {
         <EditorLinkTargetBubble
           :editor="editor"
           :resolve="resolveTarget"
+          :files="pageFiles"
           :options="bubbleOptions"
           :held="isPressed"
           @request="hideFormattingBubble"
@@ -320,6 +324,17 @@ const dragHandleOptions = {
         />
       </template>
     </UEditor>
+    <EditorPageFilesList :files="editorPageFiles" />
+    <EditorFilePickerDialog
+      v-if="filePickerRequest"
+      :token="filePickerRequest.token"
+      :images="filePickerRequest.images"
+      :files="editorPageFiles"
+    />
+    <!-- Outside the modal: `aria-live` keeps it exposed while the modal hides the page. -->
+    <p class="sr-only" role="status" aria-live="polite" data-test="my-files-status">
+      {{ filePickerStatus }}
+    </p>
     <!-- Mounted only while the media-library dialog is open: the dialog and
          its styles live and die with it. -->
     <EditorMediaLibraryDialog

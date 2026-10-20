@@ -36,6 +36,7 @@
  */
 import { BLOCK_ID_PREFIX } from '#shared/page-blocks'
 import { MEDIA_UUID_RE, type ResolvedMedia } from './media'
+import { isFileUuid, type ResolvedFile } from './files'
 import { DOC_LINK_TAG, docLinkHref, docLinkTarget, type ResolvedDoc } from '#shared/utils/doc-links'
 import {
   CITATION_TAG,
@@ -128,7 +129,7 @@ export const HTML_ELEMENTS = new Set([
 ])
 
 /** The component tags the page has a renderer for. */
-export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', DOC_LINK_TAG])
+export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', 'attachment', DOC_LINK_TAG])
 
 /**
  * Tags dropped with their content. comark parses raw `<script>`, `<style>`,
@@ -147,12 +148,18 @@ const LINKABLE_BLOCKS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'])
 const LINK_NAME_LIMIT = 48
 
 export type MediaResolver = (uuids: string[]) => Promise<Record<string, ResolvedMedia>>
+export type FileResolver = (uuids: string[]) => Promise<Record<string, ResolvedFile>>
 export type DocResolver = (nids: number[]) => Promise<Record<number, ResolvedDoc>>
 export type CiteResolver = (nids: number[]) => Promise<Record<number, ResolvedCite>>
 
 export interface TreeOptions {
   /** Resolves `::image{media="…"}` UUIDs to render URLs, in one batch. */
   resolveMedia?: MediaResolver
+  /**
+   * Resolves the page files `::attachment{file}` and `::image{file}` name, in
+   * one batch and under the caller's own carrier (ADR 0020).
+   */
+  resolveFiles?: FileResolver
   /**
    * Resolves `:doc[…]{nid="…"}` targets, in one batch and under the caller's
    * own auth carrier, so the rendering is per reader.
@@ -260,17 +267,20 @@ export async function cleanTree(
 ): Promise<ComarkNode[]> {
   if (nodes.length === 0) return []
   const uuids = collectMediaUuids(nodes)
+  const fileUuids = collectFileUuids(nodes)
   const docNids = collectDocNids(nodes)
   const citedNids = options.resolveCites ? collectCiteNids(nodes) : []
   // Two reads, not one: resolving a citation reads the cited page's whole body
   // to hash its blocks, and a document link needs none of that.
-  const [media, docs, cited] = await Promise.all([
+  const [media, files, docs, cited] = await Promise.all([
     uuids.length > 0 && options.resolveMedia ? options.resolveMedia(uuids) : {},
+    fileUuids.length > 0 && options.resolveFiles ? options.resolveFiles(fileUuids) : {},
     docNids.length > 0 && options.resolveDocs ? options.resolveDocs(docNids) : {},
     citedNids.length > 0 && options.resolveCites ? options.resolveCites(citedNids) : {},
   ])
   const ctx: PassContext = {
     media,
+    files,
     docs,
     cites: options.resolveCites ? { resolved: cited, numbers: new Map() } : undefined,
     citationChips: options.citationChips,
@@ -284,6 +294,7 @@ export async function cleanTree(
 /** What the passes carry down: everything resolved up front, plus the switches. */
 interface PassContext {
   media: Record<string, ResolvedMedia>
+  files: Record<string, ResolvedFile>
   docs: Record<number, ResolvedDoc>
   /** The cited pages, and the numbers handed out so far. Absent drops citations. */
   cites?: { resolved: Record<number, ResolvedCite>, numbers: Map<string, number> }
@@ -334,7 +345,7 @@ function cleanNode(node: ComarkNode, ctx: PassContext, inline: boolean): ComarkN
   // Children carry the component's own flag: what sits inside an inline
   // component is phrasing content too.
   const known = COMPONENT_TAGS.has(tag)
-  const own = tag === 'image' ? imageProps(props, ctx.media) : props
+  const own = tag === 'image' || tag === 'attachment' ? fileProps(tag, props, ctx) : props
   return [[
     known ? tag : UNKNOWN_TAG,
     { ...own, ...(known ? {} : { name: tag }), ...(inline ? { inline: true } : {}) },
@@ -593,6 +604,17 @@ function collectMediaUuids(nodes: ComarkNode[], out: Set<string> = new Set()): s
   return [...out]
 }
 
+/** The page files `::attachment{file}` / `::image{file}` name, once each. */
+function collectFileUuids(nodes: ComarkNode[], out: Set<string> = new Set()): string[] {
+  for (const node of nodes) {
+    if (typeof node === 'string') continue
+    const [tag, props, ...children] = node
+    if ((tag === 'image' || tag === 'attachment') && isFileUuid(props?.file)) out.add(props.file)
+    collectFileUuids(children, out)
+  }
+  return [...out]
+}
+
 /** The pages a body cites, once each. An external citation resolves nothing. */
 function collectCiteNids(nodes: ComarkNode[], out: Set<number> = new Set()): number[] {
   for (const node of nodes) {
@@ -765,6 +787,23 @@ export function collectText(nodes: ComarkNode[]): string {
   }
   return out
 }
+
+/**
+ * The props an image or attachment renders with. A page file resolves to its
+ * download URL, name, size and type; one the reader may not download keeps
+ * `file` only and renders a placeholder.
+ */
+function fileProps(tag: string, props: ComarkProps, ctx: PassContext): ComarkProps {
+  if (tag === 'image' && typeof props.file !== 'string') return imageProps(props, ctx.media)
+  // Only the resolved file sets these: an author's `url` could be `javascript:`.
+  const own = Object.fromEntries(Object.entries(props).filter(([name]) => !RESOLVED_FILE_PROPS.has(name)))
+  const file = typeof props.file === 'string' ? ctx.files[props.file] : undefined
+  if (!file) return own
+  if (tag === 'image') return { ...own, src: file.url }
+  return { ...own, url: file.url, name: file.name, size: file.size, mime: file.mime }
+}
+
+const RESOLVED_FILE_PROPS = new Set(['url', 'name', 'size', 'mime', 'src'])
 
 /**
  * The props a resolved image renders with: per-embed alt overrides the

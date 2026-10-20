@@ -152,6 +152,7 @@ describe('commitPublishedContent', () => {
       titleHeading: '# Live title {#b-t}\n\n',
       blockMeta: '{}',
       values: {},
+      files: { attachments: [], images: [] },
       payload: { attributes: { title: 'Live title' } },
       basedOnChanged: 1700,
     })

@@ -1,10 +1,15 @@
 import Image from '@tiptap/extension-image'
 import { Extension } from '@tiptap/core'
 import type { JSONContent } from '@tiptap/core'
-import { parseMdcProps, serializeMdcProps } from './mdc-markdown'
+import { MDC_PROPS_SOURCE, parseMdcProps, serializeMdcProps } from './mdc-markdown'
 
-/** Attrs the image node carries; only `media`/`alt` (or `src`/`alt`/`title`) reach markdown. */
+const BLOCK_FENCE = new RegExp(String.raw`^(:{2,})image\{(${MDC_PROPS_SOURCE})\}[ \t]*(?:\n\1(?!:)[ \t]*(?:\n|$)|\n|$)`)
+const INLINE_FENCE = new RegExp(String.raw`^:image\{(${MDC_PROPS_SOURCE})\}`)
+
+/** Attrs the image node carries; only `file`/`media`/`alt` (or `src`/`alt`/`title`) reach markdown. */
 export interface ImageAttrs {
+  /** UUID of a page file in `field_kb_images` (ADR 0020). */
+  file?: string | null
   media?: string | null
   src?: string | null
   alt?: string | null
@@ -19,8 +24,9 @@ export interface ImageAttrs {
  * component, parsed by comark) for media images, `![alt](src)` otherwise.
  */
 export function imageInlineMarkdown(attrs: ImageAttrs): string {
-  if (attrs.media) {
-    const props: Record<string, string> = { media: attrs.media }
+  const ref = imageRef(attrs)
+  if (ref) {
+    const props: Record<string, string> = { ...ref }
     if (attrs.alt) props.alt = attrs.alt
     return `:image{${serializeMdcProps(props)}}`
   }
@@ -28,11 +34,20 @@ export function imageInlineMarkdown(attrs: ImageAttrs): string {
   return `![${attrs.alt ?? ''}](${attrs.src ?? ''}${title})`
 }
 
+/** The reference an image fence carries: a page file, else a media entity. */
+function imageRef(attrs: ImageAttrs): Record<string, string> | null {
+  if (attrs.file) return { file: attrs.file }
+  if (attrs.media) return { media: attrs.media }
+  return null
+}
+
 /**
  * The editor's Image node — UEditor's @tiptap/extension-image (block-level)
  * extended with a `media` attribute carrying a Drupal media UUID, and a
  * markdown grammar that serializes one node two ways:
  *
+ * - `file` set   → `::image{file="<uuid>" alt="…"}`: a page file in
+ *   `field_kb_images` (ADR 0020), same fence shape as the media form.
  * - `media` set  → `::image{media="<uuid>" alt="…"}` + close fence on the
  *   next line — a childless MDC fence. The close is mandatory in the
  *   canonical form: comark treats an unclosed fence as an open container
@@ -56,6 +71,7 @@ export const OkbImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      file: { default: null },
       media: { default: null },
       // Block id carried through the fence round-trip (OKB-137), as callout
       // and infobox carry theirs — the review gate needs every producible
@@ -70,6 +86,7 @@ export const OkbImage = Image.extend({
       {
         tag: 'custom-image',
         getAttrs: (element: HTMLElement) => ({
+          file: element.getAttribute('file'),
           media: element.getAttribute('media'),
           alt: element.getAttribute('alt'),
           src: element.getAttribute('src'),
@@ -91,7 +108,7 @@ export const OkbImage = Image.extend({
       // end-of-document) still tokenizes — comark would swallow following
       // blocks into an unclosed fence, but re-serializing immediately
       // restores the canonical closed form.
-      const match = src.match(/^(:{2,})image\{([^}]*)\}[ \t]*(?:\n\1(?!:)[ \t]*(?:\n|$)|\n|$)/)
+      const match = src.match(BLOCK_FENCE)
       if (!match) return undefined
       return {
         type: 'image',
@@ -105,7 +122,8 @@ export const OkbImage = Image.extend({
     const attributes = (token as { attributes?: Record<string, string> }).attributes
     if (attributes) {
       return helpers.createNode('image', {
-        media: attributes.media ?? null,
+        file: attributes.file ?? null,
+        media: attributes.file ? null : (attributes.media ?? null),
         alt: attributes.alt ?? '',
         src: null,
         title: null,
@@ -118,14 +136,16 @@ export const OkbImage = Image.extend({
       src: inline.href ?? '',
       title: inline.title ?? null,
       alt: inline.text ?? '',
+      file: null,
       media: null,
     })
   },
 
   renderMarkdown(node: JSONContent) {
     const attrs = (node.attrs ?? {}) as ImageAttrs
-    if (attrs.media) {
-      const props: Record<string, string> = { media: attrs.media }
+    const ref = imageRef(attrs)
+    if (ref) {
+      const props: Record<string, string> = { ...ref }
       if (attrs.alt) props.alt = attrs.alt
       if (attrs.id) props.id = attrs.id
       return `::image{${serializeMdcProps(props)}}\n::`
@@ -159,7 +179,7 @@ export const OkbImageInline = Extension.create({
       // A block fence's `::image` must not match — require a non-colon
       // before nothing (start of inline run handles it: marked only hands
       // over at the reported start index, which sits ON the first colon).
-      const match = src.match(/^:image\{([^}]*)\}/)
+      const match = src.match(INLINE_FENCE)
       if (!match) return undefined
       return {
         type: 'imageInline',
@@ -171,7 +191,8 @@ export const OkbImageInline = Extension.create({
   parseMarkdown(token, helpers) {
     const attributes = (token as { attributes?: Record<string, string> }).attributes ?? {}
     return helpers.createNode('image', {
-      media: attributes.media ?? null,
+      file: attributes.file ?? null,
+      media: attributes.file ? null : (attributes.media ?? null),
       alt: attributes.alt ?? '',
       src: null,
       title: null,

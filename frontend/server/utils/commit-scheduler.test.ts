@@ -277,4 +277,43 @@ describe('CheckpointScheduler', () => {
     await second
     expect(commit).toHaveBeenNthCalledWith(2, 'node:1', 'agent', { token: 'agent-token' })
   })
+
+  describe('upload', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('pulls the checkpoint forward, and a burst of uploads shares it', async () => {
+      const commit = vi.fn(async () => ({ outcome: 'committed', committed: true }) as CommitResult)
+      const scheduler = make(commit, 60_000, 600_000)
+
+      scheduler.onUpload('node:1', 2_500)
+      await vi.advanceTimersByTimeAsync(1_000)
+      scheduler.onUpload('node:1', 2_500)
+      await vi.advanceTimersByTimeAsync(1_499)
+      expect(commit).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(commit).toHaveBeenCalledTimes(1)
+      expect(commit).toHaveBeenCalledWith('node:1', 'quiet', undefined)
+
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(commit).toHaveBeenCalledTimes(1)
+    })
+
+    it('re-arms an upload that landed while a commit ran', async () => {
+      let release!: () => void
+      const commit = vi.fn(() => new Promise<CommitResult>((resolve) => {
+        release = () => resolve({ outcome: 'committed', committed: true })
+      }))
+      const scheduler = make(commit, 60_000, 600_000)
+
+      scheduler.onUpload('node:1', 2_500)
+      await vi.advanceTimersByTimeAsync(2_500)
+      expect(commit).toHaveBeenCalledTimes(1)
+      scheduler.onUpload('node:1', 2_500)
+      release()
+      await vi.advanceTimersByTimeAsync(2_500)
+      expect(commit).toHaveBeenCalledTimes(2)
+    })
+  })
 })
+

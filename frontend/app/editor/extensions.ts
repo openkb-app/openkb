@@ -7,6 +7,7 @@ import { Callout } from './nodes/callout'
 import { OkbCite } from './nodes/cite'
 import { OkbDocLink } from './nodes/doc-link'
 import { OkbImage } from './nodes/image'
+import { OkbAttachment, OkbAttachmentInline } from './nodes/attachment'
 import { Infobox } from './nodes/infobox'
 import { OkbMention } from './nodes/mention'
 import {
@@ -23,6 +24,7 @@ import {
 import CalloutNodeView from '../components/CalloutNodeView.vue'
 import CodeBlockNodeView from '../components/CodeBlockNodeView.vue'
 import ImageNodeView from '../components/ImageNodeView.vue'
+import AttachmentNodeView from '../components/AttachmentNodeView.vue'
 import InfoboxNodeView from '../components/InfoboxNodeView.vue'
 import { CaretMemory } from './cite-insert'
 import { CiteNumbers } from './cite-numbers'
@@ -99,6 +101,16 @@ export function buildEditorExtensions() {
     OkbImage.extend({
       addNodeView() {
         return VueNodeViewRenderer(ImageNodeView)
+      },
+    }),
+    OkbAttachment.extend({
+      addNodeView() {
+        return VueNodeViewRenderer(AttachmentNodeView)
+      },
+    }),
+    OkbAttachmentInline.extend({
+      addNodeView() {
+        return VueNodeViewRenderer(AttachmentNodeView)
       },
     }),
     OkbCite,

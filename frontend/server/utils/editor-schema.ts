@@ -11,6 +11,7 @@ import { Callout } from '../../app/editor/nodes/callout'
 import { OkbCite } from '../../app/editor/nodes/cite'
 import { OkbDocLink } from '../../app/editor/nodes/doc-link'
 import { OkbImage } from '../../app/editor/nodes/image'
+import { OkbAttachment, OkbAttachmentInline } from '../../app/editor/nodes/attachment'
 import { Infobox } from '../../app/editor/nodes/infobox'
 import { OkbMention } from '../../app/editor/nodes/mention'
 import {
@@ -97,6 +98,8 @@ export function buildCommitSchemaExtensions() {
     OkbDocLink,
     Infobox,
     OkbImage,
+    OkbAttachment,
+    OkbAttachmentInline,
     OkbTable,
     TableRow,
     TableHeader,

@@ -1,0 +1,1 @@
+marks around an inline file or page link split around it — @tiptap/markdown applies marks to text nodes only

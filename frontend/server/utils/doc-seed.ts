@@ -3,6 +3,8 @@ import { prosemirrorToYXmlFragment } from '@tiptap/y-tiptap'
 import { contentHash, serializeCommitJSON, serializeYDoc, type ProseMirrorJSON } from './commit'
 import { parseMarkdownToDoc } from '../../app/comark/markdown-engine'
 import { type FieldValues } from './entity-fields'
+import { seedFiles } from './commit-files'
+import type { PageFileLists } from '#shared/utils/page-files'
 import { parseBlockMeta, writeBlockMeta } from '#shared/page-blocks'
 import { META_DELETED_AT, deletedAtOf } from '#shared/utils/collab-meta'
 import { seedComments, type StoredConversations } from './collab-comments'
@@ -78,6 +80,8 @@ export interface SeedDeps {
   fetchBody: (nid: number) => Promise<string | null>
   /** Drupal's current values for the exposed fields, or null when unreachable. */
   fetchFields?: (nid: number) => Promise<FieldValues | null>
+  /** Drupal's page file lists (ADR 0020), or null when unreachable. */
+  fetchFiles?: (nid: number) => Promise<PageFileLists | null>
   /** Drupal's stored `field_block_meta` JSON, or null when unreachable/absent. */
   fetchBlockMeta?: (nid: number) => Promise<string | null>
   /** The page's stored conversations, or null when unreachable. */
@@ -238,11 +242,14 @@ export async function seedFromDrupal(
   // from reconciling, and a body outcome of 'unavailable' says nothing about
   // the fields or the provenance sidecar. All requests go out together.
   const fieldsPending = deps.fetchFields?.(nid) ?? Promise.resolve(null)
+  const filesPending = deps.fetchFiles?.(nid) ?? Promise.resolve(null)
   const blockMetaPending = deps.fetchBlockMeta?.(nid) ?? Promise.resolve(null)
   const commentsPending = deps.fetchComments?.(nid) ?? Promise.resolve(null)
   const outcome = await seedBodyFromDrupal(documentName, document, deps, origin, nid)
   const values = await fieldsPending
   if (values !== null) seedFields(document, values)
+  const files = await filesPending
+  if (files !== null) seedFiles(document, files)
   const blockMeta = await blockMetaPending
   if (blockMeta !== null) seedBlockMeta(document, blockMeta)
   const conversations = await commentsPending

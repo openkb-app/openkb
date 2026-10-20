@@ -30,6 +30,10 @@ export interface CheckpointSchedulerOptions {
 interface DocState {
   quiet: ReturnType<typeof setTimeout> | null
   max: ReturnType<typeof setTimeout> | null
+  /** The pulled-forward checkpoint an upload armed. See {@link CheckpointScheduler.onUpload}. */
+  upload: ReturnType<typeof setTimeout> | null
+  /** An upload landed while a commit was running — its delay, re-armed afterwards. */
+  uploadPending: number | null
   inFlight: boolean
   /** Edits arrived while a commit was running — re-arm afterwards. */
   pending: boolean
@@ -54,7 +58,7 @@ export class CheckpointScheduler {
   private state(docName: string): DocState {
     let s = this.docs.get(docName)
     if (!s) {
-      s = { quiet: null, max: null, inFlight: false, pending: false, terminal: false, current: null }
+      s = { quiet: null, max: null, upload: null, uploadPending: null, inFlight: false, pending: false, terminal: false, current: null }
       this.docs.set(docName, s)
     }
     return s
@@ -68,6 +72,18 @@ export class CheckpointScheduler {
     if (!s.max) {
       s.max = this.setTimer(() => this.fire(docName, 'max-dirty'), this.opts.maxDirtyMs)
     }
+  }
+
+  /**
+   * A file joined the page: checkpoint within `ms`, so peers may download it.
+   * The first upload arms the timer and later ones ride it, so a burst shares
+   * one revision.
+   */
+  onUpload(docName: string, ms: number): void {
+    this.onActivity(docName)
+    const s = this.state(docName)
+    if (s.inFlight) s.uploadPending = ms
+    else if (!s.upload) s.upload = this.setTimer(() => this.fire(docName, 'quiet'), ms)
   }
 
   /**
@@ -127,7 +143,9 @@ export class CheckpointScheduler {
   private clearTimers(s: DocState): void {
     if (s.quiet) { this.clearTimer(s.quiet); s.quiet = null }
     if (s.max) { this.clearTimer(s.max); s.max = null }
+    if (s.upload) { this.clearTimer(s.upload); s.upload = null }
     s.terminal = false
+    s.uploadPending = null
   }
 
   /**
@@ -188,9 +206,16 @@ export class CheckpointScheduler {
         }
         // A successful commit closes the dirty window; the next edit opens a
         // new one via onActivity (which re-arms both timers).
-        else if (s.pending) {
-          s.pending = false
-          this.onActivity(docName)
+        else {
+          if (s.pending) {
+            s.pending = false
+            this.onActivity(docName)
+          }
+          if (s.uploadPending !== null) {
+            const ms = s.uploadPending
+            s.uploadPending = null
+            this.onUpload(docName, ms)
+          }
         }
       }
       // Nothing follows a disconnect checkpoint, so a write it did not make is
