@@ -63,6 +63,8 @@ const size = computed(() => formatFileSize(props.file?.size))
     <a
       :href="file.url"
       download
+      target="_blank"
+      rel="noopener"
       :aria-label="`Download ${file.name}`"
       class="shrink-0 rounded-md p-1.5 text-muted hover:bg-elevated hover:text-default"
       data-test="attachment-download"
