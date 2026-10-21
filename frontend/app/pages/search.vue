@@ -360,7 +360,8 @@ function ask() {
   summarised = summaryPrompt.value
   const id = ++turn
   summaryTurn.value = true
-  void summaryChat.sendMessage({ text: summaryPrompt.value })
+  // The summary's own assistant, which reasons less than the chat's.
+  void summaryChat.sendMessage({ text: summaryPrompt.value }, { body: { agentId: 'openkb_summary' } })
     .catch(() => {})
     .finally(() => { if (id === turn) summaryTurn.value = false })
 }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6cd72f477593796ddeac11a0e67d76c2",
+    "content-hash": "81365f8a4e05e745e64b9fd78cd8926d",
     "packages": [
         {
             "name": "asm89/stack-cors",
@@ -1421,17 +1421,17 @@
         },
         {
             "name": "drupal/ai",
-            "version": "1.5.0-rc3",
+            "version": "1.5.1",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/ai.git",
-                "reference": "1.5.0-rc3"
+                "reference": "1.5.1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/ai-1.5.0-rc3.zip",
-                "reference": "1.5.0-rc3",
-                "shasum": "d2ac32c2b0773406d9cc83a624603b6d31d935de"
+                "url": "https://ftp.drupal.org/files/projects/ai-1.5.1.zip",
+                "reference": "1.5.1",
+                "shasum": "a1526a41a697c4c5ccfac671a7d05a070f718d75"
             },
             "require": {
                 "drupal/ai_content_suggestions": "^1.5",
@@ -1471,11 +1471,11 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.5.0-rc3",
-                    "datestamp": "1788448063",
+                    "version": "1.5.1",
+                    "datestamp": "1791992201",
                     "security-coverage": {
-                        "status": "not-covered",
-                        "message": "RC releases are not covered by Drupal security advisories."
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
                     }
                 }
             },
@@ -1529,6 +1529,10 @@
                     "homepage": "https://www.drupal.org/user/385947"
                 },
                 {
+                    "name": "markusa",
+                    "homepage": "https://www.drupal.org/user/142798"
+                },
+                {
                     "name": "michaellander",
                     "homepage": "https://www.drupal.org/user/636494"
                 },
@@ -1559,10 +1563,6 @@
                 {
                     "name": "wouters_f",
                     "homepage": "https://www.drupal.org/user/721548"
-                },
-                {
-                    "name": "yautja_cetanu",
-                    "homepage": "https://www.drupal.org/user/626050"
                 }
             ],
             "description": "AI module for Drupal",
@@ -2006,31 +2006,31 @@
         },
         {
             "name": "drupal/ai_provider_openai",
-            "version": "1.2.5",
+            "version": "1.3.0-beta3",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/ai_provider_openai.git",
-                "reference": "1.2.5"
+                "reference": "1.3.0-beta3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/ai_provider_openai-1.2.5.zip",
-                "reference": "1.2.5",
-                "shasum": "05f460fdcdcb7e8a2d371ed9cecdf77dc3750cdf"
+                "url": "https://ftp.drupal.org/files/projects/ai_provider_openai-1.3.0-beta3.zip",
+                "reference": "1.3.0-beta3",
+                "shasum": "e99adcf53baa3a3f6a6f1d2c62fc7287937f2776"
             },
             "require": {
-                "drupal/ai": "^1.2.0",
+                "drupal/ai": "^1.4.2",
                 "drupal/core": "^10.3 || ^11",
                 "drupal/key": "^1.18"
             },
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.2.5",
-                    "datestamp": "1787208334",
+                    "version": "1.3.0-beta3",
+                    "datestamp": "1789730552",
                     "security-coverage": {
-                        "status": "covered",
-                        "message": "Covered by Drupal's security advisory policy"
+                        "status": "not-covered",
+                        "message": "Beta releases are not covered by Drupal security advisories."
                     }
                 }
             },
@@ -3823,10 +3823,10 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "727b711fbe0b936d4af68a510bdaf91c4f1265d9"
+                "reference": "bfc6f33795ed9226f3e205845357dc91dece9367"
             },
             "require": {
-                "drupal/ai": "1.5.0-rc3",
+                "drupal/ai": "^1.5.1",
                 "drupal/ai_vdb_provider_opensearch": "1.1.0-alpha2",
                 "drupal/consumers": "^1.24.0",
                 "drupal/custom_elements": "3.5.0-beta1",
@@ -3840,11 +3840,11 @@
                 "drupal/search_api": "^1.41.0",
                 "drupal/search_api_opensearch": "^2.5.0",
                 "drupal/simple_oauth": "^6.1.1",
-                "drupal/tool": "1.0.0-beta8",
+                "drupal/tool": "1.0.0-beta9",
                 "php": ">=8.3"
             },
             "require-dev": {
-                "drupal/ai_provider_openai": "^1.2.5",
+                "drupal/ai_provider_openai": "1.3.0-beta3",
                 "drupal/trash": "^3.0.30"
             },
             "default-branch": true,
@@ -3902,7 +3902,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-10-21T09:20:26+00:00"
+            "time": "2026-10-21T19:02:43+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -4439,17 +4439,17 @@
         },
         {
             "name": "drupal/tool",
-            "version": "1.0.0-beta8",
+            "version": "1.0.0-beta9",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/tool.git",
-                "reference": "1.0.0-beta8"
+                "reference": "1.0.0-beta9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/tool-1.0.0-beta8.zip",
-                "reference": "1.0.0-beta8",
-                "shasum": "ef072ccd2b62ef5c765055100e33b82c53b5d0d6"
+                "url": "https://ftp.drupal.org/files/projects/tool-1.0.0-beta9.zip",
+                "reference": "1.0.0-beta9",
+                "shasum": "d1393ead0787a548914ede4439fdc654933ce523"
             },
             "require": {
                 "drupal/core": "^10.5 || ^11",
@@ -4462,8 +4462,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.0.0-beta8",
-                    "datestamp": "1789077594",
+                    "version": "1.0.0-beta9",
+                    "datestamp": "1789702096",
                     "security-coverage": {
                         "status": "not-covered",
                         "message": "Beta releases are not covered by Drupal security advisories."
@@ -4490,6 +4490,10 @@
                 {
                     "name": "marcus_johansson",
                     "homepage": "https://www.drupal.org/user/385947"
+                },
+                {
+                    "name": "mglaman",
+                    "homepage": "https://www.drupal.org/user/2416470"
                 },
                 {
                     "name": "michaellander",
