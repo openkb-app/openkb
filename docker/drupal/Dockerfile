@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # openkb-drupal: FrankenPHP serving Drupal on :8080, plus drush and composer.
 
-FROM dunglas/frankenphp:1-php8.3-alpine@sha256:7632cbed485bb9d92cf84ee1ae00e4e0ba96f7dc3d19ac7ce726db4ec725c33a AS base
+FROM dunglas/frankenphp:1-php8.3-alpine@sha256:376c492a5eef8399fe6ed1b8f6f3dca32a2b439c2889d216c91c07cf38c52655 AS base
 
 # pdo_pgsql: a hard requirement of drupal/ai_provider_amazeeio.
 RUN install-php-extensions apcu gd intl opcache pdo_mysql pdo_pgsql zip \
