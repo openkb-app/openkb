@@ -9,7 +9,7 @@ import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state'
 import { DecorationSet } from '@tiptap/pm/view'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { editorSchema } from '../../server/utils/editor-schema'
+import { buildCommitSchemaExtensions, editorSchema } from '../../server/utils/editor-schema'
 import { readThreads, recordCommentMessage, type CommentThread } from '#shared/block-comments'
 import {
   anchorAtSelection,
@@ -26,6 +26,7 @@ import {
   createCommentAnchorPlugin,
   markedPassage,
   rememberedAnchor,
+  refreshCommentMarks,
   threadAt,
   type CommentDraft,
 } from './comment-marks'
@@ -424,6 +425,111 @@ describe('contentOffsetOf', () => {
 
   it('clamps past the end of the block rather than pointing outside it', () => {
     expect(contentOffsetOf(para('abc', 'b-1'), 99)).toBe(3)
+  })
+
+  it('counts the text inside nested blocks', () => {
+    const list = editorSchema.node('bulletList', { id: 'b-1' }, [
+      editorSchema.node('listItem', null, [para('ab', null)]),
+      editorSchema.node('listItem', null, [para('cd', null)]),
+    ])
+    // "abcd" as text; "cd" is the second item's paragraph text, at 8.
+    expect(contentOffsetOf(list, 1)).toBe(3)
+    expect(contentOffsetOf(list, 3)).toBe(9)
+  })
+
+  it('puts a start at a text-node boundary into the later node', () => {
+    const list = editorSchema.node('bulletList', { id: 'b-1' }, [
+      editorSchema.node('listItem', null, [para('ab', null)]),
+      editorSchema.node('listItem', null, [para('cd', null)]),
+    ])
+    expect(contentOffsetOf(list, 2)).toBe(4)
+    expect(contentOffsetOf(list, 2, 1)).toBe(8)
+  })
+})
+
+/**
+ * The path from a posted comment to its tint, through a mounted editor: the
+ * comment command, the sidecar write and the refresh the session runs on it.
+ */
+describe('a posted comment, mounted', () => {
+  const editors: Editor[] = []
+  afterEach(() => { editors.splice(0).forEach(editor => editor.destroy()) })
+
+  /** Comments on the first `quote` in the doc, the way the session posts one. */
+  function post(content: object[], quote: string): { editor: Editor, selection: { from: number, to: number } } {
+    const session = new Y.Doc()
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: [
+        ...buildCommitSchemaExtensions(),
+        CommentMarks.configure({
+          threads: () => readThreads(session),
+          openThread: (blockId, anchor) => {
+            recordCommentMessage(session, blockId, 'c-1', 'm-a', { uid: 7, name: 'Ada', at: AT, text: 'why?', ...(anchor ? { anchor } : {}) })
+          },
+        }),
+      ],
+      content: { type: 'doc', content },
+    })
+    editors.push(editor)
+    let from = 0
+    editor.state.doc.descendants((node, pos) => {
+      const at = node.isText ? node.text!.indexOf(quote) : -1
+      if (!from && at !== -1) from = pos + at
+    })
+    editor.commands.setTextSelection({ from, to: from + quote.length })
+    editor.commands.commentOnSelection()
+    refreshCommentMarks(editor.view)
+    return { editor, selection: { from, to: from + quote.length } }
+  }
+
+  /** The range each tint covers in the plugin state, and its text in the DOM. */
+  function tints(editor: Editor): { state: { from: number, to: number }[], dom: string[] } {
+    const set = commentMarksKey.getState(editor.state) ?? DecorationSet.empty
+    return {
+      state: set.find()
+        .filter(d => (d.spec as { threadId?: string }).threadId)
+        .map(({ from, to }) => ({ from, to })),
+      dom: [...editor.view.dom.querySelectorAll('.okb-comment-range')].map(el => el.textContent ?? ''),
+    }
+  }
+
+  const text = (value: string) => ({ type: 'text', text: value })
+  const paragraph = (value: string, id: string | null = null) => ({ type: 'paragraph', attrs: { id }, content: [text(value)] })
+
+  it('tints the passage in a paragraph', () => {
+    const { editor, selection } = post([paragraph('The quick brown fox', 'b-1')], 'quick')
+    expect(tints(editor)).toEqual({ state: [selection], dom: ['quick'] })
+  })
+
+  it('tints a passage that starts a second list item', () => {
+    const { editor, selection } = post([{
+      type: 'bulletList',
+      attrs: { id: 'b-1' },
+      content: [
+        { type: 'listItem', content: [paragraph('first item')] },
+        { type: 'listItem', content: [paragraph('second item')] },
+      ],
+    }], 'second')
+    expect(tints(editor)).toEqual({ state: [selection], dom: ['second'] })
+  })
+
+  it('tints a passage that starts a second quote paragraph', () => {
+    const { editor, selection } = post([{
+      type: 'blockquote',
+      attrs: { id: 'b-1' },
+      content: [paragraph('first words'), paragraph('second words')],
+    }], 'second')
+    expect(tints(editor)).toEqual({ state: [selection], dom: ['second'] })
+  })
+
+  it('tints the passage in a quote, not the whole quote', () => {
+    const { editor, selection } = post([{
+      type: 'blockquote',
+      attrs: { id: 'b-1' },
+      content: [paragraph('quoted words in a quote')],
+    }], 'words')
+    expect(tints(editor)).toEqual({ state: [selection], dom: ['words'] })
   })
 })
 

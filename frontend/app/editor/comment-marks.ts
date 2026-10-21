@@ -34,15 +34,23 @@ export type ThreadLookup = () => CommentThread[]
  * inline image, a hard break): such a node occupies a position and contributes
  * no characters, so counting one as the other would drift the highlight for
  * every character after it.
+ *
+ * The text is counted through nested blocks (list items, quoted paragraphs),
+ * like `textContent`, which is what the anchor's offsets are taken against.
+ *
+ * `assoc` picks the side at a boundary between two text nodes: -1 the end of
+ * the earlier one (a range's end), 1 the start of the later one (its start).
  */
-export function contentOffsetOf(node: PMNode, textOffset: number): number {
+export function contentOffsetOf(node: PMNode, textOffset: number, assoc: -1 | 1 = -1): number {
   let text = 0
   let found: number | null = null
-  node.forEach((child, offset) => {
-    if (found !== null) return
-    const length = child.isText ? child.text!.length : 0
-    if (text + length >= textOffset) found = offset + (child.isText ? textOffset - text : 0)
+  node.descendants((child, offset) => {
+    if (found !== null) return false
+    if (!child.isText) return true
+    const length = child.text!.length
+    if (text + length > textOffset || (assoc < 0 && text + length === textOffset)) found = offset + textOffset - text
     else text += length
+    return false
   })
   return found ?? node.content.size
 }
@@ -325,7 +333,7 @@ export function commentDecorations(doc: PMNode, threads: CommentThread[]): Decor
       if (!range) continue
       const start = pos + 1
       decorations.push(Decoration.inline(
-        start + contentOffsetOf(node, range.from),
+        start + contentOffsetOf(node, range.from, 1),
         start + contentOffsetOf(node, range.to),
         { class: 'okb-comment-range', 'data-comment-thread': thread.threadId },
         { blockId: id, threadId: thread.threadId },
