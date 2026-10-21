@@ -571,6 +571,18 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
       }))
   })
 
+  it('states who added each page file', async () => {
+    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+      trigger: 'quiet',
+      identity: { token: 'collab', user: 'admin' },
+      sessionWrite: { actingUid: 7, coAuthors: [], blocks: {}, actions: [], files: { 'f-1': 3 } },
+    })
+    expect(commitMock).toHaveBeenCalledWith(
+      { Authorization: 'Bearer collab' }, 1, expect.any(String), expect.objectContaining({
+        session: { acting_uid: 7, blocks: {}, actions: [], files: { 'f-1': 3 } },
+      }))
+  })
+
   it('is ONE Drupal write — the text, the credit and the ask together', async () => {
     // The property the two-write shape cost: there is no moment where Drupal
     // holds the paragraph and not the fact of who wrote it, which is the

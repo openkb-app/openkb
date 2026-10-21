@@ -142,6 +142,11 @@ export interface Ledger {
    * dirty field at once. Cleared once the lane matches Drupal again.
    */
   fieldWriters: Map<string, WriterRef>
+  /**
+   * File UUID => the account that added it to the session's page files.
+   * Drupal checks that account's rights on the file, not the acting one's.
+   */
+  fileAdders: Map<string, number>
   /** The peers that authenticated for this document. */
   peers: Map<number, AttributionPeer>
   /** uid => characters this session, for electing the acting account. */
@@ -159,6 +164,7 @@ export function newLedger(): Ledger {
     sets: new Map(),
     committed: new Map(),
     fieldWriters: new Map(),
+    fileAdders: new Map(),
     peers: new Map(),
     totals: new Map(),
     writer: null,
@@ -278,6 +284,8 @@ export interface LedgerSnapshot {
   committed: Record<string, string>
   /** Pending field changes' writers — the fields lane's undelivered window. */
   fieldWriters?: WriterRef[]
+  /** File UUID => who added it, for files not yet stated to Drupal. */
+  fileAdders?: Record<string, number>
 }
 
 /** The durable half of the ledger, for persisting beside the document. */
@@ -290,6 +298,7 @@ export function ledgerSnapshot(ledger: Ledger): LedgerSnapshot {
     sets,
     committed: Object.fromEntries(ledger.committed),
     fieldWriters: [...ledger.fieldWriters.values()].map(w => ({ uid: w.uid, via: w.via })),
+    fileAdders: Object.fromEntries(ledger.fileAdders),
   }
 }
 
@@ -319,6 +328,10 @@ export function adoptSnapshot(ledger: Ledger, doc: PMNode, snap: LedgerSnapshot)
     if (typeof w?.uid === 'number' && w.uid > 0) {
       ledger.fieldWriters.set(writerKey(w), { uid: w.uid, via: w.via ?? null })
     }
+  }
+  ledger.fileAdders = new Map()
+  for (const [uuid, uid] of Object.entries(snap.fileAdders ?? {})) {
+    if (typeof uid === 'number' && uid > 0) ledger.fileAdders.set(uuid, uid)
   }
   ledger.hydrated = true
 }
@@ -394,6 +407,12 @@ export function isPeerUpdate(origin: unknown): boolean {
   return source === 'connection' || source === 'local' || source === 'redis'
 }
 
+/** Books the files a writer added to the session's page files. */
+export function recordFileAdders(ledger: Ledger, uuids: string[], writer: WriterRef | null): void {
+  if (!writer) return
+  for (const uuid of uuids) ledger.fileAdders.set(uuid, writer.uid)
+}
+
 /**
  * Everything a checkpoint states about its window (ADR 0002): the writer set
  * per changed block, and the human the revision is filed under.
@@ -426,6 +445,8 @@ export interface SessionWindow {
   stated: Map<string, string | null>
   /** The sign-offs this checkpoint carries, on items still holding their print. */
   actions: { item: string, step: ReviewStep, uid: number }[]
+  /** File UUID => who added it to the page files. */
+  files: Record<string, number>
 }
 
 /**
@@ -522,6 +543,7 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
     })),
     stated,
     actions,
+    files: Object.fromEntries(ledger.fileAdders),
   }
 }
 
@@ -542,6 +564,9 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
  * `actions` are the sign-offs peers made during the window, each under the
  * uid of the connection it arrived on. Drupal decides what each may record.
  *
+ * `files` names who added each file to the page files. Drupal attaches a file
+ * the page does not hold only when that account owns it and may download it.
+ *
  * An empty window is still stated. It is what a checkpoint says when its
  * ledger was lost, and the changed blocks it cannot name are exactly ADR
  * 0004's unaccounted case — approvable by nobody until an identified edit
@@ -556,12 +581,14 @@ export function sessionPayload(
   coAuthors: CoAuthor[]
   blocks: SessionWindow['blocks']
   actions: SessionWindow['actions']
+  files: SessionWindow['files']
 } {
   return {
     actingUid: acting ?? window.author?.uid ?? null,
     coAuthors: window.coAuthors,
     blocks: window.blocks,
     actions: window.actions,
+    files: window.files,
   }
 }
 
@@ -590,6 +617,11 @@ export function dischargeWindow(ledger: Ledger, window: SessionWindow): void {
   // Every sign-off this window carried has had Drupal's answer, and one it
   // dropped for a moved print will never become good again.
   ledger.actions.length = 0
+  // Drupal has settled every file the window named. One added again since
+  // keeps its newer adder.
+  for (const [uuid, uid] of Object.entries(window.files)) {
+    if (ledger.fileAdders.get(uuid) === uid) ledger.fileAdders.delete(uuid)
+  }
 }
 
 /**

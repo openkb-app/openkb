@@ -12,13 +12,13 @@ import { drupalGateDeps, validateFieldValues, type RouterDeps } from '../utils/s
 import { closeAgentSessions } from '../utils/agent-sessions'
 import { dirtyFieldKeys, fieldsCommitHooks } from '../utils/commit-fields'
 import { ceFileLists, filesCommitHooks, hasNewFile } from '../utils/commit-files'
-import type { PageFileLists } from '#shared/utils/page-files'
+import { fileArray, PAGE_FILE_KEYS, type PageFileLists } from '#shared/utils/page-files'
 import { blockIdCommitHooks } from '../utils/commit-block-ids'
 import { seedBlockMeta, seedFromDrupal, type SeedDeps, type SeedOutcome } from '../utils/doc-seed'
 import { sharedFieldSource } from '../utils/drupal-fields'
 import { fetchCeWorkingCopy, fetchInlineComments, putInlineComments, type CePageRead } from '../utils/drupal'
 import { asCollabServer, collabAuthHeaders, collabIdentityConfigured, forgetCollabToken } from '../utils/collab-identity'
-import { adoptSnapshot, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, reviewActionFrom, sessionPayload, sessionWindow, sharedIdKeepers, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
+import { adoptSnapshot, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionFrom, sessionPayload, sessionWindow, sharedIdKeepers, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
 import { isAgentOrigin } from '../utils/agent-peer'
 import { initProseMirrorDoc } from '@tiptap/y-tiptap'
 import type { Node as ProseNode } from '@tiptap/pm/model'
@@ -578,6 +578,14 @@ export default defineNitroPlugin((nitroApp) => {
       const writer = writerOfOrigin(transaction.origin)
       if (writer) ledger.fieldWriters.set(writerKey(writer), writer)
     })
+
+    // Who added each page file: Drupal checks that account's rights on it.
+    for (const key of PAGE_FILE_KEYS) {
+      fileArray(document, key).observe((event, transaction) => {
+        const added = event.changes.delta.flatMap(change => (change.insert ?? []) as string[])
+        recordFileAdders(ledger, added, writerOfOrigin(transaction.origin))
+      })
+    }
 
     // A message is filed under whoever wrote it, not whoever it names. Seeds
     // and this server's own writes carry no origin and are Drupal's word.

@@ -119,6 +119,9 @@ export interface SessionWrite {
    *  connection it arrived on. Drupal decides what each one may record and
    *  answers per action; a refusal never refuses the commit. */
   actions: Array<{ item: string, step: ReviewStep, uid: number }>
+  /** File UUID => the peer who added it to the page files. Drupal checks that
+   *  account's rights on a file the page does not hold yet. */
+  files?: Record<string, number>
 }
 
 /** The auth carrier of a commit — a Bearer token, this server's or an agent's. */
@@ -569,6 +572,7 @@ export async function commitDocument(
               acting_uid: ctx.sessionWrite.actingUid,
               blocks: ctx.sessionWrite.blocks,
               actions: ctx.sessionWrite.actions,
+              ...(ctx.sessionWrite.files ? { files: ctx.sessionWrite.files } : {}),
             },
           }
         : {}),

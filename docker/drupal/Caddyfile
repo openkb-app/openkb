@@ -40,6 +40,15 @@
 	}
 	error @protectedFiles 403
 
+	# The webserver's own cap on page file upload bodies. Drupal's field limits
+	# (`max_filesize`) decide the size; this must stay above the largest one.
+	# - Caddy cuts a longer body short; PHP reads the cut body as complete.
+	# - The cut body is then over every field limit and core refuses it: 422.
+	@pageFileUpload path /jsonapi/node/kb_page/field_kb_attachments /jsonapi/node/kb_page/field_kb_images
+	request_body @pageFileUpload {
+		max_size {$WEBSERVER_UPLOAD_MAX_SIZE:100MB}
+	}
+
 	@static {
 		file
 		path *.avif *.css *.eot *.gif *.gz *.ico *.jpg *.jpeg *.js *.otf *.pdf *.png *.svg *.ttf *.webp *.woff *.woff2

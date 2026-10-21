@@ -54,6 +54,8 @@ x-drupal-environment:
     # sender address.
     MAILER_DSN: ${MAILER_DSN:-}
     MAIL_FROM: ${MAIL_FROM:-}
+    # The webserver's cap on page file upload bodies; above every field limit.
+    WEBSERVER_UPLOAD_MAX_SIZE: ${WEBSERVER_UPLOAD_MAX_SIZE:-100MB}
 
 services:
   drupal:

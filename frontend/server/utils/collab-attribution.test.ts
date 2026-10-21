@@ -13,6 +13,7 @@ import {
   hydrateLedger,
   isPeerUpdate,
   newLedger,
+  recordFileAdders,
   reviewActionFrom,
   sessionWindow,
   sharedIdKeepers,
@@ -583,12 +584,12 @@ describe("a window's revision author", () => {
   it('falls back to the last writer when the window measured nothing', () => {
     const ledger = ledgerWith(ADA, FAGO)
     ledger.writer = human(FAGO.uid)
-    expect(sessionWindow(ledger)).toEqual({ blocks: {}, author: FAGO, coAuthors: [], stated: new Map(), actions: [] })
+    expect(sessionWindow(ledger)).toEqual({ blocks: {}, author: FAGO, coAuthors: [], stated: new Map(), actions: [], files: {} })
   })
 
   it('names nobody when the document has no writer at all', () => {
     expect(sessionWindow(ledgerWith(ADA)))
-      .toEqual({ blocks: {}, author: null, coAuthors: [], stated: new Map(), actions: [] })
+      .toEqual({ blocks: {}, author: null, coAuthors: [], stated: new Map(), actions: [], files: {} })
   })
 
   it('carries each writer with the agent label it wrote under', () => {
@@ -646,6 +647,38 @@ describe('isPeerUpdate', () => {
   })
 })
 
+
+describe('who added a page file', () => {
+  it('states each file under the peer who added it, not the acting one', () => {
+    const ledger = ledgerWith(ADA, FAGO)
+    recordFileAdders(ledger, ['f-ada'], human(ADA.uid))
+    recordFileAdders(ledger, ['f-fago'], human(FAGO.uid))
+    recordFileAdders(ledger, ['f-seed'], null)
+
+    const payload = sessionPayload(sessionWindow(ledger), FAGO.uid)
+    expect(payload.actingUid).toBe(FAGO.uid)
+    expect(payload.files).toEqual({ 'f-ada': ADA.uid, 'f-fago': FAGO.uid })
+  })
+
+  it('drops a delivered file, but keeps one added again since', () => {
+    const ledger = ledgerWith(ADA, FAGO)
+    recordFileAdders(ledger, ['f-1', 'f-2'], human(ADA.uid))
+    const carried = sessionWindow(ledger)
+    recordFileAdders(ledger, ['f-2'], human(FAGO.uid))
+
+    dischargeWindow(ledger, carried)
+    expect(Object.fromEntries(ledger.fileAdders)).toEqual({ 'f-2': FAGO.uid })
+  })
+
+  it('survives a restart', () => {
+    const before = hydrated(doc(para('one', 'b-1')), ADA)
+    recordFileAdders(before, ['f-1'], human(ADA.uid))
+
+    const after = newLedger()
+    adoptSnapshot(after, doc(para('one', 'b-1')), ledgerSnapshot(before))
+    expect(sessionWindow(after).files).toEqual({ 'f-1': ADA.uid })
+  })
+})
 
 describe('ledger persistence (ADR 0005)', () => {
   it('a restart delivers the undelivered window, still naming the original writers', () => {

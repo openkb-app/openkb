@@ -9,7 +9,7 @@ const UUID_LIST = { type: 'array', items: { type: 'string', format: 'uuid' } }
 
 const FILES_DESCRIPTION = 'File UUIDs to add to and remove from the page\'s file lists, per list: '
   + '"attachments" and "images", each {add, remove}. A file no revision of the page holds is kept '
-  + 'only if it is the agent owner\'s own file or a fresh upload of someone editing the page.'
+  + 'only if the agent owner owns it: their fresh upload, or a permanent file they may still download.'
 
 function isFileChange(change: unknown): change is PageFileChange {
   if (typeof change !== 'object' || change === null || Array.isArray(change)) return false
