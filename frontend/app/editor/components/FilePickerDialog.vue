@@ -6,7 +6,7 @@
  * - "my files": the caller's newest uploads, in a `UCommandPalette`, so the
  *   filter and the keyboard are the palette's; the filter finds the older ones.
  *   The modal body scrolls it: the palette's own scroller holds nothing tabbable.
- * Both lists use `FilePickerItem`; clicking a row chooses it.
+ * Both lists use `FilePickerItem`, "my files" in its compact size; clicking a row chooses it.
  * Choosing puts the file on the page; Escape leaves the page as it was.
  */
 import { closeFilePicker, pageFileLimits, useFilePickerStatus, type FilePickerChoice } from '~/editor/page-file-insert'
@@ -136,7 +136,7 @@ function close(choice: FilePickerChoice | null): void {
             data-test="my-files"
           >
             <template #item="{ item }">
-              <EditorFilePickerItem :name="item.file.name" :url="item.file.url" :mime="item.file.mime" :size="item.file.size" :detail="item.detail" />
+              <EditorFilePickerItem :name="item.file.name" :url="item.file.url" :mime="item.file.mime" :size="item.file.size" :detail="item.detail" compact />
             </template>
             <template #empty>
               <p v-if="error" class="p-2 text-sm text-error" role="alert">
