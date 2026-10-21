@@ -13,7 +13,6 @@ dependencies:
     - file
     - filter
     - mcp_server
-    - media
     - node
     - openkb_space
     - path
@@ -31,7 +30,6 @@ permissions:
   - 'access mcp server'
   - 'access user profiles'
   - 'create kb_page content'
-  - 'create media'
   - 'create openkb_space'
   - 'create url aliases'
   - 'delete own files'
@@ -50,4 +48,3 @@ permissions:
   - 'view any unpublished content'
   - 'view kb_page revisions'
   - 'view latest version'
-  - 'view media'

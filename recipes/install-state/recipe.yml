@@ -10,6 +10,8 @@ install:
   - ai_api_explorer
   - ai_assistant_api
   - ai_provider_amazeeio
+  - ai_provider_anthropic
+  - ai_provider_mistral
   - ai_provider_openai
   - ai_rag_cite
   - ai_search
@@ -55,8 +57,6 @@ install:
   - lupus_decoupled_views
   - mcp_server
   - mcp_server_tool_bridge
-  - media
-  - media_library
   - menu_link_content
   - menu_ui
   - metatag
@@ -70,7 +70,6 @@ install:
   - openkb_ai
   - openkb_collab_api
   - openkb_jsonapi
-  - openkb_media_library
   - openkb_revision
   - openkb_schema
   - openkb_search
@@ -125,7 +124,7 @@ config:
         default_providers:
           chat:
             provider_id: openai
-            model_id: gpt-5.6-luna
+            model_id: gpt-6-luna
           embeddings:
             provider_id: openai
             model_id: text-embedding-3-small
@@ -135,11 +134,35 @@ config:
         allowed_hosts_rewrite_links: false
         global_guardrails:
           - prompt_safety_security
+    ai_provider_anthropic.settings:
+      simpleConfigUpdate:
+        api_key: anthropic_env
+        openai_moderation: true
+        version: '20240229'
+    ai_provider_mistral.settings:
+      simpleConfigUpdate:
+        api_key: mistral_env
+        host: ''
     ai_provider_openai.settings:
       simpleConfigUpdate:
         api_key: openai_env
         moderation: true
         host: ''
+    file.settings:
+      simpleConfigUpdate:
+        description:
+          type: textfield
+          length: 128
+        icon:
+          directory: core/modules/file/icons
+        make_unused_managed_files_temporary: true
+        filename_sanitization:
+          transliterate: false
+          replace_whitespace: false
+          replace_non_alphanumeric: false
+          deduplicate_separators: false
+          lowercase: false
+          replacement_character: '-'
     jsonapi.settings:
       simpleConfigUpdate:
         read_only: false
@@ -271,14 +294,12 @@ config:
         - 'access content'
         - 'restful get rest_menu_item'
         - 'use text format restricted_html'
-        - 'view media'
     user.role.authenticated:
       grantPermissions:
         - 'access content'
         - 'access mcp server'
         - 'access user profiles'
         - 'create kb_page content'
-        - 'create media'
         - 'create openkb_space'
         - 'create url aliases'
         - 'delete own files'
@@ -297,7 +318,6 @@ config:
         - 'view any unpublished content'
         - 'view kb_page revisions'
         - 'view latest version'
-        - 'view media'
     user.role.collab_server:
       grantPermissions:
         - 'access content'
