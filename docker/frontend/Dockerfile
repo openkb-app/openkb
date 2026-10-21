@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # openkb-frontend: the built Nuxt server with the embedded collab server, on :3000.
 
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS base
+FROM node:22-alpine@sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85 AS base
 
 # - npm 11 resolves the musl optional dependencies npm 10 drops.
 # - curl serves the healthcheck and scripts/dev-server.sh.
