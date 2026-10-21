@@ -2,7 +2,7 @@
 // Explicit, not auto-imported: the component is rendered by its own vitest
 // suite outside a Nuxt app.
 import { computed, nextTick, ref, watch } from 'vue'
-import type { CommentThreadView, ShownThreads } from '../comment-marks'
+import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import {
   assignedCounts,
   filterThreads,
@@ -15,7 +15,7 @@ import {
   type ThreadFilter,
 } from '../comment-assignee'
 import EditorMentionTextarea from './MentionTextarea.vue'
-import type { CommentAnchor, CommentAssignee } from '#shared/block-comments'
+import type { CommentAssignee } from '#shared/block-comments'
 import { ownedLabel } from '#shared/utils/attribution'
 
 /**
@@ -39,7 +39,7 @@ import { ownedLabel } from '#shared/utils/attribution'
 const props = defineProps<{
   threads: CommentThreadView[]
   /** The thread being composed, before it has anything to say. */
-  draft: { blockId: string, anchor: CommentAnchor | null } | null
+  draft: CommentDraft | null
   /** The last press on a margin badge — the conversation to bring into view. */
   shownFor?: ShownThreads | null
   /** Who a thread can be handed to, in the order the picker offers them. */
@@ -327,7 +327,7 @@ function when(at: number): string {
          scroll away from what they were looking at. -->
     <div v-if="draft" ref="draftBox" class="mb-4 rounded-md border border-accented p-2" data-testid="comment-draft">
       <p class="mb-2 truncate text-xs text-muted">
-        On “{{ excerpt(draft.anchor?.quote || 'this block') }}”
+        On “{{ excerpt(draft.anchor?.quote || draft.label) }}”
       </p>
       <EditorMentionTextarea
         v-model="draftText"

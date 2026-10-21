@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useMediaQuery } from '@vueuse/core'
 import type { ReviewQueueRow } from '../review-marks'
-import type { CommentThreadView, ShownThreads } from '../comment-marks'
+import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
-import type { CommentAnchor, CommentAssignee } from '#shared/block-comments'
+import type { CommentAssignee } from '#shared/block-comments'
 import type { ReviewStep } from '#shared/page-blocks'
 
 /**
@@ -16,7 +16,7 @@ const props = defineProps<{
   queue: ReviewQueueRow[]
   steps: readonly ReviewStep[]
   threads: CommentThreadView[]
-  commentDraft: { blockId: string, anchor: CommentAnchor | null } | null
+  commentDraft: CommentDraft | null
   threadsShownFor: ShownThreads | null
   assigneeCandidates: AssigneeCandidate[]
   me: CommentAssignee | null

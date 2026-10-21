@@ -450,11 +450,20 @@ export function createCommentMarginPlugin(
   })
 }
 
+/** A thread being composed, before it has anything to say. */
+export interface CommentDraft {
+  blockId: string
+  /** The passage it is about; null when it is about the whole block. */
+  anchor: CommentAnchor | null
+  /** The block's {@link blockLabel} — what the composer names without a passage. */
+  label: string
+}
+
 export interface CommentMarksOptions extends CommentMarginActions {
   /** Reads the threads out of the sidecar. */
   threads: ThreadLookup
-  /** Opens a thread on `blockId`, about `anchor` or about the block. */
-  openThread: (blockId: string, anchor: CommentAnchor | null) => void
+  /** Opens a thread on a block, about a passage of it or about the block. */
+  openThread: (draft: CommentDraft) => void
 }
 
 declare module '@tiptap/core' {
@@ -512,7 +521,7 @@ export const CommentMarks = Extension.create<CommentMarksOptions>({
         if (!block) return false
         const id = ensureBlockId(state, tr, block)
         if (!dispatch) return true
-        this.options.openThread(id, threadAnchor(state, block))
+        this.options.openThread({ blockId: id, anchor: threadAnchor(state, block), label: blockLabel(block.node) })
         dispatch(tr.setMeta(REFRESH, true))
         return true
       },

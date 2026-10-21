@@ -10,7 +10,7 @@ import { pickPageAttachment, replacePageFile, selectedEmbed } from '~/editor/pag
 import { BlockIdMinter } from '~/editor/block-id-minter'
 import { CollabHistory } from '~/editor/collab-history'
 import { ReviewMarks, refreshReviewMarks, sidecarLookup, topLevelBlockPos } from '~/editor/review-marks'
-import { CommentMarks, refreshCommentMarks, type ShownThreads } from '~/editor/comment-marks'
+import { CommentMarks, refreshCommentMarks, type CommentDraft, type ShownThreads } from '~/editor/comment-marks'
 import { AgentMarks, refreshAgentMarks } from '~/editor/agent-marks'
 import {
   commentsRoot,
@@ -18,7 +18,6 @@ import {
   openThreads,
   readThreads,
   recordCommentMessage,
-  type CommentAnchor,
   type CommentAssignee,
   type CommentMessage,
   type CommentThread,
@@ -539,7 +538,7 @@ export async function useEditorSession(
     // written until there is a message.
     CommentMarks.configure({
       threads: () => readThreads(ydoc),
-      openThread: (blockId, anchor) => { commentDraft.value = { blockId, anchor } },
+      openThread: (draft) => { commentDraft.value = draft },
       showThreads: (blockId, threadId) => {
         threadsShownFor.value = { blockId, threadId, at: Date.now() }
       },
@@ -645,7 +644,7 @@ export async function useEditorSession(
    * because a thread with no message is not a thread: nothing lands in the
    * document until there is something to say.
    */
-  const commentDraft = ref<{ blockId: string, anchor: CommentAnchor | null } | null>(null)
+  const commentDraft = ref<CommentDraft | null>(null)
 
   /** Writes one message into a thread, under a key of its own. */
   function writeMessage(

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { itemName, reviewableCount, STEP_LABEL, type ReviewQueueRow, type WaitingState } from '../review-marks'
-import type { CommentThreadView, ShownThreads } from '../comment-marks'
+import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
-import type { CommentAnchor, CommentAssignee } from '#shared/block-comments'
+import type { CommentAssignee } from '#shared/block-comments'
 import { REVIEW_STEPS, type ReviewStep } from '#shared/page-blocks'
 
 /**
@@ -20,7 +20,7 @@ const props = defineProps<{
   /** Every comment thread on this document, oldest first. */
   threads: CommentThreadView[]
   /** The thread being composed, before it has anything to say. */
-  commentDraft: { blockId: string, anchor: CommentAnchor | null } | null
+  commentDraft: CommentDraft | null
   /** The last press on a margin badge — the conversation to scroll to. */
   threadsShownFor: ShownThreads | null
   /** Who a comment can be handed to, in the order the picker offers them. */

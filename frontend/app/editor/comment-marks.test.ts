@@ -27,7 +27,9 @@ import {
   markedPassage,
   rememberedAnchor,
   threadAt,
+  type CommentDraft,
 } from './comment-marks'
+import { OkbImage } from './nodes/image'
 
 const AT = 1_700_000_000_000
 
@@ -562,5 +564,29 @@ describe('blockAnchor', () => {
     expect(specs(d, [whole])[1]).toEqual({ class: 'okb-comment-range', 'data-comment-thread': 'c-1' })
     // Block starts at 0, its text at 1 — the highlight spans the whole text.
     expect(ranges(d, [whole])[1]).toEqual([1, 20])
+  })
+})
+
+describe('commentOnSelection on an image, mounted', () => {
+  it('names the image in the draft, as its thread will be named', () => {
+    const opened: CommentDraft[] = []
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: [
+        Document,
+        Paragraph,
+        Text,
+        OkbImage,
+        CommentMarks.configure({ openThread: (draft) => { opened.push(draft) } }),
+      ],
+      content: {
+        type: 'doc',
+        content: [{ type: 'image', attrs: { id: 'b-1', file: '11111111-2222-4333-8444-555555555555', src: '/x.png', alt: 'Probe chart' } }],
+      },
+    })
+    editor.commands.setNodeSelection(0)
+    editor.commands.commentOnSelection()
+    editor.destroy()
+    expect(opened).toEqual([{ blockId: 'b-1', anchor: null, label: 'Image: Probe chart' }])
   })
 })

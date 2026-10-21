@@ -30,7 +30,7 @@ function mount(
   const app = createApp({
     render: () => h(CommentThreads as never, {
       threads,
-      draft: { blockId: 'b-1', anchor: null },
+      draft: { blockId: 'b-1', anchor: null, label: 'Image: Probe chart' },
       shownFor,
       candidates,
       me,
@@ -135,6 +135,11 @@ const echoed = (root: HTMLElement) => [...root.querySelectorAll('[data-testid="m
   .map(chip => chip.textContent)
 
 describe('the comment composer', () => {
+  it('names a block opened without a passage by its label', () => {
+    const { root } = mount(CANDIDATES)
+    expect(root.querySelector('[data-testid="comment-draft"] p')!.textContent).toContain('On “Image: Probe chart”')
+  })
+
   it('opens the picker on the @ that has already landed in the draft', async () => {
     const { root } = mount(CANDIDATES)
 
