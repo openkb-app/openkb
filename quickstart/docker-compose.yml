@@ -62,6 +62,9 @@ services:
       OPENKB_RECIPES_DIR: /app/recipes
       # Optional. Without it the chat and the chunk index stay unusable.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Optional. Key the Anthropic and Mistral AI providers.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:${DRUPAL_HTTP_PORT:-8643}/user/login"]
       interval: 10s

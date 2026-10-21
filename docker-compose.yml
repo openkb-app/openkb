@@ -47,6 +47,9 @@ x-drupal-environment:
     OPENKB_RECIPES_DIR: ${OPENKB_RECIPES_DIR:-/app/recipes}
     # Optional. Without it the chat and the chunk index stay unusable.
     OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    # Optional. Key the Anthropic and Mistral AI providers.
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
     # Optional. Without MAILER_DSN no mail leaves the site; MAIL_FROM is the
     # sender address.
     MAILER_DSN: ${MAILER_DSN:-}

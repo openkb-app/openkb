@@ -75,6 +75,8 @@ The rest is as in [Try it in five minutes](#try-it-in-five-minutes). [`docs/self
 | Provider | In the image | To use it |
 |---|---|---|
 | [OpenAI](https://www.drupal.org/project/ai_provider_openai) | enabled, the default for chat and embeddings (`text-embedding-3-small`) | set `OPENAI_API_KEY` in `.env`, nothing to configure |
+| [Anthropic](https://www.drupal.org/project/ai_provider_anthropic) | enabled | set `ANTHROPIC_API_KEY` in `.env`, then select the provider in the defaults |
+| [Mistral AI](https://www.drupal.org/project/ai_provider_mistral) | enabled | set `MISTRAL_API_KEY` in `.env`, then select the provider in the defaults |
 | [amazee.ai](https://www.drupal.org/project/ai_provider_amazeeio) | enabled | paste the key at `/admin/config/system/keys`, pick it at `/admin/config/ai/providers/amazeeio`, then select the provider in the defaults |
 
 Any provider of the Drupal AI framework can be added; the [provider list](https://www.drupal.org/project/ai) has them. Docs for more providers follow.
