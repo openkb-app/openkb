@@ -310,7 +310,10 @@ async function seedBodyFromDrupal(
   // seen. The timestamp alone is not enough: Drupal's `changed` has one-second
   // granularity, so a checkpoint and an external write landing in the same
   // second are indistinguishable by time — the body hash still catches it.
-  const diverged = drupalChanged > lastSeen || (lastHash !== undefined && bodyHash !== lastHash)
+  // Bytes equal to the last write are in sync, even when they do not read
+  // back to the same serialization.
+  const diverged = drupalChanged > lastSeen
+    || (lastHash !== undefined && bodyHash !== lastHash && contentHash(body) !== lastHash)
   if (!diverged) {
     if (lastHash === undefined) {
       // Snapshot predating the commit service — backfill the baseline once.

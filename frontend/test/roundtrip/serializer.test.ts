@@ -7,7 +7,7 @@
  */
 import { describe, expect, test } from 'vitest'
 import type { Node as ProseNode } from '@tiptap/pm/model'
-import { serializeDocToMarkdown } from '../../app/comark/markdown-engine'
+import { parseMarkdownToDoc, serializeDocToMarkdown } from '../../app/comark/markdown-engine'
 import { editorSchema as s } from './harness'
 
 type Content = ProseNode | ProseNode[]
@@ -130,5 +130,62 @@ describe('serializer rules', () => {
   test('hardBreak serializes as a backslash break', () => {
     const para = p([text('one'), s.node('hardBreak'), text('two')])
     expect(serializeDocToMarkdown(doc(para))).toBe('one\\\ntwo')
+  })
+
+  // The parser drops a textblock's edge whitespace, or reads a tab / four
+  // leading spaces as code, so writing it would store bytes that read back
+  // differently — a block change nobody typed.
+  describe('a textblock at its whitespace edges reads back to the same bytes', () => {
+    const withId = (node: ProseNode, id: string) => node.type.create({ ...node.attrs, id }, node.content)
+    const item = (c: Content) => s.node('listItem', null, [p(c)])
+    const heading = (t: string) => s.node('heading', { level: 2 }, s.text(t))
+    const stable = (d: ProseNode) => {
+      const once = serializeDocToMarkdown(d)
+      expect(serializeDocToMarkdown(parseMarkdownToDoc(once))).toBe(once)
+      return once
+    }
+
+    // Editor content as typed: every shape, mutated at its edges.
+    const shapes: Record<string, (t: string) => ProseNode> = {
+      'paragraph': t => p(t),
+      'heading': heading,
+      'bold run': t => p([text('x'), text(t, ['bold'])]),
+      'after a hard break': t => p([text('a'), s.node('hardBreak'), text(t)]),
+      'list item': t => s.node('bulletList', null, [item('one'), item(t)]),
+      'blockquote': t => s.node('blockquote', null, [p(t)]),
+    }
+    const edges: Record<string, (t: string) => string> = {
+      'trailing space': t => `${t} `,
+      'trailing tab': t => `${t}\t`,
+      'leading space': t => ` ${t}`,
+      'leading tab': t => `\t${t}`,
+      'four leading spaces': t => `    ${t}`,
+      'both edges': t => ` \t${t}  `,
+    }
+    for (const [shape, make] of Object.entries(shapes)) {
+      for (const [edge, mutate] of Object.entries(edges)) {
+        test(`${shape}, ${edge}`, () => {
+          const once = stable(doc(withId(p('before'), 'b-0'), withId(make(mutate('typed')), 'b-1')))
+          expect(once).toContain('typed')
+          expect(once).not.toContain('```')
+          expect(once).not.toMatch(/[ \t]{2}\{#|[ \t]\n|[ \t]$/)
+        })
+      }
+    }
+
+    test('a whitespace-only paragraph writes as an empty one, not a bare id', () => {
+      const once = stable(doc(withId(p(' \t '), 'b-ws'), withId(p('next'), 'b-1')))
+      expect(once).toBe(serializeDocToMarkdown(doc(p(), withId(p('next'), 'b-1'))))
+      expect(once).not.toContain('b-ws')
+    })
+
+    test('a code block keeps its edge whitespace', () => {
+      const code = s.node('codeBlock', null, s.text('  x = 1  '))
+      expect(serializeDocToMarkdown(doc(code))).toBe('```\n  x = 1  \n```')
+    })
+
+    test('a no-break space at an edge stays', () => {
+      expect(stable(doc(p('\u00a0lead\u00a0')))).toBe('\u00a0lead\u00a0')
+    })
   })
 })

@@ -46,7 +46,42 @@ export function serializeDocToMarkdown(doc: ProseNode | JSONContent): string {
   const json = doc instanceof ProseNode ? doc.toJSON() as JSONContent : doc
   // Lower attrs.id back to trailing `{#id}` text so the serializer emits the
   // id exactly where the read path (comark) puts it — byte-identical output.
-  return markdownManager().serialize(lowerBlockIds(json))
+  return markdownManager().serialize(lowerBlockIds(trimTextblockEdges(json)))
+}
+
+/**
+ * Drops the spaces and tabs a textblock starts or ends on.
+ *
+ * Drupal diffs stored bytes per block, so a body has to read back to the same
+ * bytes. The parser drops edge whitespace or, from a tab or four spaces on,
+ * reads the block as code — either way a change nobody typed.
+ */
+function trimTextblockEdges(node: JSONContent): JSONContent {
+  if (!node.content) return node
+  const type = editorSchema.nodes[node.type ?? '']
+  if (!type?.isTextblock || type.spec.code) {
+    return { ...node, content: node.content.map(trimTextblockEdges) }
+  }
+  const content = trimEdge(trimEdge([...node.content], 'end'), 'start')
+  if (!content.length) {
+    const { content: _, ...empty } = node
+    return empty
+  }
+  return { ...node, content }
+}
+
+function trimEdge(content: JSONContent[], edge: 'start' | 'end'): JSONContent[] {
+  const at = edge === 'start' ? 0 : -1
+  const pattern = edge === 'start' ? /^[ \t]+/ : /[ \t]+$/
+  for (let node = content.at(at); node?.type === 'text'; node = content.at(at)) {
+    const text = (node.text ?? '').replace(pattern, '')
+    if (text !== '') {
+      content.splice(at, 1, { ...node, text })
+      break
+    }
+    content.splice(at, 1)
+  }
+  return content
 }
 
 const COMPONENT_NODES = new Set(['callout', 'infobox', 'image', 'attachment'])

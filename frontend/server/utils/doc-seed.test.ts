@@ -216,6 +216,22 @@ describe('seedFromDrupal', () => {
     expect(meta.get('last_commit_hash')).toBe(contentHash('an external agent wrote this'))
   })
 
+  it('Drupal holding exactly the last write is in sync, even when it reads back differently', async () => {
+    // A trailing space the parser drops: the bytes this document wrote, not
+    // their canonical form.
+    const written = 'typed mid-sentence \n'
+    const doc = docWithText('typed mid-sentence ')
+    const meta = doc.getMap('_meta')
+    meta.set('drupal_changed', 100)
+    meta.set('last_commit_hash', contentHash(written))
+
+    const outcome = await seedFromDrupal('node:1', doc, deps(100, written))
+
+    expect(outcome).toBe('in-sync')
+    expect(meta.get('reset_at')).toBeUndefined()
+    expect(meta.get('last_commit_hash')).toBe(contentHash(written))
+  })
+
   it('a body spelled non-canonically is not a session that changed something', async () => {
     // `_em_`, `* item` bullets and a setext heading are all valid markdown
     // comark reads exactly as its own spelling of them, and every one of them
