@@ -968,7 +968,8 @@ custom-mention,
 
 /* "Working here" marks in the editor (app/editor/agent-marks.ts). A peer —
    in practice an agent — says which blocks it is on, and the block says so
-   back.
+   back. Agent work is reviewed work, so the mark takes the pending colour of
+   a block that still owes a review.
 
    The label is the signal and the tint only seconds it: a reader who cannot
    tell the wash from the page still reads who is working. It takes the margin
@@ -977,8 +978,8 @@ custom-mention,
    layout height and the read↔edit swap lands every block at the same y. */
 .inplace-editor .ProseMirror .okb-claimed {
   position: relative;
-  background-color: color-mix(in srgb, var(--okb-agent) 10%, transparent);
-  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--okb-agent) 10%, transparent);
+  background-color: color-mix(in srgb, var(--okb-pending) 10%, transparent);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--okb-pending) 10%, transparent);
   border-radius: 2px;
 }
 .inplace-editor .ProseMirror .okb-claimed::before {
@@ -993,7 +994,7 @@ custom-mention,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--okb-agent-text);
+  color: var(--ui-warning);
   pointer-events: none;
   user-select: none;
 }

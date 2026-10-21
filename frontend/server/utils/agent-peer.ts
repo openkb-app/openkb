@@ -106,6 +106,13 @@ function seatOf(actor: AgentActor): AttributionPeer | null {
  */
 const PRESENCE_REFRESH_MS = 10_000
 
+/**
+ * How long a write's blocks stay marked "editing" after it lands. Long enough
+ * for a person in the page to see where the agent worked; once it is over the
+ * block reads as ready for review.
+ */
+const CLAIM_HOLD_MS = 5_000
+
 /** What a write onto a session that already left the document is told. */
 const SESSION_CLOSED = 'The editing session closed before this write reached it. Send it again.'
 
@@ -614,6 +621,8 @@ export interface AgentSession {
   humanPeers: () => number
   /** Apply ops in one tagged transaction; a 409 once the session has left. */
   apply: (ops: AgentOps) => AgentOpsResult
+  /** Drop the "editing" claim on the blocks last written; presence stays. */
+  releaseClaim: () => void
   /** Withdraw presence and close the direct connection. */
   leave: () => Promise<void>
 }
@@ -674,6 +683,13 @@ export async function openAgentSession(
   const refresh = setTimer(publish, options.refreshMs ?? PRESENCE_REFRESH_MS)
 
   let left = false
+  let claimHold: ReturnType<typeof setInterval> | undefined
+  const releaseClaim = () => {
+    if (claimHold !== undefined) clearTimer(claimHold)
+    if (!state.claim || left) return
+    state = { user }
+    publish()
+  }
 
   const humanPeers = () => humanPeersOf(connection.document as unknown as AwareDoc)
 
@@ -715,19 +731,23 @@ export async function openAgentSession(
         if (ops.comment) result.comment = applyComment(document, actor, ops.comment)
       }, origin)
       // The blocks this write touched, republished as part of the peer's own
-      // state: "somebody is working here", for as long as the session is. A
-      // write that named no block says nothing, and clears what the previous
-      // one said.
+      // state: "somebody is working here", for {@link CLAIM_HOLD_MS}. A write
+      // that named no block clears what the previous one said.
       const claimed = Object.keys(result.blocks)
+      if (claimHold !== undefined) clearTimer(claimHold)
       state = claimed.length > 0 ? { user, claim: { blocks: claimed } } : { user }
       publish()
+      if (claimed.length > 0) claimHold = setTimer(releaseClaim, CLAIM_HOLD_MS)
       return result
     },
+
+    releaseClaim,
 
     async leave(): Promise<void> {
       if (left) return
       left = true
       clearTimer(refresh)
+      if (claimHold !== undefined) clearTimer(claimHold)
       // Withdraw presence before the connection goes: peers see the bot leave
       // rather than a state that lingers until the outdated-timeout.
       removeAwarenessStates(document.awareness, [clientId], origin)

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, onTestFinished } from 'vitest'
 import * as Y from 'yjs'
 import { Awareness } from 'y-protocols/awareness'
 import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
@@ -646,6 +646,44 @@ describe('openAgentSession', () => {
       user: { name: 'fago', color: collabColor(7), uid: 7, via: 'Claude' },
       claim: { blocks: ['b-1'] },
     })
+  })
+
+  it('drops the claim once the write has stood for the hold, keeping its presence', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    onTestFinished(() => vi.useRealTimers())
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first']]))
+    const session = await openAgentSession(host, 1, ACTOR)
+
+    session.apply({ blocks: [{ id: 'b-1', markdown: 'rewritten' }] })
+    vi.advanceTimersByTime(4_999)
+    expect(document.awareness.getStates().get(session.clientId)?.claim).toEqual({ blocks: ['b-1'] })
+
+    vi.advanceTimersByTime(1)
+    expect(document.awareness.getStates().get(session.clientId)).toEqual({ user: agentAwarenessUser(ACTOR) })
+  })
+
+  it('a second write restarts the hold on the blocks it touched', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    onTestFinished(() => vi.useRealTimers())
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first'], ['b-2', 'second']]))
+    const session = await openAgentSession(host, 1, ACTOR)
+
+    session.apply({ blocks: [{ id: 'b-1', markdown: 'rewritten' }] })
+    vi.advanceTimersByTime(4_000)
+    session.apply({ blocks: [{ id: 'b-2', markdown: 'rewritten too' }] })
+    vi.advanceTimersByTime(4_000)
+
+    expect(document.awareness.getStates().get(session.clientId)?.claim).toEqual({ blocks: ['b-2'] })
+  })
+
+  it('releaseClaim drops the claim at once', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+
+    session.apply({ blocks: [{ id: 'b-1', markdown: 'rewritten' }] })
+    session.releaseClaim()
+
+    expect(document.awareness.getStates().get(session.clientId)).toEqual({ user: agentAwarenessUser(ACTOR) })
   })
 
   it('leave is idempotent — a second call does not disconnect twice', async () => {

@@ -11,7 +11,8 @@ import { claimLabel, type PresencePeer } from '#shared/utils/presence'
  *
  * The claim says which blocks the agent is on, so the human can look elsewhere
  * or watch, and knows a paragraph rewriting itself was not a glitch. It stands
- * while the agent is in the page and clears when it leaves.
+ * for a few seconds after the agent's write, and clears at once when the agent
+ * turns to watching (`waitForChanges`) or leaves.
  *
  * Read from awareness, never from the document: a claim describes a peer, and
  * peers come and go without touching content. It reserves nothing — a claimed

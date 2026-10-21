@@ -115,6 +115,8 @@ export function waitForChangesTool(): KbTool {
         // about a caller that has stopped talking — without this the agent
         // drops out of the presence strip while it is still watching.
         release = keepAlive()
+        // A watching agent is not editing: its last write's blocks are ready.
+        session.releaseClaim()
         const watch = watchSession({
           documentName: session.documentName,
           doc: session.doc,

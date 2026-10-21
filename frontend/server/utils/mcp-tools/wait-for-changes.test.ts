@@ -51,12 +51,14 @@ function session(name = 'node:7', remainingMs = 60_000) {
   let editors: unknown[] = [{}]
   Object.assign(doc, { getConnections: () => editors })
   let seats = 0
+  const releaseClaim = vi.fn()
   const held = {
     documentName: name,
     doc,
     clientId: 999,
     actor: ACTOR,
     humanPeers: () => editors.length,
+    releaseClaim,
     leaveRoom: () => {
       editors = []
     },
@@ -216,6 +218,15 @@ describe('waitForChanges', () => {
       expect.objectContaining({ kind: 'session', event: 'closed', reason: 'no-editors' }),
     ])
     expect(answer.editors).toBe(0)
+  })
+
+  it('drops the agent\'s "editing" claim as it starts watching', async () => {
+    const { releaseClaim } = session()
+    const { client } = await connect()
+
+    await client.callTool({ name: 'waitForChanges', arguments: { path: 'intro', timeoutSec: 0 } })
+
+    expect(releaseClaim).toHaveBeenCalledOnce()
   })
 
   it('holds a seat for the wait, and never waits past the session\'s age cap', async () => {
