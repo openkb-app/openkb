@@ -18,6 +18,9 @@ import LinkTargetBubble from './LinkTargetBubble.vue'
 vi.mock('@tiptap/vue-3/menus', () => ({
   BubbleMenu: { setup: (_props: unknown, { slots }: { slots: { default?: () => unknown } }) => () => h('div', slots.default?.()) },
 }))
+// Nuxt UI's auto-import, which useCopyText calls.
+const toast = { add: vi.fn() }
+vi.stubGlobal('useToast', () => toast)
 
 let editor: Editor
 let root: HTMLElement
@@ -104,6 +107,20 @@ describe('LinkTargetBubble', () => {
     expect(error).not.toHaveBeenCalled()
     expect(remove).toHaveBeenCalledWith('keydown', expect.any(Function), true)
     error.mockRestore()
+  })
+
+  it('offers Copy on a link only, and copies its URL', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await mount('See [the guide](https://example.org/guide) and :doc[Rollback]{nid="42"}.', 'link', null)
+    root.querySelector<HTMLElement>('[aria-label="Copy link"]')!.click()
+    await vi.waitFor(() => expect(toast.add).toHaveBeenCalledWith(expect.objectContaining({ title: 'Link copied' })))
+    expect(writeText).toHaveBeenCalledWith('https://example.org/guide')
+
+    editor.commands.setNodeSelection(find(editor.state.doc, 'docLink'))
+    await nextTick()
+    expect(root.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Page link')
+    expect(root.querySelector('[aria-label="Copy link"]')).toBeNull()
   })
 
   it('names a page link’s target by title and path, with the block’s opening words', async () => {

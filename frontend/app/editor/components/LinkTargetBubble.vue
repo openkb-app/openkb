@@ -8,6 +8,7 @@ import type { Editor } from '@tiptap/core'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import type { ResolvedTarget } from '~/composables/useDocLinkSearch'
+import { useCopyText } from '~/composables/useCopyText'
 import {
   BUBBLE_REQUEST_KEY,
   LINK_BUBBLE_KEY,
@@ -30,7 +31,8 @@ import { CITE_STATE_NOTE, citeState, citeTarget, citeUrlTitle } from '#shared/ut
 /**
  * Shows where a link, page link, file link or citation points, with Open,
  * Change and Remove (editor/link-target.ts holds the model and the commands).
- * A new link can instead point at a file from the file picker.
+ * A link also offers Copy. A new link can instead point at a file from the
+ * file picker.
  *
  * Shown for a caret in a link or a selected page link or citation, and on
  * request (`Mod-k`, the Link button). Tab from the editor moves into it,
@@ -59,6 +61,7 @@ const picking = ref(false)
 const url = ref('')
 const invalid = ref(false)
 const panel = ref<HTMLElement | null>(null)
+const { copy } = useCopyText()
 const field = ref<{ inputRef?: HTMLInputElement } | null>(null)
 
 /** The page file a file link names, if this page has it. */
@@ -334,6 +337,15 @@ onBeforeUnmount(() => {
           variant="ghost"
           icon="i-lucide-external-link"
           aria-label="Open in a new tab"
+        />
+        <UButton
+          v-if="target.kind === 'link'"
+          size="sm"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-copy"
+          aria-label="Copy link"
+          @click="copy(href, 'Link')"
         />
         <UButton
           size="sm"
