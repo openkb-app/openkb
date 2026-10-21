@@ -6,11 +6,10 @@ import { MDC_PROPS_SOURCE, parseMdcProps, serializeMdcProps } from './mdc-markdo
 const BLOCK_FENCE = new RegExp(String.raw`^(:{2,})image\{(${MDC_PROPS_SOURCE})\}[ \t]*(?:\n\1(?!:)[ \t]*(?:\n|$)|\n|$)`)
 const INLINE_FENCE = new RegExp(String.raw`^:image\{(${MDC_PROPS_SOURCE})\}`)
 
-/** Attrs the image node carries; only `file`/`media`/`alt` (or `src`/`alt`/`title`) reach markdown. */
+/** Attrs the image node carries; only `file`/`alt` (or `src`/`alt`/`title`) reach markdown. */
 export interface ImageAttrs {
   /** UUID of a page file in `field_kb_images` (ADR 0020). */
   file?: string | null
-  media?: string | null
   src?: string | null
   alt?: string | null
   title?: string | null
@@ -21,12 +20,11 @@ export interface ImageAttrs {
 /**
  * The inline markdown form an image takes inside a table cell — the one
  * place the block fence can't go: `:image{…}` (single-colon inline
- * component, parsed by comark) for media images, `![alt](src)` otherwise.
+ * component, parsed by comark) for page files, `![alt](src)` otherwise.
  */
 export function imageInlineMarkdown(attrs: ImageAttrs): string {
-  const ref = imageRef(attrs)
-  if (ref) {
-    const props: Record<string, string> = { ...ref }
+  if (attrs.file) {
+    const props: Record<string, string> = { file: attrs.file }
     if (attrs.alt) props.alt = attrs.alt
     return `:image{${serializeMdcProps(props)}}`
   }
@@ -34,29 +32,18 @@ export function imageInlineMarkdown(attrs: ImageAttrs): string {
   return `![${attrs.alt ?? ''}](${attrs.src ?? ''}${title})`
 }
 
-/** The reference an image fence carries: a page file, else a media entity. */
-function imageRef(attrs: ImageAttrs): Record<string, string> | null {
-  if (attrs.file) return { file: attrs.file }
-  if (attrs.media) return { media: attrs.media }
-  return null
-}
-
 /**
  * The editor's Image node — UEditor's @tiptap/extension-image (block-level)
- * extended with a `media` attribute carrying a Drupal media UUID, and a
+ * extended with a `file` attribute carrying a page file UUID, and a
  * markdown grammar that serializes one node two ways:
  *
- * - `file` set   → `::image{file="<uuid>" alt="…"}`: a page file in
- *   `field_kb_images` (ADR 0020), same fence shape as the media form.
- * - `media` set  → `::image{media="<uuid>" alt="…"}` + close fence on the
- *   next line — a childless MDC fence. The close is mandatory in the
- *   canonical form: comark treats an unclosed fence as an open container
- *   and swallows every following block into it. The media reference stays
- *   first-class: alt/derivatives/focal point live on the Drupal media
- *   entity, the render URL is resolved at render time and never enters
- *   the stored markdown. `src` is a resolved-at-runtime display value
- *   only.
- * - `media` unset → stock `![alt](src "title")` for plain/external URLs.
+ * - `file` set   → `::image{file="<uuid>" alt="…"}` + close fence on the
+ *   next line — a childless MDC fence naming a file in `field_kb_images`
+ *   (ADR 0020). The close is mandatory in the canonical form: comark treats
+ *   an unclosed fence as an open container and swallows every following
+ *   block into it. The render URL is resolved at render time and never
+ *   enters the stored markdown; `src` is a display value only.
+ * - `file` unset → stock `![alt](src "title")` for plain/external URLs.
  *
  * Both directions of the fence grammar are registered here so the marked
  * lexer, the live editor, the headless commit schema and the round-trip
@@ -72,7 +59,6 @@ export const OkbImage = Image.extend({
     return {
       ...this.parent?.(),
       file: { default: null },
-      media: { default: null },
       // Block id carried through the fence round-trip (OKB-137), as callout
       // and infobox carry theirs — the review gate needs every producible
       // block identified.
@@ -87,7 +73,6 @@ export const OkbImage = Image.extend({
         tag: 'custom-image',
         getAttrs: (element: HTMLElement) => ({
           file: element.getAttribute('file'),
-          media: element.getAttribute('media'),
           alt: element.getAttribute('alt'),
           src: element.getAttribute('src'),
         }),
@@ -123,7 +108,6 @@ export const OkbImage = Image.extend({
     if (attributes) {
       return helpers.createNode('image', {
         file: attributes.file ?? null,
-        media: attributes.file ? null : (attributes.media ?? null),
         alt: attributes.alt ?? '',
         src: null,
         title: null,
@@ -137,15 +121,13 @@ export const OkbImage = Image.extend({
       title: inline.title ?? null,
       alt: inline.text ?? '',
       file: null,
-      media: null,
     })
   },
 
   renderMarkdown(node: JSONContent) {
     const attrs = (node.attrs ?? {}) as ImageAttrs
-    const ref = imageRef(attrs)
-    if (ref) {
-      const props: Record<string, string> = { ...ref }
+    if (attrs.file) {
+      const props: Record<string, string> = { file: attrs.file }
       if (attrs.alt) props.alt = attrs.alt
       if (attrs.id) props.id = attrs.id
       return `::image{${serializeMdcProps(props)}}\n::`
@@ -159,7 +141,7 @@ export const OkbImage = Image.extend({
 })
 
 /**
- * Inline `:image{media="…" alt="…"}` tokenizer (comark's inline component
+ * Inline `:image{file="…" alt="…"}` tokenizer (comark's inline component
  * form — what {@link imageInlineMarkdown} emits inside table cells). No
  * schema contribution; the token parses into the same block-level image
  * node, which the engine's paragraph-splitting normalization hoists out
@@ -192,7 +174,6 @@ export const OkbImageInline = Extension.create({
     const attributes = (token as { attributes?: Record<string, string> }).attributes ?? {}
     return helpers.createNode('image', {
       file: attributes.file ?? null,
-      media: attributes.file ? null : (attributes.media ?? null),
       alt: attributes.alt ?? '',
       src: null,
       title: null,

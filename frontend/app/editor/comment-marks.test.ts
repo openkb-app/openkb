@@ -170,7 +170,7 @@ describe('the control in a block\'s margin', () => {
   })
 
   it('anchors the control on every block, whatever the block holds', () => {
-    const d = doc(para('Text', 'b-1'), editorSchema.node('image', { id: 'b-2', media: 'm-1' }))
+    const d = doc(para('Text', 'b-1'), editorSchema.node('image', { id: 'b-2', file: 'f-1' }))
     // The class the control is positioned against, so no block type falls back
     // to a positioned ancestor further up (main.css).
     expect(marginDecorations(d, new Map(), NO_ACTIONS).find()
@@ -180,7 +180,7 @@ describe('the control in a block\'s margin', () => {
 
   it('rides an anchor after a leaf block, which has no inside', () => {
     const spy = actions()
-    const d = doc(editorSchema.node('image', { id: 'b-img', media: 'm-1' }))
+    const d = doc(editorSchema.node('image', { id: 'b-img', file: 'f-1' }))
     const [host] = margins(d, [], spy)
 
     expect(host!.className).toBe('okb-margin-gap')

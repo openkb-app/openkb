@@ -76,7 +76,7 @@ describe('needs no token', () => {
   })
 
   it('for a write outside /api, where Drupal checks its own form token', async () => {
-    const res = await request('/media-library', 'POST', COOKIE)
+    const res = await request('/user/login', 'POST', COOKIE)
     expect(res.status).toBe(200)
     expect(sessionToken).not.toHaveBeenCalled()
   })

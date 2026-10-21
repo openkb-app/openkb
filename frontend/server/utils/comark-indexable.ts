@@ -4,7 +4,7 @@
  *
  * The index holds what the read page renders, so it is filtered by the same
  * text-format allowed list the caller hands the read path. The tree is the
- * reader-independent one: no media, no doc resolution, no block links, so the
+ * reader-independent one: no file or doc resolution, no block links, so the
  * index holds the page's words and not its chrome.
  *
  * Each chunk also carries what its blocks reference — the sources they cite

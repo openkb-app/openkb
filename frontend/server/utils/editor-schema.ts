@@ -42,7 +42,7 @@ import {
  *   Mention
  *
  * UEditor's own Image copy is disabled (`:image="false"` on the edit pages)
- * in favor of OkbImage — the same node extended with the `media` attribute
+ * in favor of OkbImage — the same node extended with the `file` attribute
  * and the `::image` fence grammar (see app/editor/nodes/image.ts).
  *
  * plus the GFM Table family + TaskList/TaskItem and our own Callout / Infobox

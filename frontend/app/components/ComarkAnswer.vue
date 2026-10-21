@@ -13,7 +13,6 @@
 import { MarkdownDocument } from '@comark/vue'
 import { comarkComponents } from '~/comark/components'
 import { markdownToTree, type CitationChip, type ComarkNode } from '#shared/utils/comark-tree'
-import type { ResolvedMedia } from '#shared/utils/media'
 import type { ResolvedFile } from '#shared/utils/files'
 
 const props = defineProps<{
@@ -56,8 +55,7 @@ function batchResolver<T>(route: string): (uuids: string[]) => Promise<Record<st
   }
 }
 
-/** The same routes the editor's node views resolve through. */
-const resolveMedia = batchResolver<ResolvedMedia>('/api/media/resolve')
+/** The same route the editor's node views resolve through. */
 const resolveFiles = batchResolver<ResolvedFile>('/api/files/resolve')
 
 /** Loaded with the first fence an answer holds, so an answer without code ships no highlighter. */
@@ -80,7 +78,6 @@ watch([
 ], async ([text]) => {
   const seq = ++latest
   const next = await markdownToTree(text, {
-    resolveMedia,
     resolveFiles,
     highlightCode,
     citationChips: props.citationChips,

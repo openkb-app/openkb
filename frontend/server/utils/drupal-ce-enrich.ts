@@ -1,6 +1,5 @@
 import { citationsByBlock, markdownToTree, type AllowedHtml, type CitationSource } from '#shared/utils/comark-tree'
 import { highlightToTokens } from '#shared/utils/code-highlight'
-import { resolveMediaUuids } from './media'
 import { resolveFileUuids } from './files'
 import { ceFileLists } from './commit-files'
 import type { PageAttachment, ResolvedFile } from '#shared/utils/files'
@@ -98,11 +97,12 @@ export function blockProvenanceFrom(raw: string | null): Record<string, BlockByl
  * `@comark/vue`. Drop the whole `body` prop once consumed — the page only
  * needs the tree.
  *
- * Image embeds (`::image{media="…"}`) resolve server-side: the tree passes
- * batch media UUIDs through one JSON:API lookup and splice file URLs onto the
- * nodes, so the read page needs no client-side media fetch. The request's auth carrier (session cookie or agent Bearer token)
- * is forwarded so access respects per-role permissions; an unresolvable
- * UUID renders as a placeholder (no src).
+ * Page-file embeds (`::image{file="…"}`, `::attachment{file="…"}`) resolve
+ * server-side: the tree passes batch file UUIDs through one lookup and splice
+ * file URLs onto the nodes, so the read page needs no client-side fetch. The
+ * request's auth carrier (session cookie or agent Bearer token) is forwarded
+ * so access respects the reader's; an unresolvable UUID renders as a
+ * placeholder (no src).
  *
  * What the tree may carry is the body text format's to say: `allowedHtml`
  * comes from the caller (`bodyAllowedHtml()`), which reads it off the schema
@@ -140,7 +140,6 @@ export async function enrichCePage(
   const files: Record<string, ResolvedFile> = {}
   const fieldIds = ceFileLists(content.props ?? {}).attachments
   const bodyTree = await markdownToTree(markdown, {
-    resolveMedia: uuids => resolveMediaUuids(auth, uuids),
     resolveFiles: async uuids => Object.assign(files, await resolveFileUuids(auth, uuids)),
     resolveDocs: nids => resolveDocNids(auth, nids),
     resolveCites: nids => resolveCiteNids(auth, nids),

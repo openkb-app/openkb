@@ -33,7 +33,7 @@ saved markdown; everything else is pure re-formatting.
 
 | # | Input | Output |
 |---|---|---|
-| T1 | Image inline in a paragraph (`text ![a](/i.png) text`, `text :image{media="…"} text`) | Paragraph split around the image: paragraph / block image / paragraph. The editor's image node is block-level. Whitespace at the split edges is dropped. A trailing `{#id}` splits off into an empty paragraph of its own, which an image right before it adopts — so an image alone on its line (`![a](/i.png) {#b-1}`) keeps the id. Exception: inside a table cell the image stays put and serializes in its inline form (`![a](src)` / `:image{…}`) |
+| T1 | Image inline in a paragraph (`text ![a](/i.png) text`, `text :image{file="…"} text`) | Paragraph split around the image: paragraph / block image / paragraph. The editor's image node is block-level. Whitespace at the split edges is dropped. A trailing `{#id}` splits off into an empty paragraph of its own, which an image right before it adopts — so an image alone on its line (`![a](/i.png) {#b-1}`) keeps the id. Exception: inside a table cell the image stays put and serializes in its inline form (`![a](src)` / `:image{…}`) |
 | T2 | List item whose entire content is a component (`- ::callout…::`, `- ::image{…}`) | Component hoisted out of the list, splitting it; ordered lists keep numbering via `start`. Editor list items must start with a paragraph |
 
 ## Lossy transforms

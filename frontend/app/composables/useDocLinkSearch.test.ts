@@ -17,7 +17,7 @@ describe('docBlocks', () => {
   })
 
   it('falls back to the id for a block with no words of its own', () => {
-    const md = '::image{media="0e5b" #b-4444}\n::\n'
+    const md = '::image{file="0e5b" #b-4444}\n::\n'
     expect(docBlocks(md)).toEqual([{ id: 'b-4444', label: 'b-4444' }])
   })
 

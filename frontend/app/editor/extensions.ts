@@ -41,7 +41,7 @@ import { SelectionKeydownSync } from './selection-sync'
  * ./nodes/markdown-overrides.ts). UEditor's own Mention and Image copies
  * are disabled the same way (`:mention="false"`, `:image="false"`) in
  * favor of ./nodes/mention.ts (round-trips the Drupal uid) and
- * ./nodes/image.ts (carries the Drupal media UUID + ::image grammar).
+ * ./nodes/image.ts (carries the page file UUID + ::image grammar).
  */
 export const starterKitMarkdownOverrides = {
   codeBlock: false,

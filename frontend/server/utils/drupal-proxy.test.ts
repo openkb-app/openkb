@@ -2,20 +2,10 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vites
 import { createServer, type Server } from 'node:http'
 import { connect, type AddressInfo } from 'node:net'
 import { createApp, createRouter, toNodeListener, type EventHandler, type H3Event } from 'h3'
-import { drupalPath } from './drupal-proxy'
-import core from '../routes/core/[...path].get'
-import files from '../routes/files/[...path].get'
-import modules from '../routes/modules/[...path].get'
-import sites from '../routes/sites/[...path].get'
-import themes from '../routes/themes/[...path].get'
-import mediaWidget from '../routes/admin/content/media-widget/[...path]'
-import mediaWidgetTable from '../routes/admin/content/media-widget-table/[...path]'
-import mediaLibrary from '../routes/media-library'
-import viewsAjax from '../routes/views/ajax'
-
+import { drupalPassthrough, drupalPath } from './drupal-proxy'
 /**
- * The media-library dialog passthroughs: where each one forwards, and that a
- * path which would resolve outside its prefix never leaves the app.
+ * A Drupal passthrough: where it forwards, and that a path which would resolve
+ * outside its prefix never leaves the app.
  */
 
 const DRUPAL = 'http://drupal.test'
@@ -43,13 +33,7 @@ async function run(handler: EventHandler, e: H3Event): Promise<unknown> {
 }
 
 const CATCH_ALL: [string, EventHandler, string, string][] = [
-  ['/core', core, 'misc/dialog.css', 'core/misc/dialog.css'],
-  ['/files', files, 'styles/thumb/a.png', 'files/styles/thumb/a.png'],
-  ['/modules', modules, 'contrib/x/x.js', 'modules/contrib/x/x.js'],
-  ['/sites', sites, 'default/files/a.jpg', 'sites/default/files/a.jpg'],
-  ['/themes', themes, 'claro/css/a.css', 'themes/claro/css/a.css'],
-  ['/admin/content/media-widget', mediaWidget, 'image', 'admin/content/media-widget/image'],
-  ['/admin/content/media-widget-table', mediaWidgetTable, 'image', 'admin/content/media-widget-table/image'],
+  ['/prefix', (e: H3Event) => drupalPassthrough(e, 'prefix'), 'a/b.css', 'prefix/a/b.css'],
 ]
 
 beforeEach(() => {
@@ -92,22 +76,6 @@ describe.each(CATCH_ALL)('%s/**', (prefix, handler, param, target) => {
   })
 })
 
-describe.each(CATCH_ALL.filter(([prefix]) => !prefix.startsWith('/admin/')))('%s/** (static assets)', (prefix, handler) => {
-  it('answers 404 for anything but a static asset', async () => {
-    await expect(run(handler, event(`${prefix}/install.php`, 'install.php'))).rejects.toMatchObject({ statusCode: 404 })
-    expect(proxyRequest).not.toHaveBeenCalled()
-  })
-})
-
-describe.each([
-  ['/media-library', mediaLibrary],
-  ['/views/ajax', viewsAjax],
-] as [string, EventHandler][])('%s', (path, handler) => {
-  it('forwards to its own path, query included', async () => {
-    await expect(run(handler, event(`${path}?_wrapper_format=drupal_ajax`))).resolves.toBe(`${DRUPAL}${path}?_wrapper_format=drupal_ajax`)
-  })
-})
-
 /**
  * Through a real h3 router and raw HTTP: the param arrives decoded, so what
  * `fetch` would send must stay under the prefix exactly as built.
@@ -143,12 +111,10 @@ describe('through the router', () => {
   }
 
   it.each([
-    ['/admin/content/media-widget', '.%09./.%09./.%09./user/1/edit'],
-    ['/admin/content/media-widget', '.%0a./.%0d./user/1/edit'],
-    ['/core', '.%09./.%09./user/1/edit%23.js'],
-    ['/core', 'install.php%23.js'],
-    ['/core', 'rebuild.php%23.js'],
-    ['/files', '%252e%252e/%252e%252e/user/1.png'],
+    ['/prefix', '.%09./.%09./.%09./user/1/edit'],
+    ['/prefix', '.%0a./.%0d./user/1/edit'],
+    ['/prefix', 'install.php%23.js'],
+    ['/prefix', '%252e%252e/%252e%252e/user/1.png'],
   ])('%s/%s stays under the prefix', async (prefix, attack) => {
     const { status, body } = await get(`${prefix}/${attack}`)
     if (status === 404) return
@@ -159,7 +125,7 @@ describe('through the router', () => {
     expect(sent.hash).toBe('')
   })
 
-  it('forwards a plain asset', async () => {
-    expect(await get('/core/misc/dialog.css?v=1')).toEqual({ status: 200, body: `${DRUPAL}/core/misc/dialog.css?v=1` })
+  it('forwards a plain path', async () => {
+    expect(await get('/prefix/a/b.css?v=1')).toEqual({ status: 200, body: `${DRUPAL}/prefix/a/b.css?v=1` })
   })
 })

@@ -557,7 +557,7 @@ function sameValue(a: unknown, b: unknown): boolean {
  *   - `paragraph` / `heading` — trailing `{#id}` text, which comark parses
  *     into the block's own `id` prop (`Title {#b-1}` → `["h2",{"id":"b-1"}]`).
  *   - `callout` / `infobox` / `image` — component fences, which carry the id
- *     natively via the `#id` fence-prop shorthand, except a media-less
+ *     natively via the `#id` fence-prop shorthand, except a file-less
  *     image, which has no fence and trails `{#id}` after its `![…](…)`
  *     line (app/editor/nodes/image.ts).
  *

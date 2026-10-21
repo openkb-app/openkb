@@ -105,7 +105,7 @@ describe('what the middleware leaves alone', () => {
 
 describe('a write outside /api', () => {
   it('is refused from another site', async () => {
-    const res = await request('/media-library', 'POST', CROSS_SITE)
+    const res = await request('/user/login', 'POST', CROSS_SITE)
     expect(res.status).toBe(403)
   })
 })

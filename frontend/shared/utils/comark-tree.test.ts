@@ -226,10 +226,10 @@ describe('inline components', () => {
 
   it('renders an inline image through the image component', async () => {
     const nodes = await markdownToTree(
-      'An :image{media="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"} here.',
-      { resolveMedia: async () => ({ 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee': { url: '/files/pic.png', alt: 'A picture', width: 8, height: 6 } }) },
+      'An :image{file="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"} here.',
+      { resolveFiles: async () => ({ 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee': { url: '/system/files/pic.png', name: 'pic.png', size: 10, mime: 'image/png', owner: null, created: null } }) },
     )
-    expect(find(nodes, 'image')?.[1]).toMatchObject({ src: '/files/pic.png', inline: true })
+    expect(find(nodes, 'image')?.[1]).toMatchObject({ src: '/system/files/pic.png', inline: true })
   })
 
   it('resolves page files for attachments and images, in one batch', async () => {
@@ -545,19 +545,19 @@ describe('streaming a partial answer', () => {
     }
   })
 
-  it('asks the resolver for nothing while a media id is still arriving', async () => {
+  it('asks the resolver for nothing while a file id is still arriving', async () => {
     const asked: string[][] = []
-    const resolveMedia = async (uuids: string[]) => {
+    const resolveFiles = async (uuids: string[]) => {
       asked.push(uuids)
       return {}
     }
     const prefixes = ['5', '54ffeb17-9d23-4fd', '54ffeb17-9d23-4fdb-882b-81e9be09c']
     for (const prefix of prefixes) {
-      await markdownToTree(`::image{media="${prefix}`, { resolveMedia, streaming: true })
+      await markdownToTree(`::image{file="${prefix}`, { resolveFiles, streaming: true })
     }
     expect(asked).toEqual([])
 
-    await markdownToTree('::image{media="54ffeb17-9d23-4fdb-882b-81e9be09cab5"}\n::\n', { resolveMedia, streaming: true })
+    await markdownToTree('::image{file="54ffeb17-9d23-4fdb-882b-81e9be09cab5"}\n::\n', { resolveFiles, streaming: true })
     expect(asked).toEqual([['54ffeb17-9d23-4fdb-882b-81e9be09cab5']])
   })
 
@@ -568,23 +568,23 @@ describe('streaming a partial answer', () => {
 })
 
 describe('image embeds', () => {
-  const media = {
-    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee': { url: '/files/pic.png', alt: 'A picture', width: 800, height: 600 },
+  const files = {
+    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee': { url: '/system/files/pic.png', name: 'pic.png', size: 10, mime: 'image/png', owner: null, created: null },
   }
 
   it('resolves a block-level ::image onto the node', async () => {
     const nodes = await markdownToTree(
-      '::image{media="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}\n::\n',
-      { resolveMedia: async () => media },
+      '::image{file="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" alt="A picture"}\n::\n',
+      { resolveFiles: async () => files },
     )
     expect(at(nodes)[0]).toBe('image')
-    expect(at(nodes)[1]).toMatchObject({ src: '/files/pic.png', alt: 'A picture', width: 800, height: 600 })
+    expect(at(nodes)[1]).toMatchObject({ src: '/system/files/pic.png', alt: 'A picture' })
   })
 
   it('keeps the node without a src when the UUID does not resolve', async () => {
     const nodes = await markdownToTree(
-      '::image{media="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}\n::\n',
-      { resolveMedia: async () => ({}) },
+      '::image{file="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}\n::\n',
+      { resolveFiles: async () => ({}) },
     )
     expect(at(nodes)[0]).toBe('image')
     expect(at(nodes)[1].src).toBeUndefined()

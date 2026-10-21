@@ -8,7 +8,6 @@ import { starterKitMarkdownOverrides } from '~/editor/extensions'
 import { readUnreadSelection } from '~/editor/selection-sync'
 import { LINK_BUBBLE_KEY, bubbleTargetAt } from '~/editor/link-target'
 import { useEditorSession } from '~/composables/useEditorSession'
-import { useMediaDialogRequest } from '~/composables/useMediaLibraryPicker'
 import { selectedEmbed, useFilePickerRequest, useFilePickerStatus } from '~/editor/page-file-insert'
 import type { ReviewStep } from '#shared/page-blocks'
 
@@ -37,7 +36,6 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ (e: 'session', session: EditorSession): void }>()
 
-const mediaDialogRequest = useMediaDialogRequest()
 const filePickerRequest = useFilePickerRequest()
 const filePickerStatus = useFilePickerStatus()
 
@@ -357,12 +355,5 @@ const dragHandleOptions = {
     <p class="sr-only" role="status" aria-live="polite" data-test="my-files-status">
       {{ filePickerStatus }}
     </p>
-    <!-- Mounted only while the media-library dialog is open: the dialog and
-         its styles live and die with it. -->
-    <EditorMediaLibraryDialog
-      v-if="mediaDialogRequest"
-      :nid="mediaDialogRequest.nid"
-      :token="mediaDialogRequest.token"
-    />
   </ClientOnly>
 </template>

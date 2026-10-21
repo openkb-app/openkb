@@ -58,7 +58,7 @@ as literal trailing text; comark parses it into an `id` prop on both
 sides of S3, so bytes and semantics both hold. On component fences the
 `#id` shorthand maps to the node's `id` attribute
 (app/editor/nodes/mdc-markdown.ts) and re-serializes last in the prop
-list — comark's canonical position. A media-less image has no fence, so
+list — comark's canonical position. A file-less image has no fence, so
 its id trails the `![…](…)` line as on a native block.
 
 ## A/B gating (OKB-7)

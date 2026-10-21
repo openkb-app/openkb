@@ -26,13 +26,11 @@
 !/web/modules/custom/**/vue_templates/**/*.es6.js
 !/web/modules/custom/**/js/*.es6.js
 !/web/modules/custom/**/js/*.legacy.js
-# Transpiled JS in the in-tree openkb package; openkb_media_library ships
-# hand-written (not transpiled) JS, kept.
+# Transpiled JS in the in-tree openkb package.
 /openkb/**/js/*.js
 /openkb/**/js/**/*.js
 !/openkb/**/js/*.es6.js
 !/openkb/**/js/*.legacy.js
-!/openkb/openkb_media_library/js/*.js
 /web/themes/custom/tableau_www/js/**/*.js
 !/web/themes/custom/tableau_www/js/**/*.es6.js
 !/web/themes/custom/tableau_www/js/**/*.legacy.js

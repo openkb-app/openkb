@@ -3823,7 +3823,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "2c40c3a8c186114565b9549eccc855f5cdb8e4e8"
+                "reference": "eb61f93e3d48c78972c87ed3507ad442481908f2"
             },
             "require": {
                 "drupal/ai": "1.5.0-rc3",
@@ -3872,8 +3872,7 @@
                         "#3210926: Call to a member function getAlias on null in PathItem->postSave(). Saving a pending revision whose path field carries a pid for an alias entity that is gone fatals; the guard re-creates the alias instead. Paths are relative to the drupal repository root; composer-patches knows drupal/core takes patch depth 2.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/drupal-core-3210926-pathitem-postsave-missing-alias.patch"
                     },
                     "drupal/custom_elements": {
-                        "OKB-134: Let the entity_reference formatter emit the referenced entity UUID (upstream merge pending)": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/custom_elements-entity-reference-include-uuid.patch",
-                        "OKB-338: Build the library elements from the asset resolver — one call gives the files in Drupal's load order across libraries and the drupalSettings the libraries run on; the generator's own walk ordered files per library only and never minted the settings core's ajax.js and Drupal.url() read. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/custom_elements-library-elements-from-asset-resolver.patch"
+                        "OKB-134: Let the entity_reference formatter emit the referenced entity UUID (upstream merge pending)": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/custom_elements-entity-reference-include-uuid.patch"
                     },
                     "drupal/lupus_ce_renderer": {
                         "OKB-151: Answer a plain 3xx Response as the CE redirect payload too — a controller answering in PSR-7 (simple_oauth's /oauth/authorize) reaches the response event as a plain Response, so the class check alone lets a raw 302 leave /ce-api for a consumer's HTTP layer to follow server-side. drupal.org issue pending; swap for its patch once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_ce_renderer-psr7-redirect-as-ce-payload.patch",
@@ -3898,12 +3897,12 @@
             "license": [
                 "GPL-2.0-or-later"
             ],
-            "description": "The OpenKB-specific Drupal modules (agent identity, workflow/review, JSON:API surface, revision history, spaces, outline, schema, media library).",
+            "description": "The OpenKB-specific Drupal modules (agent identity, workflow/review, JSON:API surface, revision history, spaces, outline, schema).",
             "homepage": "https://www.drupal.org/project/openkb",
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-10-21T07:21:49+00:00"
+            "time": "2026-10-21T07:33:37+00:00"
         },
         {
             "name": "drupal/pathauto",

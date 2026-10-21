@@ -187,10 +187,10 @@ describe('lowerBlockIds', () => {
   })
 
   it('leaves either image form to its own renderer, which carries the id', () => {
-    const plain = { type: 'image', attrs: { id: 'b-i1', src: 'https://example.com/a.png', alt: 'A', media: null } }
-    const media = { type: 'image', attrs: { id: 'b-i2', media: '1111', alt: 'A' } }
+    const plain = { type: 'image', attrs: { id: 'b-i1', src: 'https://example.com/a.png', alt: 'A', file: null } }
+    const file = { type: 'image', attrs: { id: 'b-i2', file: '1111', alt: 'A' } }
     expect(first(lowerBlockIds(doc(plain)))).toEqual(plain)
-    expect(first(lowerBlockIds(doc(media)))).toEqual(media)
+    expect(first(lowerBlockIds(doc(file)))).toEqual(file)
   })
 
   it('serializes an id-less container bare — no wrapper to emit', () => {

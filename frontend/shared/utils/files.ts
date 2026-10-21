@@ -1,5 +1,3 @@
-import { MEDIA_UUID_RE } from './media'
-
 /**
  * A page file (ADR 0020) as an embed renders it: `::attachment{file}` and
  * `::image{file}`. Resolved per reader, so a file the reader may not download
@@ -53,9 +51,11 @@ export function fileAccept(limits: PageFileLimits | undefined): string | undefin
   return limits?.extensions.length ? limits.extensions.map(extension => `.${extension}`).join(',') : undefined
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /** A file UUID, as the resolve and upload routes accept it. */
 export function isFileUuid(value: unknown): value is string {
-  return typeof value === 'string' && MEDIA_UUID_RE.test(value)
+  return typeof value === 'string' && UUID_RE.test(value)
 }
 
 /** The card's uploader line: `Ada Lovelace · 14/10/2026`. */

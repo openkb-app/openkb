@@ -173,7 +173,7 @@ ${Array.from({ length: 200 }, (_, i) => `- item ${i} ${filler(4, 'word')}`).join
 
 Before ![Request lifecycle diagram](https://example.com/flow.svg "Proxy to Drupal") after. {#b-2222}
 
-::image{media="0b7f0a1e-1111-4222-8333-444455556666" alt="Escalation ladder" #b-3333}
+::image{file="0b7f0a1e-1111-4222-8333-444455556666" alt="Escalation ladder" #b-3333}
 ::
 `)
     expect(chunks[0]!.text).toBe('Flow\n\nBefore Request lifecycle diagram Proxy to Drupal after.\n\nEscalation ladder')

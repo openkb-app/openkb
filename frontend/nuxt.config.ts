@@ -99,20 +99,8 @@ export default defineNuxtConfig({
     // X-Forwarded-For rides along so Drupal's login flood keys on the client
     // when the sign-in and password-reset forms are relayed, not on this server.
     fetchProxyHeaders: ['cookie', 'x-forwarded-for'],
-    // The media-library dialog's form submits (selection, upload), views AJAX
-    // and its Grid/Table display links are urlencoded/multipart POSTs served
-    // by our own Drupal proxy (server/utils/drupal-proxy.ts) — keep the
-    // module's global form handler off them. Exact path match, query string
-    // ignored, so the display links name the one media type the editor's
-    // opener allows.
-    disableFormHandler: [
-      '/media-library',
-      '/views/ajax',
-      '/admin/content/media-widget/image',
-      '/admin/content/media-widget-table/image',
-      // The page file upload streams its body on to Drupal itself.
-      '/api/files/upload',
-    ],
+    // The page file upload streams its body on to Drupal itself.
+    disableFormHandler: ['/api/files/upload'],
     // The Canvas page builder is not part of this app, so the component
     // preview endpoint and its component-index build step are off.
     enableComponentPreview: false,

@@ -35,7 +35,6 @@ import { mapEditorItems } from '@nuxt/ui/utils/editor'
 import { approvalStanding, blockMenuItems, NO_BLOCK_MENU, type BlockMenuNode } from '~/editor/block-menu'
 import { parseMarkdownToJson, serializeDocToMarkdown } from '~/comark/markdown-engine'
 import { comarkHandlers, insertToolbarItem, slashItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
-import { setMediaPickerNode } from '~/composables/useMediaLibraryPicker'
 import { useDocLinkSearch } from '~/composables/useDocLinkSearch'
 import { caretInBlock } from '~/editor/cite-insert'
 import type { WritableComputedRef } from 'vue'
@@ -82,11 +81,6 @@ export async function useEditorSession(
   enforced: Ref<readonly ReviewStep[]>,
   mayModerate: Ref<boolean>,
 ) {
-  // The media picker's access rides on this page (update access on the
-  // node); the menu actions have no route context, so hand the nid over.
-  if (import.meta.client) {
-    setMediaPickerNode(nid.value)
-  }
   // Manual fetch via useAsyncData so we get the data ref synchronously
   // and can defer awaiting until after every lifecycle composable has
   // registered (Vue's currentInstance / Nuxt's implicit context both

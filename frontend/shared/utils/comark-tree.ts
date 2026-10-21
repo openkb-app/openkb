@@ -10,9 +10,9 @@
  *
  * The passes:
  * - `::block{#id}` wrapper fences dissolve into their children.
- * - `::image{media="…"}` UUIDs resolve through the caller's resolver in one
- *   batch, `doc` components (`:doc[Label]{nid="42"}`, shared/utils/doc-links.ts)
- *   likewise. The doc resolver is the reader's own: a reader who may see the
+ * - `::image{file="…"}` and `::attachment{file="…"}` UUIDs resolve through the
+ *   caller's resolver in one batch, `doc` components (`:doc[Label]{nid="42"}`,
+ *   shared/utils/doc-links.ts) likewise. The doc resolver is the reader's own: a reader who may see the
  *   target gets its live title, one who may not gets the author's stored label.
  * - `citation` components (`:citation{nid="42" block="b-4f2a" v="…"}`,
  *   shared/utils/citations.ts) resolve the same way, with the cited pages'
@@ -35,7 +35,6 @@
  * {@link dataImages} widens the parser's `data:` check.
  */
 import { BLOCK_ID_PREFIX } from '#shared/page-blocks'
-import { MEDIA_UUID_RE, type ResolvedMedia } from './media'
 import { isFileUuid, type ResolvedFile } from './files'
 import { DOC_LINK_TAG, docLinkHref, docLinkTarget, type ResolvedDoc } from '#shared/utils/doc-links'
 import {
@@ -147,14 +146,11 @@ const LINKABLE_BLOCKS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'])
 /** How much of a block's own text its link quotes. */
 const LINK_NAME_LIMIT = 48
 
-export type MediaResolver = (uuids: string[]) => Promise<Record<string, ResolvedMedia>>
 export type FileResolver = (uuids: string[]) => Promise<Record<string, ResolvedFile>>
 export type DocResolver = (nids: number[]) => Promise<Record<number, ResolvedDoc>>
 export type CiteResolver = (nids: number[]) => Promise<Record<number, ResolvedCite>>
 
 export interface TreeOptions {
-  /** Resolves `::image{media="…"}` UUIDs to render URLs, in one batch. */
-  resolveMedia?: MediaResolver
   /**
    * Resolves the page files `::attachment{file}` and `::image{file}` name, in
    * one batch and under the caller's own carrier (ADR 0020).
@@ -266,20 +262,17 @@ export async function cleanTree(
   options: TreeOptions = {},
 ): Promise<ComarkNode[]> {
   if (nodes.length === 0) return []
-  const uuids = collectMediaUuids(nodes)
   const fileUuids = collectFileUuids(nodes)
   const docNids = collectDocNids(nodes)
   const citedNids = options.resolveCites ? collectCiteNids(nodes) : []
   // Two reads, not one: resolving a citation reads the cited page's whole body
   // to hash its blocks, and a document link needs none of that.
-  const [media, files, docs, cited] = await Promise.all([
-    uuids.length > 0 && options.resolveMedia ? options.resolveMedia(uuids) : {},
+  const [files, docs, cited] = await Promise.all([
     fileUuids.length > 0 && options.resolveFiles ? options.resolveFiles(fileUuids) : {},
     docNids.length > 0 && options.resolveDocs ? options.resolveDocs(docNids) : {},
     citedNids.length > 0 && options.resolveCites ? options.resolveCites(citedNids) : {},
   ])
   const ctx: PassContext = {
-    media,
     files,
     docs,
     cites: options.resolveCites ? { resolved: cited, numbers: new Map() } : undefined,
@@ -293,7 +286,6 @@ export async function cleanTree(
 
 /** What the passes carry down: everything resolved up front, plus the switches. */
 interface PassContext {
-  media: Record<string, ResolvedMedia>
   files: Record<string, ResolvedFile>
   docs: Record<number, ResolvedDoc>
   /** The cited pages, and the numbers handed out so far. Absent drops citations. */
@@ -591,19 +583,6 @@ function dissolveBlockFences(nodes: ComarkNode[]): ComarkNode[] {
   })
 }
 
-/** Only well-formed ids are collected — see {@link MEDIA_UUID_RE}. */
-function collectMediaUuids(nodes: ComarkNode[], out: Set<string> = new Set()): string[] {
-  for (const node of nodes) {
-    if (typeof node === 'string') continue
-    const [tag, props, ...children] = node
-    if (tag === 'image' && typeof props?.media === 'string' && MEDIA_UUID_RE.test(props.media)) {
-      out.add(props.media)
-    }
-    collectMediaUuids(children, out)
-  }
-  return [...out]
-}
-
 /** The page files `::attachment{file}` / `::image{file}` name, once each. */
 function collectFileUuids(nodes: ComarkNode[], out: Set<string> = new Set()): string[] {
   for (const node of nodes) {
@@ -794,7 +773,6 @@ export function collectText(nodes: ComarkNode[]): string {
  * `file` only and renders a placeholder.
  */
 function fileProps(tag: string, props: ComarkProps, ctx: PassContext): ComarkProps {
-  if (tag === 'image' && typeof props.file !== 'string') return imageProps(props, ctx.media)
   // Only the resolved file sets these: an author's `url` could be `javascript:`.
   const own = Object.fromEntries(Object.entries(props).filter(([name]) => !RESOLVED_FILE_PROPS.has(name)))
   const file = typeof props.file === 'string' ? ctx.files[props.file] : undefined
@@ -804,23 +782,6 @@ function fileProps(tag: string, props: ComarkProps, ctx: PassContext): ComarkPro
 }
 
 const RESOLVED_FILE_PROPS = new Set(['url', 'name', 'size', 'mime', 'src'])
-
-/**
- * The props a resolved image renders with: per-embed alt overrides the
- * media entity's own; an unresolvable UUID keeps `media`/`alt` only and
- * the renderer shows a hole (no src).
- */
-function imageProps(props: ComarkProps, media: Record<string, ResolvedMedia>): ComarkProps {
-  const item = typeof props.media === 'string' ? media[props.media] : undefined
-  if (!item) return props
-  return {
-    ...props,
-    src: item.url,
-    alt: (typeof props.alt === 'string' && props.alt !== '') ? props.alt : item.alt,
-    width: item.width ?? undefined,
-    height: item.height ?? undefined,
-  }
-}
 
 /** Attribute names HTML allows. Anything else cannot be an attribute. */
 const ATTR_NAME = /^[A-Za-z][A-Za-z0-9:_.-]*$/

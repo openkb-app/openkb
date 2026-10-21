@@ -78,9 +78,9 @@ describe('unquoted props survive the load path', () => {
       .toMatchObject({ title: 'Heads-up' })
   })
 
-  test('image keeps an unquoted media uuid', () => {
-    expect(firstBlock('::image{media=abc-123 alt=Logo}\n::')?.attrs)
-      .toMatchObject({ media: 'abc-123', alt: 'Logo' })
+  test('image keeps an unquoted file uuid', () => {
+    expect(firstBlock('::image{file=abc-123 alt=Logo}\n::')?.attrs)
+      .toMatchObject({ file: 'abc-123', alt: 'Logo' })
   })
 
   test('mention keeps an unquoted uid', () => {
