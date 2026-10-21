@@ -6,7 +6,6 @@ dependencies:
     - rest.resource.rest_menu_item
   module:
     - filter
-    - media
     - rest
     - system
 id: anonymous
@@ -17,4 +16,3 @@ permissions:
   - 'access content'
   - 'restful get rest_menu_item'
   - 'use text format restricted_html'
-  - 'view media'

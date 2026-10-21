@@ -5,7 +5,9 @@ dependencies:
     - core.entity_form_mode.node.frontmatter
     - field.field.node.kb_page.field_block_meta
     - field.field.node.kb_page.field_contributors
+    - field.field.node.kb_page.field_kb_attachments
     - field.field.node.kb_page.field_kb_body
+    - field.field.node.kb_page.field_kb_images
     - field.field.node.kb_page.field_owner
     - field.field.node.kb_page.field_space
     - field.field.node.kb_page.field_summary
@@ -60,7 +62,9 @@ hidden:
   created: true
   field_block_meta: true
   field_contributors: true
+  field_kb_attachments: true
   field_kb_body: true
+  field_kb_images: true
   field_space: true
   path: true
   promote: true

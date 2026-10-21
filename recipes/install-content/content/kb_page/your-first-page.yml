@@ -7,7 +7,7 @@ _meta:
   depends:
     0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
     7d8db27c-9c97-5673-bf38-54729776460d: taxonomy_term
-    31f88b49-522e-53ce-a819-da9df9b9862c: media
+    763861a6-da15-56be-baeb-4c9a76212407: file
 default:
   status:
     -
@@ -58,6 +58,13 @@ default:
   field_space:
     -
       entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_images:
+    -
+      entity: 763861a6-da15-56be-baeb-4c9a76212407
+      alt: ''
+      title: ''
+      width: 1280
+      height: 800
   field_kb_body:
     -
       format: comark
@@ -84,7 +91,7 @@ default:
         7. Or click "Save" to keep the page as a draft in its history without publishing. The editor closes and the page shows the "Draft" badge.
         ::
 
-        ::image{media="31f88b49-522e-53ce-a819-da9df9b9862c" alt="The OpenKB editor with a new page open: the title, a heading and a paragraph below it, and the block gutter beside them." #b-64ab2f8f}
+        ::image{file="763861a6-da15-56be-baeb-4c9a76212407" alt="The OpenKB editor with a new page open: the title, a heading and a paragraph below it, and the block gutter beside them." #b-64ab2f8f}
         ::
 
         To edit an existing page later, open it and click "Edit", or double-click a paragraph. The X button, "Close editor", leaves the editor. {#b-35ecb6ce}

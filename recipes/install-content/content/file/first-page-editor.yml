@@ -14,7 +14,7 @@ default:
   # the URI.
   uri:
     -
-      value: 'public://user-guide/first-page-editor.png'
+      value: 'private://user-guide/first-page-editor.png'
   filemime:
     -
       value: image/png

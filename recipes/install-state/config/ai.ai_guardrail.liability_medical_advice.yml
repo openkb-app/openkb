@@ -18,3 +18,7 @@ guardrail_settings:
     medical prognosis
   invalid_topics_present_message: 'This assistant cannot provide medical advice. Please consult a qualified healthcare professional.'
   valid_topics_missing_message: ''
+  llm_provider: openai
+  llm_model: gpt-6-luna
+  llm_config:
+    reasoning_effort: none

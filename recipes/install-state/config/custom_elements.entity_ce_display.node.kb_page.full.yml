@@ -5,7 +5,9 @@ dependencies:
     - core.entity_view_mode.node.full
     - field.field.node.kb_page.field_block_meta
     - field.field.node.kb_page.field_contributors
+    - field.field.node.kb_page.field_kb_attachments
     - field.field.node.kb_page.field_kb_body
+    - field.field.node.kb_page.field_kb_images
     - field.field.node.kb_page.field_owner
     - field.field.node.kb_page.field_space
     - field.field.node.kb_page.field_summary
@@ -20,6 +22,14 @@ useLayoutBuilder: false
 forceAutoProcessing: false
 customElementName: node-kb-page
 content:
+  attachments:
+    formatter: entity_reference
+    field_name: field_kb_attachments
+    is_slot: false
+    weight: 2
+    configuration:
+      include_label: true
+      include_uuid: true
   blockMeta:
     formatter: raw
     field_name: field_block_meta
@@ -40,6 +50,14 @@ content:
     field_name: field_contributors
     is_slot: false
     weight: -3
+    configuration:
+      include_label: true
+      include_uuid: true
+  images:
+    formatter: entity_reference
+    field_name: field_kb_images
+    is_slot: false
+    weight: 3
     configuration:
       include_label: true
       include_uuid: true

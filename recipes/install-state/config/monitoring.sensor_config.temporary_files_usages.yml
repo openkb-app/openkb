@@ -3,7 +3,7 @@ status: true
 dependencies: {  }
 id: temporary_files_usages
 label: 'Used temporary files'
-description: 'Files still marked temporary. The editor uploads an image as a temporary file and the media entity claims it on save, so a lasting count means uploads are not being claimed.'
+description: 'Files still marked temporary. The editor uploads a file as a temporary file and the page claims it on save, so a lasting count means uploads are not being claimed.'
 category: Other
 plugin_id: temporary_files_usages
 result_class: null
