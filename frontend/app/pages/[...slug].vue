@@ -41,12 +41,16 @@ if (!page.value?.content) {
 // Re-fetch the enriched CE page and reseat it so the read view renders what a
 // session left in Drupal — the payload fetched at page load is stale after a
 // save. Only the fetch owner can do this: a CE component receives its element's
-// props and slots, not the page wrapper the body slot is bound to. A failed
-// refresh keeps the current payload; the reader can still reload.
+// props and slots, not the page wrapper the body slot is bound to. A published
+// rename moves the page, so its old path answers a redirect: follow it. A
+// failed refresh keeps the current payload; the reader can still reload.
 async function refresh() {
   try {
     const fresh = await $fetch<typeof page.value>(`/api/drupal-ce${route.path}`)
-    if (fresh?.content) page.value = { ...fresh, key: page.value.key }
+    if (fresh?.redirect) {
+      await navigateTo(fresh.redirect.url, { replace: true, external: fresh.redirect.external })
+    }
+    else if (fresh?.content) page.value = { ...fresh, key: page.value.key }
   }
   catch (err) {
     console.error('[kb-page] post-edit refresh failed:', err)

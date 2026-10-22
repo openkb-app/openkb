@@ -13,6 +13,8 @@ export interface KbCePage {
   content?: unknown
   local_tasks?: { primary?: LocalTask[] }
   messages?: DrupalMessages
+  /** Set instead of `content` when the path moved, e.g. by a rename. */
+  redirect?: { url: string, external?: boolean, statusCode?: number }
   key?: unknown
 }
 

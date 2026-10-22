@@ -32,6 +32,7 @@ interface EditSessionOptions {
  */
 export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOptions) {
   const route = useRoute()
+  const router = useRouter()
   const toast = useToast()
   const { trailFor } = useKbOutline()
 
@@ -178,12 +179,15 @@ export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOpti
   // Save and Close exit identically: fresh read payload (via the catch-all's
   // reseat), then the same transition as read→edit (symmetric in/out), and no
   // ?edit left in the URL (a reload after exiting must not reopen the editor).
+  // The router's route, not this page's: the refresh follows a rename to the
+  // page's new path, and this page's route stays on the old one.
   async function exitToRead() {
     await refreshPage()
     swap('read')
-    if (route.query.edit !== undefined) {
-      const { edit: _drop, ...query } = route.query
-      navigateTo({ path: route.path, query }, { replace: true })
+    const current = router.currentRoute.value
+    if (current.query.edit !== undefined) {
+      const { edit: _drop, ...query } = current.query
+      navigateTo({ path: current.path, query }, { replace: true })
     }
   }
 

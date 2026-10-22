@@ -19,11 +19,9 @@ const createdMs = computed(() => {
   return Number.isNaN(ms) ? null : ms
 })
 
-// The app's own last-updated vocabulary. The bucket comes from an epoch
-// difference, so server-rendered and hydrating client agree whatever zone each
-// is in; the exact moment is in the tooltip.
-const now = Date.now()
-const whenLabel = computed(() => lastUpdatedLabel(createdMs.value, now))
+// The app's own last-updated vocabulary; the exact moment is in the tooltip.
+const now = useKbNow()
+const whenLabel = computed(() => lastUpdatedLabel(createdMs.value, now.value))
 const whenTitle = computed(() => absoluteDate(createdMs.value) ?? undefined)
 </script>
 

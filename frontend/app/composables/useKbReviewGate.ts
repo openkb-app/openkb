@@ -18,7 +18,7 @@ type Moderation = ReturnType<typeof useModerationStatus>
  * block Drupal did not name. The publish endpoint's own refusal settles a race.
  */
 export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Moderation) {
-  const { session, editorInstance, mode, exitToRead, refreshPage, goToBlockId: goToCommentBlock } = editSession
+  const { session, editorInstance, mode, exitToRead, goToBlockId: goToCommentBlock } = editSession
   const { status: moderationStatus, publish, publishBlockers } = moderation
 
   const pane = useSidePane()
@@ -157,15 +157,14 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
 
   /**
    * Publishing makes the working copy the live revision, so the read view under
-   * the editor is stale afterwards; publishing from the editor ends on the
-   * published page. `exitToRead` is the same exit Save and Close take, so the
-   * refetch, the transition and the dropped `?edit` are identical however the
-   * session ends. A refusal opens the surface on the blocks the gate is holding.
+   * the editor is stale afterwards; publishing ends on the published page.
+   * `exitToRead` is the same exit Save and Close take, so the refetch, the
+   * transition and the dropped `?edit` are identical however the session ends.
+   * A refusal opens the surface on the blocks the gate is holding.
    */
   async function publishPage() {
     if (await publish()) {
-      if (mode.value === 'edit') await exitToRead()
-      else await refreshPage()
+      await exitToRead()
       return
     }
     if (publishBlockers.value.length > 0) reviewOpen.value = true

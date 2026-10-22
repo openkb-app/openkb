@@ -8,7 +8,7 @@ const RAW_HREF = '/api/kb/general/getting-started.md'
 interface Copies { published: number, plain: [string, string][] }
 
 /**
- * The strip in a bare Vue app, with the two copy composables and `useState`
+ * The strip in a bare Vue app, with the two copy composables and `useKbNow`
  * stubbed — what is under test is which act each mode offers, not how a badge
  * or an icon renders.
  */
@@ -20,7 +20,7 @@ function mount(props: {
 }) {
   const copies: Copies = { published: 0, plain: [] }
   const edited: string[] = []
-  vi.stubGlobal('useState', (_key: string, init: () => number) => ref(init()))
+  vi.stubGlobal('useKbNow', () => ref(Date.now()))
   vi.stubGlobal('useCopyMarkdown', () => ({
     copy: () => { copies.published++ },
     copying: ref(false),

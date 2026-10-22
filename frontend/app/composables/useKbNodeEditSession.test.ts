@@ -18,13 +18,17 @@ vi.mock('~/editor/review-marks', () => ({ addressableBlocks: () => [] }))
 
 const route = reactive<{ path: string, query: Record<string, string> }>({ path: '/kb/page', query: {} })
 const navigateTo = vi.fn()
+/** The router's current route: the page's own until a refresh navigates away. */
+let current: { path: string, query: Record<string, string> } = route
 
 function stubNuxt() {
   route.query = { edit: '' }
   navigateTo.mockReset()
+  current = route
   const vueGlobals = { computed, nextTick, onErrorCaptured, onScopeDispose, provide, ref, shallowRef, watch, watchEffect }
   for (const [name, fn] of Object.entries(vueGlobals)) vi.stubGlobal(name, fn)
   vi.stubGlobal('useRoute', () => route)
+  vi.stubGlobal('useRouter', () => ({ currentRoute: { get value() { return current } } }))
   vi.stubGlobal('useToast', () => ({ add: () => {} }))
   vi.stubGlobal('useKbOutline', () => ({ trailFor: () => ({ space: null, nodes: [] }) }))
   vi.stubGlobal('navigateTo', navigateTo)
@@ -32,8 +36,8 @@ function stubNuxt() {
   vi.stubGlobal('refreshNuxtData', async () => {})
 }
 
-function mounted() {
-  const env = { canEdit: ref(true), title: ref('Page'), refresh: async () => {} } as unknown as KbCePageContext
+function mounted(refresh = async () => {}) {
+  const env = { canEdit: ref(true), title: ref('Page'), refresh } as unknown as KbCePageContext
   let result!: ReturnType<typeof useKbNodeEditSession>
   const app = createApp(defineComponent({
     setup() {
@@ -141,6 +145,24 @@ describe('useKbNodeEditSession', () => {
 
     expect(navigateTo).toHaveBeenCalledWith({ path: '/kb/page', query: {} }, { replace: true })
     expect(session.mode.value).toBe('read')
+    unmount()
+  })
+
+  it('exiting drops ?edit from the page', async () => {
+    const { session, unmount } = mounted()
+
+    await session.exitToRead()
+
+    expect(navigateTo).toHaveBeenCalledWith({ path: '/kb/page', query: {} }, { replace: true })
+    unmount()
+  })
+
+  it('exiting stays where the refresh moved a renamed page', async () => {
+    const { session, unmount } = mounted(async () => { current = { path: '/kb/renamed', query: {} } })
+
+    await session.exitToRead()
+
+    expect(navigateTo).not.toHaveBeenCalled()
     unmount()
   })
 

@@ -9,7 +9,7 @@
 //
 // The Vue imports are explicit, not auto-imported: the component is rendered
 // by its own vitest suite outside a Nuxt app.
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed } from 'vue'
 import { absoluteDate, changedToMs, docTypeLabel, lastUpdatedLabel } from '#shared/utils/kb-meta'
 
 const props = defineProps<{
@@ -37,19 +37,7 @@ const emit = defineEmits<{
 const typeLabel = computed(() => docTypeLabel(props.docType))
 const changedMs = computed(() => changedToMs(props.changed))
 
-// The instant the label is measured against. Shared with the server render
-// through the payload, so the hydrating client lands in the same bucket — two
-// `Date.now()` calls either side of a minute boundary render different words
-// and that is a hydration mismatch. Re-read and then ticked once a minute from
-// mounted, past hydration, so a page left open stops claiming "just now" after
-// a peer's save.
-const now = useState('kb-updated-now', () => Date.now())
-let timer: ReturnType<typeof setInterval> | null = null
-onMounted(() => {
-  now.value = Date.now()
-  timer = setInterval(() => (now.value = Date.now()), 60_000)
-})
-onBeforeUnmount(() => { if (timer) clearInterval(timer) })
+const now = useKbNow()
 
 const updatedLabel = computed(() => lastUpdatedLabel(changedMs.value, now.value))
 const updatedTitle = computed(() => absoluteDate(changedMs.value) ?? undefined)
