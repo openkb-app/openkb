@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import * as Y from 'yjs'
+import { addPageFile } from '#shared/utils/page-files'
+import { seedFiles } from './commit-files'
 import type { H3Event } from 'h3'
 import type { CommitResult } from './commit'
 import { checkpointLiveDocument, moderationWriteError } from './moderation-session'
@@ -36,7 +39,7 @@ function event(headers: Record<string, string> = {}): H3Event {
   return { node: { req: { headers } } } as unknown as H3Event
 }
 
-const hp = (live: boolean) => ({ documents: new Map(live ? [['node:1', {}]] : []) })
+const hp = (live: boolean, doc = new Y.Doc()) => ({ documents: new Map(live ? [['node:1', doc]] : []) })
 
 describe('checkpointLiveDocument', () => {
   beforeEach(() => {
@@ -66,6 +69,28 @@ describe('checkpointLiveDocument', () => {
     await checkpointLiveDocument(hp(true), 'node:1', event({ authorization: 'Bearer tok-123', cookie: 'SESS=x' }))
 
     expect(checkpoint).toHaveBeenCalledWith('node:1', 'manual', { token: 'tok-123' })
+  })
+
+  it('blocks an agent\'s publish while a file waits for the session checkpoint', async () => {
+    const doc = new Y.Doc()
+    seedFiles(doc, { attachments: [], images: [] })
+    addPageFile(doc, 'attachments', '11111111-2222-4333-8444-555555555555')
+
+    expect(await checkpointLiveDocument(hp(true, doc), 'node:1', event({ authorization: 'Bearer tok-123' })))
+      .toMatchObject({ blocked: true, statusCode: 409 })
+    // A person's checkpoint is the session checkpoint and writes the file.
+    expect(await checkpointLiveDocument(hp(true, doc), 'node:1', event({ cookie: 'SESS=reviewer' })))
+      .toEqual({ blocked: false })
+  })
+
+  it('reports the real refusal of an agent\'s checkpoint over a pending file', async () => {
+    const doc = new Y.Doc()
+    seedFiles(doc, { attachments: [], images: [] })
+    addPageFile(doc, 'attachments', '11111111-2222-4333-8444-555555555555')
+    checkpoint.mockResolvedValue({ outcome: 'invalid', committed: false, message: 'Title is required.' })
+
+    expect(await checkpointLiveDocument(hp(true, doc), 'node:1', event({ authorization: 'Bearer tok-123' })))
+      .toMatchObject({ blocked: true, statusCode: 422, message: 'Title is required.' })
   })
 
   it('does not checkpoint a page nobody is editing', async () => {

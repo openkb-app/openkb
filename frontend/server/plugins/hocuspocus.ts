@@ -1102,7 +1102,9 @@ export default defineNitroPlugin((nitroApp) => {
         // Fields and block ids ride the checkpoint payload.
         hooks: mergeCommitHooks(
           fieldsCommitHooks(fieldSource.fetchSpecs),
-          filesCommitHooks(),
+          // Drupal takes page files from a session checkpoint only (ADR 0020):
+          // an agent's own write leaves them pending for the next one.
+          agentCarrier ? {} : filesCommitHooks(),
           // Two reasons to write that the body hash cannot see.
           //  - A window whose writers Drupal has not recorded yet: the text
           //    may already be in Drupal (an agent wrote it) and the credit is

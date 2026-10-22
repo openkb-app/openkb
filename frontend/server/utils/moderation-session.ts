@@ -1,7 +1,9 @@
 import { getHeader, createError, type H3Event } from 'h3'
 import type { Hocuspocus } from '@hocuspocus/server'
+import type * as Y from 'yjs'
 import { resolveActor } from './actor'
 import type { CommitIdentity } from './commit'
+import { dirtyFileKeys } from './commit-files'
 import { useCheckpoint } from './hocuspocus'
 import type { Violation } from './upstream'
 
@@ -79,8 +81,15 @@ export async function checkpointLiveDocument(
     // edit any client typed (the commit itself refuses to write empty over
     // content), so there is nothing the action could lose: Drupal's working
     // copy is the whole truth, exactly as with no document at all.
-    case 'empty-body':
+    case 'empty-body': {
+      // An agent's checkpoint leaves page files to the next session checkpoint
+      // (ADR 0020); acting before that one runs would leave them out.
+      const doc = hp.documents.get(docName) as unknown as Y.Doc | undefined
+      if (identity.token && doc && dirtyFileKeys(doc).length > 0) {
+        return { blocked: true, statusCode: 409, message: 'A file is still being added to this page — try again in a few seconds.' }
+      }
       return { blocked: false }
+    }
     case 'conflict':
       return {
         blocked: true,

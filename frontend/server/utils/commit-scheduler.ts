@@ -83,7 +83,14 @@ export class CheckpointScheduler {
     this.onActivity(docName)
     const s = this.state(docName)
     if (s.inFlight) s.uploadPending = ms
-    else if (!s.upload) s.upload = this.setTimer(() => this.fire(docName, 'quiet'), ms)
+    else if (!s.upload) {
+      s.upload = this.setTimer(() => {
+        s.upload = null
+        // An agent's run keeps this timer armed; firing into it waits it out.
+        if (s.inFlight) s.uploadPending = ms
+        else void this.fire(docName, 'quiet')
+      }, ms)
+    }
   }
 
   /**
@@ -140,11 +147,12 @@ export class CheckpointScheduler {
   }
 
   /** Both timers off, and no queued terminal run — disarm means disarm. */
-  private clearTimers(s: DocState): void {
+  private clearTimers(s: DocState, { keepUpload = false } = {}): void {
     if (s.quiet) { this.clearTimer(s.quiet); s.quiet = null }
     if (s.max) { this.clearTimer(s.max); s.max = null }
-    if (s.upload) { this.clearTimer(s.upload); s.upload = null }
     s.terminal = false
+    if (keepUpload) return
+    if (s.upload) { this.clearTimer(s.upload); s.upload = null }
     s.uploadPending = null
   }
 
@@ -182,7 +190,10 @@ export class CheckpointScheduler {
   ): Promise<CommitResult> {
     const s = this.state(docName)
     s.inFlight = true
-    this.clearTimers(s)
+    // An agent's own run leaves page files to a session checkpoint (ADR 0020),
+    // so the upload timer stays armed for that one.
+    if (identity?.token !== undefined) this.clearTimers(s, { keepUpload: true })
+    else this.clearTimers(s)
     const run = (async (): Promise<CommitResult> => {
       let result: CommitResult
       try {
