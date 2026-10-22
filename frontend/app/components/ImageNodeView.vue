@@ -73,7 +73,7 @@ function startResize(event: PointerEvent, side: -1 | 1): void {
     >
       <img
         :src="src"
-        :alt="alt || undefined"
+        :alt="alt || ''"
         class="block max-w-full"
         :class="{ 'w-full': width, 'rounded-lg ring-2 ring-primary': props.selected }"
         draggable="false"

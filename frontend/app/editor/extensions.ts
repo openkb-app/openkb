@@ -34,6 +34,7 @@ import { codeHighlightPlugin } from './code-highlight'
 import { DocLinkSelection } from './doc-link-selection'
 import { LinkOpen } from './link-open'
 import { LinkTargetKeys } from './link-target'
+import { PageImageFileHandler } from './paste-image'
 import { SelectionKeydownSync } from './selection-sync'
 
 /**
@@ -87,6 +88,7 @@ export function buildEditorExtensions() {
     DocLinkSelection,
     LinkOpen,
     LinkTargetKeys,
+    PageImageFileHandler,
     CiteNumbers,
     BlockId,
     BlockWrapper,

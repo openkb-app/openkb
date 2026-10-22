@@ -1,5 +1,6 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
+import type { ResolvedPos } from '@tiptap/pm/model'
 import { insertPageFile, selectedEmbed } from '~/editor/page-file-insert'
 import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
@@ -61,13 +62,12 @@ const LIST_TYPES = ['bulletList', 'orderedList', 'taskList']
 /**
  * GFM has no tables inside lists — a table swallowed into a list item
  * serializes to indented markdown that comark renders as literal text. When
- * the caret sits in a list, the position after the outermost enclosing list
- * is where the table must go instead.
+ * `$pos` (default: the caret) sits in a list, the position after the
+ * outermost enclosing list is where the table must go instead.
  */
-function posAfterEnclosingList(editor: Editor): number | null {
-  const { $from } = editor.state.selection
-  for (let depth = 1; depth <= $from.depth; depth++) {
-    if (LIST_TYPES.includes($from.node(depth).type.name)) return $from.after(depth)
+export function posAfterEnclosingList(editor: Editor, $pos: ResolvedPos = editor.state.selection.$from): number | null {
+  for (let depth = 1; depth <= $pos.depth; depth++) {
+    if (LIST_TYPES.includes($pos.node(depth).type.name)) return $pos.after(depth)
   }
   return null
 }

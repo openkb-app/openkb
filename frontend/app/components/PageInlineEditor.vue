@@ -197,7 +197,7 @@ function embedBubbleShouldShow({ editor, view }: { editor: Editor, view: EditorV
 const SCROLL_ROOM = { top: 96, bottom: 160, left: 0, right: 0 }
 
 const editorProps = {
-  attributes: { id: 'page-editor' },
+  attributes: { 'id': 'page-editor', 'aria-label': 'Page text' },
   scrollThreshold: SCROLL_ROOM,
   scrollMargin: SCROLL_ROOM,
 }

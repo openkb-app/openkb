@@ -139,8 +139,8 @@ function embedNode(kind: FilePickKind, uuid: string) {
 const NODE_KINDS: Record<string, FilePickKind> = { image: 'image', attachment: 'file', embed: 'embed' }
 
 /**
- * Uploads `files`, inserting one embed of `kind` per file at `insertAt`,
- * followed through every edit until the uploads settle.
+ * Uploads `files`, inserting one embed of `kind` per file at `insertAt`, in
+ * the order given, followed through every edit until the uploads settle.
  * Offline refuses: the file has to reach Drupal before anything refers to it.
  */
 export async function uploadIntoEditor(editor: Editor, kind: FilePickKind, files: File[], insertAt: number): Promise<void> {
@@ -148,13 +148,14 @@ export async function uploadIntoEditor(editor: Editor, kind: FilePickKind, files
   const at = trackRange(editor, insertAt)
   try {
     const doc = sessionDoc(editor)
-    await Promise.all(files.map(async (file) => {
-      const uuid = await uploadPageFile(doc, pickKey(kind), file)
-      if (!uuid || editor.isDestroyed) return
+    const uploads = files.map(file => uploadPageFile(doc, pickKey(kind), file))
+    for (const upload of uploads) {
+      const uuid = await upload
+      if (!uuid || editor.isDestroyed) continue
       const node = embedNode(kind, uuid)
       const pos = at.current()?.from ?? editor.state.doc.content.size
       editor.chain().insertContentAt(Math.min(pos, editor.state.doc.content.size), node).run()
-    }))
+    }
   }
   finally {
     at.stop()

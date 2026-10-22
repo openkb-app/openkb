@@ -16,7 +16,7 @@ const FILE = '66666666-7777-4888-9999-000000000000'
 const shot = () => new File(['png'], 'shot.png', { type: 'image/png' })
 
 /** XHRs sent so far, with their headers; `answer()` finishes one with FILE, `refuse()` with a 422. */
-const sent: Array<{ headers: Record<string, string>, answer: () => void, refuse: () => void }> = []
+const sent: Array<{ headers: Record<string, string>, answer: (id?: string) => void, refuse: () => void }> = []
 
 /** Toasts shown, by id; removed ones are dropped. */
 const toasts = new Map<string, { title?: string, description?: string, color?: string }>()
@@ -39,9 +39,9 @@ class FakeXhr {
   send() {
     sent.push({
       headers: this.headers,
-      answer: () => {
+      answer: (id = FILE) => {
         this.status = 201
-        this.responseText = JSON.stringify({ id: FILE })
+        this.responseText = JSON.stringify({ id })
         this.events.dispatchEvent(new Event('load'))
       },
       refuse: () => {
@@ -113,6 +113,17 @@ describe('uploadIntoEditor', () => {
     sent[0]!.answer()
     await done
     expect(blocks()).toEqual(['Peer: First.', `image:${FILE}`, 'Second. More.'])
+  })
+
+  it('inserts several files in the order given, whichever upload lands first', async () => {
+    const second = '66666666-7777-4888-9999-000000000002'
+    mountShared('First.\n\nSecond.')
+    const done = uploadIntoEditor(editor, 'image', [shot(), shot()], editor.state.doc.child(0).nodeSize)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    sent[1]!.answer(second)
+    sent[0]!.answer()
+    await done
+    expect(blocks()).toEqual(['First.', `image:${FILE}`, `image:${second}`, 'Second.'])
   })
 })
 
