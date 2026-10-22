@@ -3823,7 +3823,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "65982652d881f1ef9c7bea907a16fddc278a9b95"
+                "reference": "f168b8cdc53eed50f620258b2a1a17a779079565"
             },
             "require": {
                 "drupal/ai": "^1.5.1",
@@ -3888,7 +3888,8 @@
                         "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call or completion/complete that loads an entity is answered as text/event-stream instead of application/json. src/ part of MR !69, against 2.0.0-beta5; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-fiber-shield.patch"
                     },
                     "drupal/mcp_server_tool_bridge": {
-                        "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch"
+                        "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch",
+                        "OKB-506: Pass a tool's description to its MCP definition as Markup, so the @text placeholder does not HTML-escape the quotes and angle brackets an agent reads in tools/list. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-plain-text-tool-descriptions.patch"
                     }
                 }
             },
@@ -3900,7 +3901,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-10-22T06:47:44+00:00"
+            "time": "2026-10-22T06:48:27+00:00"
         },
         {
             "name": "drupal/pathauto",
