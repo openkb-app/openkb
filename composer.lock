@@ -3823,7 +3823,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "bc7043cd1137335966372198cde25558aaaa1ce1"
+                "reference": "2af1ebf2dfed8a2de140fd6b121a62e64ce3564c"
             },
             "require": {
                 "drupal/ai": "^1.5.1",
@@ -3839,7 +3839,7 @@
                 "drupal/pathauto": "^1.15.0",
                 "drupal/search_api": "^1.41.0",
                 "drupal/search_api_opensearch": "^2.5.0",
-                "drupal/simple_oauth": "^6.1.1",
+                "drupal/simple_oauth": "^6.1.3",
                 "drupal/tool": "1.0.0-beta9",
                 "php": ">=8.3"
             },
@@ -3889,10 +3889,6 @@
                     },
                     "drupal/mcp_server_tool_bridge": {
                         "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch"
-                    },
-                    "drupal/simple_oauth": {
-                        "OKB-73: Vary calculated permissions by the token subject's roles (drupal.org issue pending)": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/simple_oauth-token-subject-roles-cache-context.patch",
-                        "OKB-75: Apply the scope intersect to the token subject computed under an ambient token (drupal.org issue pending)": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/simple_oauth-scope-ceiling-ambient-subject.patch"
                     }
                 }
             },
@@ -3904,7 +3900,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-10-21T20:44:12+00:00"
+            "time": "2026-10-22T05:42:19+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -4300,20 +4296,20 @@
         },
         {
             "name": "drupal/simple_oauth",
-            "version": "6.1.1",
+            "version": "6.1.3",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/simple_oauth.git",
-                "reference": "6.1.1"
+                "reference": "6.1.3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/simple_oauth-6.1.1.zip",
-                "reference": "6.1.1",
-                "shasum": "ab22683835ac3300676618f1e59acb327b4989db"
+                "url": "https://ftp.drupal.org/files/projects/simple_oauth-6.1.3.zip",
+                "reference": "6.1.3",
+                "shasum": "11a6c471a13339dae6d9b4dded1df9107823d881"
             },
             "require": {
-                "drupal/consumers": "^1.17",
+                "drupal/consumers": "^1.24",
                 "drupal/core": "^10.3 || ^11",
                 "league/oauth2-server": "^9.0",
                 "php": ">=8.1",
@@ -4326,8 +4322,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "6.1.1",
-                    "datestamp": "1779441676",
+                    "version": "6.1.3",
+                    "datestamp": "1792605223",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
