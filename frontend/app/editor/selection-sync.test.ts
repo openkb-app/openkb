@@ -176,6 +176,25 @@ describe('an unread caret move', () => {
     expect(view.state.selection.head).toBe(PARA_ONE)
   })
 
+  it('survives the selection PM writes back after focus', async () => {
+    const view = mount()
+    caretAt(view, PARA_ONE)
+    view.dom.dispatchEvent(new FocusEvent('blur'))
+    // Lets the blur's DOM records reach PM, as a browser has by the next focus.
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // A busy page runs PM's focus timer before the `selectionchange` read.
+    const holdBack = (event: Event) => event.stopImmediatePropagation()
+    window.addEventListener('selectionchange', holdBack, true)
+    view.dom.dispatchEvent(new FocusEvent('focus'))
+    pressCaretKey(view, 1, 1)
+    await new Promise(resolve => setTimeout(resolve, 50))
+    window.removeEventListener('selectionchange', holdBack, true)
+
+    expect(view.state.selection.head).toBe(PARA_TWO + 1)
+    expect(document.getSelection()!.anchorNode!.textContent).toBe('two')
+  })
+
   it('survives a remote update replacing the document', () => {
     const ydoc = new Y.Doc()
     const view = mount(ydoc)

@@ -109,6 +109,12 @@ export const SelectionKeydownSync = Extension.create({
               userInput.add(view)
               return false
             },
+            // PM writes its selection over the DOM one 20ms after focus. This
+            // timer is queued before PM's, so it reads a caret move first.
+            focus: (view) => {
+              setTimeout(() => readUnreadSelection(view), 20)
+              return false
+            },
             blur: (view) => {
               userInput.delete(view)
               return false
