@@ -58,6 +58,8 @@ const COLOR_REPLACEMENTS = {
  * server render or an editor pass:
  * - a longer line stays plain;
  * - a longer fence stays plain as a whole.
+ *
+ * No time limit: a line cut off by time would colour differently on a busy host.
  */
 const MAX_LINE_LENGTH = 1000
 const MAX_CODE_LENGTH = 100_000
@@ -142,6 +144,7 @@ export function tokenize(code: string, info: string | null | undefined): CodeLin
       defaultColor: false,
       colorReplacements: COLOR_REPLACEMENTS,
       tokenizeMaxLineLength: MAX_LINE_LENGTH,
+      tokenizeTimeLimit: 0,
     }).tokens
   }
   catch {

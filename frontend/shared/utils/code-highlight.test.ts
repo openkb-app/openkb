@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { highlightToTokens, loadCodeLanguage, plainLines, tokenize } from './code-highlight'
 import { codeLanguage } from './code-languages'
 
@@ -53,6 +53,18 @@ describe('tokenize', () => {
     expect(tokenize('SELECT 1', 'sql')).toBeNull()
     expect(await loadCodeLanguage('sql')).toBe(true)
     expect(tokenize('SELECT 1', 'sql')).toEqual(await highlightToTokens('SELECT 1', 'sql'))
+  })
+
+  it('colours the same on a slow host', async () => {
+    const expected = await highlightToTokens('SELECT 1', 'sql')
+    let now = 0
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => (now += 1000))
+    try {
+      expect(tokenize('SELECT 1', 'sql')).toEqual(expected)
+    }
+    finally {
+      clock.mockRestore()
+    }
   })
 
   it('answers plain lines for an unknown language right away', () => {
