@@ -33,7 +33,7 @@ import {
 import { mapEditorItems } from '@nuxt/ui/utils/editor'
 import { approvalStanding, blockMenuItems, NO_BLOCK_MENU, type BlockMenuNode } from '~/editor/block-menu'
 import { parseMarkdownToJson, serializeDocToMarkdown } from '~/comark/markdown-engine'
-import { comarkHandlers, insertToolbarItem, slashItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
+import { comarkHandlers, imageSizeItem, insertToolbarItem, slashItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
 import { useDocLinkSearch } from '~/composables/useDocLinkSearch'
 import { caretInBlock } from '~/editor/cite-insert'
 import type { WritableComputedRef } from 'vue'
@@ -1229,6 +1229,7 @@ export async function useEditorSession(
             if (now) void replacePageFile(live, now.pos)
           },
         },
+        ...(embed?.type === 'image' && embed.file ? [imageSizeItem(embed, editor)] : []),
         {
           icon: 'i-lucide-trash',
           'aria-label': 'Delete',

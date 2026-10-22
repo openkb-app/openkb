@@ -4,19 +4,20 @@
  * (`shared/utils/comark-tree.ts`) have already resolved the page file to
  * `src`; a missing `src` means it is gone or the viewer may not see it, and a
  * placeholder stands in. `inline` is an embed sitting in a paragraph, where a
- * figure may not go.
+ * figure may not go. `width` is the fence's percent of the column (`"70%"`).
  *
  * Neither wrapper states a margin: an image is a block of the column like any
  * other, and `okb-prose` sets the rhythm for both modes.
  */
-defineProps<{
+const props = defineProps<{
   file?: string
   src?: string
   alt?: string
-  width?: number
-  height?: number
+  width?: string
   inline?: boolean
 }>()
+
+const percent = computed(() => parseImageWidth(props.width))
 </script>
 
 <template>
@@ -24,8 +25,7 @@ defineProps<{
     <img
       :src="src"
       :alt="alt || undefined"
-      :width="width || undefined"
-      :height="height || undefined"
+      :style="percent ? { width: `${percent}%` } : undefined"
       :class="inline ? 'inline max-w-full align-middle' : 'mx-auto max-w-full'"
       loading="lazy"
     >

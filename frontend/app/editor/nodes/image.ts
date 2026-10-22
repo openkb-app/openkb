@@ -2,19 +2,30 @@ import Image from '@tiptap/extension-image'
 import { Extension } from '@tiptap/core'
 import type { JSONContent } from '@tiptap/core'
 import { MDC_PROPS_SOURCE, parseMdcProps, serializeMdcProps } from './mdc-markdown'
+import { parseImageWidth } from '#shared/utils/image-width'
 
 const BLOCK_FENCE = new RegExp(String.raw`^(:{2,})image\{(${MDC_PROPS_SOURCE})\}[ \t]*(?:\n\1(?!:)[ \t]*(?:\n|$)|\n|$)`)
 const INLINE_FENCE = new RegExp(String.raw`^:image\{(${MDC_PROPS_SOURCE})\}`)
 
-/** Attrs the image node carries; only `file`/`alt` (or `src`/`alt`/`title`) reach markdown. */
+/** Attrs the image node carries; only `file`/`alt`/`width` (or `src`/`alt`/`title`) reach markdown. */
 export interface ImageAttrs {
   /** UUID of a page file in `field_kb_images` (ADR 0020). */
   file?: string | null
   src?: string | null
   alt?: string | null
   title?: string | null
+  /** Percent of the content column, 10–100; unset = natural size. */
+  width?: number | null
   /** Stable block id: the fence `#id` shorthand, or trailing `{#id}` when plain (OKB-137). */
   id?: string | null
+}
+
+/** The fence props of a page-file image, in their canonical order. */
+function fileImageProps(attrs: ImageAttrs): Record<string, string> {
+  const props: Record<string, string> = { file: attrs.file! }
+  if (attrs.alt) props.alt = attrs.alt
+  if (attrs.width) props.width = `${attrs.width}%`
+  return props
 }
 
 /**
@@ -23,11 +34,7 @@ export interface ImageAttrs {
  * component, parsed by comark) for page files, `![alt](src)` otherwise.
  */
 export function imageInlineMarkdown(attrs: ImageAttrs): string {
-  if (attrs.file) {
-    const props: Record<string, string> = { file: attrs.file }
-    if (attrs.alt) props.alt = attrs.alt
-    return `:image{${serializeMdcProps(props)}}`
-  }
+  if (attrs.file) return `:image{${serializeMdcProps(fileImageProps(attrs))}}`
   const title = attrs.title ? ` "${attrs.title}"` : ''
   return `![${attrs.alt ?? ''}](${attrs.src ?? ''}${title})`
 }
@@ -37,7 +44,7 @@ export function imageInlineMarkdown(attrs: ImageAttrs): string {
  * extended with a `file` attribute carrying a page file UUID, and a
  * markdown grammar that serializes one node two ways:
  *
- * - `file` set   → `::image{file="<uuid>" alt="…"}` + close fence on the
+ * - `file` set   → `::image{file="<uuid>" alt="…" width="…%"}` + close fence on the
  *   next line — a childless MDC fence naming a file in `field_kb_images`
  *   (ADR 0020). The close is mandatory in the canonical form: comark treats
  *   an unclosed fence as an open container and swallows every following
@@ -59,6 +66,12 @@ export const OkbImage = Image.extend({
     return {
       ...this.parent?.(),
       file: { default: null },
+      // A percent, not TipTap's pixels: kept off the `width` HTML attribute.
+      width: {
+        default: null,
+        parseHTML: (element: HTMLElement) => parseImageWidth(element.dataset.width),
+        renderHTML: (attrs: ImageAttrs) => attrs.width ? { 'data-width': `${attrs.width}%` } : {},
+      },
       // Block id carried through the fence round-trip (OKB-137), as callout
       // and infobox carry theirs — the review gate needs every producible
       // block identified.
@@ -111,6 +124,7 @@ export const OkbImage = Image.extend({
         alt: attributes.alt ?? '',
         src: null,
         title: null,
+        width: parseImageWidth(attributes.width),
         id: attributes.id ?? null,
       })
     }
@@ -127,8 +141,7 @@ export const OkbImage = Image.extend({
   renderMarkdown(node: JSONContent) {
     const attrs = (node.attrs ?? {}) as ImageAttrs
     if (attrs.file) {
-      const props: Record<string, string> = { file: attrs.file }
-      if (attrs.alt) props.alt = attrs.alt
+      const props = fileImageProps(attrs)
       if (attrs.id) props.id = attrs.id
       return `::image{${serializeMdcProps(props)}}\n::`
     }
@@ -177,6 +190,7 @@ export const OkbImageInline = Extension.create({
       alt: attributes.alt ?? '',
       src: null,
       title: null,
+      width: parseImageWidth(attributes.width),
     })
   },
 })

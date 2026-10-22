@@ -1,6 +1,6 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
-import { insertPageFile } from '~/editor/page-file-insert'
+import { insertPageFile, selectedEmbed } from '~/editor/page-file-insert'
 import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
 import { CITATION_TAG } from '#shared/utils/citations'
@@ -309,3 +309,31 @@ export const tableBubbleItems = tableOpItems.map(({ kind, icon, label }) => ({
   'aria-label': label,
   tooltip: { text: label },
 }))
+
+/** The image bubble's width presets: percent of the column, `null` = natural size. */
+export const IMAGE_SIZES: { label: string, width: number | null }[] = [
+  { label: 'Original size', width: null },
+  { label: 'Small (25%)', width: 25 },
+  { label: 'Medium (50%)', width: 50 },
+  { label: 'Large (75%)', width: 75 },
+  { label: 'Full width', width: 100 },
+]
+
+/** The image bubble's Size menu; it acts on the image selected when an item is picked. */
+export function imageSizeItem(image: { width: number | null }, editor: () => Editor | undefined) {
+  return {
+    icon: 'i-lucide-scaling',
+    'aria-label': 'Size',
+    tooltip: { text: 'Size' },
+    items: IMAGE_SIZES.map(({ label, width }) => ({
+      label,
+      type: 'checkbox' as const,
+      checked: image.width === width,
+      onSelect: () => {
+        const live = editor()
+        const now = live && selectedEmbed(live.state)
+        if (live && now?.type === 'image') live.chain().focus().setNodeSelection(now.pos).updateAttributes('image', { width }).run()
+      },
+    })),
+  }
+}

@@ -296,11 +296,12 @@ export function removeFileFromPage(editor: Editor, keys: PageFileKey[], uuid: st
   })
 }
 
-/** The selected image, file card or embed: its position and file. */
-export function selectedEmbed(state: EditorState): { pos: number, file: string | null } | null {
+/** The selected image, file card or embed: its position, type, file and (an image's) width. */
+export function selectedEmbed(state: EditorState): { pos: number, type: string, file: string | null, width: number | null } | null {
   const { selection } = state
   if (!(selection instanceof NodeSelection) || !NODE_KINDS[selection.node.type.name]) return null
-  return { pos: selection.from, file: (selection.node.attrs.file as string | null) ?? null }
+  const { attrs, type } = selection.node
+  return { pos: selection.from, type: type.name, file: (attrs.file as string | null) ?? null, width: (attrs.width as number | null) ?? null }
 }
 
 /** Whether the text still embeds `uuid` as one of `key`'s node types. */
