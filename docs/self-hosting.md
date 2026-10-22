@@ -1,6 +1,6 @@
 # Self-hosting
 
-The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with drush; the `cron` service runs the same image with supercronic, `drush cron` every five minutes) and `openkb-frontend` (the built Nuxt server with the embedded collaboration server) — next to the official `mariadb:11.4` and `opensearchproject/opensearch:3` images. `docker-compose.yml` is that stack; every setting is an environment variable, listed in [`.env.example`](../.env.example).
+The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with drush; the `cron` service runs the same image with supercronic, `drush cron` every five minutes) and `openkb-frontend` (the built Nuxt server with the embedded collaboration server) — next to the official `mariadb:11.4` and `opensearchproject/opensearch:3` images. `docker-compose.yml` is that stack; every setting is an environment variable, listed in [`.env.example`](../.env.example). The `drupal` and `cron` containers get every variable of `.env` (`env_file`), so a provider key or other secret added there reaches Drupal without a compose entry; the `environment:` entries in `docker-compose.yml` set defaults and derived values on top. That includes the compose-only variables (`OPENKB_TAG`, ports, `MARIADB_ROOT_PASSWORD`): keep `.env` to what the stack's containers may see.
 
 Both images are published to GHCR per release; [`release.md`](release.md) covers pinning a version instead of building from this checkout.
 
@@ -10,7 +10,7 @@ Everything below describes a real host. To just look at OpenKB, run the evaluati
 
 ## Prerequisites
 
-- Docker with the compose plugin.
+- Docker with the compose plugin, 2.24 or newer (`docker compose version`).
 - Two DNS names under one parent domain, both pointing at the host: one for the frontend (`kb.example.com`), one for Drupal (`admin.kb.example.com`). Drupal under a path of the frontend host is not supported.
 - `vm.max_map_count=262144` on the host, for OpenSearch: `sysctl -w vm.max_map_count=262144`, and the same line in `/etc/sysctl.conf` to keep it. Keep memory mapping on for a real index; `OPENSEARCH_ALLOW_MMAP=false` drops the requirement at the cost of read performance, which is a trade for evaluation, not for production.
 - A reverse proxy that terminates TLS; Caddy and Traefik examples below.

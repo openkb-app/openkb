@@ -2,7 +2,8 @@
 #
 # - Plain HTTP on two ports bound to 127.0.0.1; TLS belongs to a reverse proxy
 #   in front (docker-compose.tls.yml bundles one).
-# - Every setting is an environment variable, listed in .env.example.
+# - Every setting is an environment variable, listed in .env.example. `drupal`
+#   and `cron` get all of .env.
 # - `docker compose build` builds the two own images from this checkout.
 
 x-container:
@@ -45,11 +46,6 @@ x-drupal-environment:
     ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     # Where the install finds the recipes, which the image ships.
     OPENKB_RECIPES_DIR: ${OPENKB_RECIPES_DIR:-/app/recipes}
-    # Optional. Without it the chat and the chunk index stay unusable.
-    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-    # Optional. Key the Anthropic and Mistral AI providers.
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-    MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
     # Optional. Without MAILER_DSN no mail leaves the site; MAIL_FROM is the
     # sender address.
     MAILER_DSN: ${MAILER_DSN:-}
@@ -72,6 +68,11 @@ services:
         condition: service_healthy
       opensearch:
         condition: service_healthy
+    # Every variable of .env, so a secret such as an `*_API_KEY` needs no entry
+    # here. `environment:` wins over it.
+    env_file:
+      - path: .env
+        required: false
     environment:
       << : *drupal-environment
     ports:
