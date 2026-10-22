@@ -5,7 +5,6 @@
  * once, with a remove button. Removing takes the file and its embeds off the
  * page, out of both fields; the next checkpoint writes them.
  */
-import { fileUploaded } from '#shared/utils/files'
 import { PAGE_FILE_KEYS } from '#shared/utils/page-files'
 import type { EditorPageFiles } from '~/composables/useEditorPageFiles'
 
@@ -25,7 +24,7 @@ const entries = computed(() => [...new Set(PAGE_FILE_KEYS.flatMap(key => files.l
         <AttachmentCard
           :file="files.resolved.value[uuid] ?? null"
           :description="files.descriptions.value[uuid] ?? null"
-          :detail="files.resolved.value[uuid] ? fileUploaded(files.resolved.value[uuid]!) : null"
+          uploaded
           :pending="!files.settled.value"
         >
           <template #actions>

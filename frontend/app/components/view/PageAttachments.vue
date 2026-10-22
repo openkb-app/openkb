@@ -4,7 +4,7 @@
  * embeds, each as the file card, with uploader and date. Only files this
  * reader may download reach it (server/utils/drupal-ce-enrich.ts).
  */
-import { fileUploaded, type PageAttachment } from '#shared/utils/files'
+import type { PageAttachment } from '#shared/utils/files'
 
 defineProps<{ files: PageAttachment[] }>()
 </script>
@@ -16,7 +16,7 @@ defineProps<{ files: PageAttachment[] }>()
     </h2>
     <ul class="flex flex-col gap-2">
       <li v-for="file in files" :key="file.id">
-        <AttachmentCard :file="file" :description="file.description" :detail="fileUploaded(file)" />
+        <AttachmentCard :file="file" :description="file.description" uploaded />
       </li>
     </ul>
   </section>

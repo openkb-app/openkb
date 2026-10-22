@@ -6,7 +6,7 @@
  * gets. The tree passes (`#shared/utils/comark-tree`) have already rewritten
  * every component tag to one this map has, `unknown` included.
  */
-import { CustomAttachment, CustomCallout, CustomCitation, CustomCodeBlock, CustomDefault, CustomDoc, CustomImage, CustomInfobox } from '#components'
+import { CustomAttachment, CustomCallout, CustomCitation, CustomCodeBlock, CustomDefault, CustomDoc, CustomEmbed, CustomImage, CustomInfobox } from '#components'
 import { CODE_BLOCK_TAG, HTML_ELEMENTS, UNKNOWN_TAG } from '#shared/utils/comark-tree'
 import { CITATION_TAG } from '#shared/utils/citations'
 
@@ -29,6 +29,7 @@ export const comarkComponents = {
   infobox: CustomInfobox,
   image: CustomImage,
   attachment: CustomAttachment,
+  embed: CustomEmbed,
   doc: CustomDoc,
   [CITATION_TAG]: CustomCitation,
   [CODE_BLOCK_TAG]: CustomCodeBlock,

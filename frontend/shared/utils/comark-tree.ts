@@ -128,13 +128,14 @@ export const HTML_ELEMENTS = new Set([
 ])
 
 /** The component tags the page has a renderer for. */
-export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', 'attachment', DOC_LINK_TAG])
+export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', 'attachment', 'embed', DOC_LINK_TAG])
 
 /**
  * Tags dropped with their content. comark parses raw `<script>`, `<style>`,
  * `<template>`, `<iframe>` as MDC components, and their source is not prose.
+ * A raw `<embed>` is the `::embed` component: it shows a page file only.
  */
-const DROPPED_TAGS = new Set(['script', 'style', 'template', 'iframe', 'object', 'embed'])
+const DROPPED_TAGS = new Set(['script', 'style', 'template', 'iframe', 'object'])
 
 /**
  * Block tags the ¶ fragment link is emitted into. It is a phrasing-content
@@ -337,7 +338,7 @@ function cleanNode(node: ComarkNode, ctx: PassContext, inline: boolean): ComarkN
   // Children carry the component's own flag: what sits inside an inline
   // component is phrasing content too.
   const known = COMPONENT_TAGS.has(tag)
-  const own = tag === 'image' || tag === 'attachment' ? fileProps(tag, props, ctx) : props
+  const own = FILE_TAGS.has(tag) ? fileProps(tag, props, ctx) : props
   return [[
     known ? tag : UNKNOWN_TAG,
     { ...own, ...(known ? {} : { name: tag }), ...(inline ? { inline: true } : {}) },
@@ -583,12 +584,15 @@ function dissolveBlockFences(nodes: ComarkNode[]): ComarkNode[] {
   })
 }
 
-/** The page files `::attachment{file}` / `::image{file}` name, once each. */
+/** The components that show a page file. */
+const FILE_TAGS = new Set(['image', 'attachment', 'embed'])
+
+/** The page files `::attachment{file}`, `::image{file}` and `::embed{file}` name, once each. */
 function collectFileUuids(nodes: ComarkNode[], out: Set<string> = new Set()): string[] {
   for (const node of nodes) {
     if (typeof node === 'string') continue
     const [tag, props, ...children] = node
-    if ((tag === 'image' || tag === 'attachment') && isFileUuid(props?.file)) out.add(props.file)
+    if (FILE_TAGS.has(tag) && isFileUuid(props?.file)) out.add(props.file)
     collectFileUuids(children, out)
   }
   return [...out]
@@ -768,7 +772,7 @@ export function collectText(nodes: ComarkNode[]): string {
 }
 
 /**
- * The props an image or attachment renders with. A page file resolves to its
+ * The props an image, attachment or embed renders with. A page file resolves to its
  * download URL, name, size and type; one the reader may not download keeps
  * `file` only and renders a placeholder.
  */

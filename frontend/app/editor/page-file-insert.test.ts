@@ -97,7 +97,7 @@ afterEach(() => {
 describe('uploadIntoEditor', () => {
   it('sends the session\'s CSRF token with the upload', async () => {
     mountShared('First.')
-    const done = uploadIntoEditor(editor, 'images', [shot()], editor.state.doc.content.size)
+    const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]!.headers['X-CSRF-Token']).toBe('csrf-1')
     sent[0]!.answer()
@@ -106,7 +106,7 @@ describe('uploadIntoEditor', () => {
 
   it('inserts the image where it was asked for when the peer types before it and elsewhere', async () => {
     mountShared('First.\n\nSecond.')
-    const done = uploadIntoEditor(editor, 'images', [shot()], editor.state.doc.child(0).nodeSize)
+    const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.child(0).nodeSize)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     peer.commands.insertContentAt(1, 'Peer: ')
     peer.commands.insertContentAt(peer.state.doc.content.size - 1, ' More.')
@@ -119,7 +119,7 @@ describe('uploadIntoEditor', () => {
 describe('upload toasts', () => {
   it('shows progress while uploading and drops it once the file landed', async () => {
     mountShared('First.')
-    const done = uploadIntoEditor(editor, 'images', [shot()], editor.state.doc.content.size)
+    const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     expect([...toasts.values()]).toEqual([expect.objectContaining({ title: 'Uploading shot.png', description: '0%' })])
     sent[0]!.answer()
@@ -132,14 +132,14 @@ describe('upload toasts', () => {
       ? { files: { field_kb_images: { extensions: ['png'], maxBytes: 2 } } }
       : 'csrf-1')
     mountShared('First.')
-    await uploadIntoEditor(editor, 'images', [shot()], editor.state.doc.content.size)
+    await uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     expect(sent).toHaveLength(0)
     expect([...toasts.values()]).toEqual([expect.objectContaining({ title: 'shot.png was not uploaded', description: 'It is too large: the limit is 2 B.' })])
   })
 
   it('replaces the progress toast with an error toast on a refusal', async () => {
     mountShared('First.')
-    const done = uploadIntoEditor(editor, 'images', [shot()], editor.state.doc.content.size)
+    const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     sent[0]!.refuse()
     await done
@@ -151,7 +151,7 @@ describe('upload toasts', () => {
 describe('insertPageFile', () => {
   it('inserts the picked file where it was asked for when the peer types before it and elsewhere', async () => {
     mountShared('First.\n\nSecond.')
-    const done = insertPageFile(editor, true, editor.state.doc.child(0).nodeSize)
+    const done = insertPageFile(editor, 'image', editor.state.doc.child(0).nodeSize)
     const token = useFilePickerRequest().value!.token
     peer.commands.insertContentAt(1, 'Peer: ')
     peer.commands.insertContentAt(peer.state.doc.content.size - 1, ' More.')
@@ -162,7 +162,7 @@ describe('insertPageFile', () => {
 
   it('uploads into the place it was asked for on the upload choice', async () => {
     mountShared('First.\n\nSecond.')
-    const done = insertPageFile(editor, true, editor.state.doc.child(0).nodeSize)
+    const done = insertPageFile(editor, 'image', editor.state.doc.child(0).nodeSize)
     peer.commands.insertContentAt(1, 'Peer: ')
     closeFilePicker(useFilePickerRequest().value!.token, { upload: [shot()] })
     await vi.waitFor(() => expect(sent).toHaveLength(1))
@@ -173,7 +173,7 @@ describe('insertPageFile', () => {
 
   it('puts an image picked as a file on the page as a file card', async () => {
     mountShared('First.\n\nSecond.')
-    const done = insertPageFile(editor, false, editor.state.doc.child(0).nodeSize)
+    const done = insertPageFile(editor, 'file', editor.state.doc.child(0).nodeSize)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
     await done
     expect(blocks()).toEqual(['First.', `attachment:${FILE}`, 'Second.'])
@@ -183,7 +183,7 @@ describe('insertPageFile', () => {
 
   it('leaves the page as it was on dismiss', async () => {
     mountShared('First.')
-    const done = insertPageFile(editor, false, editor.state.doc.content.size)
+    const done = insertPageFile(editor, 'file', editor.state.doc.content.size)
     closeFilePicker(useFilePickerRequest().value!.token, null)
     await done
     expect(blocks()).toEqual(['First.'])
@@ -195,7 +195,7 @@ describe('pickPageAttachment', () => {
     mountShared('First.')
     const link = vi.fn(() => true)
     const picked = pickPageAttachment(editor, link)
-    expect(useFilePickerRequest().value).toMatchObject({ images: false, multiple: false })
+    expect(useFilePickerRequest().value).toMatchObject({ kind: 'file', multiple: false })
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
     await picked
     expect(link).toHaveBeenCalledWith(FILE)

@@ -28,10 +28,10 @@ import type {
 } from '@tiptap/core'
 
 // Fence-serialized nodes an outer fence must out-length (comark matches a
-// close by the opener's colon count). The image and attachment fences are
-// always length 2 (childless — see ./image.ts, ./attachment.ts);
+// close by the opener's colon count). The image, attachment and embed fences
+// are always length 2 (childless — see ./image.ts, ./attachment.ts, ./embed.ts);
 // callout/infobox/blockWrapper grow past their content.
-const FENCE_NODES = new Set(['callout', 'infobox', 'image', 'attachment', 'blockWrapper'])
+const FENCE_NODES = new Set(['callout', 'infobox', 'image', 'attachment', 'embed', 'blockWrapper'])
 
 /**
  * Parses MDC props and the `#id` shorthand.

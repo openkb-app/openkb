@@ -8,36 +8,53 @@
  *   The modal body scrolls it: the palette's own scroller holds nothing tabbable.
  * Both lists use `FilePickerItem`, "my files" in its compact size; clicking a row chooses it.
  * Choosing puts the file on the page; Escape leaves the page as it was.
+ * An embed kind lists and accepts its file types only.
  */
-import { closeFilePicker, pageFileLimits, useFilePickerStatus, type FilePickerChoice } from '~/editor/page-file-insert'
+import { closeFilePicker, pageFileLimits, pickEmbedKinds, pickKey, useFilePickerStatus, type FilePickKind, type FilePickerChoice } from '~/editor/page-file-insert'
 import { nameListbox } from '~/editor/name-listbox'
-import { fileAccept, type MyFile } from '#shared/utils/files'
+import { embedKind, fileAccept, type MyFile, type PageFileLimits } from '#shared/utils/files'
 import type { EditorPageFiles } from '~/composables/useEditorPageFiles'
 
-const props = defineProps<{ token: number, images: boolean, multiple: boolean, files: EditorPageFiles }>()
+const props = defineProps<{ token: number, kind: FilePickKind, multiple: boolean, files: EditorPageFiles }>()
+
+const images = props.kind === 'image'
+const key = pickKey(props.kind)
+const embedKinds = pickEmbedKinds(props.kind)
+function offered(file: { mime: string }): boolean {
+  const kind = embedKind(file.mime)
+  return !embedKinds || (kind !== null && embedKinds.includes(kind))
+}
 
 const { data, status, error } = useFetch<{ items: MyFile[] }>('/api/files/mine', {
-  query: props.images ? { images: 1 } : {},
-  key: `okb-my-files-${props.images ? 'images' : 'all'}`,
+  query: images ? { images: 1 } : {},
+  key: `okb-my-files-${images ? 'images' : 'all'}`,
   server: false,
 })
-const { data: limits } = useAsyncData(
-  `okb-file-limits-${props.images ? 'images' : 'attachments'}`,
-  () => pageFileLimits(props.images ? 'images' : 'attachments'),
-  { server: false },
-)
-const title = computed(() => props.images ? 'Insert image' : 'Insert file')
-const mineTitle = computed(() => props.images ? 'My images' : 'My files')
+const { data: fieldLimits } = useAsyncData(`okb-file-limits-${key}`, () => pageFileLimits(key), { server: false })
+/** An embed kind uploads its own extensions only: `html`, `pdf`. */
+const limits = computed<PageFileLimits | undefined>(() => {
+  const field = fieldLimits.value ?? undefined
+  if (!field || !embedKinds) return field
+  return { ...field, extensions: field.extensions.filter(extension => (embedKinds as string[]).includes(extension)) }
+})
+const TITLES: Record<FilePickKind, [string, string]> = {
+  image: ['Insert image', 'My images'],
+  file: ['Insert file', 'My files'],
+  html: ['Insert HTML embed', 'My HTML files'],
+  pdf: ['Insert PDF embed', 'My PDFs'],
+  embed: ['Choose an HTML file or PDF', 'My HTML files and PDFs'],
+}
+const [title, mineTitle] = TITLES[props.kind]
 
-const onPage = computed(() => props.files.lists.value[props.images ? 'images' : 'attachments'].flatMap((id) => {
+const onPage = computed(() => props.files.lists.value[key].flatMap((id) => {
   const file = props.files.resolved.value[id]
-  return file ? [{ id, ...file, detail: props.files.descriptions.value[id] ?? null }] : []
+  return file && offered(file) ? [{ id, ...file, detail: props.files.descriptions.value[id] ?? null }] : []
 }))
 
 /** Rows "my files" shows: the newest without a filter, the best matches with one. */
 const MINE_SHOWN = 6
 const searchTerm = ref('')
-const mine = computed(() => data.value?.items ?? [])
+const mine = computed(() => (data.value?.items ?? []).filter(offered))
 const groups = computed(() => [{
   id: 'files',
   items: (searchTerm.value ? mine.value : mine.value.slice(0, MINE_SHOWN)).map(file => ({
@@ -48,7 +65,7 @@ const groups = computed(() => [{
   })),
 }])
 const mineHidden = computed(() => searchTerm.value ? 0 : Math.max(0, mine.value.length - MINE_SHOWN))
-const nameFilesListbox = nameListbox(props.images ? 'Your images' : 'Your files')
+const nameFilesListbox = nameListbox(images ? 'Your images' : 'Your files')
 
 const announcement = useFilePickerStatus()
 watchEffect(() => {
@@ -57,7 +74,7 @@ watchEffect(() => {
 function listStatus(): string {
   if (error.value) return ''
   if (status.value === 'pending') return 'Loading your files…'
-  const count = data.value?.items.length ?? 0
+  const count = mine.value.length
   return count === 0 ? 'No files to choose from.' : `${count} ${count === 1 ? 'file' : 'files'} to choose from.`
 }
 onBeforeUnmount(() => { announcement.value = '' })
@@ -92,7 +109,7 @@ function close(choice: FilePickerChoice | null): void {
     <template #body>
       <div class="flex flex-col gap-5">
         <UFileUpload
-          :accept="fileAccept(limits ?? undefined)"
+          :accept="fileAccept(limits)"
           :multiple="multiple"
           :icon="images ? 'i-lucide-image-up' : 'i-lucide-upload'"
           :label="images ? 'Upload a new image' : 'Upload a new file'"

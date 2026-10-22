@@ -84,7 +84,7 @@ function trimEdge(content: JSONContent[], edge: 'start' | 'end'): JSONContent[] 
   return content
 }
 
-const COMPONENT_NODES = new Set(['callout', 'infobox', 'image', 'attachment'])
+const COMPONENT_NODES = new Set(['callout', 'infobox', 'image', 'attachment', 'embed'])
 
 /**
  * Rewrites parsed JSON into the shape the editor schema can represent —

@@ -23,7 +23,7 @@ import { buildEditorExtensions } from '../../app/editor/extensions'
 const EXPECTED_NODES = [
   'doc', 'paragraph', 'text', 'heading', 'blockquote', 'codeBlock',
   'bulletList', 'orderedList', 'listItem', 'hardBreak', 'horizontalRule',
-  'image', 'attachment', 'attachmentInline', 'mention', 'docLink', 'citation', 'callout', 'infobox', 'blockWrapper',
+  'image', 'attachment', 'attachmentInline', 'embed', 'mention', 'docLink', 'citation', 'callout', 'infobox', 'blockWrapper',
   'table', 'tableRow', 'tableHeader', 'tableCell', 'taskList', 'taskItem',
 ].sort()
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { resolveFileUuids } from './files'
+import { embedFrameSrcPolicy, resolveFileUuids } from './files'
 
 const A = '11111111-2222-4333-8444-555555555555'
 const B = '66666666-7777-4888-9999-000000000000'
@@ -41,5 +41,20 @@ describe('resolveFileUuids', () => {
   it('fails on an unreachable backend rather than reporting the file gone', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 502 })))
     await expect(resolveFileUuids({}, [A])).rejects.toMatchObject({ statusCode: 503 })
+  })
+})
+
+describe('embedFrameSrcPolicy', () => {
+  it('allows frames from the public Drupal origin only', () => {
+    vi.stubGlobal('useRuntimeConfig', () => ({ drupalBaseUrl: 'http://drupal:8080', public: { drupalBaseUrl: 'https://kb.example.com/sub/' } }))
+    expect(embedFrameSrcPolicy()).toBe('frame-src https://kb.example.com')
+  })
+
+  it('falls back to the server-side Drupal origin', () => {
+    expect(embedFrameSrcPolicy()).toBe('frame-src http://drupal.test')
+  })
+
+  it('allows the Nuxt DevTools frame in dev', () => {
+    expect(embedFrameSrcPolicy(true)).toBe('frame-src \'self\' http://drupal.test')
   })
 })

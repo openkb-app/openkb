@@ -347,7 +347,7 @@ const dragHandleOptions = {
     <EditorFilePickerDialog
       v-if="filePickerRequest"
       :token="filePickerRequest.token"
-      :images="filePickerRequest.images"
+      :kind="filePickerRequest.kind"
       :multiple="filePickerRequest.multiple"
       :files="editorPageFiles"
     />

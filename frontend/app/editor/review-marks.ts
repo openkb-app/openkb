@@ -259,7 +259,7 @@ export function addressableBlocks(doc: PMNode): AddressableBlock[] {
 
 /**
  * What a block reads as in the review and comment lists: its text, or for a
- * block holding only an image or a file, that embed's alt text or description.
+ * block holding only an image, a file or an embed, its alt text, description or title.
  */
 export function blockLabel(node: PMNode): string {
   if (node.textContent.trim()) return node.textContent
@@ -267,6 +267,7 @@ export function blockLabel(node: PMNode): string {
   const name = (embed: PMNode) => {
     if (embed.type.name === 'image') label = embed.attrs.alt ? `Image: ${embed.attrs.alt}` : 'Image'
     else if (embed.type.name === 'attachment') label = embed.attrs.description ? `File: ${embed.attrs.description}` : 'File'
+    else if (embed.type.name === 'embed') label = embed.attrs.title ? `Embed: ${embed.attrs.title}` : 'Embed'
   }
   name(node)
   node.descendants((child) => {

@@ -51,17 +51,38 @@ export function fileAccept(limits: PageFileLimits | undefined): string | undefin
   return limits?.extensions.length ? limits.extensions.map(extension => `.${extension}`).join(',') : undefined
 }
 
+/** The file types `::embed{file}` shows in a frame: extension → MIME type. */
+export const EMBED_MIMES = { html: 'text/html', pdf: 'application/pdf' } as const
+
+export type EmbedKind = keyof typeof EMBED_MIMES
+
+/** How `::embed` shows a file of `mime`: a frame kind, or null for the file card. */
+export function embedKind(mime: string | undefined): EmbedKind | null {
+  const type = (mime ?? '').toLowerCase().split(';')[0]!.trim()
+  return (Object.keys(EMBED_MIMES) as EmbedKind[]).find(kind => EMBED_MIMES[kind] === type) ?? null
+}
+
+/** The smallest height an HTML embed frame takes. */
+export const EMBED_MIN_HEIGHT = 80
+
+/**
+ * The height an HTML embed frame takes from `message`, or null to ignore it:
+ * - sent by `frame` itself;
+ * - `{ type: 'okb-embed:height', height }` with a finite number;
+ * - clamped to EMBED_MIN_HEIGHT…`viewport`.
+ */
+export function embedFrameHeight(message: Pick<MessageEvent, 'source' | 'data'>, frame: unknown, viewport: number): number | null {
+  if (!frame || message.source !== frame) return null
+  const data = message.data as { type?: unknown, height?: unknown } | null
+  if (data?.type !== 'okb-embed:height' || typeof data.height !== 'number' || !Number.isFinite(data.height)) return null
+  return Math.round(Math.min(Math.max(data.height, EMBED_MIN_HEIGHT), viewport))
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** A file UUID, as the resolve and upload routes accept it. */
 export function isFileUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_RE.test(value)
-}
-
-/** The card's uploader line: `Ada Lovelace · 14/10/2026`. */
-export function fileUploaded(file: ResolvedFile): string {
-  const date = file.created ? new Date(file.created).toLocaleDateString() : ''
-  return [file.owner, date].filter(Boolean).join(' · ')
 }
 
 const UNITS = ['B', 'KB', 'MB', 'GB'] as const
@@ -84,6 +105,7 @@ export function fileIcon(mime: string | undefined): string {
   const type = (mime ?? '').toLowerCase()
   if (type.startsWith('image/')) return 'i-lucide-file-image'
   if (type.includes('spreadsheet') || type === 'text/csv') return 'i-lucide-file-spreadsheet'
+  if (type === 'text/html') return 'i-lucide-file-code'
   if (type === 'application/pdf' || type.startsWith('text/')) return 'i-lucide-file-text'
   if (type.includes('presentation')) return 'i-lucide-presentation'
   if (type.includes('zip')) return 'i-lucide-file-archive'

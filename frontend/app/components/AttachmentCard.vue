@@ -17,8 +17,12 @@ const props = defineProps<{
   inline?: boolean
   /** The inline link's own words; the file name without them. */
   label?: string | null
-  /** A small line under the name, e.g. uploader and date. */
-  detail?: string | null
+  /**
+   * A small line under the name: uploader and date. NuxtTime writes the date
+   * in the reader's locale before hydration, so it never mismatches the
+   * server's.
+   */
+  uploaded?: boolean
   /** Still resolving: says so instead of "not available". */
   pending?: boolean
 }>()
@@ -49,14 +53,14 @@ const size = computed(() => formatFileSize(props.file?.size))
     <img v-if="file.mime.startsWith('image/')" :src="file.url" alt="" loading="lazy" class="size-10 shrink-0 rounded object-cover">
     <UIcon v-else :name="fileIcon(file.mime)" class="size-6 shrink-0 text-muted" aria-hidden="true" />
     <div class="min-w-0 flex-1">
-      <a :href="file.url" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
+      <a :href="file.url" target="_blank" rel="noopener" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
       <slot name="description">
         <p v-if="description" class="text-sm text-muted" data-test="attachment-description">
           {{ description }}
         </p>
       </slot>
-      <p v-if="detail" class="text-xs text-muted">
-        {{ detail }}
+      <p v-if="uploaded && (file.owner || file.created)" class="text-xs text-muted">
+        {{ file.owner }}<template v-if="file.owner && file.created"> · </template><NuxtTime v-if="file.created" :datetime="file.created" />
       </p>
     </div>
     <span v-if="size" class="shrink-0 text-sm text-muted">{{ size }}</span>

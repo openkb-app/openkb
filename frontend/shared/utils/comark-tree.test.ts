@@ -270,6 +270,22 @@ describe('inline components', () => {
     expect(find(children(at(resolved)), 'attachment')).toEqual(['attachment', { file, url: '/system/files/a.pdf', name: 'a.pdf', size: 10, mime: 'application/pdf', inline: true }, 'the plan'])
   })
 
+  it('resolves an embed\'s file and keeps its title', async () => {
+    const file = '11111111-2222-4333-8444-555555555555'
+    const source = `::embed{file="${file}" title="Chart"}\n::\n`
+    expect((await markdownToTree(source, { resolveFiles: async () => ({}) }))[0]).toEqual(['embed', { file, title: 'Chart' }])
+    const resolved = await markdownToTree(source, {
+      resolveFiles: async () => ({ [file]: { url: '/system/files/c.html', name: 'c.html', size: 10, mime: 'text/html', owner: null, created: null } }),
+    })
+    expect(resolved[0]).toEqual(['embed', { file, title: 'Chart', url: '/system/files/c.html', name: 'c.html', size: 10, mime: 'text/html' }])
+  })
+
+  it('shows a page file only, for a raw <embed> too', async () => {
+    const forged = `src="https://evil.example/x.html" url="https://evil.example/x.html" mime="text/html"`
+    const nodes = await markdownToTree(`::embed{${forged}}\n::\n\n<embed ${forged}>\n`, { resolveFiles: async () => ({}), allowedHtml: shippedAllowedHtml() })
+    expect(JSON.stringify(nodes)).not.toContain('evil.example')
+  })
+
   it('leaves a page file the reader may not download unresolved', async () => {
     const file = '11111111-2222-4333-8444-555555555555'
     const nodes = await markdownToTree(`::attachment{file="${file}"}\n::\n`, { resolveFiles: async () => ({}) })

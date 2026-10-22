@@ -101,6 +101,8 @@ describe('the block inserts', () => {
     'codeBlock', 'horizontalRule', 'image', 'attachment', 'docLink', 'cite',
     '— Comark',
     'callout', 'infobox',
+    '— Embed',
+    'htmlEmbed', 'pdfEmbed',
   ]
 
   it('reach the slash menu and the (+) menu as the same rows in the same order', () => {

@@ -204,7 +204,7 @@ export const comarkHandlers: Record<string, EditorHandler> = {
   image: {
     canExecute: editor => editor.can().insertContent(''),
     execute: (editor) => {
-      void insertPageFile(editor, true, posAfterEnclosingList(editor) ?? editor.state.selection.to)
+      void insertPageFile(editor, 'image', posAfterEnclosingList(editor) ?? editor.state.selection.to)
       return editor.chain()
     },
     isActive: editor => editor.isActive('image'),
@@ -212,10 +212,26 @@ export const comarkHandlers: Record<string, EditorHandler> = {
   attachment: {
     canExecute: editor => editor.can().insertContent(''),
     execute: (editor) => {
-      void insertPageFile(editor, false, posAfterEnclosingList(editor) ?? editor.state.selection.to)
+      void insertPageFile(editor, 'file', posAfterEnclosingList(editor) ?? editor.state.selection.to)
       return editor.chain()
     },
     isActive: editor => editor.isActive('attachment'),
+  },
+  htmlEmbed: {
+    canExecute: editor => editor.can().insertContent(''),
+    execute: (editor) => {
+      void insertPageFile(editor, 'html', posAfterEnclosingList(editor) ?? editor.state.selection.to)
+      return editor.chain()
+    },
+    isActive: editor => editor.isActive('embed'),
+  },
+  pdfEmbed: {
+    canExecute: editor => editor.can().insertContent(''),
+    execute: (editor) => {
+      void insertPageFile(editor, 'pdf', posAfterEnclosingList(editor) ?? editor.state.selection.to)
+      return editor.chain()
+    },
+    isActive: editor => editor.isActive('embed'),
   },
 }
 
@@ -242,6 +258,9 @@ export const slashItems = [[
   { type: 'label', label: 'Comark' },
   { kind: 'callout', type: 'info', label: 'Callout', icon: 'i-lucide-info', description: 'Info box — switch the type inside' },
   { kind: 'infobox', label: 'Infobox', icon: 'i-lucide-square', description: 'Titled bordered box' },
+  { type: 'label', label: 'Embed' },
+  { kind: 'htmlEmbed', label: 'HTML embed', icon: 'i-lucide-file-code', description: 'Show an HTML file in the page, sandboxed' },
+  { kind: 'pdfEmbed', label: 'PDF embed', icon: 'i-lucide-file-text', description: 'Show a PDF in the page' },
 ]]
 
 /**

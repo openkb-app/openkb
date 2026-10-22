@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fileIcon, formatFileSize, isFileUuid } from './files'
+import { embedFrameHeight, fileIcon, formatFileSize, isFileUuid } from './files'
 
 describe('page file helpers', () => {
   it('formats sizes for people and nothing for a non-size', () => {
@@ -22,5 +22,34 @@ describe('page file helpers', () => {
     expect(isFileUuid('11111111-2222-4333-8444-555555555555')).toBe(true)
     expect(isFileUuid('11111111-2222')).toBe(false)
     expect(isFileUuid(7)).toBe(false)
+  })
+
+  describe('embed frame height', () => {
+    const frame = {}
+    const height = (data: unknown, source: unknown = frame) => embedFrameHeight({ source, data } as MessageEvent, frame, 900)
+
+    it('takes the height its own frame reports', () => {
+      expect(height({ type: 'okb-embed:height', height: 412.4 })).toBe(412)
+    })
+
+    it('clamps to 80 px and the viewport', () => {
+      expect(height({ type: 'okb-embed:height', height: 3 })).toBe(80)
+      expect(height({ type: 'okb-embed:height', height: 5000 })).toBe(900)
+    })
+
+    it('ignores another sender', () => {
+      expect(height({ type: 'okb-embed:height', height: 300 }, {})).toBeNull()
+      expect(height({ type: 'okb-embed:height', height: 300 }, null)).toBeNull()
+      expect(embedFrameHeight({ source: null, data: { type: 'okb-embed:height', height: 300 } } as MessageEvent, null, 900)).toBeNull()
+    })
+
+    it('ignores any other payload', () => {
+      expect(height({ type: 'other', height: 300 })).toBeNull()
+      expect(height({ type: 'okb-embed:height', height: '300' })).toBeNull()
+      expect(height({ type: 'okb-embed:height', height: Infinity })).toBeNull()
+      expect(height({ type: 'okb-embed:height', height: NaN })).toBeNull()
+      expect(height(null)).toBeNull()
+      expect(height('okb-embed:height')).toBeNull()
+    })
   })
 })

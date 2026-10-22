@@ -71,3 +71,13 @@ export async function resolveFileUuids(
   }
   return Object.fromEntries(resolved.filter((entry): entry is readonly [string, ResolvedFile] => entry[1] !== null))
 }
+
+/**
+ * The CSP for our HTML pages: frames load only from the Drupal origin, where
+ * page files live. Holds for every navigation of a frame, also one its own
+ * document starts, so an HTML embed cannot leave the origin that sandboxes it.
+ * `dev` adds `'self'` for the Nuxt DevTools frame.
+ */
+export function embedFrameSrcPolicy(dev = false): string {
+  return `frame-src ${dev ? '\'self\' ' : ''}${new URL(publicDrupalBaseUrl()).origin}`
+}
