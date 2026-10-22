@@ -464,7 +464,7 @@ describe('a posted comment, mounted', () => {
         ...buildCommitSchemaExtensions(),
         CommentMarks.configure({
           threads: () => readThreads(session),
-          openThread: (blockId, anchor) => {
+          openThread: ({ blockId, anchor }) => {
             recordCommentMessage(session, blockId, 'c-1', 'm-a', { uid: 7, name: 'Ada', at: AT, text: 'why?', ...(anchor ? { anchor } : {}) })
           },
         }),
