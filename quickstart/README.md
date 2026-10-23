@@ -4,7 +4,7 @@ An evaluation stack on your own machine: the published images, four containers,
 nothing to fill in. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
 
 ```sh
-mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha1/quickstart/{docker-compose.yml,.env}"
+mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-beta3/quickstart/{docker-compose.yml,.env}"
 docker compose up -d
 ```
 
