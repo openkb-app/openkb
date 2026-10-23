@@ -16,6 +16,14 @@ export interface ResolvedFile {
   created: string | null
 }
 
+/**
+ * The URL that downloads a file: Drupal answers `?download` with an
+ * attachment. The `download` attribute alone does nothing cross-origin.
+ */
+export function fileDownloadUrl(url: string): string {
+  return `${url}${url.includes('?') ? '&' : '?'}download`
+}
+
 /** One entry of the read page's attachments list. */
 export interface PageAttachment extends ResolvedFile {
   id: string

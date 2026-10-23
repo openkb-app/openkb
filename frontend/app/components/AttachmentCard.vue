@@ -9,7 +9,7 @@
  * not readable for this reader (yet — a peer's fresh upload, until the next
  * checkpoint).
  */
-import { fileIcon, formatFileSize, type ResolvedFile } from '#shared/utils/files'
+import { fileDownloadUrl, fileIcon, formatFileSize, type ResolvedFile } from '#shared/utils/files'
 
 const props = defineProps<{
   file: ResolvedFile | null
@@ -65,7 +65,7 @@ const size = computed(() => formatFileSize(props.file?.size))
     </div>
     <span v-if="size" class="shrink-0 text-sm text-muted">{{ size }}</span>
     <a
-      :href="file.url"
+      :href="fileDownloadUrl(file.url)"
       download
       target="_blank"
       rel="noopener"

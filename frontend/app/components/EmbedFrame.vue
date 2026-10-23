@@ -1,3 +1,8 @@
+<script lang="ts">
+/** The last height each HTML file reported: the editor's frame starts at the read page's, so Edit moves nothing. */
+const reportedHeights = new Map<string, number>()
+</script>
+
 <script setup lang="ts">
 /**
  * A page file shown in the page (`::embed{file}`), by its MIME type:
@@ -6,11 +11,13 @@
  *   reports it again on `okb-embed:measure`: the frame may have loaded before
  *   this listens. The page's `frame-src` keeps it on the Drupal origin
  *   (embedFrameSrcPolicy);
- * - PDF: the browser's viewer in a plain frame, which Chromium needs;
+ * - PDF: the browser's viewer in a plain frame, which Chromium needs, and
+ *   "Open full" in a tab; Drupal sends an HTML file outside a frame as a
+ *   download, so the download button is its only link;
  * - anything else, or no file: the file card.
  * Drupal sends the matching headers (PageFileEmbedSubscriber).
  */
-import { EMBED_MIN_HEIGHT, embedFrameHeight, embedKind, type ResolvedFile } from '#shared/utils/files'
+import { EMBED_MIN_HEIGHT, embedFrameHeight, embedKind, fileDownloadUrl, type ResolvedFile } from '#shared/utils/files'
 
 const props = defineProps<{
   file: ResolvedFile | null
@@ -24,11 +31,14 @@ const label = computed(() => kind.value === 'html' ? 'HTML embed' : 'PDF embed')
 const frameTitle = computed(() => props.title || props.file?.name || label.value)
 
 const frame = ref<HTMLIFrameElement | null>(null)
-const height = ref(EMBED_MIN_HEIGHT)
+const measured = ref<number | null>(null)
+const height = computed(() => measured.value ?? (props.file && reportedHeights.get(props.file.url)) ?? EMBED_MIN_HEIGHT)
 
 function onMessage(event: MessageEvent): void {
   const value = embedFrameHeight(event, frame.value?.contentWindow, window.innerHeight)
-  if (value !== null) height.value = value
+  if (value === null) return
+  measured.value = value
+  if (props.file) reportedHeights.set(props.file.url, value)
 }
 
 onMounted(() => watch(kind, (value, _, onCleanup) => {
@@ -51,6 +61,7 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
       <span class="shrink-0 text-muted">{{ label }}</span>
       <span class="min-w-0 flex-1 truncate font-medium">{{ frameTitle }}</span>
       <a
+        v-if="kind === 'pdf'"
         :href="file.url"
         target="_blank"
         rel="noopener"
@@ -58,7 +69,7 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
         data-test="embed-open"
       >Open full</a>
       <a
-        :href="file.url"
+        :href="fileDownloadUrl(file.url)"
         download
         target="_blank"
         rel="noopener"

@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import { Editor } from '@tiptap/core'
 import Collaboration from '@tiptap/extension-collaboration'
 import * as Y from 'yjs'
+import type { NodeSelection } from '@tiptap/pm/state'
 import { buildCommitSchemaExtensions } from '~~/server/utils/editor-schema'
 import { parseMarkdownToJson } from '~/comark/markdown-engine'
 import { addPageFile, fileArray } from '#shared/utils/page-files'
@@ -115,6 +116,38 @@ describe('uploadIntoEditor', () => {
     expect(blocks()).toEqual(['Peer: First.', `image:${FILE}`, 'Second. More.'])
   })
 
+  it('selects the image only if the user did not move on, so typing on keeps it', async () => {
+    mountShared('First.\n\nSecond.')
+    const at = editor.state.doc.child(0).nodeSize
+    let done = uploadIntoEditor(editor, 'image', [shot()], at)
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    sent[0]!.answer()
+    await done
+    expect(editor.state.selection.from).toBe(at)
+
+    done = uploadIntoEditor(editor, 'image', [shot()], at)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    editor.commands.setTextSelection(3)
+    peer.commands.insertContentAt(peer.state.doc.content.size - 1, ' More.')
+    sent[1]!.answer()
+    await done
+    editor.commands.insertContent('x')
+    expect(blocks()).toEqual(['Fixrst.', `image:${FILE}`, `image:${FILE}`, 'Second. More.'])
+  })
+
+  it('counts the user\'s own undo as moving on, so the next key keeps the image', async () => {
+    mountShared('First.\n\nSecond.')
+    const at = editor.state.doc.child(0).nodeSize
+    editor.commands.insertContentAt(editor.state.doc.content.size - 1, ' Typed.')
+    const done = uploadIntoEditor(editor, 'image', [shot()], at)
+    await vi.waitFor(() => expect(sent).toHaveLength(1))
+    undo(editor.state)
+    sent[0]!.answer()
+    await done
+    editor.commands.insertContent('x')
+    expect(blocks()).toContain(`image:${FILE}`)
+  })
+
   it('inserts several files in the order given, whichever upload lands first', async () => {
     const second = '66666666-7777-4888-9999-000000000002'
     mountShared('First.\n\nSecond.')
@@ -124,6 +157,17 @@ describe('uploadIntoEditor', () => {
     sent[0]!.answer()
     await done
     expect(blocks()).toEqual(['First.', `image:${FILE}`, `image:${second}`, 'Second.'])
+  })
+
+  it('selects the last embed of a multi-file upload', async () => {
+    const second = '66666666-7777-4888-9999-000000000002'
+    mountShared('First.\n\nSecond.')
+    const done = uploadIntoEditor(editor, 'image', [shot(), shot()], editor.state.doc.child(0).nodeSize)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    sent[0]!.answer()
+    sent[1]!.answer(second)
+    await done
+    expect((editor.state.selection as NodeSelection).node?.attrs.file).toBe(second)
   })
 })
 

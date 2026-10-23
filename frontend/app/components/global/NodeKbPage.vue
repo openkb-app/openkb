@@ -48,6 +48,7 @@ const props = defineProps<{
 }>()
 
 const env = useKbCePage()
+watch(() => props.pageFiles, files => rememberPageFiles(files ?? []), { immediate: true })
 const nodeId = computed(() => Number(props.nid) || undefined)
 
 // The raw-markdown projection of the page at this path — the address IS the

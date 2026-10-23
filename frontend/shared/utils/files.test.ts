@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { embedFrameHeight, fileIcon, formatFileSize, isFileUuid } from './files'
+import { embedFrameHeight, fileDownloadUrl, fileIcon, formatFileSize, isFileUuid } from './files'
 
 describe('page file helpers', () => {
+  it('asks Drupal for a download with ?download', () => {
+    expect(fileDownloadUrl('https://cms.example/system/files/a.html')).toBe('https://cms.example/system/files/a.html?download')
+    expect(fileDownloadUrl('https://cms.example/system/files/a.pdf?itok=x')).toBe('https://cms.example/system/files/a.pdf?itok=x&download')
+  })
+
   it('formats sizes for people and nothing for a non-size', () => {
     expect(formatFileSize(512)).toBe('512 B')
     expect(formatFileSize(48_333)).toBe('47.2 KB')

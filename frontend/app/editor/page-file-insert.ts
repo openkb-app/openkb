@@ -1,7 +1,8 @@
 import type { Editor } from '@tiptap/core'
-import { NodeSelection, type EditorState } from '@tiptap/pm/state'
+import { NodeSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
 import type * as Y from 'yjs'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
+import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { EMBED_MIMES, PAGE_FILE_FIELDS, formatFileSize, type EmbedKind, type PageAttachment, type PageFileKey, type PageFileLimits, type PageFileLimitsByField } from '#shared/utils/files'
 import { addPageFile, removePageFile } from '#shared/utils/page-files'
 import { trackRange } from '~/editor/tracked-range'
@@ -141,11 +142,22 @@ const NODE_KINDS: Record<string, FilePickKind> = { image: 'image', attachment: '
 /**
  * Uploads `files`, inserting one embed of `kind` per file at `insertAt`, in
  * the order given, followed through every edit until the uploads settle.
- * Offline refuses: the file has to reach Drupal before anything refers to it.
+ * - The embed takes the selection only if the user changed neither text nor
+ *   selection meanwhile (their own undo/redo counts): typing on must not
+ *   replace a selected embed.
+ * - Offline refuses: the file has to reach Drupal before anything refers to it.
  */
 export async function uploadIntoEditor(editor: Editor, kind: FilePickKind, files: File[], insertAt: number): Promise<void> {
   if (!navigator.onLine) return refuseOffline(files)
   const at = trackRange(editor, insertAt)
+  let moved = false
+  let inserting = false
+  const follow = ({ transaction }: { transaction: Transaction }) => {
+    if (inserting) return
+    const own = !isChangeOrigin(transaction) || transaction.getMeta(ySyncPluginKey)?.isUndoRedoOperation
+    if ((transaction.docChanged || transaction.selectionSet) && own) moved = true
+  }
+  editor.on('transaction', follow)
   try {
     const doc = sessionDoc(editor)
     const uploads = files.map(file => uploadPageFile(doc, pickKey(kind), file))
@@ -154,10 +166,13 @@ export async function uploadIntoEditor(editor: Editor, kind: FilePickKind, files
       if (!uuid || editor.isDestroyed) continue
       const node = embedNode(kind, uuid)
       const pos = at.current()?.from ?? editor.state.doc.content.size
-      editor.chain().insertContentAt(Math.min(pos, editor.state.doc.content.size), node).run()
+      inserting = true
+      editor.chain().insertContentAt(Math.min(pos, editor.state.doc.content.size), node, { updateSelection: !moved }).run()
+      inserting = false
     }
   }
   finally {
+    editor.off('transaction', follow)
     at.stop()
   }
 }
