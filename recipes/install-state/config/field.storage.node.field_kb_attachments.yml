@@ -10,8 +10,8 @@ entity_type: node
 type: file
 settings:
   target_type: file
-  display_field: false
-  display_default: false
+  display_field: true
+  display_default: true
   uri_scheme: private
 module: file
 locked: false
