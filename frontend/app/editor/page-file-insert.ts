@@ -140,16 +140,31 @@ function embedNode(kind: FilePickKind, uuid: string) {
 const NODE_KINDS: Record<string, FilePickKind> = { image: 'image', attachment: 'file', embed: 'embed' }
 
 /**
- * Uploads `files`, inserting one embed of `kind` per file at `insertAt`, in
- * the order given, followed through every edit until the uploads settle.
+ * The position after the embed of `uuid`; a fresh upload is embedded once.
+ * - The next file goes there: a block inserted inside a paragraph lands after
+ *   it, past the position it was inserted at.
+ */
+function endOfEmbed(editor: Editor, uuid: string): number | null {
+  let end: number | null = null
+  editor.state.doc.descendants((node, pos) => {
+    if (end === null && node.attrs.file === uuid) end = pos + node.nodeSize
+    return end === null
+  })
+  return end
+}
+
+/**
+ * Uploads `files`, inserting one embed per file at `insertAt`, in the order
+ * given, followed through every edit until the uploads settle.
+ * - `kind` is one for all files, or picked per file.
  * - The embed takes the selection only if the user changed neither text nor
  *   selection meanwhile (their own undo/redo counts): typing on must not
  *   replace a selected embed.
  * - Offline refuses: the file has to reach Drupal before anything refers to it.
  */
-export async function uploadIntoEditor(editor: Editor, kind: FilePickKind, files: File[], insertAt: number): Promise<void> {
+export async function uploadIntoEditor(editor: Editor, kind: FilePickKind | ((file: File) => FilePickKind), files: File[], insertAt: number): Promise<void> {
   if (!navigator.onLine) return refuseOffline(files)
-  const at = trackRange(editor, insertAt)
+  let at = trackRange(editor, insertAt)
   let moved = false
   let inserting = false
   const follow = ({ transaction }: { transaction: Transaction }) => {
@@ -160,15 +175,20 @@ export async function uploadIntoEditor(editor: Editor, kind: FilePickKind, files
   editor.on('transaction', follow)
   try {
     const doc = sessionDoc(editor)
-    const uploads = files.map(file => uploadPageFile(doc, pickKey(kind), file))
-    for (const upload of uploads) {
+    const kinds = files.map(file => typeof kind === 'function' ? kind(file) : kind)
+    const uploads = files.map((file, i) => uploadPageFile(doc, pickKey(kinds[i]!), file))
+    for (const [i, upload] of uploads.entries()) {
       const uuid = await upload
       if (!uuid || editor.isDestroyed) continue
-      const node = embedNode(kind, uuid)
+      const node = embedNode(kinds[i]!, uuid)
       const pos = at.current()?.from ?? editor.state.doc.content.size
       inserting = true
       editor.chain().insertContentAt(Math.min(pos, editor.state.doc.content.size), node, { updateSelection: !moved }).run()
       inserting = false
+      const next = endOfEmbed(editor, uuid)
+      if (next === null) continue
+      at.stop()
+      at = trackRange(editor, next)
     }
   }
   finally {

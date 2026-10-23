@@ -169,6 +169,31 @@ describe('uploadIntoEditor', () => {
     await done
     expect((editor.state.selection as NodeSelection).node?.attrs.file).toBe(second)
   })
+
+  it('keeps the order given when inserting inside a paragraph', async () => {
+    const second = '66666666-7777-4888-9999-000000000002'
+    mountShared('First.\n\nSecond.')
+    const done = uploadIntoEditor(editor, 'file', [shot(), shot()], editor.state.doc.child(0).nodeSize - 1)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    sent[0]!.answer()
+    sent[1]!.answer(second)
+    await done
+    expect(blocks()).toEqual(['First.', `attachment:${FILE}`, `attachment:${second}`, 'Second.'])
+  })
+
+  it('picks the kind per file, each into its own list, in the order given', async () => {
+    const pdf = '66666666-7777-4888-9999-000000000003'
+    mountShared('First.\n\nSecond.')
+    const files = [shot(), new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' })]
+    const done = uploadIntoEditor(editor, file => file.type === 'image/png' ? 'image' : 'file', files, editor.state.doc.child(0).nodeSize)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    sent[1]!.answer(pdf)
+    sent[0]!.answer()
+    await done
+    expect(blocks()).toEqual(['First.', `image:${FILE}`, `attachment:${pdf}`, 'Second.'])
+    expect(fileArray(sessionYDoc(), 'images').toArray()).toEqual([FILE])
+    expect(fileArray(sessionYDoc(), 'attachments').toArray()).toEqual([pdf])
+  })
 })
 
 describe('upload toasts', () => {

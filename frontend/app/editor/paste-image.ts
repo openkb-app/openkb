@@ -3,7 +3,7 @@ import { posAfterEnclosingList } from '~/editor/menu-items'
 import { uploadIntoEditor } from '~/editor/page-file-insert'
 
 /** The types `field_kb_images` takes (png gif jpg jpeg webp). */
-const IMAGE_TYPES = ['image/png', 'image/gif', 'image/jpeg', 'image/webp']
+export const IMAGE_TYPES = ['image/png', 'image/gif', 'image/jpeg', 'image/webp']
 
 /** Names browsers give a pasted image. */
 const NAMELESS = /^(?:image\.\w+|blob)?$/i
@@ -23,8 +23,8 @@ function named(file: File): File {
 }
 
 /**
- * Pasted or dropped image files become page images, through the block menu's
- * image upload.
+ * Pasted image files become page images, through the block menu's image
+ * upload.
  * - A paste with HTML (a web snippet, table cells) pastes as text: the plugin
  *   leaves it to the editor while `consumePasteEvent` is off.
  */
@@ -33,8 +33,5 @@ export const PageImageFileHandler = FileHandler.configure({
   onPaste: (editor, files, htmlContent) => {
     if (htmlContent) return
     void uploadIntoEditor(editor, 'image', files.map(named), posAfterEnclosingList(editor) ?? editor.state.selection.to)
-  },
-  onDrop: (editor, files, pos) => {
-    void uploadIntoEditor(editor, 'image', files, posAfterEnclosingList(editor, editor.state.doc.resolve(pos)) ?? pos)
   },
 })

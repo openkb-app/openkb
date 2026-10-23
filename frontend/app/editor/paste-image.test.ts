@@ -67,12 +67,4 @@ describe('PageImageFileHandler', () => {
     expect(paste(clipboard([new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' })]))).toBe(false)
     expect(uploadIntoEditor).not.toHaveBeenCalled()
   })
-
-  it('uploads dropped images at the drop point, after an enclosing list, keeping their names', () => {
-    editor.commands.setContent(parseMarkdownToJson('- One\n- Two\n\nAfter.'))
-    const inList = 4
-    const afterList = editor.state.doc.firstChild!.nodeSize
-    PageImageFileHandler.options.onDrop!(editor, [png()], inList)
-    expect(uploadIntoEditor).toHaveBeenCalledWith(editor, 'image', [expect.objectContaining({ name: 'image.png' })], afterList)
-  })
 })

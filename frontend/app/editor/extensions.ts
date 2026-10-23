@@ -35,6 +35,7 @@ import { fenceCaretPlugin } from './fence-caret'
 import { fenceErrorPlugin } from './fence-error'
 import { fenceFor } from '#shared/utils/fences'
 import { DocLinkSelection } from './doc-link-selection'
+import { PageFileDropHandler } from './drop-files'
 import { LinkOpen } from './link-open'
 import { LinkTargetKeys } from './link-target'
 import { PageImageFileHandler } from './paste-image'
@@ -93,6 +94,7 @@ export function buildEditorExtensions() {
     LinkOpen,
     LinkTargetKeys,
     PageImageFileHandler,
+    PageFileDropHandler,
     CiteNumbers,
     BlockId,
     BlockWrapper,
