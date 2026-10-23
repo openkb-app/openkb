@@ -5,6 +5,8 @@ import type { AwarenessPeerState } from '#shared/utils/presence'
 import { isNoEditAccessReason } from '#shared/utils/collab-auth'
 import { deletedAtOf } from '#shared/utils/collab-meta'
 
+// 'live': the socket is open and this connection has synced, so the editor
+// holds the server's document.
 // 'auth-error': the server rejected the session itself (no/expired cookie).
 // 'no-access': the session is authenticated but lacks edit access to this
 // node — a permission problem, not a sign-in problem.
@@ -123,8 +125,10 @@ export function useLiveCollab(options: LiveCollabOptions) {
       name: options.name,
       document: options.ydoc,
       token: csrfToken,
+      // Fires once per connection, after the server answered the sync.
       onSynced: () => {
         synced.value = true
+        liveStatus.value = 'live'
         if (checkpointBaseline < 0) {
           const lc = meta.get('last_commit') as { at?: number } | undefined
           checkpointBaseline = Number(lc?.at ?? 0)
@@ -137,20 +141,19 @@ export function useLiveCollab(options: LiveCollabOptions) {
       // The websocket keeps retrying after a permission-denied close, so a
       // session that gains access (signed in in another tab, permission
       // granted) authenticates on a later attempt — reset the failed status
-      // so the editor unlocks without a reload. 'live' directly: the
-      // provider's status hook already fired 'connected' before the auth
-      // handshake, so no further onStatus event follows this.
+      // so the editor unlocks without a reload. The sync follows and sets 'live'.
       onAuthenticated: () => {
         authError.value = null
-        if (isAuthFailedStatus(liveStatus.value)) liveStatus.value = 'live'
+        if (isAuthFailedStatus(liveStatus.value)) liveStatus.value = 'connecting'
       },
       onAwarenessUpdate: ({ states }) => {
         peers.value = states.length
         awarenessStates.value = states
       },
+      // An open socket is still 'connecting': onSynced sets 'live'.
       onStatus: ({ status }) => {
         if (isAuthFailedStatus(liveStatus.value)) return
-        liveStatus.value = status === 'connected' ? 'live' : status === 'connecting' ? 'connecting' : 'offline'
+        liveStatus.value = status === 'disconnected' ? 'offline' : 'connecting'
       },
       onDisconnect: () => {
         if (!isAuthFailedStatus(liveStatus.value)) liveStatus.value = 'offline'

@@ -4,6 +4,7 @@ import { SPACE_TYPE, type KbSpace } from '#shared/utils/kb-spaces'
 import { PAGE_FILE_FIELDS } from '#shared/utils/files'
 import type { InlineCommentRecord } from '#shared/block-comments'
 import { fetchUpstream, upstreamError, UPSTREAM_UNAVAILABLE } from './upstream'
+import { COLLAB_DRUPAL_TIMEOUT_MS } from './collab-timing'
 import { forwardedAuthHeaders } from './actor'
 import { splitTitleHeading } from './title-heading'
 import {
@@ -53,13 +54,18 @@ export function publicDrupalBaseUrl(): string {
 /**
  * Drupal's CSRF token for a session cookie; null when Drupal gives none.
  * Only for checking a caller's token, never sent on (ADR 0019).
+ * A 503 when Drupal does not answer within `OKB_COLLAB_DRUPAL_TIMEOUT_MS`.
  */
 export async function fetchCsrfToken(cookie: string): Promise<string | null> {
   const res = await fetchUpstream(`${drupalBaseUrl()}/session/token`, {
     headers: { Cookie: cookie },
+    signal: AbortSignal.timeout(COLLAB_DRUPAL_TIMEOUT_MS),
   })
   if (!res.ok) return null
-  return (await res.text()).trim()
+  const token = await res.text().catch(() => {
+    throw createError({ statusCode: 503, statusMessage: UPSTREAM_UNAVAILABLE })
+  })
+  return token.trim()
 }
 
 /**
@@ -340,9 +346,11 @@ function cePageRead(response: CeResponse): CePageRead | null {
 async function fetchCeNodePage(
   auth: Record<string, string>,
   path: string,
+  timeoutMs?: number,
 ): Promise<CePageRead> {
   const response = await drupalFetchWithAuth<CeResponse>(auth, path, {
     headers: { Accept: 'application/json' },
+    signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
   })
   const read = cePageRead(response)
   if (!read) {
@@ -365,8 +373,9 @@ async function fetchCeNodePage(
 export function fetchCeNode(
   auth: Record<string, string>,
   nid: number,
+  timeoutMs?: number,
 ): Promise<CePageRead> {
-  return fetchCeNodePage(auth, `/ce-api/node/${nid}`)
+  return fetchCeNodePage(auth, `/ce-api/node/${nid}`, timeoutMs)
 }
 
 /**
@@ -377,16 +386,17 @@ export function fetchCeNode(
  * `/latest`'s own access, so that route is never asked for blind and a reader
  * without the task reads the live revision, which is what they may see. Pass
  * `live` where the caller already holds this nid's live read; one of another
- * page is ignored and the right one read.
+ * page is ignored and the right one read. `timeoutMs` bounds each request.
  */
 export async function fetchCeWorkingCopy(
   auth: Record<string, string>,
   nid: number,
   live?: CePageRead,
+  timeoutMs?: number,
 ): Promise<CePageRead> {
-  const published = live?.page.nid === nid ? live : await fetchCeNode(auth, nid)
+  const published = live?.page.nid === nid ? live : await fetchCeNode(auth, nid, timeoutMs)
   if (!published.hasDraft) return published
-  const draft = await fetchCeNodePage(auth, `/ce-api/node/${nid}/latest`)
+  const draft = await fetchCeNodePage(auth, `/ce-api/node/${nid}/latest`, timeoutMs)
   return { ...draft, canEdit: published.canEdit, hasDraft: true }
 }
 
@@ -812,12 +822,13 @@ export function fetchInlineComments(
   auth: Record<string, string>,
   entityType: string,
   entityId: number | string,
+  signal?: AbortSignal,
 ): Promise<{ messages: InlineCommentRecord[] }> {
   const query = new URLSearchParams({ entity_type: entityType, entity_id: String(entityId) })
   return drupalFetchWithAuth<{ messages: InlineCommentRecord[] }>(
     auth,
     `/api/inline-comments?${query}`,
-    { headers: { Accept: 'application/json' } },
+    { headers: { Accept: 'application/json' }, signal },
   )
 }
 

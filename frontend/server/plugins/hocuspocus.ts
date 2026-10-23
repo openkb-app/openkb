@@ -30,7 +30,7 @@ import { mapCeFieldValues, TITLE_KEY, type FieldValues } from '../utils/entity-f
 import { CheckpointScheduler } from '../utils/commit-scheduler'
 import { TtlCache } from '../utils/ttl-cache'
 import { settleDocument, unloadMayRelease, type CollabControl, type CollabControlDeps, type SettleableDocument } from '../utils/collab-control'
-import { COLLAB_COMMIT_MAX_DIRTY_MS, COLLAB_COMMIT_QUIET_MS, COLLAB_MARK_THROTTLE_MS, COLLAB_UPLOAD_COMMIT_MS } from '../utils/collab-timing'
+import { COLLAB_COMMIT_MAX_DIRTY_MS, COLLAB_COMMIT_QUIET_MS, COLLAB_DRUPAL_TIMEOUT_MS, COLLAB_MARK_THROTTLE_MS, COLLAB_UPLOAD_COMMIT_MS } from '../utils/collab-timing'
 import { MarkMirror } from '../utils/collab-sidecar'
 import { noEditAccessReason, noFieldAccessReason } from '#shared/utils/collab-auth'
 import { joinAccessUrl, parseJoinAnswer, type JoinAccount } from '../utils/collab-join'
@@ -255,10 +255,8 @@ export default defineNitroPlugin((nitroApp) => {
    * (`GET /openkb/schema`, cached).
    */
   async function fetchWorkingCopyFields(nid: number): Promise<FieldValues | null> {
-    const read = await fetchWorkingCopy(nid)
-    if (!read) return null
-    const specs = await fieldSource.fetchSpecs()
-    return specs === null ? null : mapCeFieldValues(specs, read.props)
+    const [read, specs] = await Promise.all([fetchWorkingCopy(nid), fieldSource.fetchSpecs()])
+    return read && specs !== null ? mapCeFieldValues(specs, read.props) : null
   }
 
   /** The page file lists, off the same working-copy read. */
@@ -306,7 +304,7 @@ export default defineNitroPlugin((nitroApp) => {
     if (hit && hit.expiresAt > Date.now()) return hit.read
     const pending = (async () => {
       try {
-        return await asCollabServer(auth => fetchCeWorkingCopy(auth, nid))
+        return await asCollabServer(auth => fetchCeWorkingCopy(auth, nid, undefined, COLLAB_DRUPAL_TIMEOUT_MS))
       }
       catch (err) {
         console.error('[collab] working-copy fetch failed:', (err as Error).message)
@@ -343,16 +341,15 @@ export default defineNitroPlugin((nitroApp) => {
    */
   async function fetchStoredComments(nid: number): Promise<StoredConversations | null> {
     if (!collabIdentityConfigured()) return null
-    const read = await fetchWorkingCopy(nid)
-    if (!read) return null
-    try {
-      const { messages } = await asCollabServer(auth => fetchInlineComments(auth, 'node', nid))
-      return { uuid: read.page.id, messages }
-    }
-    catch (err) {
-      console.error(`[collab] node:${nid}: conversations not read:`, (err as Error).message)
-      return null
-    }
+    const [read, stored] = await Promise.all([
+      fetchWorkingCopy(nid),
+      asCollabServer(auth => fetchInlineComments(auth, 'node', nid, AbortSignal.timeout(COLLAB_DRUPAL_TIMEOUT_MS)))
+        .catch((err) => {
+          console.error(`[collab] node:${nid}: conversations not read:`, (err as Error).message)
+          return null
+        }),
+    ])
+    return read && stored ? { uuid: read.page.id, messages: stored.messages } : null
   }
 
   /**
@@ -443,7 +440,7 @@ export default defineNitroPlugin((nitroApp) => {
 
     const access: JoinAccess = { allowed: false, denied: null, user: null }
     try {
-      const res = await fetch(joinAccessUrl(DRUPAL_URL, nid), { headers })
+      const res = await fetch(joinAccessUrl(DRUPAL_URL, nid), { headers, signal: AbortSignal.timeout(COLLAB_DRUPAL_TIMEOUT_MS) })
       if (!res.ok && !ACCESS_DENIAL_STATUSES.has(res.status)) {
         console.error(`[collab] join-access check unreachable: HTTP ${res.status} for node ${nid}`)
         return { allowed: false, denied: null, user: null, reachable: false }
@@ -882,19 +879,21 @@ export default defineNitroPlugin((nitroApp) => {
       if (!cookie) {
         throw new Error('Authentication required: no session cookie')
       }
-      if (!await isSessionCsrfToken(cookie, token)) {
+      // Drupal did not answer. Refusing is the only safe move — but it is a
+      // refusal of the moment, not of the account, and it caches nothing, so
+      // a retry once Drupal is back is granted immediately.
+      const unreachable = () => {
+        const reason = 'Could not reach the site to check your access — try again in a moment.'
+        return Object.assign(new Error(reason), { reason })
+      }
+      const csrfOk = await isSessionCsrfToken(cookie, token).catch(() => { throw unreachable() })
+      if (!csrfOk) {
         const reason = 'This editing session takes the browser session with its CSRF token only.'
         throw Object.assign(new Error(reason), { reason })
       }
 
       const { allowed, denied, user, reachable } = await canEdit(nid, cookie)
-      if (!reachable) {
-        // Drupal did not answer. Refusing is the only safe move — but it is a
-        // refusal of the moment, not of the account, and it caches nothing, so
-        // a retry once Drupal is back is granted immediately.
-        const reason = 'Could not reach the site to check your access — try again in a moment.'
-        throw Object.assign(new Error(reason), { reason })
-      }
+      if (!reachable) throw unreachable()
       if (!allowed) {
         // A cookie Drupal no longer honours (expired/stale session) resolves
         // to the anonymous user — that is a sign-in problem, not a permission

@@ -12,7 +12,7 @@ const drupalBaseUrl = vi.fn(() => 'http://drupal.test')
 const fetchUpstream = vi.fn()
 
 vi.mock('./drupal', () => ({ drupalBaseUrl }))
-vi.mock('./upstream', () => ({ fetchUpstream }))
+vi.mock('./upstream', () => ({ fetchUpstream, UPSTREAM_UNAVAILABLE: 'Service temporarily unavailable' }))
 
 /** A fresh module instance, so the held token never leaks between cases. */
 async function load() {
@@ -35,6 +35,7 @@ describe('the collaboration server identity', () => {
   afterEach(() => {
     delete process.env.OKB_COLLAB_CLIENT_ID
     delete process.env.OKB_COLLAB_CLIENT_SECRET
+    vi.unstubAllEnvs()
   })
 
   it('issues once for concurrent callers, and re-uses what it holds', async () => {
@@ -108,6 +109,47 @@ describe('the collaboration server identity', () => {
 
     expect(await collabAuthHeaders()).toEqual({})
     expect(await collabAuthHeaders()).toEqual({ Authorization: 'Bearer after the blip' })
+  })
+
+  it('gives up on a token request that outlasts the timeout', async () => {
+    vi.stubEnv('OKB_COLLAB_DRUPAL_TIMEOUT_MS', '20')
+    fetchUpstream.mockImplementation((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(init.signal!.reason))
+    }))
+    const { collabAuthHeaders } = await load()
+
+    expect(await collabAuthHeaders()).toEqual({})
+  })
+
+  /**
+   * Read anonymously, a page's working copy is its published body, and a seed
+   * against that discards the draft. The seed lanes turn the throw into
+   * "unavailable" (doc-seed.test.ts).
+   */
+  it('does not run a read anonymously when the token request times out', async () => {
+    vi.stubEnv('OKB_COLLAB_DRUPAL_TIMEOUT_MS', '20')
+    fetchUpstream.mockImplementation((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(init.signal!.reason))
+    }))
+    const { asCollabServer } = await load()
+
+    const run = vi.fn(async () => 'read')
+    await expect(asCollabServer(run)).rejects.toMatchObject({ statusCode: 503 })
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  /** The keys rotated: Drupal revokes the held token and refuses to issue a new one. */
+  it('does not retry anonymously when the re-issue after a 401 fails', async () => {
+    fetchUpstream
+      .mockResolvedValueOnce(granted('revoked'))
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+    const { asCollabServer } = await load()
+
+    const run = vi.fn(async () => {
+      throw Object.assign(new Error('Unauthorized'), { statusCode: 401 })
+    })
+    await expect(asCollabServer(run)).rejects.toMatchObject({ statusCode: 503 })
+    expect(run).toHaveBeenCalledTimes(1)
   })
 
   it('has no identity, and asks for none, without credentials', async () => {

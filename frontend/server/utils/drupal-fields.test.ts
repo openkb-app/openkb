@@ -14,9 +14,23 @@ const SCHEMA = {
   body: { allowedHtml: { p: [] } },
 }
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})
 
 describe('createFieldSource', () => {
+  it('answers null for a schema read that outlasts the timeout', async () => {
+    vi.stubEnv('OKB_COLLAB_DRUPAL_TIMEOUT_MS', '20')
+    vi.resetModules()
+    const { createFieldSource } = await import('./drupal-fields')
+    vi.stubGlobal('fetch', vi.fn((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(init.signal!.reason))
+    })))
+
+    expect(await createFieldSource('http://drupal.test').fetchSpecs()).toBeNull()
+  })
+
   it('reads the exposure contract off the published schema', async () => {
     stubFetch({ '/openkb/schema': { body: SCHEMA } })
 

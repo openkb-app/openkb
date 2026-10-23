@@ -38,6 +38,13 @@ export const COLLAB_UPLOAD_COMMIT_MS = envMs('OKB_COLLAB_UPLOAD_COMMIT_MS', 2_50
 export const COLLAB_COMMIT_MAX_DIRTY_MS = envMs('OKB_COLLAB_COMMIT_MAX_DIRTY_MS', 30 * 60_000)
 
 /**
+ * Longest wait for each Drupal request on the way to a peer's sync: session
+ * token, join access, the server's token, working copy, schema, conversations.
+ * On expiry the request fails like an unreachable Drupal (docs/collab-server.md).
+ */
+export const COLLAB_DRUPAL_TIMEOUT_MS = envMs('OKB_COLLAB_DRUPAL_TIMEOUT_MS', 10_000)
+
+/**
  * Shortest gap between two runs of the review-mark mirror, which re-runs the
  * attribution pass and stamps the flags it earns into the live sidecar.
  *

@@ -4,12 +4,19 @@ import { createApp, defineComponent, h, onBeforeUnmount, onMounted, ref } from '
 import * as Y from 'yjs'
 import { useLiveCollab } from './useLiveCollab'
 
-const providers: Array<{ options: { onSynced: () => void }, destroy: ReturnType<typeof vi.fn> }> = []
+interface ProviderOptions {
+  onSynced: () => void
+  onStatus: (event: { status: 'connecting' | 'connected' | 'disconnected' }) => void
+  onAuthenticationFailed: (event: { reason: string }) => void
+  onAuthenticated: () => void
+}
+
+const providers: Array<{ options: ProviderOptions, destroy: ReturnType<typeof vi.fn> }> = []
 
 vi.mock('@hocuspocus/provider', () => ({
   HocuspocusProvider: class {
     destroy = vi.fn()
-    constructor(public options: { onSynced: () => void }) { providers.push(this) }
+    constructor(public options: ProviderOptions) { providers.push(this) }
   },
 }))
 vi.mock('y-indexeddb', () => ({
@@ -21,14 +28,15 @@ vi.mock('y-indexeddb', () => ({
 
 /** Runs the composable inside a mounted component, as the editor does. */
 function mounted(ydoc: Y.Doc) {
+  let session!: ReturnType<typeof useLiveCollab>
   const app = createApp(defineComponent({
     setup() {
-      useLiveCollab({ ydoc, name: 'node:1', localKey: 'openkb-node-1' })
+      session = useLiveCollab({ ydoc, name: 'node:1', localKey: 'openkb-node-1' })
       return () => h('div')
     },
   }))
   app.mount(document.createElement('div'))
-  return () => app.unmount()
+  return Object.assign(() => app.unmount(), { session })
 }
 
 /** The doc's 'update' listeners — lib0's observable keeps them in a map. */
@@ -71,5 +79,57 @@ describe('useLiveCollab disposal', () => {
     unmount()
 
     expect(updateListeners(ydoc)).toBe(0)
+  })
+})
+
+describe('useLiveCollab live status', () => {
+  beforeEach(() => {
+    providers.length = 0
+    vi.stubGlobal('ref', ref)
+    vi.stubGlobal('onMounted', onMounted)
+    vi.stubGlobal('onBeforeUnmount', onBeforeUnmount)
+    vi.stubGlobal('csrfToken', async () => 'browser-token')
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('is live only once the connection has synced, on every reconnect', () => {
+    const unmount = mounted(new Y.Doc())
+    const { liveStatus, synced } = unmount.session
+    const provider = providers[0]!.options
+
+    provider.onStatus({ status: 'connected' })
+    expect(liveStatus.value).toBe('connecting')
+    expect(synced.value).toBe(false)
+
+    provider.onSynced()
+    expect(liveStatus.value).toBe('live')
+
+    provider.onStatus({ status: 'disconnected' })
+    expect(liveStatus.value).toBe('offline')
+    provider.onStatus({ status: 'connecting' })
+    provider.onStatus({ status: 'connected' })
+    expect(liveStatus.value).toBe('connecting')
+
+    provider.onSynced()
+    expect(liveStatus.value).toBe('live')
+    unmount()
+  })
+
+  it('waits for the sync after a refused session authenticates', () => {
+    const unmount = mounted(new Y.Doc())
+    const { liveStatus } = unmount.session
+    const provider = providers[0]!.options
+
+    provider.onStatus({ status: 'connected' })
+    provider.onAuthenticationFailed({ reason: 'permission-denied' })
+    expect(liveStatus.value).toBe('auth-error')
+    provider.onStatus({ status: 'connected' })
+    expect(liveStatus.value).toBe('auth-error')
+
+    provider.onAuthenticated()
+    expect(liveStatus.value).toBe('connecting')
+    provider.onSynced()
+    expect(liveStatus.value).toBe('live')
+    unmount()
   })
 })

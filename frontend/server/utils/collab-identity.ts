@@ -1,5 +1,7 @@
 import { drupalBaseUrl } from './drupal'
-import { fetchUpstream } from './upstream'
+import { createError } from 'h3'
+import { fetchUpstream, UPSTREAM_UNAVAILABLE } from './upstream'
+import { COLLAB_DRUPAL_TIMEOUT_MS } from './collab-timing'
 
 /**
  * The collaboration server's own account (ADR 0001).
@@ -57,6 +59,7 @@ function token(): Promise<string> {
         client_secret: CLIENT_SECRET,
         scope: 'collab',
       }).toString(),
+      signal: AbortSignal.timeout(COLLAB_DRUPAL_TIMEOUT_MS),
     })
     if (!res.ok) {
       throw new Error(`collab token request failed: HTTP ${res.status}`)
@@ -83,11 +86,11 @@ export function forgetCollabToken(): void {
 }
 
 /**
- * The server's auth carrier, or nothing when it has no identity configured.
+ * The server's auth carrier, or nothing when it has no identity configured or
+ * its token request failed.
  *
- * Empty rather than throwing: every lane that uses it already treats "no
- * carrier" as "cannot ask", and says so — see the seed lanes in
- * server/plugins/hocuspocus.ts.
+ * Callers treat "no carrier" as "cannot ask": a checkpoint reports
+ * `no-credentials`, `asCollabServer` throws.
  */
 export async function collabAuthHeaders(): Promise<Record<string, string>> {
   if (!collabIdentityConfigured()) return {}
@@ -101,24 +104,39 @@ export async function collabAuthHeaders(): Promise<Record<string, string>> {
 }
 
 /**
+ * The server's auth carrier for a request it is about to make.
+ *
+ * Throws a 503 when the server has an identity but no token: read
+ * anonymously, a page's working copy is its published body, and a seed
+ * against that discards the draft.
+ */
+async function serverAuth(): Promise<Record<string, string>> {
+  const auth = await collabAuthHeaders()
+  if (collabIdentityConfigured() && !auth.Authorization) {
+    throw createError({ statusCode: 503, statusMessage: UPSTREAM_UNAVAILABLE })
+  }
+  return auth
+}
+
+/**
  * Runs one request as the server, issuing a fresh token if the held one is
  * refused.
  *
  * A token outlives the process that holds it and Drupal may retire it — the
  * consumer re-provisioned, the keys rotated. That reads as a 401 on an
  * otherwise valid request, which one retry answers; anything else is the
- * caller's to handle.
+ * caller's to handle. Neither attempt runs without a token ({@link serverAuth}).
  */
 export async function asCollabServer<T>(
   run: (auth: Record<string, string>) => Promise<T>,
 ): Promise<T> {
-  const auth = await collabAuthHeaders()
+  const auth = await serverAuth()
   try {
     return await run(auth)
   }
   catch (err) {
-    if ((err as { statusCode?: number })?.statusCode !== 401 || Object.keys(auth).length === 0) throw err
+    if ((err as { statusCode?: number })?.statusCode !== 401 || !auth.Authorization) throw err
     forgetCollabToken()
-    return run(await collabAuthHeaders())
+    return run(await serverAuth())
   }
 }

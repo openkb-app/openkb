@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { commitKbPageWithAuth, createKbPage, deleteKbPageWithAuth, drupalFetch, fetchCeNode, fetchCeRevision, fetchCeWorkingCopy, findKbPageByPath, probeDeleteAccess, sitePermissions, type CePageRead } from './drupal'
+import { commitKbPageWithAuth, createKbPage, deleteKbPageWithAuth, drupalFetch, fetchCeNode, fetchCsrfToken, fetchCeRevision, fetchCeWorkingCopy, findKbPageByPath, probeDeleteAccess, sitePermissions, type CePageRead } from './drupal'
 import { makeEvent, stubFetch } from '../test-support/h3'
 
 /**
@@ -36,6 +36,16 @@ describe('sitePermissions', () => {
   it('answers no permissions when the read fails, so nothing gated is drawn', async () => {
     stubFetch({ '/api/site-info': { status: 503 } })
     expect(await sitePermissions(makeEvent({ Cookie: 'SESS=x' }))).toEqual({})
+  })
+})
+
+describe('fetchCsrfToken', () => {
+  it('answers a 503 when the token body times out after the headers', async () => {
+    vi.stubGlobal('fetch', async () => ({
+      ok: true,
+      text: async () => { throw new DOMException('The operation timed out.', 'TimeoutError') },
+    }))
+    await expect(fetchCsrfToken('SESS=x')).rejects.toMatchObject({ statusCode: 503 })
   })
 })
 
@@ -255,6 +265,18 @@ describe('fetchCeWorkingCopy', () => {
     const read = await fetchCeWorkingCopy(cookie, 3)
     expect(read.page.body).toBe('Draft body.')
     expect(read.page.blockMeta).toBe('{"b-draft":{}}')
+  })
+
+  it('bounds each of its requests by a timeout of its own', async () => {
+    const calls = stubFetch({
+      '/ce-api/node/3/latest': { body: page('Draft body.', ['View']) },
+      '/ce-api/node/3': { body: page('Live body.', ['View', 'Latest version']) },
+    })
+    await fetchCeWorkingCopy(cookie, 3, undefined, 10_000)
+    const [live, draft] = calls.map(call => call.init.signal)
+    expect(live).toBeInstanceOf(AbortSignal)
+    expect(draft).toBeInstanceOf(AbortSignal)
+    expect(draft).not.toBe(live)
   })
 
   it('forwards a Bearer token as the only carrier, as the actor rule has it', async () => {

@@ -4,6 +4,7 @@ import {
   type FrontmatterSchema,
 } from './entity-fields'
 import type { AllowedHtml } from '#shared/utils/comark-tree'
+import { COLLAB_DRUPAL_TIMEOUT_MS } from './collab-timing'
 
 /**
  * Drupal source for the collab session's entity field contract.
@@ -55,7 +56,10 @@ export function createFieldSource(
   async function fetchSchema(): Promise<FrontmatterSchema | null> {
     if (cached && cached.expiresAt > now()) return cached.schema
     try {
-      const res = await fetch(`${base}/openkb/schema`, { headers: { Accept: 'application/json' } })
+      const res = await fetch(`${base}/openkb/schema`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(COLLAB_DRUPAL_TIMEOUT_MS),
+      })
       if (!res.ok) {
         console.error(`[collab] frontmatter schema fetch → ${res.status}`)
         return null

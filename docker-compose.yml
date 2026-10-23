@@ -118,6 +118,7 @@ services:
       # notes in docs/collab-server.md). Empty falls back to the built-in
       # defaults.
       OKB_COLLAB_IDLE_MS: ${OKB_COLLAB_IDLE_MS:-}
+      OKB_COLLAB_DRUPAL_TIMEOUT_MS: ${OKB_COLLAB_DRUPAL_TIMEOUT_MS:-}
       OKB_COLLAB_COMMIT_QUIET_MS: ${OKB_COLLAB_COMMIT_QUIET_MS:-}
       OKB_COLLAB_UPLOAD_COMMIT_MS: ${OKB_COLLAB_UPLOAD_COMMIT_MS:-}
       OKB_COLLAB_COMMIT_MAX_DIRTY_MS: ${OKB_COLLAB_COMMIT_MAX_DIRTY_MS:-}
