@@ -1,0 +1,97 @@
+# Scans the published images daily for fixed HIGH and CRITICAL
+# vulnerabilities and for secrets: `openkb-drupal` and `openkb-frontend`, each
+# at `1.x` and at the newest release.
+#
+# - Findings: a table per image in the run summary, and SARIF in code scanning.
+# - A job with findings fails. The red run is the alert, posted to Slack by
+#   the GitHub app's subscription to this workflow.
+
+name: Image scan
+
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      # The newest published release, pre-releases included; its images drop the `v`.
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=10" --jq '[.[] | select(.draft | not)][0].tag_name // empty')
+          [ -n "$tag" ] || { echo "No release found." >&2; exit 1; }
+          echo "tag=${tag#v}" >> "$GITHUB_OUTPUT"
+
+  scan:
+    needs: release
+    name: ${{ matrix.image }}:${{ matrix.tag }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [openkb-drupal, openkb-frontend]
+        tag: ['1.x', '${{ needs.release.outputs.tag }}']
+    env:
+      IMAGE: ghcr.io/openkb-app/${{ matrix.image }}:${{ matrix.tag }}
+    steps:
+      # The fixtures of core's package_manager tests: a fake vendor dir with
+      # pinned vulnerable versions, never loaded.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.74.0
+          image-ref: ${{ env.IMAGE }}
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          skip-dirs: app/web/core/modules/package_manager/tests/fixtures
+          format: json
+          output: trivy.json
+          hide-progress: true
+
+      - name: Summary
+        run: |
+          {
+            echo "## \`$IMAGE\`"
+            jq -r '
+              def table(head; rows): if rows | length == 0 then empty else
+                head, (head | gsub("[^|]+"; "---")), rows[] end;
+              ([.Results[]? | .Target as $target | .Vulnerabilities[]?
+                | {s: .Severity, row: "| \(.PkgName) | \(.InstalledVersion) → \(.FixedVersion) | \(if .PrimaryURL then "[\(.VulnerabilityID)](\(.PrimaryURL))" else .VulnerabilityID end) | \(.Severity) | `\(.PkgPath // $target)` |"}]
+                | sort_by(.s != "CRITICAL") | map(.row)) as $vulns
+              | [.Results[]? | .Target as $target | .Secrets[]?
+                | "| \(.RuleID) | \(.Severity) | `\($target):\(.StartLine)` |"] as $secrets
+              | if ($vulns + $secrets | length) == 0 then "No findings." else
+                  table("| Package | Installed → fixed | Vulnerability | Severity | In |"; $vulns),
+                  "",
+                  table("| Secret | Severity | In |"; $secrets)
+                end
+            ' trivy.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - run: trivy convert --format sarif --output trivy.sarif trivy.json
+
+      # One category per image and track, so a new release replaces the
+      # previous one's alerts.
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy.sarif
+          category: ${{ matrix.image }}-${{ matrix.tag == '1.x' && '1.x' || 'release' }}
+
+      - name: Fail on findings
+        run: |
+          count=$(jq '[.Results[]? | (.Vulnerabilities // []) + (.Secrets // []) | .[]] | length' trivy.json)
+          [ "$count" = 0 ] || { echo "$IMAGE: $count findings, listed in the run summary." >&2; exit 1; }

@@ -7,3 +7,5 @@ Please do not report vulnerabilities in public issues.
 - **When in doubt, use the Drupal security team.** They coordinate with us either way.
 
 Supported: the latest minor release. Fixes ship as a patch release of both images.
+
+The [`Image scan`](.github/workflows/image-scan.yml) workflow scans both images daily with Trivy, at `1.x` and at the newest release, for fixed HIGH and CRITICAL vulnerabilities and for secrets.
