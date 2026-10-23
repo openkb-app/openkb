@@ -113,7 +113,7 @@ describe('block ids at commit', () => {
 
     const ids = [...committedDocument().matchAll(/\{#([\w-]+)\}/g)].map(m => m[1])
     expect(ids).toEqual(['b-dup', 'b-dup-2'])
-    // The duplicate reaches Drupal named by nobody, and is stamped unapprovable
+    // The duplicate reaches Drupal named by nobody, and is stamped unaccounted
     // for it. That is the block the client introduced, never the one it aimed at.
     expect(commitMock.mock.calls[0]![3]?.session?.blocks).toEqual({ 'b-dup': [{ uid: 7, via: null }] })
   })

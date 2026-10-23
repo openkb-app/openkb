@@ -17,7 +17,6 @@ function mount(props: { queue?: ReviewQueueRow[], unidentified?: number }) {
   const app = createApp({
     render: () => h(ReviewPanel as never, {
       queue: props.queue ?? [],
-      steps: ['agent', 'peer'],
       threads: [],
       commentDraft: null,
       threadsShownFor: null,
@@ -38,10 +37,12 @@ function mount(props: { queue?: ReviewQueueRow[], unidentified?: number }) {
 
 const ROW: ReviewQueueRow = {
   id: 'b-1',
+  kind: 'block',
   pos: 0,
   text: 'A changed paragraph',
   steps: ['peer'],
   state: 'reviewable',
+  approvals: [{ step: 'peer', label: 'Mark reviewed', refusal: null }],
 }
 
 describe('ReviewPanel', () => {
@@ -66,5 +67,20 @@ describe('ReviewPanel', () => {
       .toContain('One block has no id')
     expect(root.querySelector('[data-testid="review-queue-summary"]')?.textContent)
       .toContain('One change is')
+  })
+
+  it('lists an unattributed row under its step, needing a sign-off', () => {
+    const root = mount({ queue: [{ ...ROW, state: 'unattributed' }] })
+    expect(root.querySelector('[data-testid="review-queue-empty"]')).toBeNull()
+    expect(root.querySelector('#okb-review-step-peer')).not.toBeNull()
+    expect(root.querySelector('[data-testid="review-queue-state-b-1"]')?.textContent)
+      .toBe('Needs a sign-off — nobody on record wrote it')
+  })
+
+  it('offers the sign-off on a removed unattributed row', () => {
+    const root = mount({ queue: [{ ...ROW, kind: 'removed', pos: null, text: '', state: 'unattributed' }] })
+    expect(root.querySelector('[data-testid="review-queue-state-b-1"]')?.textContent)
+      .toBe('Needs a sign-off — nobody on record wrote it')
+    expect(root.querySelector('[data-testid="review-queue-approve-b-1"]')?.getAttribute('aria-disabled')).not.toBe('true')
   })
 })

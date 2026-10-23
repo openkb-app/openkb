@@ -58,10 +58,10 @@ const reviewLabel = computed(() => reviewToggleLabel({
 
   <!-- The way into the review queue. Always on offer where a step is
        enforced: "nothing is waiting" is an answer an editor wants before
-       pressing Publish. An id-less block holds the page in every space, so it
-       opens the way in by itself. -->
+       pressing Publish. An id-less block, and a change naming no writer, hold
+       the page in every space, so either opens the way in by itself. -->
   <UButton
-    v-if="reviewSteps.length > 0 || assigned.total > 0 || unidentifiedCount > 0"
+    v-if="reviewSteps.length > 0 || assigned.total > 0 || unidentifiedCount > 0 || awaitingCount > 0"
     color="neutral"
     variant="soft"
     size="sm"

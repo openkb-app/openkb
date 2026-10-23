@@ -456,8 +456,8 @@ export function recordFileAdders(ledger: Ledger, uuids: string[], writer: Writer
  * Only blocks whose bytes differ from Drupal's copy are stated — text typed and
  * taken back opens no episode. The set is exhaustive for those: a block Drupal
  * calls changed that no set names is writing this server never witnessed, and
- * Drupal stamps it an empty set — approvable by an admin only, healed by an
- * identified edit. The per-block statement is membership only — `{uid, via}`,
+ * Drupal stamps it an empty set — approvable by anyone who may review the
+ * page, healed by an identified edit. The per-block statement is membership only — `{uid, via}`,
  * no amounts (ADR 0002). The character totals that elect the author live
  * per-uid on the ledger and go no further. The author is the peer with the most
  * characters this session (a human by construction), falling back to the last
@@ -466,7 +466,7 @@ export function recordFileAdders(ledger: Ledger, uuids: string[], writer: Writer
  * A review item is not always a block the document holds: a removed block is
  * stated under its own id with no print, and the title under
  * {@link TITLE_REVIEW_KEY}. Drupal reviews both, so both need their writers
- * named or they land approvable by nobody.
+ * named, or four-eyes holds nobody out of their sign-off.
  */
 export interface SessionWindow {
   /** Review item => its writer set (membership only). */
@@ -525,7 +525,7 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
     if (backToStored(ledger, id)) continue
     // A block gone from Drupal's body has no print to state. Its writers are
     // stated all the same: Drupal reviews the removal, and a change whose
-    // writers nobody states is approvable by nobody (ADR 0004).
+    // writers nobody states holds nobody out of its sign-off (ADR 0004).
     const print = statedPrint(ledger, id)
     blocks[id] = [...set.writers.values()].map(w => ({ uid: w.uid, via: w.via }))
     stated.set(id, print)
@@ -618,9 +618,9 @@ export function agentOnly(window: SessionWindow, agent: { user?: string, uid?: n
  *
  * An empty window is still stated. It is what a checkpoint says when its
  * ledger was lost, and the changed blocks it cannot name are exactly ADR
- * 0004's unaccounted case — approvable by nobody until an identified edit
- * re-stamps them. Withholding the statement instead would credit the service
- * account for text nobody witnessed it write.
+ * 0004's unaccounted case — held until somebody signs them off or an
+ * identified edit re-stamps them. Stating it keeps that text off the service
+ * account.
  */
 export function sessionPayload(
   window: SessionWindow,

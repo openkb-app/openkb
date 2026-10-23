@@ -25,11 +25,10 @@ function itemNamed(groups: BlockMenuItem[][], label: string): BlockMenuItem {
 }
 
 /**
- * The two sentences a refused control says no with — `PageBlocks::refusalReason()`'s
+ * The sentence a refused control says no with — `PageBlocks::refusalReason()`'s
  * own, pinned as words because a reader acts on the sentence.
  */
 const FOUR_EYES = 'This block needs a second pair of eyes: its only contributor is the account approving it.'
-const UNATTRIBUTED = 'This block needs an identified edit before anybody can sign it off: nothing on record says who wrote it.'
 
 describe('turnIntoTargets', () => {
   it('offers every other shape to a paragraph', () => {
@@ -152,10 +151,9 @@ describe('approvalStanding', () => {
   })
 
   // The state stampSession() produces for a change no server could attribute:
-  // "whoever wrote this may not sign it off" cannot be applied to an episode
-  // that does not say who wrote it, so nobody but an admin clears it.
-  it('refuses everybody on an episode naming nobody', () => {
-    expect(approvalStanding(pendingPeer([]), BOTH_STEPS, ADA)).toMatchObject({ refusal: UNATTRIBUTED })
+  // it names no author to exclude, so anybody may sign it off (ADR 0004).
+  it('lets anybody sign off an episode naming nobody', () => {
+    expect(approvalStanding(pendingPeer([]), BOTH_STEPS, ADA)).toMatchObject({ refusal: null })
   })
 
   it('refuses a session with no account behind it', () => {
@@ -178,17 +176,13 @@ describe('approvalStanding', () => {
     expect(approvalStanding(pendingPeer([3]), ['agent'], ADA)).toMatchObject({ state: 'none' })
   })
 
-  // ADR 0002: an account that may moderate clears anything — its own writing,
-  // and an episode naming nobody. The review is still recorded, never skipped.
+  // ADR 0002: an account that may moderate clears its own writing too. The
+  // review is still recorded, never skipped.
   it('lets a moderator sign off their own writing', () => {
     expect(approvalStanding(pendingPeer([3]), BOTH_STEPS, MODERATOR)).toMatchObject({
       state: 'awaiting',
       refusal: null,
     })
-  })
-
-  it('lets a moderator clear an episode naming nobody', () => {
-    expect(approvalStanding(pendingPeer([]), BOTH_STEPS, MODERATOR)).toMatchObject({ refusal: null })
   })
 
   // The exception is about the account, not about the session existing.

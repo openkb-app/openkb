@@ -377,13 +377,14 @@ describe('the review model', () => {
     expect(mayApprove(estimated, 'peer', { uid: 3, isAdmin: true })).toBe(true)
   })
 
-  // An estimate naming nobody is the unaccounted case, admins only — the same
-  // answer a witnessed flag with an empty baseline gives.
-  it('withholds an estimated flag that names nobody', () => {
+  // An estimate naming nobody is the unaccounted case: no author to exclude,
+  // so anybody signs it off — the answer a witnessed empty baseline gives.
+  it('offers an estimated flag that names nobody to anybody', () => {
     const nameless = block({ 'pending:peer': { by: [], ok: [], estimated: true } })
 
-    expect(mayApprove(nameless, 'peer', { uid: 7, isAdmin: false })).toBe(false)
+    expect(mayApprove(nameless, 'peer', { uid: 7, isAdmin: false })).toBe(true)
     expect(mayApprove(nameless, 'peer', { uid: 7, isAdmin: true })).toBe(true)
+    expect(mayApprove(nameless, 'peer', { uid: null, isAdmin: false })).toBe(false)
   })
 
   it('names the accounts a step is still waiting on', () => {

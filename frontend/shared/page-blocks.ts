@@ -221,9 +221,9 @@ export interface Reviewer {
  *
  *  - a step that is not pending has nothing to sign off;
  *  - `agent` asks for a human, not a second one, so any account clears it;
- *  - `peer` is four-eyes — an episode naming nobody cannot be cleared at all
- *    (only an admin can), and an episode naming only this account is the
- *    self-approval the rule exists to withhold.
+ *  - `peer` is four-eyes — an episode naming only this account is the
+ *    self-approval the rule exists to withhold; one naming nobody has no
+ *    author to exclude, so any account clears it (ADR 0004).
  *
  * A flag the collaboration server estimated ahead of its checkpoint answers the
  * same three questions and reads no differently. Its baseline is the writer set
@@ -239,7 +239,7 @@ export function mayApprove(
   if (!isPending(block, step) || reviewer.uid == null) return false
   if (step === 'agent' || reviewer.isAdmin) return true
   const writers = contributorsSince(block, step)
-  return writers.length > 0 && !(writers.length === 1 && writers[0] === reviewer.uid)
+  return !(writers.length === 1 && writers[0] === reviewer.uid)
 }
 
 /**
@@ -765,8 +765,8 @@ export function resolveSharedIds(
  * occurrences the accounting could not tell apart.
  *
  * An ordinal naming an occurrence this document does not have leaves the id on
- * nothing: every block wearing it is re-minted, and each lands unaccounted and
- * unapprovable until an identified edit re-stamps it. That is the safe
+ * nothing: every block wearing it is re-minted, and each lands unaccounted,
+ * holding publishing until somebody signs it off. That is the safe
  * direction for an answer that no longer fits — writing is held back for
  * review, never handed to the wrong account — and it is not reachable from a
  * checkpoint, where the pass and the serialization see one document.

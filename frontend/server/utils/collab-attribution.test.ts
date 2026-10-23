@@ -390,7 +390,7 @@ describe('sessionWindow', () => {
 
   // A block gone from Drupal's body is the one change with no text left to
   // state, and Drupal reviews it. A window that stated nothing would leave it
-  // approvable by nobody (ADR 0004).
+  // naming nobody, its writer free to sign it off (ADR 0004).
   it('states a block the document dropped, with no print', () => {
     const ledger = hydrated(doc(para('one', 'b-1'), heading('two', 'b-2')), ADA)
     ledger.writer = human(ADA.uid)

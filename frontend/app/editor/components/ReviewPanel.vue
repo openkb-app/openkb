@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { itemName, reviewableCount, STEP_LABEL, type ReviewQueueRow, type WaitingState } from '../review-marks'
+import { isYours, itemName, reviewableCount, STEP_LABEL, type ReviewQueueRow, type WaitingState } from '../review-marks'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
 import type { CommentAssignee } from '#shared/block-comments'
@@ -15,8 +15,6 @@ import { REVIEW_STEPS, type ReviewStep } from '#shared/page-blocks'
 const props = defineProps<{
   /** The blocks still owing a review, in document order. */
   queue: ReviewQueueRow[]
-  /** The steps this space enforces — what the queue was filtered by. */
-  steps: readonly ReviewStep[]
   /** Every comment thread on this document, oldest first. */
   threads: CommentThreadView[]
   /** The thread being composed, before it has anything to say. */
@@ -48,7 +46,6 @@ const emit = defineEmits<{
  * different things, and one row would hide the second job behind the first.
  */
 const groups = computed(() => REVIEW_STEPS
-  .filter(step => props.steps.includes(step))
   .map(step => ({ step, rows: props.queue.filter(row => row.steps.includes(step)) }))
   .filter(group => group.rows.length > 0))
 
@@ -63,7 +60,7 @@ const reviewable = computed(() => reviewableCount(props.queue))
 const ROW_STATE: Record<WaitingState, string> = {
   'reviewable': 'Yours to sign off',
   'awaiting-others': 'Needs somebody else',
-  'unattributed': 'Needs an admin',
+  'unattributed': 'Needs a sign-off — nobody on record wrote it',
 }
 
 /** A block reads as its first words — enough to recognise, short enough to scan. */
@@ -160,14 +157,14 @@ function approvalOn(row: ReviewQueueRow, step: ReviewStep) {
               <span class="truncate">
                 <span
                   class="mr-1"
-                  :class="row.state === 'reviewable' ? 'text-warning' : 'text-muted'"
+                  :class="isYours(row) ? 'text-warning' : 'text-muted'"
                   aria-hidden="true"
-                >{{ row.state === 'reviewable' ? '●' : '○' }}</span>
+                >{{ isYours(row) ? '●' : '○' }}</span>
                 {{ rowLabel(row) }}
               </span>
               <span
                 class="ml-auto shrink-0 text-xs"
-                :class="row.state === 'reviewable' ? 'text-highlighted' : 'text-muted'"
+                :class="isYours(row) ? 'text-highlighted' : 'text-muted'"
                 :data-testid="`review-queue-state-${row.id}`"
               >{{ ROW_STATE[row.state] }}</span>
             </UButton>

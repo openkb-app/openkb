@@ -645,8 +645,8 @@ export default defineNitroPlugin((nitroApp) => {
       // starting point right here, from the document as it stands before these
       // ops land, and measure them. Left unhydrated it would measure nothing,
       // the window would name nobody for blocks the actor just wrote, and
-      // Drupal would stamp them approvable by nobody — permanently, on a
-      // surface whose author is standing right there in the credential.
+      // Drupal would stamp them unaccounted, on a surface whose author is
+      // standing right there in the credential.
       if (isAgentOrigin(transaction.origin) && !ledger.hydrated) {
         hydrateLedger(ledger, proseDocOf(document))
       }

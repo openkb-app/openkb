@@ -99,8 +99,8 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
                 'Those items, one entry per review step owed. `block_id` is the '
                 + 'sidecar key: a block id, a removed block\'s id, or '
                 + '`field:title`. `by` lists who the step waits on; empty means '
-                + 'no writer was witnessed, which only an edit of the block or a '
-                + 'site admin\'s sign-off clears.',
+                + 'no writer was witnessed, which an identified edit of the block '
+                + 'or a sign-off by anyone who may review the page clears.',
               items: {
                 type: 'object',
                 properties: {

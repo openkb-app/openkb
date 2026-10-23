@@ -89,8 +89,8 @@ import {
  *  - `reviewable` — they may sign it off now;
  *  - `awaiting-others` — it is waiting on eyes that are not theirs, because
  *    their own writing is all it names;
- *  - `unattributed` — nobody is on record as having written it, so only an
- *    admin can clear it and an identified edit is what unblocks it.
+ *  - `unattributed` — nobody is on record as having written it; anyone may
+ *    sign it off, and an identified edit names a writer.
  */
 export type ReviewMarkState = 'reviewable' | 'awaiting-others' | 'unattributed' | 'reviewed'
 
@@ -122,22 +122,17 @@ export interface ReviewMark {
 /** Reads the review standing of a block from the sidecar. */
 export type ReviewLookup = (blockId: string) => ReviewMark | null
 
-/**
- * Which of the three waiting states one pending step is in for a reader.
- *
- * The two answers below `reviewable` differ in what unblocks them: an episode
- * naming nobody needs an identified edit (or an admin), an episode naming only
- * this reader needs a second pair of eyes.
- */
+/** Which of the three waiting states one pending step is in for a reader. */
 function stepState(block: PageBlock | undefined, step: ReviewStep, reviewer: Reviewer): WaitingState {
-  if (mayApprove(block, step, reviewer)) return 'reviewable'
-  return contributorsSince(block, step).length > 0 ? 'awaiting-others' : 'unattributed'
+  if (contributorsSince(block, step).length === 0) return 'unattributed'
+  return mayApprove(block, step, reviewer) ? 'reviewable' : 'awaiting-others'
 }
 
 /**
  * Which of the three waiting states a set of pending steps is in for a reader.
  *
- * One approvable step is enough to make the block theirs to act on.
+ * One step the reader may sign off is enough to make the block theirs to act
+ * on.
  */
 function waitingState(
   block: PageBlock | undefined,
@@ -146,7 +141,7 @@ function waitingState(
 ): WaitingState {
   const states = pending.map(step => stepState(block, step, reviewer))
   if (states.includes('reviewable')) return 'reviewable'
-  return states.includes('awaiting-others') ? 'awaiting-others' : 'unattributed'
+  return states.includes('unattributed') ? 'unattributed' : 'awaiting-others'
 }
 
 /**
@@ -211,19 +206,11 @@ export function signOffRefusal(
   reviewer: Reviewer,
   subject = 'This block',
 ): string | null {
-  const sentence = REFUSAL[stepState(block, step, reviewer)]
-  return sentence === null ? null : `${subject} ${sentence}`
+  return mayApprove(block, step, reviewer) ? null : `${subject} ${REFUSAL}`
 }
 
-/**
- * The two refusal sentences `PageBlocks::refusalReason()` answers with,
- * keyed by the state that produces them, and without their subject.
- */
-export const REFUSAL: Record<WaitingState, string | null> = {
-  'reviewable': null,
-  'awaiting-others': 'needs a second pair of eyes: its only contributor is the account approving it.',
-  'unattributed': 'needs an identified edit before anybody can sign it off: nothing on record says who wrote it.',
-}
+/** The refusal sentence `PageBlocks::refusalReason()` answers with, without its subject. */
+export const REFUSAL = 'needs a second pair of eyes: its only contributor is the account approving it.'
 
 /** The lookup the session hands the extension, over a mirrored sidecar. */
 export function sidecarLookup(
@@ -376,7 +363,7 @@ export function stepMarkLabel({ step, state }: Pick<ReviewMarkStep, 'step' | 'st
   switch (state) {
     case 'reviewable': return 'Pending peer review'
     case 'awaiting-others': return 'Waiting for peer review'
-    case 'unattributed': return 'Pending admin review'
+    case 'unattributed': return 'Pending review, no writer on record'
   }
 }
 
@@ -561,7 +548,12 @@ export function reviewQueue(
 
 /** How many of these rows this reader can act on — the drawer's headline. */
 export function reviewableCount(rows: readonly ReviewQueueRow[]): number {
-  return rows.filter(row => row.state === 'reviewable').length
+  return rows.filter(isYours).length
+}
+
+/** Whether this reader may sign off at least one step the row owes. */
+export function isYours(row: ReviewQueueRow): boolean {
+  return row.approvals.some(approval => approval.refusal === null)
 }
 
 /** What one block's pills need to know beyond what they say. */

@@ -14,7 +14,6 @@ import type { ReviewStep } from '#shared/page-blocks'
 const props = defineProps<{
   open: boolean
   queue: ReviewQueueRow[]
-  steps: readonly ReviewStep[]
   threads: CommentThreadView[]
   commentDraft: CommentDraft | null
   threadsShownFor: ShownThreads | null
@@ -69,7 +68,6 @@ function jumpToBlock(blockId: string) {
     <template #body>
       <EditorReviewPanel
         :queue="queue"
-        :steps="steps"
         :threads="threads"
         :comment-draft="commentDraft"
         :threads-shown-for="threadsShownFor"

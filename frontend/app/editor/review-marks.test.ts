@@ -75,26 +75,30 @@ function awaitingBoth(by: number[] = [3]): PageBlock {
 }
 
 /**
- * The two sentences the control says no with, pinned here as words: they are
+ * The sentence the control says no with, pinned here as words: it is
  * `PageBlocks::refusalReason()`'s own, and a reader acts on the sentence.
  */
-const REFUSAL: Record<WaitingState, string | null> = {
-  'reviewable': null,
-  'awaiting-others': 'This block needs a second pair of eyes: its only contributor is the account approving it.',
-  'unattributed': 'This block needs an identified edit before anybody can sign it off: nothing on record says who wrote it.',
+const FOUR_EYES = 'This block needs a second pair of eyes: its only contributor is the account approving it.'
+
+/**
+ * The refusal a step in this state carries for a signed-in reader. `refused`
+ * overrides it, for a reader with no account or a block with no entry.
+ */
+function refusalOf(state: WaitingState, refused = state === 'awaiting-others') {
+  return refused ? FOUR_EYES : null
 }
 
 /** The mark a set of owed steps produces — the shape every case below asserts. */
-function owes(...steps: Array<[ReviewStep, WaitingState]>) {
+function owes(...steps: Array<[ReviewStep, WaitingState, boolean?]>) {
   return {
     state: steps[0]![1],
-    steps: steps.map(([step, state]) => ({ step, state, refusal: REFUSAL[state] })),
+    steps: steps.map(([step, state, refused]) => ({ step, state, refusal: refusalOf(state, refused) })),
   }
 }
 
 /** The checkmark a pending pill carries, as every case below asserts it. */
-function approves(step: ReviewStep, state: WaitingState) {
-  return { step, label: approveActionLabel(step), refusal: REFUSAL[state] }
+function approves(step: ReviewStep, state: WaitingState, refused?: boolean) {
+  return { step, label: approveActionLabel(step), refusal: refusalOf(state, refused) }
 }
 
 /** The accounts the fixtures speak of: 3 wrote, 7 did not, 9 may moderate. */
@@ -229,10 +233,8 @@ describe('reviewMarkOf', () => {
   })
 
   // The state stampSession() produces for a change no server could attribute.
-  // "Whoever wrote this may not sign it off" cannot be applied to an episode
-  // that does not say who wrote it, so nobody but an admin clears it — and an
-  // identified edit is what unblocks it.
-  it('marks an episode naming nobody as unattributed, for its own carrier too', () => {
+  // It names no author to exclude, so anybody may sign it off (ADR 0004).
+  it('marks an episode naming nobody as unattributed, and anybody\'s to sign off', () => {
     expect(reviewMarkOf(awaiting([]), ['peer'], WRITER)).toEqual(owes(['peer', 'unattributed']))
     expect(reviewMarkOf(awaiting([]), ['peer'], OTHER)).toEqual(owes(['peer', 'unattributed']))
   })
@@ -244,7 +246,7 @@ describe('reviewMarkOf', () => {
 
   it('offers nothing to a session with no account behind it', () => {
     expect(reviewMarkOf(awaiting([3]), ['peer'], NOBODY)).toEqual(owes(['peer', 'awaiting-others']))
-    expect(reviewMarkOf(awaiting([]), ['peer'], NOBODY)).toEqual(owes(['peer', 'unattributed']))
+    expect(reviewMarkOf(awaiting([]), ['peer'], NOBODY)).toEqual(owes(['peer', 'unattributed', true]))
   })
 
   // The mirrored estimate reads exactly as the flag it will become: the peer it
@@ -289,12 +291,12 @@ describe('reviewMarkOf', () => {
 
   it('offers a moderator anything pending, their own writing included', () => {
     expect(reviewMarkOf(awaiting([9]), ['peer'], MODERATOR)).toEqual(owes(['peer', 'reviewable']))
-    expect(reviewMarkOf(awaiting([]), ['peer'], MODERATOR)).toEqual(owes(['peer', 'reviewable']))
+    expect(reviewMarkOf(awaiting([]), ['peer'], MODERATOR)).toEqual(owes(['peer', 'unattributed']))
   })
 
   it('does not let the admin flag stand in for an account', () => {
     expect(reviewMarkOf(awaiting([]), ['peer'], { uid: null, isAdmin: true }))
-      .toEqual(owes(['peer', 'unattributed']))
+      .toEqual(owes(['peer', 'unattributed', true]))
   })
 
   // --- The policy filter, and completed sign-offs ------------------------
@@ -351,7 +353,7 @@ describe('reviewMarkOf', () => {
     expect(reviewMarkOf(awaitingBoth([3]), undefined, WRITER))
       .toEqual(owes(['agent', 'reviewable'], ['peer', 'awaiting-others']))
     expect(reviewMarkOf(awaitingBoth([]), undefined, NOBODY))
-      .toEqual(owes(['agent', 'unattributed'], ['peer', 'unattributed']))
+      .toEqual(owes(['agent', 'unattributed', true], ['peer', 'unattributed', true]))
   })
 
   it('leads with the peer step where the space asks for that one alone', () => {
@@ -384,7 +386,7 @@ describe('reviewPills', () => {
       { tone: 'awaiting-others', label: 'Waiting for peer review', approve: approves('peer', 'awaiting-others') },
     ])
     expect(reviewPills(owes(['peer', 'unattributed']))).toEqual([
-      { tone: 'unattributed', label: 'Pending admin review', approve: approves('peer', 'unattributed') },
+      { tone: 'unattributed', label: 'Pending review, no writer on record', approve: approves('peer', 'unattributed') },
     ])
   })
 
@@ -434,17 +436,16 @@ describe('reviewPills', () => {
 
 describe('signOffRefusal', () => {
   /**
-   * Each sentence says what would unblock the block, which is the difference
-   * the reader acts on: find a colleague, or make an identified edit.
+   * The sentence says what would unblock the block: a colleague's eyes.
    */
   it('names the four-eyes rule where the reader is the only contributor', () => {
-    expect(signOffRefusal(awaiting([3]), 'peer', WRITER)).toBe(REFUSAL['awaiting-others'])
+    expect(signOffRefusal(awaiting([3]), 'peer', WRITER)).toBe(FOUR_EYES)
     expect(signOffRefusal(awaiting([3]), 'peer', OTHER)).toBeNull()
   })
 
-  it('asks for an identified edit where nobody is on record', () => {
-    expect(signOffRefusal(awaiting([]), 'peer', WRITER)).toBe(REFUSAL['unattributed'])
-    expect(signOffRefusal(awaiting([]), 'peer', OTHER)).toBe(REFUSAL['unattributed'])
+  it('refuses nobody where nobody is on record', () => {
+    expect(signOffRefusal(awaiting([]), 'peer', WRITER)).toBeNull()
+    expect(signOffRefusal(awaiting([]), 'peer', OTHER)).toBeNull()
   })
 
   // ADR 0002: an account that may moderate clears anything, its own writing
@@ -512,7 +513,7 @@ describe('reviewDecorations', () => {
     expect(specs(doc(para('orphaned', 'b-1')), sidecarLookup(map, undefined, OTHER)))
       .toEqual([{ 'class': 'okb-review okb-review--unattributed okb-review--peer' }])
     expect(drawnPills(doc(para('orphaned', 'b-1')), sidecarLookup(map, undefined, OTHER)))
-      .toEqual([[['unattributed', 'Pending admin review']]])
+      .toEqual([[['unattributed', 'Pending review, no writer on record']]])
   })
 
   /**
@@ -657,7 +658,7 @@ describe('the checkmark', () => {
     expect(pills.map(pill => pill.approve!.step)).toEqual(['agent', 'peer'])
     // The writer may clear what an agent wrote for them, and may not stand in
     // for the peer their own writing still owes.
-    expect(pills.map(pill => pill.approve!.refusal)).toEqual([null, REFUSAL['awaiting-others']])
+    expect(pills.map(pill => pill.approve!.refusal)).toEqual([null, FOUR_EYES])
   })
 
   // The widget's events are the widget's own: a click must not move the caret
@@ -761,7 +762,7 @@ describe('the checkmark, mounted', () => {
     const [button] = controls()
     expect(button!.getAttribute('aria-disabled')).toBe('true')
     expect(button!.hasAttribute('disabled')).toBe(false)
-    expect(button!.title).toBe(REFUSAL['awaiting-others'])
+    expect(button!.title).toBe(FOUR_EYES)
     button!.click()
     expect(asked, 'a refused control asks nothing').toEqual([])
   })
@@ -775,7 +776,7 @@ describe('the checkmark, mounted', () => {
     const described = controls()[0]!.getAttribute('aria-describedby')!.split(' ')
       .map(id => editor.view.dom.querySelector(`#${id}`))
       .map(el => el!.textContent || el!.getAttribute('aria-label'))
-    expect(described).toContain(REFUSAL['awaiting-others'])
+    expect(described).toContain(FOUR_EYES)
   })
 
   it('signs off where the rule takes it, and says nothing extra', () => {
@@ -1005,7 +1006,7 @@ describe('reviewQueue', () => {
       text: 'needs a look',
       steps: ['agent', 'peer'],
       state: 'unattributed',
-      approvals: [approves('agent', 'unattributed'), approves('peer', 'unattributed')],
+      approvals: [approves('agent', 'unattributed', true), approves('peer', 'unattributed', true)],
     }])
   })
 
@@ -1020,7 +1021,7 @@ describe('reviewQueue', () => {
     const owed = { 'b-1': ['peer' as const], 'b-2': ['peer' as const], 'b-3': ['peer' as const] }
     const rows = reviewQueue(document, owed, meta, WRITER)
     expect(rows.map(r => r.state)).toEqual(['awaiting-others', 'reviewable', 'unattributed'])
-    expect(reviewableCount(rows)).toBe(1)
+    expect(reviewableCount(rows)).toBe(2)
   })
 
   // The drawer counts an estimate for the peer it is drawn for, so its headline

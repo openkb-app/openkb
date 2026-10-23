@@ -241,8 +241,8 @@ describe('seedFromDrupal', () => {
     // moment a peer hydrates it: the disconnect checkpoint writes a revision
     // canonicalizing the whole body, Drupal's per-block diff calls every
     // drifted block changed, and the window names nobody for any of them — so
-    // each one is stamped as writing no server witnessed, unapprovable by
-    // anybody, from a visit that changed nothing. Some of the transforms lose
+    // each one is stamped as writing no server witnessed, holding Publish
+    // until somebody signs it off, from a visit that changed nothing. Some of the transforms lose
     // content outright (block HTML), so the same visit deletes it.
     const legacy = 'Title\n=====\n\nA paragraph with _emphasis_ in it. {#b-1}\n\n* one\n* two\n'
     const doc = new Y.Doc()

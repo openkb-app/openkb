@@ -117,7 +117,6 @@ const {
 // the pane's frame and the phone's slideover can never drift apart.
 const reviewSurface = computed(() => ({
   queue: reviewRows.value,
-  steps: enforcedSteps(moderationStatus.value),
   threads: commentThreads.value,
   commentDraft: session.value?.commentDraft.value ?? null,
   threadsShownFor: session.value?.threadsShownFor.value ?? null,
