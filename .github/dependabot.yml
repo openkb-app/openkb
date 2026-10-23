@@ -1,5 +1,6 @@
-# One GROUPED update per ecosystem, so at most 4 dependency PRs are open at
-# once — dependabot maintains the collective PR and CI tests it as one.
+# One GROUPED update per ecosystem and one per base image, so at most 5
+# dependency PRs are open at once — dependabot maintains the collective PR and
+# CI tests it as one.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -37,16 +38,16 @@ updates:
         patterns: ["*"]
   # The base images are pinned as tag@digest. Only the digest moves here, when
   # upstream re-pushes the tag; a tag change (PHP 8.4, Node 24) is a decision.
+  # - One PR per image directory: a hand bump of one pin closes only that
+  #   image's PR.
+  # - Daily: a closed PR comes back the next day, not the next week.
   - package-ecosystem: docker
     directories:
       - /docker/drupal
       - /docker/frontend
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 1
+      interval: daily
+    open-pull-requests-limit: 2
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-    groups:
-      base-images:
-        patterns: ["*"]
