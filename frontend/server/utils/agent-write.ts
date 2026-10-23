@@ -4,6 +4,7 @@ import { fetchFrontmatterSpecs, findKbPageByPath } from './drupal'
 import { useAgentRouter } from './hocuspocus'
 import { FrontmatterError, parseFields, splitFrontmatter } from './frontmatter'
 import {
+  AgentOpsError,
   authenticateWriter,
   joinAgentSession,
   routeAgentEdit,
@@ -16,6 +17,7 @@ import { StaleBlockError, type AgentActor, type AgentOps } from './agent-peer'
 import { decodePageEntities, encodePageEntities } from './comark-entities'
 import { encodeDataImageUris } from './comark-data-uri'
 import type { FieldValues } from './entity-fields'
+import { fenceErrors } from './fences'
 
 /**
  * The write surfaces' shared front door to the session router.
@@ -116,6 +118,9 @@ export async function joinWriteSession(event: H3Event, subject: WriteSubject): P
  * directions (ADR 0014): what a model wrote as characters becomes markdown the
  * parser reads as its text, and the markdown a conflict hands back for the
  * retry comes home as characters.
+ *
+ * A fence component's source that does not parse is refused here too, before
+ * anything is written: an agent hears the line and column to fix.
  */
 export async function routeWrite(
   event: H3Event,
@@ -123,13 +128,29 @@ export async function routeWrite(
   ops: AgentOps,
   authenticated?: AgentActor,
 ): Promise<AgentEditResult> {
+  const encoded = encodeContent(ops)
+  await refuseInvalidFences(encoded)
   try {
-    return await routeAgentEdit(useAgentRouter(), writeCarrier(event), subject, encodeContent(ops), authenticated)
+    return await routeAgentEdit(useAgentRouter(), writeCarrier(event), subject, encoded, authenticated)
   }
   catch (err) {
     if (err instanceof StaleBlockError) throw decodeConflicts(err)
     throw err
   }
+}
+
+/** Per-op messages for every refused fence component, as `body` or `blocks[i]`. */
+async function refuseInvalidFences(ops: AgentOps): Promise<void> {
+  const errors: Record<string, string[]> = {}
+  const passages: Record<string, string> = {
+    ...(ops.body === undefined ? {} : { body: ops.body }),
+    ...Object.fromEntries((ops.blocks ?? []).map((op, i) => [`blocks[${i}]`, op.markdown])),
+  }
+  for (const [key, markdown] of Object.entries(passages)) {
+    const messages = await fenceErrors(markdown)
+    if (messages.length > 0) errors[key] = messages
+  }
+  if (Object.keys(errors).length > 0) throw new AgentOpsError(errors)
 }
 
 /** A conflict is re-applied by whoever reads it, so it crosses as text. */

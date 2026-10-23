@@ -32,6 +32,7 @@ const LOADERS: Record<string, () => LangModule> = {
   javascript: () => import('shiki/langs/javascript.mjs'),
   json: () => import('shiki/langs/json.mjs'),
   markdown: () => import('shiki/langs/markdown.mjs'),
+  mermaid: () => import('shiki/langs/mermaid.mjs'),
   php: () => import('shiki/langs/php.mjs'),
   python: () => import('shiki/langs/python.mjs'),
   sql: () => import('shiki/langs/sql.mjs'),

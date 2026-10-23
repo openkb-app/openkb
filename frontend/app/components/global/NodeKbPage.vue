@@ -20,6 +20,7 @@ import { spaceReviewSteps, spaceSlug, type KbSpaceCeProp } from '#shared/utils/k
 import { enforcedSteps, mayModerate } from '#shared/utils/moderation'
 import { BLOCK_ID_PREFIX, TITLE_REVIEW_KEY, type BlockByline, type ReviewStep } from '#shared/page-blocks'
 import { assigneeCandidates } from '~/editor/comment-assignee'
+import { readFences, readFencesKey } from '~/editor/fence-renders'
 import { itemName, reviewMarkOf } from '~/editor/review-marks'
 import type { CommentAssignee } from '#shared/block-comments'
 import type { PageAttachment } from '#shared/utils/files'
@@ -169,6 +170,8 @@ function editBlockAt(event: MouseEvent): void {
 // the page's own <h1> spells it. That heading is the block a citation on the
 // page's lead section names, so its id moves to the <h1> a reader can see.
 const body = computed(() => liftTitleBlockId(props.bodyTree ?? []))
+const fences = computed(() => readFences(body.value.nodes))
+provide(readFencesKey, () => fences.value)
 const summary = computed(() => props.summary?.trim() || undefined)
 
 /**

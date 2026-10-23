@@ -100,7 +100,7 @@ describe('the block inserts', () => {
     'heading', 'heading', 'bulletList', 'orderedList', 'taskList', 'table',
     'codeBlock', 'horizontalRule', 'image', 'attachment', 'docLink', 'cite',
     '— Comark',
-    'callout', 'infobox',
+    'callout', 'infobox', 'fence', 'fence',
     '— Embed',
     'htmlEmbed', 'pdfEmbed',
   ]
@@ -116,6 +116,22 @@ describe('the block inserts', () => {
       if (!('kind' in row)) continue
       expect(handlers[row.kind], row.label).toBeTruthy()
     }
+  })
+})
+
+describe('a fence component insert', () => {
+  it('is a code block in its language, started from its template', () => {
+    const inserted: unknown[] = []
+    const chain = { focus: () => chain, insertContent: (content: unknown) => (inserted.push(content), chain) }
+    const editor = { chain: () => chain } as unknown as Editor
+    const row = slashItems.flat().find(entry => 'kind' in entry && entry.kind === 'fence' && entry.fence === 'stub')!
+    expect(row).toMatchObject({ label: 'Sketch', icon: 'i-lucide-pencil', description: 'A test fence' })
+    comarkHandlers.fence!.execute(editor, row)
+    expect(inserted).toEqual([{
+      type: 'codeBlock',
+      attrs: { language: 'stub' },
+      content: [{ type: 'text', text: 'one\ntwo' }],
+    }])
   })
 })
 

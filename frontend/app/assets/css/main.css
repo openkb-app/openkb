@@ -1407,3 +1407,48 @@ custom-mention,
   color: var(--ui-text-highlighted);
   background: var(--ui-bg-accented);
 }
+
+/* Fence components: `CustomFence`. Each fence styles its own drawing. */
+.okb-fence {
+  margin: 0;
+}
+.okb-fence-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin: 0;
+  color: var(--ui-error);
+  font-size: 0.875rem;
+}
+.okb-fence-error-icon {
+  flex: none;
+  margin-block-start: 0.1875rem;
+  width: 1rem;
+  height: 1rem;
+}
+.okb-fence-hint {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 0.875rem;
+}
+.okb-fence-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-block-start: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  color: var(--ui-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.okb-fence-toggle:hover {
+  color: var(--ui-text-highlighted);
+  background: var(--ui-bg-accented);
+}
+/* The line the fence refused, in the editor's source. */
+.okb-code-errline {
+  text-decoration: wavy underline var(--ui-error);
+  text-decoration-skip-ink: none;
+  background: color-mix(in srgb, var(--ui-error) 12%, transparent);
+}

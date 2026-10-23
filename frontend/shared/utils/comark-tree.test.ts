@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { shippedAllowedHtml } from '~~/test/shipped-comark-format'
-import { citationsByBlock, markdownToTree, parseComark, referencesByBlock, liftTitleBlockId, CODE_BLOCK_TAG, COMPONENT_TAGS, HTML_ELEMENTS, type AllowedHtml, type ComarkNode } from './comark-tree'
+import { citationsByBlock, collectFences, markdownToTree, parseComark, referencesByBlock, liftTitleBlockId, CODE_BLOCK_TAG, COMPONENT_TAGS, HTML_ELEMENTS, type AllowedHtml, type ComarkNode, type FenceRenderer } from './comark-tree'
 import { highlightToTokens } from './code-highlight'
 import { CITATION_TAG } from './citations'
+import { FENCE_TAG } from './fences'
 
 type Element = [string, Record<string, unknown>, ...ComarkNode[]]
 
@@ -793,6 +794,50 @@ describe('code fences', () => {
   it('cannot be written by an author as a component', async () => {
     const nodes = await markdownToTree('::code-block{lines="x"}\nhi\n::', { highlightCode: highlightToTokens })
     expect(tags(nodes)).not.toContain(CODE_BLOCK_TAG)
+  })
+})
+
+describe('fence components', () => {
+  const fenced = '::block{#b-d1}\n```stub\none\n  two\n```\n::'
+  const render: FenceRenderer = async (fence, source, prefix) => ({ html: `<svg data-fence="${fence.language}" data-prefix="${prefix}">${source.length}</svg>` })
+
+  it('become fence nodes with the fence, the source, its token lines and the block id', async () => {
+    const nodes = await markdownToTree(fenced, { highlightCode: highlightToTokens })
+    expect(tags(nodes)).toEqual([FENCE_TAG])
+    const [, props] = at(nodes)
+    expect(props.id).toBe('b-d1')
+    expect(props.fence).toBe('stub')
+    expect(props.source).toBe('one\n  two')
+    expect((props.lines as { content: string }[][]).map(l => l.map(t => t.content).join(''))).toEqual(['one', '  two'])
+    expect(props.html).toBeUndefined()
+  })
+
+  it('carry the HTML a renderer drew, its ids prefixed per block', async () => {
+    const nodes = await markdownToTree(fenced, { highlightCode: highlightToTokens, renderFence: render })
+    expect(at(nodes)[1].html).toBe('<svg data-fence="stub" data-prefix="f-b-d1-">9</svg>')
+  })
+
+  it('stay a plain pre > code without a highlighter, as the index reads them', async () => {
+    expect(tags(await markdownToTree(fenced))).toEqual(['pre'])
+  })
+
+  it('show their source while an answer streams them, until the answer moves on', async () => {
+    const open = await markdownToTree('Here:\n\n```stub\none', { highlightCode: highlightToTokens, streaming: true })
+    expect(find(open, FENCE_TAG)?.[1].pending).toBe(true)
+    const closed = await markdownToTree('```stub\none\n```\n\nDone', { highlightCode: highlightToTokens, streaming: true })
+    expect(find(closed, FENCE_TAG)?.[1].pending).toBeUndefined()
+    const finished = await markdownToTree('```stub\none\n```', { highlightCode: highlightToTokens })
+    expect(find(finished, FENCE_TAG)?.[1].pending).toBeUndefined()
+  })
+
+  it('cannot be written by an author as a component', async () => {
+    const nodes = await markdownToTree('::fence{fence="stub" html="<img src=x onerror=alert(1)>"}\nhi\n::', { highlightCode: highlightToTokens })
+    expect(tags(nodes)).not.toContain(FENCE_TAG)
+  })
+
+  it('are collected at any depth, in document order', async () => {
+    const tree = await parseComark(`${fenced}\n\n::callout\n\`\`\`Stub title\ntwo\n\`\`\`\n::\n\n\`\`\`ts\nx\n\`\`\``)
+    expect(collectFences(tree).map(({ fence, source }) => [fence.language, source])).toEqual([['stub', 'one\n  two'], ['stub', 'two']])
   })
 })
 

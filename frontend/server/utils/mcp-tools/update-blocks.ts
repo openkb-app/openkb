@@ -1,3 +1,4 @@
+import { FENCES } from '#shared/utils/fences'
 import { readBlockOpList } from '../agent-peer'
 import { TARGET_PROPERTIES, WRITE_OUTPUT_SCHEMA } from './schemas'
 import { runWrite, writeRefusal } from './write'
@@ -58,7 +59,9 @@ export function updateBlocksTool(): KbTool {
               // a list must name a block, unless the page holds none.
               markdown: {
                 type: 'string',
-                description: 'The comark markdown to write. Write comark markdown only: raw HTML is not part of the format and is not preserved; use `::callout`, `::infobox`, `::image` and `:doc` for anything beyond CommonMark.',
+                description: 'The comark markdown to write. Write comark markdown only: raw HTML is not part of the format and is not preserved; use `::callout`, `::infobox`, `::image` and `:doc` for anything beyond CommonMark'
+                  + FENCES.map(fence => `, a \`\`\`${fence.language} fence for ${fence.agentHint}`).join('')
+                  + '. A fence of those that does not parse is refused with its line and column.',
               },
               expect: {
                 type: 'string',

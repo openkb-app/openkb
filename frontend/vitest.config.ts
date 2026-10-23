@@ -35,7 +35,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          include: ['server/**/*.test.ts', 'app/**/*.test.ts', 'shared/**/*.test.ts', 'test/**/*.test.ts'],
+          include: ['server/**/*.test.ts', 'app/**/*.test.ts', 'shared/**/*.test.ts', 'fences/**/*.test.ts', 'modules/**/*.test.ts', 'test/**/*.test.ts'],
           exclude: ['**/*.integration.test.ts', '**/node_modules/**'],
         },
       },
@@ -65,6 +65,8 @@ export default defineConfig({
       // Nuxt generates `#components` from the auto-import scan; the suites run
       // without that, so components imported from it come from a stub.
       { find: '#components', replacement: fileURLToPath(new URL('./test/stubs/nuxt-components.ts', import.meta.url)) },
+      // `modules/fences.ts` generates these from the `fences/` scan.
+      { find: /^#okb-(fences|fence-components|fence-servers)$/, replacement: fileURLToPath(new URL('./test/stubs/okb-fences.ts', import.meta.url)) },
     ],
   },
 })

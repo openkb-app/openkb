@@ -46,6 +46,7 @@
     "drupal-jsonapi-params": "^3.0.1",
     "nuxt": "^4.5.2",
     "nuxtjs-drupal-ce": "^2.8.0",
+    "pele": "1.6.0",
     "photoswipe": "5.4.4",
     "prosemirror-markdown": "^1.13.8",
     "shiki": "^4.5.0",

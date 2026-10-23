@@ -251,6 +251,44 @@ describe('updateBlocks', () => {
     })
   })
 
+  it('refuses a fence its component refuses, naming the op, line and column', async () => {
+    const { client } = await connect()
+    await client.listTools()
+
+    const bad = await client.callTool({
+      name: 'updateBlocks',
+      arguments: {
+        path: 'intro',
+        blocks: [
+          { id: 'b-1', markdown: 'Fine.' },
+          { after: 'b-1', markdown: '```stub\none\ntw!o\n```' },
+        ],
+      },
+    })
+
+    expect(bad.isError).toBe(true)
+    const errors = (bad.structuredContent as any).errors
+    expect(Object.keys(errors)).toEqual(['blocks[1]'])
+    expect(errors['blocks[1]']).toEqual(['Sketch (Stub): Line 2, column 3: Unexpected "!"'])
+    expect(routeAgentEdit).not.toHaveBeenCalled()
+  })
+
+  it('hands a fence that passes the check to the session byte for byte', async () => {
+    routeAgentEdit.mockResolvedValue({
+      nid: 7,
+      entry: 'started',
+      observers: 0,
+      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' } },
+    })
+    const { client } = await connect()
+    await client.listTools()
+    const markdown = '```stub\na < b & c\n```'
+
+    await client.callTool({ name: 'updateBlocks', arguments: { path: 'intro', blocks: [{ id: 'b-1', markdown }] } })
+
+    expect(routeAgentEdit.mock.calls[0]![3]).toEqual({ blocks: [{ id: 'b-1', markdown }] })
+  })
+
   it('a conflict hands back the block as text, ready to re-apply', async () => {
     routeAgentEdit.mockRejectedValue(new StaleBlockError([{
       index: 0,

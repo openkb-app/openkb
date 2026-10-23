@@ -2,7 +2,11 @@
  * The languages a code fence is highlighted in, and the info strings that
  * name them. No Shiki import: the editor's language picker and the tree pass
  * read this list without loading the highlighter.
+ *
+ * Every fence component's language is in the list too, highlighted where
+ * Shiki has a grammar for it (shared/utils/code-highlight.ts).
  */
+import { FENCES } from '#shared/utils/fences'
 
 /** A language the highlighter loads, and the label the picker shows. */
 export interface CodeLanguage {
@@ -11,7 +15,7 @@ export interface CodeLanguage {
   aliases: readonly string[]
 }
 
-export const CODE_LANGUAGES: readonly CodeLanguage[] = [
+const HIGHLIGHTED: readonly CodeLanguage[] = [
   { id: 'bash', label: 'Bash', aliases: ['sh', 'shell', 'shellscript', 'zsh'] },
   { id: 'css', label: 'CSS', aliases: [] },
   { id: 'diff', label: 'Diff', aliases: ['patch'] },
@@ -22,6 +26,7 @@ export const CODE_LANGUAGES: readonly CodeLanguage[] = [
   { id: 'javascript', label: 'JavaScript', aliases: ['js', 'mjs', 'cjs'] },
   { id: 'json', label: 'JSON', aliases: [] },
   { id: 'markdown', label: 'Markdown', aliases: ['md'] },
+  { id: 'mermaid', label: 'Mermaid', aliases: [] },
   { id: 'php', label: 'PHP', aliases: [] },
   { id: 'python', label: 'Python', aliases: ['py'] },
   { id: 'sql', label: 'SQL', aliases: [] },
@@ -30,6 +35,13 @@ export const CODE_LANGUAGES: readonly CodeLanguage[] = [
   { id: 'xml', label: 'XML', aliases: ['svg'] },
   { id: 'yaml', label: 'YAML', aliases: ['yml'] },
 ]
+
+export const CODE_LANGUAGES: readonly CodeLanguage[] = [
+  ...HIGHLIGHTED,
+  ...FENCES
+    .filter(fence => !HIGHLIGHTED.some(lang => lang.id === fence.language))
+    .map(fence => ({ id: fence.language, label: fence.languageLabel, aliases: [] })),
+].sort((a, b) => a.label.localeCompare(b.label))
 
 const BY_NAME = new Map<string, CodeLanguage>(
   CODE_LANGUAGES.flatMap(lang => [lang.id, ...lang.aliases].map(name => [name, lang] as const)),

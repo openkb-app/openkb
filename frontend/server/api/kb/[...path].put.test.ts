@@ -135,6 +135,14 @@ describe('PUT /api/kb/<space>/<slug>/draft.md', () => {
     )
   })
 
+  it('refuses a fence its component refuses with a 422 naming line and column, nothing written', async () => {
+    readRawBody.mockResolvedValue('# Page\n\n```stub\none\ntw!o\n```')
+    const err = await handler(event(DRAFT, bearer)).catch((e: unknown) => e) as { statusCode: number, data: { fields: Record<string, string[]> } }
+    expect(err.statusCode).toBe(422)
+    expect(err.data.fields.body).toEqual(['Sketch (Stub): Line 2, column 3: Unexpected "!"'])
+    expect(routeAgentEdit).not.toHaveBeenCalled()
+  })
+
   it('sends frontmatter values and body through the session as one edit', async () => {
     readRawBody.mockResolvedValue('---\ntype: adr\nsummary: hello\nowner:\n  id: u-1\n  label: admin\n---\n\n# New body')
     const result = await handler(event(DRAFT, bearer)) as Record<string, unknown>

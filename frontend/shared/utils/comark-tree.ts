@@ -29,7 +29,8 @@
  * - A component nobody has built becomes `unknown`, so a fence can never name
  *   an app component into the page.
  * - With a highlighter, a `pre > code` fence becomes a `code-block` node
- *   carrying its token lines (shared/utils/code-highlight.ts).
+ *   carrying its token lines (shared/utils/code-highlight.ts), and a fence
+ *   component's fence a `fence` node (shared/utils/fences.ts).
  * - Read path only: every id-bearing top-level block gets a ¶ link.
  *
  * {@link dataImages} widens the parser's `data:` check.
@@ -47,6 +48,7 @@ import {
 } from '#shared/utils/citations'
 import type { CodeLine } from '#shared/utils/code-highlight'
 import { codeLanguage } from '#shared/utils/code-languages'
+import { FENCE_TAG, fenceFor, type FenceDefinition, type FenceRender } from '#shared/utils/fences'
 
 /** What one attribute may carry: any value, or only the listed ones. */
 export type AttrRule = true | Record<string, true>
@@ -171,6 +173,11 @@ export interface TreeOptions {
   resolveCites?: CiteResolver
   /** Tokenizes code fences. Without it a fence stays a plain `pre > code`. */
   highlightCode?: CodeHighlighter
+  /**
+   * Renders fence components into the tree. Without it they draw in the
+   * browser. Server only (server/utils/fences.ts).
+   */
+  renderFence?: FenceRenderer
   /** See {@link withBlockLinks}. Read path only. */
   blockLinks?: boolean
   /**
@@ -281,7 +288,10 @@ export async function cleanTree(
     allowed: options.allowedHtml,
   }
   let clean = cleanChildren(nodes, ctx, false)
-  if (options.highlightCode) clean = await withCodeBlocks(clean, options.highlightCode)
+  if (options.highlightCode) {
+    clean = await withCodeBlocks(clean, options.highlightCode, options.renderFence)
+    if (options.streaming) clean = withOpenFence(clean)
+  }
   return options.blockLinks ? withBlockLinks(clean) : clean
 }
 
@@ -527,24 +537,75 @@ function withBlockLinks(nodes: ComarkNode[]): ComarkNode[] {
  *
  * `language` is set only for a language the highlighter knows, so the label
  * never names one it did not colour.
+ *
+ * A fence component's fence becomes a `fence` node instead: the source, its
+ * token lines for the show-source view, and with a renderer its HTML or error.
  */
-async function withCodeBlocks(nodes: ComarkNode[], highlight: CodeHighlighter): Promise<ComarkNode[]> {
-  return Promise.all(nodes.map(async (node) => {
+async function withCodeBlocks(nodes: ComarkNode[], highlight: CodeHighlighter, render?: FenceRenderer): Promise<ComarkNode[]> {
+  let fences = 0
+  const walk = (level: ComarkNode[]): Promise<ComarkNode[]> => Promise.all(level.map(async (node) => {
     if (typeof node === 'string') return node
     const [tag, props, ...children] = node
     const code = tag === 'pre' && children.length === 1 ? children[0] : undefined
     if (!Array.isArray(code) || code[0] !== 'code') {
-      return [tag, props, ...await withCodeBlocks(children, highlight)] as ComarkNode
+      return [tag, props, ...await walk(children)] as ComarkNode
     }
     const text = collectText(code.slice(2) as ComarkNode[])
     const info = fenceInfo(props, code[1])
+    const id = typeof props.id === 'string' ? { id: props.id } : {}
+    const fence = fenceFor(info)
+    if (fence) {
+      const prefix = `f-${props.id ?? ++fences}-`
+      return [FENCE_TAG, {
+        ...id,
+        fence: fence.language,
+        source: text,
+        lines: await highlight(text, fence.language),
+        ...await render?.(fence, text, prefix),
+      }] as ComarkNode
+    }
     const known = codeLanguage(info)
     return [CODE_BLOCK_TAG, {
-      ...(typeof props.id === 'string' ? { id: props.id } : {}),
+      ...id,
       ...(known ? { language: known.id } : {}),
       lines: await highlight(text, info),
     }] as ComarkNode
   }))
+  return walk(nodes)
+}
+
+/**
+ * A partial answer's last node, if it is a fence component, may be a fence
+ * still streaming: it shows its source until the answer moves past it.
+ */
+function withOpenFence(nodes: ComarkNode[]): ComarkNode[] {
+  const last = nodes.at(-1)
+  if (!Array.isArray(last)) return nodes
+  const [tag, props, ...children] = last
+  const next: ComarkNode = tag === FENCE_TAG
+    ? [tag, { ...props, pending: true }]
+    : [tag, props, ...withOpenFence(children)]
+  return [...nodes.slice(0, -1), next]
+}
+
+/** Renders one fence component's source, for the tree. */
+export type FenceRenderer = (fence: FenceDefinition, source: string, idPrefix: string) => Promise<FenceRender>
+
+/** Every fence component's fence in a parsed tree, in document order. */
+export function collectFences(nodes: ComarkNode[], out: Array<{ fence: FenceDefinition, source: string }> = []) {
+  for (const node of nodes) {
+    if (typeof node === 'string') continue
+    const [tag, props, ...children] = node
+    const code = tag === 'pre' && children.length === 1 ? children[0] : undefined
+    const fence = Array.isArray(code) && code[0] === 'code' ? fenceFor(fenceInfo(props, code[1])) : undefined
+    if (fence) {
+      out.push({ fence, source: collectText((code as ComarkNode[]).slice(2) as ComarkNode[]) })
+    }
+    else {
+      collectFences(children, out)
+    }
+  }
+  return out
 }
 
 /** A fence's info string: the parser's `language` on the `pre`, else the `language-*` class. */

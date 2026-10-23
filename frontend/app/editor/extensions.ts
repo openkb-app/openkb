@@ -31,6 +31,9 @@ import InfoboxNodeView from '../components/InfoboxNodeView.vue'
 import { CaretMemory } from './cite-insert'
 import { CiteNumbers } from './cite-numbers'
 import { codeHighlightPlugin } from './code-highlight'
+import { fenceCaretPlugin } from './fence-caret'
+import { fenceErrorPlugin } from './fence-error'
+import { fenceFor } from '#shared/utils/fences'
 import { DocLinkSelection } from './doc-link-selection'
 import { LinkOpen } from './link-open'
 import { LinkTargetKeys } from './link-target'
@@ -61,7 +64,8 @@ export const starterKitMarkdownOverrides = {
  * (StarterKit + image + horizontal-rule + code):
  *
  * - Callout / Infobox NodeViews for the ::fence components.
- * - The code block's NodeView (language picker) and its highlighting.
+ * - The code block's NodeView (language picker, a fence component's
+ *   preview) and its highlighting.
  * - GFM tables + task lists — comark parses both, so the schema must
  *   carry them or an edit+save destroys the content (round-trip corpus
  *   in test/roundtrip/ enforces this).
@@ -126,11 +130,27 @@ export function buildEditorExtensions() {
     OkbDocLink,
     OkbMention,
     OkbCodeBlock.extend({
+      addStorage() {
+        // A fence's open source survives a rebuild of its node view.
+        return { openFences: new Set<string>() }
+      },
       addNodeView() {
-        return VueNodeViewRenderer(CodeBlockNodeView)
+        return VueNodeViewRenderer(CodeBlockNodeView, {
+          // A fence component's block has another root element: ProseMirror rebuilds the view.
+          update: ({ oldNode, newNode, updateProps }) => {
+            if (newNode.type !== oldNode.type) return false
+            if (fenceFor(oldNode.attrs.language)?.language !== fenceFor(newNode.attrs.language)?.language) return false
+            updateProps()
+            return true
+          },
+          // Outside the editable code only a mousedown or a drag reaches ProseMirror: keys on a drawing's link or the toggle stay theirs.
+          stopEvent: ({ event }) => event.target instanceof Element
+            && !event.target.closest('[data-node-view-content]')
+            && event.type !== 'mousedown' && !event.type.startsWith('drag') && event.type !== 'drop',
+        })
       },
       addProseMirrorPlugins() {
-        return [...(this.parent?.() ?? []), codeHighlightPlugin(this.name)]
+        return [...(this.parent?.() ?? []), codeHighlightPlugin(this.name), fenceErrorPlugin(), fenceCaretPlugin(this.name)]
       },
     }),
     OkbHardBreak,

@@ -5,10 +5,13 @@ import { insertPageFile, selectedEmbed } from '~/editor/page-file-insert'
 import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
 import { CITATION_TAG } from '#shared/utils/citations'
+import { FENCES, fenceFor } from '#shared/utils/fences'
 
 type CalloutKind = 'info' | 'warning' | 'success' | 'danger'
 
 interface CalloutCmd { type?: CalloutKind }
+
+interface FenceCmd { fence?: string }
 
 interface EditorHandler {
   canExecute(editor: Editor, cmd?: unknown): boolean
@@ -157,6 +160,20 @@ export const comarkHandlers: Record<string, EditorHandler> = {
     }),
     isActive: editor => editor.isActive('infobox'),
   },
+  // A fence component's block, started from its template so the preview has
+  // something to draw.
+  fence: {
+    canExecute: editor => editor.can().insertContent(''),
+    execute: (editor, cmd) => {
+      const fence = fenceFor((cmd as FenceCmd)?.fence)
+      return editor.chain().focus().insertContent({
+        type: 'codeBlock',
+        attrs: { language: fence?.language ?? null },
+        content: fence?.template ? [{ type: 'text', text: fence.template }] : [],
+      })
+    },
+    isActive: (editor, cmd) => editor.isActive('codeBlock', { language: (cmd as FenceCmd)?.fence }),
+  },
   // Types the `[[` the picker popover is keyed on (editor/components/
   // DocLinkMenu.vue), so the slash menu and the toolbar need no second opener.
   // The `[[` goes after a selection rather than over it, so the words stay on
@@ -258,6 +275,7 @@ export const slashItems = [[
   { type: 'label', label: 'Comark' },
   { kind: 'callout', type: 'info', label: 'Callout', icon: 'i-lucide-info', description: 'Info box — switch the type inside' },
   { kind: 'infobox', label: 'Infobox', icon: 'i-lucide-square', description: 'Titled bordered box' },
+  ...FENCES.map(fence => ({ kind: 'fence', fence: fence.language, label: fence.label, icon: fence.icon, description: fence.description })),
   { type: 'label', label: 'Embed' },
   { kind: 'htmlEmbed', label: 'HTML embed', icon: 'i-lucide-file-code', description: 'Show an HTML file in the page, sandboxed' },
   { kind: 'pdfEmbed', label: 'PDF embed', icon: 'i-lucide-file-text', description: 'Show a PDF in the page' },

@@ -1,5 +1,6 @@
 import { citationsByBlock, markdownToTree, type AllowedHtml, type CitationSource } from '#shared/utils/comark-tree'
 import { highlightToTokens } from '#shared/utils/code-highlight'
+import { renderFence } from './fences'
 import { resolveFileUuids } from './files'
 import { ceFileLists } from './commit-files'
 import type { PageAttachment, ResolvedFile } from '#shared/utils/files'
@@ -145,6 +146,7 @@ export async function enrichCePage(
     resolveCites: nids => resolveCiteNids(auth, nids),
     allowedHtml,
     highlightCode: highlightToTokens,
+    renderFence,
     blockLinks: true,
   })
   const asked = new Set(Object.keys(files))

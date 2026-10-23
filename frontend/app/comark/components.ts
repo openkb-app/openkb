@@ -6,9 +6,10 @@
  * gets. The tree passes (`#shared/utils/comark-tree`) have already rewritten
  * every component tag to one this map has, `unknown` included.
  */
-import { CustomAttachment, CustomCallout, CustomCitation, CustomCodeBlock, CustomDefault, CustomDoc, CustomEmbed, CustomImage, CustomInfobox } from '#components'
+import { CustomAttachment, CustomCallout, CustomCitation, CustomCodeBlock, CustomDefault, CustomDoc, CustomEmbed, CustomFence, CustomImage, CustomInfobox } from '#components'
 import { CODE_BLOCK_TAG, HTML_ELEMENTS, UNKNOWN_TAG } from '#shared/utils/comark-tree'
 import { CITATION_TAG } from '#shared/utils/citations'
+import { FENCE_TAG } from '#shared/utils/fences'
 
 /**
  * Every HTML tag renders as itself. The pin is the guard: the renderer falls
@@ -33,5 +34,6 @@ export const comarkComponents = {
   doc: CustomDoc,
   [CITATION_TAG]: CustomCitation,
   [CODE_BLOCK_TAG]: CustomCodeBlock,
+  [FENCE_TAG]: CustomFence,
   [UNKNOWN_TAG]: CustomDefault,
 }
