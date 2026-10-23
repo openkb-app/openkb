@@ -4,7 +4,8 @@
 # - the checkout is bind-mounted over /app and the containers run as the host
 #   user, so the host's gitignored files/ tree replaces the files volume,
 # - `cli` is the drupal image kept idle: composer, phapp, drush, phpunit,
-# - `frontend` runs the Nuxt dev server.
+# - `frontend` runs the Nuxt dev server, on the image's `development` stage:
+#   the release image plus npm.
 #
 # The Traefik labels are inert where no Traefik runs on the host.
 
@@ -74,6 +75,8 @@ services:
 
   frontend:
     << : *development
+    build:
+      target: development
     # npm install, then `nuxt dev` behind a wrapper that flushes the collab
     # store on SIGTERM — see frontend/scripts/dev-server.sh.
     command: sh scripts/dev-server.sh
