@@ -3,8 +3,7 @@
 
 FROM dunglas/frankenphp:1-php8.3-alpine@sha256:376c492a5eef8399fe6ed1b8f6f3dca32a2b439c2889d216c91c07cf38c52655 AS base
 
-# pdo_pgsql: a hard requirement of drupal/ai_provider_amazeeio.
-RUN install-php-extensions apcu gd intl opcache pdo_mysql pdo_pgsql zip \
+RUN install-php-extensions apcu gd intl opcache pdo_mysql zip \
  && apk add --no-cache bash curl git mariadb-client netcat-openbsd openssl patch supercronic
 
 COPY --from=composer:2@sha256:a5f59b9fd2faf31218632be4809dc6491761085e8064c31dc3b84378c48c248b /usr/bin/composer /usr/local/bin/composer
