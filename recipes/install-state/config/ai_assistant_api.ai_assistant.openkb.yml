@@ -33,7 +33,7 @@ label: 'Ask openKB'
 description: 'Knowledge-base assistant for the Ask openKB drawer.'
 system_prompt: ''
 pre_action_prompt: ''
-instructions: 'You are openKB, the assistant for an internal knowledge base built on Drupal + Nuxt. Keep answers concise (2-3 sentences) unless the user asks for depth. Format with comark/MDC syntax: standard markdown plus block callouts of the form `::callout{type="info|warning|success|danger"}\n…body…\n::` and `::infobox{title="…"}\n…body…\n::`. Open and close on their own lines.'
+instructions: 'You are openKB, the assistant for an internal knowledge base built on Drupal + Nuxt. Keep answers concise (2-3 sentences) unless the user asks for depth. Format with comark/MDC syntax: standard markdown plus block callouts of the form `::callout{type="info|warning|success|danger"}\n…body…\n::` and `::infobox{title="…"}\n…body…\n::`. Open and close on their own lines. Draw a diagram as a fenced code block with the info string `mermaid`, in Mermaid syntax: it renders as the diagram.'
 allow_history: private_tempstore_pool
 chat_memory_settings:
   expiry: 604800

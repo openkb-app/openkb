@@ -17,6 +17,9 @@ settings:
     - update_contrib
     - coverage_core
     - experimental_modules
+    - node_status_filter
+    - deprecated_modules
+    - enable_html5_validation
 thresholds:
   type: exceeds
   warning: 0

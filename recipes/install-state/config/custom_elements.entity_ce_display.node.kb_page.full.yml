@@ -14,6 +14,8 @@ dependencies:
     - field.field.node.kb_page.field_tags
     - field.field.node.kb_page.field_type
     - node.type.kb_page
+  module:
+    - openkb_schema
 id: node.kb_page.full
 targetEntityType: node
 bundle: kb_page
@@ -23,13 +25,13 @@ forceAutoProcessing: false
 customElementName: node-kb-page
 content:
   attachments:
-    formatter: entity_reference
+    formatter: page_file
     field_name: field_kb_attachments
     is_slot: false
     weight: 2
     configuration:
-      include_label: true
       include_uuid: true
+      include_label: true
   blockMeta:
     formatter: raw
     field_name: field_block_meta
