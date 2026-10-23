@@ -719,7 +719,7 @@ export function reviewDecorations(
       }),
       {
         side: -1,
-        ignoreSelection: true,
+        // Firefox puts a Home caret inside the control; PM reads it as the block start.
         // The control handles its own events; none of them are the document's.
         stopEvent: () => true,
         // Identity, so a mark that changed redraws and one that did not is kept.

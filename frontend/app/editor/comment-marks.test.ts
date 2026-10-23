@@ -255,6 +255,32 @@ describe('the margin badge, mounted', () => {
 
     expect(editor.state.doc.toJSON()).toEqual(before)
   })
+
+  // Firefox's Home puts the caret inside a non-editable element at the line start.
+  it('reads a caret placed inside the control as the block start', () => {
+    for (const threads of [[], [thread('b-2', null)]]) {
+      const element = document.createElement('div')
+      document.body.append(element)
+      const editor = new Editor({
+        element,
+        extensions: [Document, IdParagraph, Text, CommentMarks.configure({ threads: () => threads })],
+        content: {
+          type: 'doc',
+          content: ['b-1', 'b-2'].map(id => ({ type: 'paragraph', attrs: { id }, content: [{ type: 'text', text: 'Paragraph' }] })),
+        },
+      })
+      editors.push(editor)
+      editor.view.focus()
+      // Mid second paragraph: 0 <p> 1 … 10 </p> 11 <p> 12 …
+      editor.commands.setTextSelection(16)
+
+      document.getSelection()!.collapse(editor.view.dom.querySelectorAll('button')[1]!, 0)
+      ;(editor.view as unknown as { domObserver: { flush(): void } }).domObserver.flush()
+
+      expect(editor.state.selection.from).toBe(12)
+      element.remove()
+    }
+  })
 })
 
 describe('threadAt', () => {

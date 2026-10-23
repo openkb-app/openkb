@@ -292,7 +292,7 @@ export function marginDecorations(
         // One key for every block that carries no id: they all draw the same
         // offer, and keying those by position redraws them on any edit above.
         key: id ? `comment-margin-${id}-${count}` : 'comment-margin-offer',
-        ignoreSelection: true,
+        // Firefox puts a Home caret inside the control; PM reads it as the block start.
         // The control handles its own events; none of them are the document's.
         stopEvent: () => true,
       },

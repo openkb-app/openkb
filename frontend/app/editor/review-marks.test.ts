@@ -846,6 +846,22 @@ describe('the checkmark, mounted', () => {
     // and the block just signed off is where the reader is.
     expect(topLevelBlockPos(editor.state)).toBe(editor.state.doc.child(0).nodeSize)
   })
+
+  // Firefox's Home puts the caret inside a non-editable element at the line start.
+  it('reads a caret placed inside the pills as the block start', () => {
+    const { editor } = mount({ 'b-1': awaiting([3]), 'b-2': awaiting([3]) }, [paraNode('b-1'), paraNode('b-2')])
+    const element = editor.view.dom.parentElement!
+    document.body.append(element)
+    editor.view.focus()
+    // Mid second paragraph: 0 <p> 1 b-1 4 </p> 5 <p> 6 b-2 9 </p>
+    editor.commands.setTextSelection(8)
+
+    document.getSelection()!.collapse(editor.view.dom.querySelectorAll('.okb-review-pills')[1]!, 0)
+    ;(editor.view as unknown as { domObserver: { flush(): void } }).domObserver.flush()
+
+    expect(editor.state.selection.from).toBe(6)
+    element.remove()
+  })
 })
 
 describe('the plugin', () => {
