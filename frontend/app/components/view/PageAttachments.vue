@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * The read page's attachments (ADR 0020): the page's files and those its text
- * embeds, each as the file card, with uploader and date. Only files this
- * reader may download reach it (server/utils/drupal-ce-enrich.ts).
+ * The read page's attachments (ADR 0020): the page's files less those hidden
+ * from the list, and those its text embeds, each as the file card, with
+ * uploader and date. Only files this reader may download reach it
+ * (server/utils/drupal-ce-enrich.ts).
  */
 import type { PageAttachment } from '#shared/utils/files'
 

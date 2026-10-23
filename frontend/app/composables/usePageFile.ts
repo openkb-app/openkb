@@ -17,6 +17,11 @@ export function rememberPageFiles(files: PageAttachment[]): void {
   if (import.meta.client) files.forEach(({ id, description: _, ...file }) => known.set(id, file))
 }
 
+/** Remembers a file the read page's text embeds, unless its list gave it already. */
+export function rememberEmbeddedFile(id: string, file: ResolvedFile): void {
+  if (import.meta.client && !known.has(id)) known.set(id, file)
+}
+
 /**
  * Page files (ADR 0020) resolved for the current reader, on the read page, in
  * the editor and in chat.

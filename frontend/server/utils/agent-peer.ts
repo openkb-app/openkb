@@ -1,5 +1,5 @@
 import { createError } from 'h3'
-import { changePageFiles, type PageFileChange } from '#shared/utils/page-files'
+import { changePageFiles, embeddedFiles, setFileHidden, type PageFileChange } from '#shared/utils/page-files'
 import type { PageFileKey } from '#shared/utils/files'
 import * as Y from 'yjs'
 import { removeAwarenessStates } from 'y-protocols/awareness'
@@ -730,6 +730,7 @@ export async function openAgentSession(
         // Before anything in this transaction is written: a stale write must
         // leave the document exactly as it found it, fields included.
         if (ops.blocks?.length) refuseStaleBlocks(document, ops.blocks)
+        const embedded = embeddedFiles(document)
         if (ops.fields) result.fields = applyFieldValues(document, ops.fields)
         for (const [key, change] of Object.entries(ops.files ?? {}) as Array<[PageFileKey, PageFileChange]>) {
           if (changePageFiles(document, key, change)) result.fields.push(key)
@@ -740,6 +741,10 @@ export async function openAgentSession(
         }
         if (ops.blocks?.length) {
           result.blocks = applyBlockOps(document, ops.blocks, true)
+        }
+        // A file the write newly shows as `::embed` leaves the read page's list, as in the editor.
+        for (const uuid of embeddedFiles(document)) {
+          if (!embedded.has(uuid)) setFileHidden(document, uuid, true)
         }
         if (ops.comment) result.comment = applyComment(document, actor, ops.comment)
       }, origin)

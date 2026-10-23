@@ -7,10 +7,10 @@ import * as Y from 'yjs'
 import type { NodeSelection } from '@tiptap/pm/state'
 import { buildCommitSchemaExtensions } from '~~/server/utils/editor-schema'
 import { parseMarkdownToJson } from '~/comark/markdown-engine'
-import { addPageFile, fileArray } from '#shared/utils/page-files'
+import { addPageFile, fileArray, liveHiddenFiles, setFileHidden } from '#shared/utils/page-files'
 import { CollabHistory } from './collab-history'
-import { redo, undo } from '@tiptap/y-tiptap'
-import { closeFilePicker, insertPageFile, pickPageAttachment, removeFileEmbeds, removeFileFromPage, replacePageFile, uploadIntoEditor, useFilePickerRequest } from './page-file-insert'
+import { redo, undo, yUndoPluginKey } from '@tiptap/y-tiptap'
+import { closeFilePicker, insertPageFile, pickPageAttachment, removeFileEmbeds, removeFileFromPage, replacePageFile, undoableFileChange, uploadIntoEditor, useFilePickerRequest } from './page-file-insert'
 
 const FILE = '66666666-7777-4888-9999-000000000000'
 
@@ -261,6 +261,27 @@ describe('insertPageFile', () => {
     expect(fileArray(sessionYDoc(), 'images').toArray()).toEqual([])
   })
 
+  it('hides a file inserted as an embed from the attachments list, and undo shows it again', async () => {
+    mountShared('First.')
+    const done = insertPageFile(editor, 'html', editor.state.doc.content.size)
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'text/html' })
+    await done
+    const embeds = () => editor.state.doc.content.content.filter(node => node.type.name === 'embed').length
+    expect(embeds()).toBe(1)
+    expect(liveHiddenFiles(sessionYDoc())).toEqual([FILE])
+    undo(editor.state)
+    expect(embeds()).toBe(0)
+    expect(liveHiddenFiles(sessionYDoc())).toEqual([])
+  })
+
+  it('leaves a file inserted as a card listed', async () => {
+    mountShared('First.')
+    const done = insertPageFile(editor, 'file', editor.state.doc.content.size)
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'text/html' })
+    await done
+    expect(liveHiddenFiles(sessionYDoc())).toEqual([])
+  })
+
   it('leaves the page as it was on dismiss', async () => {
     mountShared('First.')
     const done = insertPageFile(editor, 'file', editor.state.doc.content.size)
@@ -365,6 +386,39 @@ describe('removeFileFromPage', () => {
     expect(blocks()).toEqual([`image:${FILE}`, `attachment:${FILE}`, 'Text.'])
     expect(fileArray(doc, 'images').toArray()).toEqual([FILE])
     expect(fileArray(doc, 'attachments').toArray()).toEqual([FILE])
+  })
+
+  it('drops the hidden flag with the file, and undo brings it back; the file attached anew is listed', async () => {
+    mountShared(`::embed{file="${FILE}"}\n::\n\nText.`)
+    const doc = sessionYDoc()
+    addPageFile(doc, 'attachments', FILE)
+    setFileHidden(doc, FILE, true)
+    removeFileFromPage(editor, ['attachments'], FILE)
+    expect(liveHiddenFiles(doc)).toEqual([])
+    undo(editor.state)
+    expect(liveHiddenFiles(doc)).toEqual([FILE])
+    redo(editor.state)
+
+    const done = insertPageFile(editor, 'file', editor.state.doc.content.size)
+    closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'text/html' })
+    await done
+    expect(fileArray(doc, 'attachments').toArray()).toEqual([FILE])
+    expect(liveHiddenFiles(doc)).toEqual([])
+  })
+})
+
+describe('undoableFileChange', () => {
+  it('makes a flag-only change one undo step and tells the editor at once', () => {
+    mountShared('Text.')
+    addPageFile(sessionYDoc(), 'attachments', FILE)
+    let transactions = 0
+    editor.on('transaction', () => transactions++)
+    undoableFileChange(editor, doc => setFileHidden(doc, FILE, true))
+    expect(transactions).toBe(1)
+    // The editor's own history is the Y.js UndoManager's (this schema's StarterKit keeps ProseMirror's).
+    expect((yUndoPluginKey.getState(editor.state) as { undoManager: Y.UndoManager }).undoManager.undoStack).toHaveLength(1)
+    undo(editor.state)
+    expect(liveHiddenFiles(sessionYDoc())).toEqual([])
   })
 })
 

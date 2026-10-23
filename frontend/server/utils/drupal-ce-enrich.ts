@@ -33,12 +33,14 @@ export interface CePage {
 }
 
 /**
- * The read page's attachments: `field_kb_attachments` in field order, then the
- * files the text embeds as `::attachment` that the field lacks. Only what this
- * reader may download. A file's description is its first embed's.
+ * The read page's attachments: `field_kb_attachments` in field order less the
+ * hidden ones, then the files the text embeds as `::attachment` that the field
+ * lacks. Only what this reader may download. A file's description is its first
+ * embed's.
  */
-function pageAttachments(
+export function pageAttachments(
   fieldIds: string[],
+  hidden: string[],
   bodyTree: unknown,
   resolved: Record<string, ResolvedFile>,
 ): PageAttachment[] {
@@ -54,7 +56,8 @@ function pageAttachments(
     children.forEach(walk)
   }
   ;(bodyTree as unknown[]).forEach(walk)
-  return [...new Set([...fieldIds, ...embedded])]
+  const listed = [...fieldIds.filter(id => !hidden.includes(id)), ...embedded.filter(id => !fieldIds.includes(id))]
+  return [...new Set(listed)]
     .flatMap(id => resolved[id] ? [{ id, ...resolved[id], description: descriptions[id] ?? null }] : [])
 }
 
@@ -139,7 +142,7 @@ export async function enrichCePage(
   // One file lookup for the text and the field: the tree asks first, the
   // field's files it did not name are asked for after.
   const files: Record<string, ResolvedFile> = {}
-  const fieldIds = ceFileLists(content.props ?? {}).attachments
+  const { attachments: fieldIds, hidden = [] } = ceFileLists(content.props ?? {})
   const bodyTree = await markdownToTree(markdown, {
     resolveFiles: async uuids => Object.assign(files, await resolveFileUuids(auth, uuids)),
     resolveDocs: nids => resolveDocNids(auth, nids),
@@ -150,9 +153,9 @@ export async function enrichCePage(
     blockLinks: true,
   })
   const asked = new Set(Object.keys(files))
-  const rest = fieldIds.filter(id => !asked.has(id))
+  const rest = fieldIds.filter(id => !asked.has(id) && !hidden.includes(id))
   if (rest.length > 0) Object.assign(files, await resolveFileUuids(auth, rest))
-  const pageFiles = pageAttachments(fieldIds, bodyTree, files)
+  const pageFiles = pageAttachments(fieldIds, hidden, bodyTree, files)
   const blockCitations = citationsByBlock(bodyTree)
   // The raw file lists are consumed into `pageFiles` and `::image{file}`.
   const { body: _drop, blockMeta: _dropMeta, attachments: _files, images: _images, ...restProps } = content.props ?? {}

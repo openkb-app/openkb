@@ -11,7 +11,7 @@ import {
   publishedContent,
 } from '../../../utils/moderation'
 import { checkpointLiveDocument, moderationWriteError } from '../../../utils/moderation-session'
-import { PAGE_FILE_KEYS, setPageFiles } from '#shared/utils/page-files'
+import { PAGE_FILE_KEYS, setHiddenFiles, setPageFiles } from '#shared/utils/page-files'
 
 /**
  * POST /api/node/<nid>/revert  →  { nid, ok, changed, status }
@@ -98,6 +98,7 @@ export default defineEventHandler(async (event) => {
     // The revert's own write may not carry the page files (ADR 0020); the
     // session's next checkpoint takes the draft's files off the page.
     for (const key of PAGE_FILE_KEYS) setPageFiles(doc, key, content.files[key])
+    setHiddenFiles(doc, content.files.attachments, content.files.hidden ?? [])
   }
 
   return { nid, ok: true, changed, status: await fetchModerationStatus(auth, nid) }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blockProvenanceFrom, enrichCePage, type CePage } from './drupal-ce-enrich'
+import { blockProvenanceFrom, enrichCePage, pageAttachments, type CePage } from './drupal-ce-enrich'
 import { serializeBlockMeta, type BlockMetaMap } from '#shared/page-blocks'
 
 const kbResponse = (): CePage => ({
@@ -165,5 +165,20 @@ describe('enrichCePage — block provenance', () => {
     for (const id of Object.keys(out.content!.props!.blockProvenance!)) {
       expect(ids).toContain(id)
     }
+  })
+})
+
+describe('pageAttachments', () => {
+  const file = (name: string) => ({ url: `/system/files/${name}`, name, size: 1, mime: 'text/html', owner: null, created: null })
+  const resolved = { a: file('a.html'), b: file('b.pdf'), c: file('c.txt') }
+
+  it('leaves out a hidden field file, also when the text embeds it as ::attachment', () => {
+    const tree = [['attachment', { file: 'a' }], ['attachment', { file: 'c', description: 'Notes' }]]
+    expect(pageAttachments(['a', 'b'], ['a'], tree, resolved).map(entry => entry.id)).toEqual(['b', 'c'])
+  })
+
+  it('keeps a file only the text embeds', () => {
+    const tree = [['p', {}, ['attachment', { file: 'c' }]]]
+    expect(pageAttachments([], [], tree, resolved).map(entry => entry.id)).toEqual(['c'])
   })
 })

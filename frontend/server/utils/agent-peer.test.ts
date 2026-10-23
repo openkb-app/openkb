@@ -28,6 +28,7 @@ import {
 import { blockVersions } from './block-versions'
 import type { FieldSpec } from './entity-fields'
 import { readBlockMeta } from '#shared/page-blocks'
+import { liveHiddenFiles, setFileHidden } from '#shared/utils/page-files'
 import { readThreads } from '#shared/block-comments'
 import { collabColor } from '#shared/utils/presence'
 
@@ -600,6 +601,19 @@ describe('openAgentSession', () => {
     const agentOrigins = origins.filter(isAgentOrigin)
     expect(agentOrigins).toHaveLength(1)
     expect(agentOrigins[0]).toMatchObject({ agent: true, label: 'fago via Claude' })
+  })
+
+  it('hides a file the write newly shows as ::embed, and leaves the others\' flags alone', async () => {
+    const OLD = '11111111-2222-4333-8444-555555555555'
+    const NEW = '66666666-7777-4888-9999-000000000000'
+    const { host, document } = hostFor(new Y.Doc())
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+    session.apply({ files: { attachments: { add: [OLD, NEW] } }, body: `::embed{file="${OLD}"}\n::` })
+    setFileHidden(document, OLD, false)
+
+    session.apply({ body: `::embed{file="${OLD}"}\n::\n\n::embed{file="${NEW}"}\n::` })
+
+    expect(liveHiddenFiles(document)).toEqual([NEW])
   })
 
   it('seats an agent as a peer carrying its via (ADR 0003)', async () => {

@@ -18,6 +18,8 @@ const props = defineProps<{
 const resolved = computed<ResolvedFile | null>(() => props.url
   ? { url: props.url, name: props.name ?? '', size: props.size ?? 0, mime: props.mime ?? '', owner: null, created: null }
   : null)
+// The list leaves embedded files off: the editor's frame starts from this one.
+if (props.file && resolved.value) rememberEmbeddedFile(props.file, resolved.value)
 </script>
 
 <template>

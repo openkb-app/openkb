@@ -4,7 +4,7 @@ import type * as Y from 'yjs'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { EMBED_MIMES, PAGE_FILE_FIELDS, formatFileSize, type EmbedKind, type PageAttachment, type PageFileKey, type PageFileLimits, type PageFileLimitsByField } from '#shared/utils/files'
-import { addPageFile, removePageFile } from '#shared/utils/page-files'
+import { addPageFile, removePageFile, setFileHidden } from '#shared/utils/page-files'
 import { trackRange } from '~/editor/tracked-range'
 import { csrfToken } from '~/utils/csrf'
 
@@ -136,6 +136,16 @@ function embedNode(kind: FilePickKind, uuid: string) {
   return { type: kind === 'file' ? 'attachment' : 'embed', attrs: { file: uuid } }
 }
 
+/**
+ * Inserts the embed of a file at `pos`. A file shown as `::embed` is hidden
+ * from the read page's attachments list, in the same undo step.
+ */
+function insertEmbed(editor: Editor, kind: FilePickKind, uuid: string, pos: number, focus = false, updateSelection = true): void {
+  const chain = focus ? editor.chain().focus() : editor.chain()
+  chain.insertContentAt(Math.min(pos, editor.state.doc.content.size), embedNode(kind, uuid), { updateSelection }).run()
+  if (pickEmbedKinds(kind)) undoableFileChange(editor, doc => setFileHidden(doc, uuid, true))
+}
+
 /** The picker kind of each node type that shows one file. */
 const NODE_KINDS: Record<string, FilePickKind> = { image: 'image', attachment: 'file', embed: 'embed' }
 
@@ -180,10 +190,8 @@ export async function uploadIntoEditor(editor: Editor, kind: FilePickKind | ((fi
     for (const [i, upload] of uploads.entries()) {
       const uuid = await upload
       if (!uuid || editor.isDestroyed) continue
-      const node = embedNode(kinds[i]!, uuid)
-      const pos = at.current()?.from ?? editor.state.doc.content.size
       inserting = true
-      editor.chain().insertContentAt(Math.min(pos, editor.state.doc.content.size), node, { updateSelection: !moved }).run()
+      insertEmbed(editor, kinds[i]!, uuid, at.current()?.from ?? editor.state.doc.content.size, false, !moved)
       inserting = false
       const next = endOfEmbed(editor, uuid)
       if (next === null) continue
@@ -261,8 +269,7 @@ export async function insertPageFile(editor: Editor, kind: FilePickKind, insertA
     if ('upload' in choice) return await uploadIntoEditor(editor, kind, choice.upload, pos)
     const doc = sessionDoc(editor)
     if (doc) addPageFile(doc, pickKey(kind), choice.id)
-    const node = embedNode(kind, choice.id)
-    editor.chain().focus().insertContentAt(Math.min(pos, editor.state.doc.content.size), node).run()
+    insertEmbed(editor, kind, choice.id, pos, true)
   }
   finally {
     at.stop()
@@ -317,11 +324,14 @@ export function removeFileEmbeds(editor: Editor, keys: PageFileKey[], uuid: stri
  * Changes the session's file lists as part of the user's undo step:
  * - the UndoManager tracks the sync plugin's origin, and the lists are in
  *   its scope (`CollabHistory`);
- * - a text edit dispatched right before or after joins the same step.
+ * - a text edit dispatched right before or after joins the same step;
+ * - an empty transaction follows, so the toolbar's Undo sees the new step.
  */
 export function undoableFileChange(editor: Editor, change: (doc: Y.Doc) => void): void {
   const doc = sessionDoc(editor)
-  if (doc) doc.transact(() => change(doc), ySyncPluginKey)
+  if (!doc) return
+  doc.transact(() => change(doc), ySyncPluginKey)
+  editor.view.dispatch(editor.state.tr)
 }
 
 /** Takes a file off the page, as one undo step: its embeds out of the text, then out of the lists `keys`. */
@@ -355,7 +365,8 @@ function embeds(editor: Editor, key: PageFileKey, uuid: string): boolean {
  * gives: an upload, a file on this page or one of the caller's own. Alt text,
  * description, title and block id stay. The old file leaves the page's list once
  * nothing embeds it. One undo step: the swap and the list change (an upload
- * stays listed, as after undoing its insert).
+ * stays listed, as after undoing its insert). A new `::embed` file is hidden
+ * from the read page's attachments list.
  */
 export async function replacePageFile(editor: Editor, pos: number): Promise<void> {
   const node = editor.state.doc.nodeAt(pos)
@@ -385,6 +396,7 @@ export async function replacePageFile(editor: Editor, pos: number): Promise<void
     }).run()
     undoableFileChange(editor, (doc) => {
       addPageFile(doc, key, uuid)
+      if (node.type.name === 'embed') setFileHidden(doc, uuid, true)
       if (old && old !== uuid && !embeds(editor, key, old)) removePageFile(doc, key, old)
     })
   }
