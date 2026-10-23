@@ -402,6 +402,18 @@ describe('the review model', () => {
     expect(blockers(map, ['agent'])).toEqual({ 'b-2': ['agent'] })
   })
 
+  // Drupal's gate (PageBlocks::blockers()) owes a review of unaccounted
+  // writing in every space: no policy may wave through what nobody was witnessed writing.
+  it('lists a step naming no writer even where the space does not enforce it', () => {
+    const map: BlockMetaMap = {
+      'b-1': block({ 'pending:peer': { by: [], ok: [] } }),
+      'b-2': block({ 'pending:peer': { by: [3], ok: [] } }),
+    }
+
+    expect(blockers(map, ['agent'])).toEqual({ 'b-1': ['peer'] })
+    expect(blockers(map, [])).toEqual({ 'b-1': ['peer'] })
+  })
+
   // The policy names which steps a space asks for; the order a block's debts
   // read in is REVIEW_STEPS', agent first.
   it('owes its steps agent-first, whatever order the policy names them in', () => {

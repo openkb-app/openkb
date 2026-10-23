@@ -46,6 +46,17 @@ describe('mintAuthoredIds', () => {
     expect(minted).toEqual(['b-m1'])
   })
 
+  it('leaves a duplicated id a peer left in the document to the commit', () => {
+    const before = docFrom('copied {#b-1}\n\ncopied {#b-1}\n\nother {#b-2}')
+    const after = parseMarkdownToJson('copied {#b-1}\n\ncopied {#b-1}\n\nother, edited {#b-2}')
+
+    const { json, minted } = mintAuthoredIds(before, after, ids())
+
+    // The copy is the peer's block; only the peer's write may credit it.
+    expect(blockIds(json)).toEqual(['b-1', 'b-1', 'b-2'])
+    expect(minted).toEqual([])
+  })
+
   it('mints for the extra copy when a block is duplicated verbatim', () => {
     const before = docFrom('same')
     const { json } = mintAuthoredIds(before, parseMarkdownToJson('same\n\nsame'), ids())
@@ -57,5 +68,22 @@ describe('mintAuthoredIds', () => {
     const { json, minted } = mintAuthoredIds(before, parseMarkdownToJson('intro\n\n- a\n- b'), ids())
     expect(blockIds(json)).toEqual([null, 'b-m1'])
     expect(minted).toEqual(['b-m1'])
+  })
+
+  it('re-mints an authored block that copies an id, even placed before the carried one', () => {
+    const before = docFrom('one {#b-1}\n\ntwo {#b-2}')
+    const after = parseMarkdownToJson('copied id {#b-2}\n\none {#b-1}\n\ntwo {#b-2}')
+
+    const { json, minted } = mintAuthoredIds(before, after, ids())
+
+    expect(blockIds(json)).toEqual(['b-m1', 'b-1', 'b-2'])
+    expect(minted).toEqual(['b-m1'])
+  })
+
+  it('re-mints the same authored block placed after the carried one', () => {
+    const before = docFrom('one {#b-1}\n\ntwo {#b-2}')
+    const after = parseMarkdownToJson('one {#b-1}\n\ntwo {#b-2}\n\ncopied id {#b-2}')
+
+    expect(blockIds(mintAuthoredIds(before, after, ids()).json)).toEqual(['b-1', 'b-2', 'b-m1'])
   })
 })

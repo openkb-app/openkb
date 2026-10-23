@@ -237,6 +237,11 @@ describe('reviewMarkOf', () => {
     expect(reviewMarkOf(awaiting([]), ['peer'], OTHER)).toEqual(owes(['peer', 'unattributed']))
   })
 
+  it('marks an episode naming nobody where the space does not enforce its step', () => {
+    expect(reviewMarkOf(awaiting([]), ['agent'], OTHER)).toEqual(owes(['peer', 'unattributed']))
+    expect(reviewMarkOf(awaiting([3]), ['agent'], OTHER)).toBeNull()
+  })
+
   it('offers nothing to a session with no account behind it', () => {
     expect(reviewMarkOf(awaiting([3]), ['peer'], NOBODY)).toEqual(owes(['peer', 'awaiting-others']))
     expect(reviewMarkOf(awaiting([]), ['peer'], NOBODY)).toEqual(owes(['peer', 'unattributed']))

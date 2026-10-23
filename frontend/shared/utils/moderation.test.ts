@@ -274,6 +274,18 @@ describe('awaitingReview', () => {
     expect(Object.keys(awaitingReview({ 'b-2': owing('agent') }, wiki))).toEqual(['b-2'])
   })
 
+  it('names a change no writer was witnessed for, in a space not enforcing its step', () => {
+    // What Drupal's gate refuses on in every space, whichever witness speaks.
+    const wiki = status({
+      moderated: false,
+      reviewSteps: ['agent'],
+      reviewBlockers: { 'b-6': ['peer'] },
+    })
+    const unaccounted = { 'b-6': { 'pending:peer': { by: [], ok: [] } } }
+    expect(awaitingReview(unaccounted, wiki)).toEqual({ 'b-6': ['peer'] })
+    expect(awaitingReview({}, wiki)).toEqual({ 'b-6': ['peer'] })
+  })
+
   it('says nothing about a block with no flag — never an unearned tick', () => {
     expect(awaitingReview({ 'b-4': { contributors: [] } }, status())).toEqual({})
   })

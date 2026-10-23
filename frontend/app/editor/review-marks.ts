@@ -9,9 +9,9 @@ import {
   contributorsSince,
   holdsNothing,
   ID_BEARING_TYPES,
-  isPending,
   mayApprove,
   mintBlockId,
+  owedSteps,
   REVIEW_STEPS,
   reviewOf,
   TITLE_REVIEW_KEY,
@@ -180,8 +180,7 @@ export function reviewMarkOf(
   subject = 'This block',
 ): ReviewMark | null {
   if (!block) return null
-  const pending = REVIEW_STEPS
-    .filter(step => steps.includes(step) && isPending(block, step))
+  const pending = owedSteps(block, steps)
     .map(step => ({
       step,
       state: stepState(block, step, reviewer),

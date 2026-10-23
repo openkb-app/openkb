@@ -165,6 +165,10 @@ export interface PageBlock {
   contributors?: Contributor[]
   /** Set where the draft holds the block in a place the live page does not. */
   moved?: boolean
+  /** Set where the live page does not show the block at all. */
+  added?: boolean
+  /** Set where the draft no longer holds a block the live page shows. */
+  deleted?: boolean
   /** Present while the step is pending — the flag itself. */
   'pending:peer'?: PendingStep
   'pending:agent'?: PendingStep
@@ -255,10 +259,25 @@ export function blockers(
 ): Record<string, ReviewStep[]> {
   const out: Record<string, ReviewStep[]> = {}
   for (const id of Object.keys(map).sort()) {
-    const owed = REVIEW_STEPS.filter(step => steps.includes(step) && isPending(map[id], step))
+    const owed = owedSteps(map[id], steps)
     if (owed.length > 0) out[id] = owed
   }
   return out
+}
+
+/**
+ * The review steps one block owes before the page may publish.
+ *
+ * An enforced step that is pending, and any pending step naming no writer:
+ * nobody may wave unaccounted writing through by policy, so it is owed in
+ * every space (`\Drupal\openkb_workflow\PageBlocks::blockers()`).
+ */
+export function owedSteps(
+  block: PageBlock | undefined,
+  steps: readonly ReviewStep[] = REVIEW_STEPS,
+): ReviewStep[] {
+  return REVIEW_STEPS.filter(step => isPending(block, step)
+    && (steps.includes(step) || contributorsSince(block, step).length === 0))
 }
 
 /** What a read surface needs about one block. */
@@ -694,6 +713,40 @@ export function collectBlockIds(doc: JSONContent, into: Set<string> = new Set())
 }
 
 /**
+ * The id each top-level block reaches Drupal under, by position: `ids` holds
+ * every top-level block's id, `null` for one with none or not id-bearing.
+ *
+ * A shared id stays on the occurrence `keepers` names (default: the first in
+ * document order); every other occurrence gets `<id>-<n>`, the lowest `n` from
+ * 2 that no block in the document wears. The suffix follows position, so two
+ * copies of one id that swap places swap ids. Derived rather than drawn at
+ * random: this runs on every serialization, and the same document has to reach
+ * Drupal as the same bytes, with the same ids, every time — or a document
+ * nobody edits writes a revision at every quiet interval and its blocks' review
+ * history moves with each one.
+ *
+ * Exported so the session's accounting names a duplicate by the id the commit
+ * will give it (see `blockPrints` in server/utils/collab-attribution.ts).
+ */
+export function resolveSharedIds(
+  ids: readonly (string | null)[],
+  keepers?: ReadonlyMap<string, number>,
+): (string | null)[] {
+  const seen = new Set(ids.filter((id): id is string => id !== null))
+  const worn = new Map<string, number>()
+  return ids.map((id) => {
+    if (id === null) return null
+    const occurrence = worn.get(id) ?? 0
+    worn.set(id, occurrence + 1)
+    if (occurrence === (keepers?.get(id) ?? 0)) return id
+    let n = 2
+    while (seen.has(`${id}-${n}`)) n++
+    seen.add(`${id}-${n}`)
+    return `${id}-${n}`
+  })
+}
+
+/**
  * The shared top-level id pass. `fillMissing` decides whether a block with no
  * id gets one; a **duplicated** id is always re-minted, and `keepers` says
  * which occurrence keeps it, by default the first in document order.
@@ -708,7 +761,7 @@ export function collectBlockIds(doc: JSONContent, into: Set<string> = new Set())
  * a caller hands in here.
  *
  * Document order stands where nothing better is known: for a caller with no
- * accounting behind it (the editor's own minter), and for an id whose
+ * accounting behind it, and for an id whose
  * occurrences the accounting could not tell apart.
  *
  * An ordinal naming an occurrence this document does not have leaves the id on
@@ -724,50 +777,33 @@ function idPass(
   fillMissing: boolean,
   keepers?: ReadonlyMap<string, number>,
 ): IdPassResult {
-  // Every id already in the document, so that no re-mint can land on one. That
-  // includes an id being kept by a later occurrence than this one, which is
-  // reached after the re-mint that has to avoid it.
+  // Every id already in the document, so that no re-mint can land on one.
   const seen = collectBlockIds(doc)
   const minted: string[] = []
-  // How many blocks wearing each id this pass has walked past.
-  const worn = new Map<string, number>()
 
-  function take(id: string): string {
+  function fresh(): string {
+    let id = mintBlockId(source)
+    while (seen.has(id)) id = mintBlockId(source)
     seen.add(id)
     minted.push(id)
     return id
   }
 
-  function fresh(): string {
-    let id = mintBlockId(source)
-    while (seen.has(id)) id = mintBlockId(source)
-    return take(id)
+  const ids = topLevel(doc).map(node => isIdBearing(node) ? blockIdOf(node) : null)
+  const resolved = resolveSharedIds(ids, keepers)
+  for (const [at, id] of resolved.entries()) {
+    if (id === null || id === ids[at]) continue
+    seen.add(id)
+    minted.push(id)
   }
 
-  // A duplicate's replacement is derived from the id it duplicates, not drawn
-  // from the random source: this pass runs on every serialization, and a fresh
-  // draw each time would give the same document a different byte sequence on
-  // every commit — the content hash never matches what was last written, so a
-  // document nobody is editing writes a revision at every quiet interval, with
-  // the block's id (and therefore its whole review history) moving each cycle.
-  // Derived, the same duplicate always reaches Drupal under the same id, and
-  // the second commit has nothing to write.
-  function derived(from: string): string {
-    let n = 2
-    while (seen.has(`${from}-${n}`)) n++
-    return take(`${from}-${n}`)
-  }
-
-  const content = topLevel(doc).map((node) => {
+  const content = topLevel(doc).map((node, at) => {
     if (!isIdBearing(node)) return node
-    const id = blockIdOf(node)
+    const id = resolved[at] ?? null
     if (id === null) {
       return fillMissing ? { ...node, attrs: { ...(node.attrs ?? {}), id: fresh() } } : node
     }
-    const occurrence = worn.get(id) ?? 0
-    worn.set(id, occurrence + 1)
-    if (occurrence === (keepers?.get(id) ?? 0)) return node
-    return { ...node, attrs: { ...(node.attrs ?? {}), id: derived(id) } }
+    return id === blockIdOf(node) ? node : { ...node, attrs: { ...(node.attrs ?? {}), id } }
   })
 
   return { json: { ...doc, content }, minted }
@@ -809,7 +845,7 @@ export function mintMissingIds(
  *
  * The replacement is derived from the duplicated id rather than drawn fresh, so
  * a document whose duplicate nobody resolves still serializes to the same bytes
- * every time — see `derived` in {@link idPass}.
+ * every time — see {@link resolveSharedIds}.
  */
 export function dedupeBlockIds(
   doc: JSONContent,

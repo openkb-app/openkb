@@ -10,6 +10,7 @@ import { EditorState } from '@tiptap/pm/state'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { editorSchema } from '../../server/utils/editor-schema'
 import { BlockId } from './nodes/block-id'
+import { blockPrints, diffTouched } from '../../server/utils/collab-attribution'
 import { blocksNeedingIds, createBlockIdPlugin, BlockIdMinter } from './block-id-minter'
 
 function para(text: string, id: string | null): PMNode {
@@ -43,6 +44,12 @@ describe('blocksNeedingIds', () => {
     expect(found).toHaveLength(1)
     expect(d.nodeAt(found[0]!.pos)?.textContent).toBe('second half')
     expect(found[0]!.replaces).toBe('b-dup')
+    expect(found[0]!.id).toBe('b-dup-2')
+  })
+
+  it('names a copy past the ids the document already wears', () => {
+    const d = doc(para('original', 'b-dup'), para('copy', 'b-dup'), para('other', 'b-dup-2'))
+    expect(blocksNeedingIds(d, []).map(f => f.id)).toEqual(['b-dup-3'])
   })
 
   it('does not flag distinct ids', () => {
@@ -85,9 +92,25 @@ describe('the minting plugin (local edit path)', () => {
     state = state.apply(state.tr.split(4))
     const ids = state.doc.children.map(n => n.attrs.id as string)
     expect(ids).toHaveLength(2)
-    expect(ids[0]).toBe('b-1')
-    expect(ids[1]).toMatch(/^b-/)
-    expect(new Set(ids).size).toBe(2)
+    expect(ids).toEqual(['b-1', 'b-1-2'])
+  })
+
+  it('leaves a duplicate it did not make to the collab server', () => {
+    // A forged copy above the original, already in the live doc; the local
+    // user types into the original.
+    const stored = blockPrints(doc(para('original', 'b-1'), para('other', 'b-2')))
+    let state = stateWith(para('forged', 'b-1'), para('original', 'b-1'), para('other', 'b-2'))
+    const before = blockPrints(state.doc, stored)
+    state = state.apply(state.tr.insertText('!', state.doc.child(0).nodeSize + 1 + 'original'.length))
+    expect(state.doc.children.map(n => n.attrs.id)).toEqual(['b-1', 'b-1', 'b-2'])
+    expect(state.doc.child(1).textContent).toBe('original!')
+    expect(diffTouched(before, blockPrints(state.doc, before)).map(t => t.id)).toEqual(['b-1'])
+  })
+
+  it('keeps the id on the block it sat on when a copy is pasted above it', () => {
+    let state = stateWith(para('original', 'b-1'), para('other', 'b-2'))
+    state = state.apply(state.tr.insert(0, para('original', 'b-1')))
+    expect(state.doc.children.map(n => n.attrs.id)).toEqual(['b-1-2', 'b-1', 'b-2'])
   })
 
   it('mints for the container itself, never inside it', () => {

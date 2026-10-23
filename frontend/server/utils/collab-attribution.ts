@@ -1,5 +1,5 @@
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { blockIdOf, holdsNothing, ID_BEARING_TYPES, REVIEW_STEPS, type ReviewStep, TITLE_REVIEW_KEY } from '#shared/page-blocks'
+import { blockIdOf, holdsNothing, ID_BEARING_TYPES, resolveSharedIds, REVIEW_STEPS, type ReviewStep, TITLE_REVIEW_KEY } from '#shared/page-blocks'
 import type { CoAuthor } from './commit'
 
 /**
@@ -182,22 +182,31 @@ export function newLedger(): Ledger {
  *
  * ## Two blocks wearing one id
  *
- * A modified client can hand in two top-level blocks under one id. An id names
- * one block — its set, comments and sign-offs are all keyed on it — so only one
+ * A client can hand in two top-level blocks under one id. An id names one
+ * block — its set, comments and sign-offs are all keyed on it — so only one
  * occurrence keeps it. `prior` (the last pass's print for that id, chained back
- * to the block Drupal stores) names the incumbent; the rest are re-minted by
- * the commit (see {@link sharedIdKeepers}). Where no occurrence holds the prior
- * print, or several do, document order decides. A byte-identical decoy placed
- * first therefore takes the id, and the real block is re-minted back into
- * review — accepted, not prevented: the text under the id is still what was
+ * to the block Drupal stores) names the incumbent; the commit re-mints the rest
+ * (see {@link sharedIdKeepers}), and they are indexed here under the id the
+ * commit gives them ({@link resolveSharedIds}). So the copy is a block of its
+ * own from the pass that sees it appear, credited to whoever made it, and its
+ * print is the one Drupal will store. Where no occurrence holds the prior
+ * print, or several do, the occurrence that kept it last pass decides (its
+ * `index`), then document order. So typing on into the original keeps its id
+ * while a copy sits above it. A byte-identical decoy placed first on a block
+ * that wore its id alone takes the id, and the real block is re-minted back
+ * into review — accepted, not prevented: the text under the id is still what was
  * signed off, its set still credits its writers, and any later edit reopens
  * four-eyes, so nothing unreviewed publishes.
  */
 export function blockPrints(doc: PMNode, prior?: ReadonlyMap<string, BlockPrint>): Map<string, BlockPrint> {
   const wearers = new Map<string, BlockPrint[]>()
+  const blocks: { id: string | null, node: PMNode, print: BlockPrint | null }[] = []
   doc.forEach((node) => {
-    const id = blockIdOf(node)
-    if (id === null || !ID_BEARING_TYPES.has(node.type.name)) return
+    const id = ID_BEARING_TYPES.has(node.type.name) ? blockIdOf(node) : null
+    if (id === null) {
+      blocks.push({ id, node, print: null })
+      return
+    }
     const worn = wearers.get(id)
     const print: BlockPrint = {
       chars: node.textContent.length,
@@ -207,18 +216,29 @@ export function blockPrints(doc: PMNode, prior?: ReadonlyMap<string, BlockPrint>
     }
     if (worn) worn.push(print)
     else wearers.set(id, [print])
+    blocks.push({ id, node, print })
   })
 
+  const kept = new Map<string, BlockPrint>()
+  for (const [id, worn] of wearers) kept.set(id, incumbent(worn, prior?.get(id)))
+
+  const named = resolveSharedIds(blocks.map(b => b.id), sharedIdKeepers(kept))
   const prints = new Map<string, BlockPrint>()
-  for (const [id, worn] of wearers) prints.set(id, incumbent(worn, prior?.get(id)?.print))
+  blocks.forEach(({ id, node, print }, at) => {
+    const as = named[at]
+    if (id === null || print === null || as === null || as === undefined) return
+    prints.set(as, as === id
+      ? print
+      : { ...print, index: 0, print: JSON.stringify({ ...node.toJSON(), attrs: { ...node.attrs, id: as } }) })
+  })
   return prints
 }
 
 /** Which of the blocks wearing one id this index describes. */
-function incumbent(worn: BlockPrint[], held: string | undefined): BlockPrint {
+function incumbent(worn: BlockPrint[], held: BlockPrint | undefined): BlockPrint {
   if (worn.length === 1 || held === undefined) return worn[0]!
-  const holders = worn.filter(print => print.print === held)
-  return holders.length === 1 ? holders[0]! : worn[0]!
+  const holders = worn.filter(print => print.print === held.print)
+  return holders.length === 1 ? holders[0]! : worn[held.index] ?? worn[0]!
 }
 
 /**
@@ -233,6 +253,22 @@ export function sharedIdKeepers(baseline: ReadonlyMap<string, BlockPrint>): Map<
     if (print.index !== 0) keepers.set(id, print.index)
   }
   return keepers
+}
+
+/**
+ * The occurrences of shared ids the commit re-names, as top-level index =>
+ * `{ from, to }`, resolved as {@link blockPrints} indexes them against
+ * `baseline`. The checkpoint writes them into the live document.
+ */
+export function sharedIdRenames(doc: PMNode, baseline: ReadonlyMap<string, BlockPrint>): Map<number, { from: string, to: string }> {
+  const ids: (string | null)[] = []
+  doc.forEach(node => ids.push(ID_BEARING_TYPES.has(node.type.name) ? blockIdOf(node) : null))
+  const renames = new Map<number, { from: string, to: string }>()
+  resolveSharedIds(ids, sharedIdKeepers(baseline)).forEach((to, at) => {
+    const from = ids[at]
+    if (from && to && to !== from) renames.set(at, { from, to })
+  })
+  return renames
 }
 
 /**
@@ -545,6 +581,19 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
     actions,
     files: Object.fromEntries(ledger.fileAdders),
   }
+}
+
+/**
+ * Whether a window holds only this one agent's work: the account `user` (uid
+ * `uid`) writing through the label `via`. An agent's own token states nothing,
+ * so a window with a sign-off in it, or a file someone else added, does not
+ * qualify. An empty window does.
+ */
+export function agentOnly(window: SessionWindow, agent: { user?: string, uid?: number, via: string | null }): boolean {
+  return Object.values(window.blocks).every(set => set.every(w => w.via === agent.via))
+    && window.coAuthors.every(a => a.via === agent.via && a.name === agent.user)
+    && window.actions.length === 0
+    && Object.values(window.files).every(uid => uid === agent.uid)
 }
 
 /**

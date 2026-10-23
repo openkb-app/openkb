@@ -223,6 +223,8 @@ function keepId(replacement: JSONContent[], id: string): JSONContent[] {
  * @throws {UnknownBlockError}
  *   When an op names a block the document does not hold. Nothing is written —
  *   a half-applied set of block edits is worse than a refused one.
+ * @throws {DuplicatedBlockError}
+ *   When an op names an id two blocks wear: it names neither of them.
  * @throws {UnchainedBlockError}
  *   When an anchorless op follows one whose markdown wrote nothing.
  * @throws {UnanchoredBlockError}
@@ -261,6 +263,9 @@ export function applyBlockOps(
         ? content.indexOf(chained!)
         : content.findIndex(node => blockIdOf(node) === anchor)
     if (!appends && at === -1) throw new UnknownBlockError(anchor!)
+    if (anchor !== null && content.findIndex((node, i) => i > at && blockIdOf(node) === anchor) !== -1) {
+      throw new DuplicatedBlockError(anchor)
+    }
 
     const parsed = parseMarkdownToJson(op.markdown).content ?? []
     const replacement = 'id' in op ? keepId(parsed, op.id) : parsed
@@ -382,6 +387,14 @@ export function blockOpAnchor(op: BlockOp): string | null {
 export class UnknownBlockError extends Error {
   constructor(public readonly blockId: string) {
     super(`No block "${blockId}" in this page.`)
+  }
+}
+
+/** Raised when a block op names an id more than one block in the page wears. */
+export class DuplicatedBlockError extends Error {
+  constructor(public readonly blockId: string) {
+    super(`Block "${blockId}" is worn by more than one block in the live session, so it names neither. Nothing was written.`)
+    this.name = 'DuplicatedBlockError'
   }
 }
 

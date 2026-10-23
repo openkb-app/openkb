@@ -1,7 +1,7 @@
 import { createError, defineEventHandler, readBody } from 'h3'
 import { authenticateWrite, resolveWriteSubject, routeWrite, writeCarrier } from '../../utils/agent-write'
 import { AgentJoinError, AgentOpsError } from '../../utils/session-router'
-import { readBlockOpList, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, type BlockOp } from '../../utils/agent-peer'
+import { DuplicatedBlockError, readBlockOpList, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError, type BlockOp } from '../../utils/agent-peer'
 import type { FieldValues } from '../../utils/entity-fields'
 
 /**
@@ -88,7 +88,10 @@ function joinErrorToHttp(err: unknown): unknown {
     // report, so one client-side error renderer covers every write surface.
     return createError({ statusCode: 422, statusMessage: err.message, data: { fields: err.fields } })
   }
-  if (err instanceof UnanchoredBlockError || err instanceof UnchainedBlockError) {
+  if (
+    err instanceof UnanchoredBlockError || err instanceof UnchainedBlockError
+    || err instanceof UnknownBlockError || err instanceof DuplicatedBlockError
+  ) {
     // The payload is malformed for this document — the same 400 the shape
     // checks answer, only the document could tell.
     return createError({ statusCode: 400, statusMessage: err.message })

@@ -433,10 +433,10 @@ function seedBlocks(doc: Y.Doc, blocks: Array<{ id: string, text: string }>): vo
  * does: the text goes into that paragraph's own Y.XmlText, so it stays the
  * same block.
  */
-function typeInto(doc: Y.Doc, blockId: string, text: string): void {
+function typeInto(doc: Y.Doc, blockId: string, text: string, occurrence = 0): void {
   const nodes = doc.getXmlFragment('default').toArray()
   const paragraph = nodes
-    .find(node => node instanceof Y.XmlElement && node.getAttribute('id') === blockId) as Y.XmlElement | undefined
+    .filter(node => node instanceof Y.XmlElement && node.getAttribute('id') === blockId)[occurrence] as Y.XmlElement | undefined
   if (!paragraph) {
     throw new Error(`no block ${blockId} in the document; it holds `
       + JSON.stringify(nodes.map(n => n instanceof Y.XmlElement ? [n.nodeName, n.getAttribute('id')] : String(n))))
@@ -1264,19 +1264,84 @@ describe('collaboration multi-peer settle', () => {
         // and the account that forged the duplicate reached neither.
         expect(credited(persisted['b-v'], ADMIN_UID)).toBeDefined()
         expect(credited(persisted['b-v'], foe.uid)).toBeUndefined()
-        // The block the other account introduced landed under an id of its own,
-        // in review, and named for NOBODY. The checkpoint states its window per
-        // block id, and the window knows this text under the id it was forged
-        // with — not the one Drupal minted for it. A changed block the window
-        // does not name is unaccounted (ADR 0004): approvable by nobody until
-        // an identified edit re-stamps it. Being first in document order buys
-        // the newcomer no record, no comments and no sign-offs, and it does not
-        // put the forger on the block either.
+        // The block the other account introduced lands under an id of its own,
+        // credited to the account that wrote it and to nobody the original
+        // credits, and in review. Being first in document order buys the
+        // newcomer none of the original's record, comments or sign-offs.
         expect(persisted['b-v-2']).toBeDefined()
-        expect(persisted['b-v-2']!.contributors ?? []).toEqual([])
-        expect(contributorsSince(persisted['b-v-2'], 'peer')).toEqual([])
-        expect(credited(persisted['b-v-2'], foe.uid)).toBeUndefined()
+        expect(persisted['b-v-2']!.contributors?.map(c => [c.uid, c.via ?? null])).toEqual([[foe.uid, null]])
+        expect(credited(persisted['b-v-2'], ADMIN_UID)).toBeUndefined()
         expect(isPending(persisted['b-v-2'], 'peer')).toBe(true)
+
+        // The checkpoint wrote the same ids into the live document, so no
+        // browser is left a duplicate to name, and typing into the original
+        // after the forge stays on the original.
+        const liveIds = () => victim.doc.getXmlFragment('default').toArray()
+          .map(node => node instanceof Y.XmlElement ? [node.getAttribute('id'), node.toString().includes('Victim') ? 'original' : 'forged'] : null)
+        await expect.poll(liveIds, { timeout: 10_000 }).toEqual([['b-v-2', 'forged'], ['b-v', 'original']])
+        typeInto(victim.doc, 'b-v', ' Typed after the forge.')
+        await flushed(victim)
+        expect(await commitNow(cookie, probe.nid)).toMatchObject({ committed: true })
+        const after = await storedBody(cookie, probe.uuid)
+        expect(after).toContain('Victim block. Written by its owner. Typed after the forge. {#b-v}')
+        expect(after).toContain('Not the block this id names. {#b-v-2}')
+        const reread = await storedBlockMeta(cookie, probe.uuid)
+        expect(credited(reread['b-v'], ADMIN_UID)).toBeDefined()
+        expect(credited(reread['b-v'], foe.uid)).toBeUndefined()
+        expect(reread['b-v-2']!.contributors?.map(c => [c.uid, c.via ?? null])).toEqual([[foe.uid, null]])
+      }
+      finally {
+        await deletePage(cookie, probe.uuid)
+      }
+    }
+    finally {
+      await foe.release()
+    }
+  })
+
+  it('keeps the id on the original typed into before the forged copy is settled', { timeout: 120_000 }, async () => {
+    // The victim keeps typing into the original while the forged copy above it
+    // still wears its id: at the checkpoint neither occurrence holds the
+    // measured text, and the id must still stay on the original.
+    const foe = await createEditorPeer()
+    try {
+      const probe = await createPage(cookie, '# Duplicate probe\n\nVictim block. {#b-v}\n')
+      const docName = `node:${probe.nid}`
+      try {
+        const victim = await open(cookie, docName)
+        seedBlocks(victim.doc, [{ id: 'b-v', text: 'Victim block.' }])
+        await flushed(victim)
+        typeInto(victim.doc, 'b-v', ' Written by its owner.')
+        await flushed(victim)
+        await waitForBlockMeta(
+          'the victim\'s block never reached the live sidecar',
+          victim.doc,
+          meta => credited(meta['b-v'], ADMIN_UID) ? meta['b-v'] : undefined,
+        )
+
+        const attacker = await open(foe.cookie, docName)
+        attacker.doc.transact(() => {
+          const fragment = attacker.doc.getXmlFragment('default')
+          const forged = new Y.XmlElement('paragraph')
+          forged.setAttribute('id', 'b-v')
+          forged.insert(0, [new Y.XmlText('Not the block this id names.')])
+          fragment.insert(0, [forged])
+        })
+        await flushed(attacker)
+        await expect.poll(() => victim.doc.getXmlFragment('default').length, { timeout: 10_000 }).toBe(2)
+        typeInto(victim.doc, 'b-v', ' Typed under the forge.', 1)
+        await flushed(victim)
+        typeInto(victim.doc, 'b-v', ' And more.', 1)
+        await flushed(victim)
+        expect(await commitNow(cookie, probe.nid)).toMatchObject({ committed: true })
+
+        const body = await storedBody(cookie, probe.uuid)
+        expect(body).toContain('Victim block. Written by its owner. Typed under the forge. And more. {#b-v}')
+        expect(body).toContain('Not the block this id names. {#b-v-2}')
+        const persisted = await storedBlockMeta(cookie, probe.uuid)
+        expect(credited(persisted['b-v'], ADMIN_UID)).toBeDefined()
+        expect(credited(persisted['b-v'], foe.uid)).toBeUndefined()
+        expect(persisted['b-v-2']!.contributors?.map(c => [c.uid, c.via ?? null])).toEqual([[foe.uid, null]])
       }
       finally {
         await deletePage(cookie, probe.uuid)

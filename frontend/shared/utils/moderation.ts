@@ -1,4 +1,4 @@
-import { isPending, REVIEW_STEPS, type BlockMetaMap, type ReviewStep } from '#shared/page-blocks'
+import { owedSteps, REVIEW_STEPS, type BlockMetaMap, type ReviewStep } from '#shared/page-blocks'
 
 /**
  * The moderation surface of one page, shared by the server proxy and the
@@ -253,9 +253,9 @@ export function awaitingReview(
   const out: Record<string, ReviewStep[]> = {}
   for (const id of [...new Set([...Object.keys(meta), ...Object.keys(named)])].sort()) {
     const witnessed = meta[id]
-    const owed = REVIEW_STEPS.filter(step => steps.includes(step) && (witnessed === undefined
-      ? (named[id] ?? []).includes(step)
-      : isPending(witnessed, step)))
+    const owed = witnessed === undefined
+      ? REVIEW_STEPS.filter(step => (named[id] ?? []).includes(step))
+      : owedSteps(witnessed, steps)
     if (owed.length > 0) out[id] = owed
   }
   return out

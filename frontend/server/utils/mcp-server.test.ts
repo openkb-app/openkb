@@ -111,7 +111,7 @@ describe('MCP server', () => {
       expect(instructions).toContain(name)
     }
     expect(instructions).not.toMatch(/\bgetPage\b/)
-    for (const field of ['draft_exists', 'blocks_pending', 'can_publish']) {
+    for (const field of ['draft_exists', 'blocks_pending', 'pending', 'can_publish']) {
       expect(instructions).toContain(`\`${field}\``)
     }
   })

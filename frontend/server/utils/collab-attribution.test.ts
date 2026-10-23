@@ -3,6 +3,7 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { editorSchema } from './editor-schema'
 import {
   adoptSnapshot,
+  agentOnly,
   ledgerSnapshot,
   blockPrints,
   creditWriter,
@@ -17,10 +18,12 @@ import {
   reviewActionFrom,
   sessionWindow,
   sharedIdKeepers,
+  sharedIdRenames,
   writerKey,
   writerOfOrigin,
   type Ledger,
 } from './collab-attribution'
+import { dedupeBlockIds } from '#shared/page-blocks'
 
 function para(text: string, id: string | null): PMNode {
   return editorSchema.node('paragraph', { id }, text ? [editorSchema.text(text)] : [])
@@ -117,6 +120,15 @@ describe('blockPrints', () => {
     expect(indexed.get('b-1')!.index).toBe(1)
   })
 
+  it('keeps the id on the original while it is edited under a copy above it', () => {
+    const stored = blockPrints(doc(para('the real block', 'b-1')))
+    const forged = blockPrints(doc(para('a decoy', 'b-1'), para('the real block', 'b-1')), stored)
+    const typed = blockPrints(doc(para('a decoy', 'b-1'), para('the real block!', 'b-1')), forged)
+    expect(typed.get('b-1')!.chars).toBe('the real block!'.length)
+    expect(typed.get('b-1')!.index).toBe(1)
+    expect(diffTouched(forged, typed).map(t => t.id)).toEqual(['b-1'])
+  })
+
   it('falls back to document order when no occurrence holds what the id held', () => {
     const prior = blockPrints(doc(para('one block, then split', 'b-1')))
     const indexed = blockPrints(doc(para('one block,', 'b-1'), para('then split', 'b-1')), prior)
@@ -135,6 +147,19 @@ describe('sharedIdKeepers', () => {
     const prior = blockPrints(doc(para('the real block', 'b-1')))
     const baseline = blockPrints(doc(para('a decoy', 'b-1'), para('the real block', 'b-1'), para('lone', 'b-2')), prior)
     expect([...sharedIdKeepers(baseline)]).toEqual([['b-1', 1]])
+  })
+})
+
+describe('sharedIdRenames', () => {
+  it('re-names the copy above the incumbent, as the pass indexes it', () => {
+    const prior = blockPrints(doc(para('the real block', 'b-1')))
+    const live = doc(para('a decoy', 'b-1'), para('the real block', 'b-1'), para('lone', 'b-2'))
+    const baseline = blockPrints(live, prior)
+    expect([...sharedIdRenames(live, baseline)]).toEqual([[0, { from: 'b-1', to: 'b-1-2' }]])
+    // Written back, the document reads as the baseline: no print moves.
+    const settled = doc(para('a decoy', 'b-1-2'), para('the real block', 'b-1'), para('lone', 'b-2'))
+    expect(diffTouched(baseline, blockPrints(settled, baseline))).toEqual([])
+    expect(sharedIdRenames(settled, blockPrints(settled, baseline)).size).toBe(0)
   })
 })
 
@@ -167,6 +192,53 @@ describe('a client that points a block at somebody else\'s id', () => {
     ))
 
     expect(statedFor(ledger, 'b-1')).toEqual([String(ADA.uid)])
+  })
+})
+
+describe('a copy of a block', () => {
+  it('is indexed under the id the commit gives it, printed as Drupal will store it', () => {
+    const indexed = blockPrints(doc(para('copy', 'b-1'), para('copy', 'b-1'), para('lone', 'b-1-2')))
+    expect([...indexed.keys()]).toEqual(['b-1', 'b-1-3', 'b-1-2'])
+    expect(indexed.get('b-1-3')!.print).toBe(JSON.stringify(para('copy', 'b-1-3').toJSON()))
+    expect(dedupeBlockIds(doc(para('copy', 'b-1'), para('copy', 'b-1'), para('lone', 'b-1-2')).toJSON()).json.content!
+      .map(node => node.attrs!.id)).toEqual(['b-1', 'b-1-3', 'b-1-2'])
+  })
+
+  it('is credited to the writer who made it, and the original keeps its own record', () => {
+    const ledger = hydrated(doc(para('caption', 'b-1'), para('other', 'b-2')), FAGO)
+    ledger.writer = human(FAGO.uid)
+    creditWriter(ledger, doc(para('caption', 'b-1'), para('caption', 'b-1'), para('other', 'b-2')))
+
+    expect(Object.keys(sessionWindow(ledger).blocks)).toEqual(['b-1-2'])
+    expect(statedFor(ledger, 'b-1-2')).toEqual([String(FAGO.uid)])
+  })
+
+  it('is not the agent\'s when the agent writes another block next', () => {
+    const ledger = hydrated(doc(para('caption', 'b-1'), para('other', 'b-2')), FAGO)
+    ledger.writer = human(FAGO.uid)
+    creditWriter(ledger, doc(para('caption', 'b-1'), para('caption', 'b-1'), para('other', 'b-2')))
+    ledger.writer = human(FAGO.uid, CLAUDE)
+    creditWriter(ledger, doc(para('caption', 'b-1'), para('caption', 'b-1'), para('rewritten', 'b-2')))
+
+    expect(statedFor(ledger, 'b-1-2')).toEqual([String(FAGO.uid)])
+    expect(statedFor(ledger, 'b-2')).toEqual([`${FAGO.uid}:${CLAUDE}`])
+  })
+
+  it('stays delivered across checkpoints while the session still holds the duplicate', () => {
+    const ledger = hydrated(doc(para('caption', 'b-1')), FAGO)
+    ledger.writer = human(FAGO.uid)
+    const copied = doc(para('caption', 'b-1'), para('caption', 'b-1'))
+    creditWriter(ledger, copied)
+    dischargeWindow(ledger, sessionWindow(ledger))
+
+    creditWriter(ledger, copied)
+    expect(sessionWindow(ledger).blocks).toEqual({})
+  })
+
+  it('reads the same once the session reloads the page Drupal stored', () => {
+    const live = blockPrints(doc(para('caption', 'b-1'), para('caption', 'b-1')))
+    const reloaded = blockPrints(doc(para('caption', 'b-1'), para('caption', 'b-1-2')))
+    expect(live.get('b-1-2')!.print).toBe(reloaded.get('b-1-2')!.print)
   })
 })
 
@@ -397,6 +469,46 @@ describe('sessionPayload', () => {
   it('an empty window is stated — the lost-accounting case', () => {
     const payload = sessionPayload(sessionWindow(ledgerWith(ADA)), null)
     expect(payload).toMatchObject({ blocks: {} })
+  })
+})
+
+describe('what an agent\'s own token may carry', () => {
+  const AGENT = { user: FAGO.name, uid: FAGO.uid, via: CLAUDE }
+
+  it('a window the agent alone wrote', () => {
+    const ledger = ledgerWith(FAGO)
+    wrote(ledger, 'b-1', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
+    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(true)
+    expect(agentOnly(sessionWindow(ledgerWith(FAGO)), AGENT)).toBe(true)
+  })
+
+  it('not a window with a person\'s writing in it, their own included', () => {
+    const ledger = ledgerWith(FAGO)
+    wrote(ledger, 'b-1', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
+    wrote(ledger, 'b-1-2', { uid: FAGO.uid, chars: 7 })
+    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
+  })
+
+  it('not a window carrying a person\'s sign-off', () => {
+    const ledger = ledgerWith(FAGO, ADA)
+    wrote(ledger, 'b-1', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
+    ledger.actions.push({ item: 'b-1', step: 'peer', uid: ADA.uid, print: ledger.baseline.get('b-1')!.print })
+    expect(sessionWindow(ledger).actions).toHaveLength(1)
+    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
+  })
+
+  it('a file the agent\'s account added, not one someone else added', () => {
+    const ledger = ledgerWith(FAGO, ADA)
+    recordFileAdders(ledger, ['f-own'], { uid: FAGO.uid, via: CLAUDE })
+    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(true)
+    recordFileAdders(ledger, ['f-ada'], human(ADA.uid))
+    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
+  })
+
+  it('not another account\'s agent writing', () => {
+    const ledger = ledgerWith(FAGO, ADA)
+    wrote(ledger, 'b-1', { uid: ADA.uid, via: CLAUDE, chars: 4 })
+    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
   })
 })
 

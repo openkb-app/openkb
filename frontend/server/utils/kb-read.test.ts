@@ -311,11 +311,11 @@ describe('getKbPage status', () => {
 
     const page = await getKbPage(EVENT, 'team-wiki/getting-started', { withStatus: true })
 
-    expect(page!.status).toEqual({ draft_exists: false, blocks_pending: 0, can_publish: false })
+    expect(page!.status).toEqual({ draft_exists: false, blocks_pending: 0, pending: [], can_publish: false })
     expect(fetchModerationStatus).toHaveBeenCalledWith({}, 7)
   })
 
-  it('counts the blocks of the revision it served that still owe an enforced step', async () => {
+  it('counts the items of the working copy that still owe an enforced step', async () => {
     fetchCePage.mockResolvedValue({ ...CE_PAGE, canEdit: true })
     fetchCeWorkingCopy.mockResolvedValue(workingCopy({ blockMeta: PENDING_META }))
     fetchModerationStatus.mockResolvedValue(MODERATED)
@@ -328,19 +328,108 @@ describe('getKbPage status', () => {
     // Only the steps the space enforces count: the agent step is not one here.
     // And a block still owing one is what the publish gate refuses on, so the
     // account holding the transition still may not publish.
-    expect(page!.status).toEqual({ draft_exists: true, blocks_pending: 2, can_publish: false })
+    expect(page!.status).toEqual({
+      draft_exists: true,
+      blocks_pending: 2,
+      pending: [
+        { block_id: 'b-1', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+        { block_id: 'b-2', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+      ],
+      can_publish: false,
+    })
   })
 
-  it('answers can_publish off the working copy on a published read', async () => {
+  it('lists a change no writer was witnessed for, whatever steps the space enforces', async () => {
+    // What Drupal's gate refuses on in every space, and what the editor marks.
+    fetchCeWorkingCopy.mockResolvedValue(workingCopy({
+      blockMeta: JSON.stringify({ 'b-1': { 'pending:peer': { by: [], ok: [] } } }),
+    }))
+    fetchModerationStatus.mockResolvedValue({ ...MODERATED, reviewSteps: ['agent'] })
+
+    const page = await getKbPage(EVENT, 'team-wiki/getting-started', {
+      version: 'working-copy',
+      withStatus: true,
+    })
+
+    expect(page!.status).toEqual({
+      draft_exists: true,
+      blocks_pending: 1,
+      pending: [{ block_id: 'b-1', change: 'changed', by: [], step: 'peer' }],
+      can_publish: false,
+    })
+  })
+
+  it('names an added block as added', async () => {
+    fetchCeWorkingCopy.mockResolvedValue(workingCopy({
+      blockMeta: JSON.stringify({ 'b-1': { 'added': true, 'pending:peer': { by: [3], ok: [] } } }),
+    }))
+    fetchModerationStatus.mockResolvedValue(MODERATED)
+
+    const page = await getKbPage(EVENT, 'team-wiki/getting-started', {
+      version: 'working-copy',
+      withStatus: true,
+    })
+
+    expect(page!.status!.pending).toEqual([{ block_id: 'b-1', change: 'added', by: [{ uid: 3 }], step: 'peer' }])
+  })
+
+  it('names each writer a step waits on, and what kind of change it is', async () => {
+    fetchCeWorkingCopy.mockResolvedValue(workingCopy({
+      blockMeta: JSON.stringify({
+        'b-1': {
+          'contributors': [
+            { uid: 3, via: null, name: 'editor1', lastEdit: 1 },
+            { uid: 3, via: 'Claude', name: 'editor1', lastEdit: 2 },
+          ],
+          'deleted': true,
+          'pending:agent': { by: [3], ok: [] },
+        },
+        'field:title': { 'pending:peer': { by: [4], ok: [] } },
+      }),
+    }))
+    fetchModerationStatus.mockResolvedValue(MODERATED)
+
+    const page = await getKbPage(EVENT, 'team-wiki/getting-started', {
+      version: 'working-copy',
+      withStatus: true,
+    })
+
+    expect(page!.status!.pending).toEqual([
+      { block_id: 'field:title', change: 'renamed', by: [{ uid: 4 }], step: 'peer' },
+    ])
+    fetchModerationStatus.mockResolvedValue({ ...MODERATED, reviewSteps: ['agent', 'peer'] })
+    const both = await getKbPage(EVENT, 'team-wiki/getting-started', {
+      version: 'working-copy',
+      withStatus: true,
+    })
+    expect(both!.status!.pending).toEqual([
+      {
+        block_id: 'b-1',
+        change: 'removed',
+        by: [{ uid: 3, name: 'editor1', via: 'Claude' }],
+        step: 'agent',
+      },
+      { block_id: 'field:title', change: 'renamed', by: [{ uid: 4 }], step: 'peer' },
+    ])
+  })
+
+  it('counts the working copy on a published read', async () => {
     // What is live owes nothing; the draft above it owes two. A publish
-    // transitions the draft, so `can_publish` is the draft's answer while
-    // `blocks_pending` stays the answer for the revision served.
+    // transitions the draft, so both answers are the draft's.
     fetchCeWorkingCopy.mockResolvedValue(workingCopy({ blockMeta: PENDING_META }))
     fetchModerationStatus.mockResolvedValue(MODERATED)
 
     const page = await getKbPage(EVENT, 'team-wiki/getting-started', { withStatus: true })
 
-    expect(page!.status).toEqual({ draft_exists: true, blocks_pending: 0, can_publish: false })
+    expect(page!.status).toEqual({
+      draft_exists: true,
+      blocks_pending: 2,
+      pending: [
+        { block_id: 'b-1', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+        { block_id: 'b-2', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+      ],
+      can_publish: false,
+    })
     expect(fetchCeWorkingCopy).toHaveBeenCalledWith({}, 7, { ...CE_PAGE, canEdit: true })
   })
 
@@ -367,7 +456,7 @@ describe('getKbPage status', () => {
       withStatus: true,
     })
 
-    expect(page!.status).toEqual({ draft_exists: true, blocks_pending: 0, can_publish: true })
+    expect(page!.status).toEqual({ draft_exists: true, blocks_pending: 0, pending: [], can_publish: true })
   })
 
   it('is the calling account\'s answer: no edit access, no status and no status read', async () => {

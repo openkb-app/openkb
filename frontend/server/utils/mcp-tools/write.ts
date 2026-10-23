@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { resolveWriteSubject, routeWrite } from '../agent-write'
 import { AgentJoinError, AgentOpsError, type AgentEditResult } from '../session-router'
-import { StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError, UnknownThreadError, type AgentOps } from '../agent-peer'
+import { DuplicatedBlockError, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError, UnknownThreadError, type AgentOps } from '../agent-peer'
 import { answered, refused, type ToolResult } from './types'
 
 /**
@@ -90,7 +90,7 @@ function staleRefusal(err: StaleBlockError): ToolResult {
  */
 export function sessionRefusal(err: unknown): ToolResult {
   if (err instanceof StaleBlockError) return staleRefusal(err)
-  if (err instanceof UnknownBlockError || err instanceof UnknownThreadError || err instanceof UnanchoredBlockError || err instanceof UnchainedBlockError) {
+  if (err instanceof UnknownBlockError || err instanceof DuplicatedBlockError || err instanceof UnknownThreadError || err instanceof UnanchoredBlockError || err instanceof UnchainedBlockError) {
     return writeRefusal(err.message)
   }
   if (err instanceof AgentOpsError) return writeRefusal('Validation failed — nothing was written.', err.fields)

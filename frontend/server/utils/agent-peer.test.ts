@@ -11,6 +11,7 @@ import {
   applyBodyMarkdown,
   applyComment,
   applyFieldValues,
+  DuplicatedBlockError,
   UnanchoredBlockError,
   UnchainedBlockError,
   UnknownBlockError,
@@ -203,6 +204,30 @@ describe('applyBlockOps', () => {
       'inserted before two',
       'second',
     ])
+  })
+
+  it('writes nothing to a duplicated block it was not asked to touch', () => {
+    // A person's copy of a block, its id not yet resolved by a commit.
+    const doc = docWithIdentifiedBlocks([['b-1', 'caption'], ['b-1', 'caption'], ['b-2', 'second']])
+    const fragment = doc.getXmlFragment('default')
+    const copy = fragment.get(1)
+    const writes: Y.YEvent<Y.AbstractType<unknown>>[] = []
+    fragment.observeDeep(events => writes.push(...events))
+
+    applyBlockOps(doc, [{ id: 'b-2', markdown: 'second, rewritten' }], true)
+
+    expect(serializeYDoc(doc)).toBe('caption {#b-1}\n\ncaption {#b-1}\n\nsecond, rewritten {#b-2}')
+    expect(fragment.get(1)).toBe(copy)
+    expect(writes.every(event => !event.path.length || event.path[0] === 2)).toBe(true)
+  })
+
+  it('refuses an op naming an id two blocks wear, writing nothing', () => {
+    const doc = docWithIdentifiedBlocks([['b-1', 'caption'], ['b-1', 'caption'], ['b-2', 'second']])
+    const before = serializeYDoc(doc)
+
+    expect(() => applyBlockOps(doc, [{ id: 'b-1', markdown: 'rewritten' }], true)).toThrow(DuplicatedBlockError)
+    expect(() => applyBlockOps(doc, [{ after: 'b-1', markdown: 'next' }], true)).toThrow(DuplicatedBlockError)
+    expect(serializeYDoc(doc)).toBe(before)
   })
 
   it('mints an id for the content it authors, so the sidecar can key on it', () => {

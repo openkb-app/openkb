@@ -18,12 +18,14 @@ import { blockIdOf, isIdBearing, mintBlockId, type IdSource } from '#shared/page
  * Both restrictions come out the same way — mint for the blocks this write
  * authored, leave the rest alone:
  *
- *   - a top-level id-bearing block that is byte-identical to an id-less block
- *     the document already had is the same block, carried through unchanged,
- *     and keeps its id-less state (a commit must not stamp ids into content
- *     the session never touched — see server/utils/commit-block-ids.ts);
- *   - anything else without a usable id gets one, duplicates included, first
- *     occurrence in document order keeping the id.
+ *   - a top-level id-bearing block identical to one the document already had,
+ *     id included, is the same block, carried through unchanged: an id-less
+ *     one stays id-less (a commit must not stamp ids into content the session
+ *     never touched — see server/utils/commit-block-ids.ts), and a duplicated
+ *     id a peer left stays for the commit to resolve: the copy is the peer's
+ *     block, and only the peer's write may credit it;
+ *   - anything else without a usable id gets one: an authored block keeps its
+ *     id only where no carried block and no earlier authored block wears it.
  *
  * Who wrote the blocks it names is not this lane's business either: the agent
  * write API names them and Drupal's presave attributes and flags them.
@@ -35,28 +37,18 @@ function topLevel(doc: JSONContent): JSONContent[] {
 }
 
 /**
- * Content identity of a top-level block, for the carried-through match. The
- * id is excluded — that is the thing being decided.
- *
- * Takes a block as the schema spells it out: a freshly parsed tree and one
- * read back out of the document differ in which attributes they name, and the
- * match has to be on content, not on that.
+ * A block's identity for the carried-through match: content and id, as the
+ * schema spells them out — a freshly parsed tree and one read back out of the
+ * document differ in which attributes they name.
  */
-function blockKey(json: JSONContent): string {
-  const attrs = { ...(json.attrs ?? {}) }
-  delete attrs.id
-  return JSON.stringify({ ...json, attrs })
-}
-
-/** A parsed block through the schema, so it keys against a document's own. */
-function canonical(node: JSONContent): JSONContent {
-  return editorSchema.nodeFromJSON(node).toJSON() as JSONContent
+function blockKey(node: JSONContent): string {
+  return JSON.stringify(editorSchema.nodeFromJSON(node).toJSON())
 }
 
 /**
- * Ids for the blocks an agent's body authored: every top-level id-bearing
- * block reaches the document with a unique id, except those carried over
- * unchanged from `before`, which stay exactly as they were.
+ * Ids for the blocks an agent's body authored: every authored top-level
+ * id-bearing block reaches the document with a unique id, while those carried
+ * over unchanged from `before` stay exactly as they were.
  *
  * Pure — returns a new tree plus the minted ids.
  */
@@ -65,14 +57,13 @@ export function mintAuthoredIds(
   after: JSONContent,
   source?: IdSource,
 ): { json: JSONContent, minted: string[] } {
-  // Blocks the previous document carried without an id, as a multiset: two
-  // identical id-less paragraphs consume two slots, so a write that adds a
-  // third mints for one of them.
-  const carried = new Map<string, number>()
+  // Blocks the previous document carried, as a multiset: two identical blocks
+  // consume two slots, so a write that adds a third mints for it.
+  const available = new Map<string, number>()
   for (const node of topLevel(before.toJSON() as JSONContent)) {
-    if (!isIdBearing(node) || blockIdOf(node) !== null) continue
+    if (!isIdBearing(node)) continue
     const key = blockKey(node)
-    carried.set(key, (carried.get(key) ?? 0) + 1)
+    available.set(key, (available.get(key) ?? 0) + 1)
   }
 
   const seen = new Set<string>()
@@ -85,20 +76,26 @@ export function mintAuthoredIds(
     return id
   }
 
-  const content = topLevel(after).map((node) => {
-    if (!isIdBearing(node)) return node
+  // Carried blocks first, wherever they sit: their ids are taken before an
+  // authored block can claim one, so an authored block sharing an id is the
+  // one re-minted, in the agent's own write.
+  const carried = topLevel(after).map((node) => {
+    if (!isIdBearing(node)) return true
+    const key = blockKey(node)
+    const left = available.get(key) ?? 0
+    if (left === 0) return false
+    available.set(key, left - 1)
+    const id = blockIdOf(node)
+    if (id !== null) seen.add(id)
+    return true
+  })
+
+  const content = topLevel(after).map((node, at) => {
+    if (carried[at]) return node
     const id = blockIdOf(node)
     if (id !== null && !seen.has(id)) {
       seen.add(id)
       return node
-    }
-    if (id === null) {
-      const key = blockKey(canonical(node))
-      const available = carried.get(key) ?? 0
-      if (available > 0) {
-        carried.set(key, available - 1)
-        return node
-      }
     }
     return { ...node, attrs: { ...(node.attrs ?? {}), id: fresh() } }
   })

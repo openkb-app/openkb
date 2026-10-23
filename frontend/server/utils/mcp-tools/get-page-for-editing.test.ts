@@ -83,7 +83,12 @@ describe('getPageForEditing', () => {
   it('getPageForEditing reports the moderation standing as data the schema declares', async () => {
     getKbPage.mockResolvedValue({
       ...PAGE,
-      status: { draft_exists: true, blocks_pending: 2, can_publish: false },
+      status: {
+        draft_exists: true,
+        blocks_pending: 1,
+        pending: [{ block_id: 'b-1', change: 'changed', by: [], step: 'peer' }],
+        can_publish: false,
+      },
     })
     const { client } = await connect()
     await client.listTools()
@@ -91,7 +96,12 @@ describe('getPageForEditing', () => {
     const res = await client.callTool({ name: 'getPageForEditing', arguments: { path: 'intro' } })
 
     expect((res.structuredContent as any).status)
-      .toEqual({ draft_exists: true, blocks_pending: 2, can_publish: false })
+      .toEqual({
+        draft_exists: true,
+        blocks_pending: 1,
+        pending: [{ block_id: 'b-1', change: 'changed', by: [], step: 'peer' }],
+        can_publish: false,
+      })
     // The status costs the moderation read, so the tool has to ask for it.
     expect(getKbPage).toHaveBeenCalledWith(
       EVENT,

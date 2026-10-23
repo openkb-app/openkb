@@ -18,9 +18,15 @@ import { decodePageEntities } from './comark-entities'
 import { serializeCommitJSON, type ProseMirrorJSON } from './commit'
 import { parseMarkdownToDoc } from '../../app/comark/markdown-engine'
 import { fetchModerationStatus } from './moderation'
-import { blockers, parseBlockMeta } from '#shared/page-blocks'
+import {
+  contributorsSince,
+  parseBlockMeta,
+  TITLE_REVIEW_KEY,
+  type PageBlock,
+  type ReviewStep,
+} from '#shared/page-blocks'
 import type { CommentThread } from '#shared/block-comments'
-import { canPublishNow, enforcedSteps, type ModerationStatus } from '#shared/utils/moderation'
+import { awaitingReview, canPublishNow, type ModerationStatus } from '#shared/utils/moderation'
 
 /**
  * Read-only knowledge-base access, shared by the `.md` server route and the
@@ -96,16 +102,25 @@ export interface PageRef {
 export interface PageStatus {
   /** A forward draft sits on top of the published revision. */
   draft_exists: boolean
-  /**
-   * How many blocks of the revision being read still owe a review step the
-   * page's space enforces.
-   */
+  /** How many review items of the working copy wait for review. */
   blocks_pending: number
+  /** Those items, one entry per step owed. */
+  pending: PendingItem[]
   /**
    * This account may publish the working copy: it holds the transition, there
    * is something to publish, and the review gate would not refuse it.
    */
   can_publish: boolean
+}
+
+/** One review step an item of the working copy still owes. */
+export interface PendingItem {
+  /** The sidecar key: a block id, a removed block's id, or `field:title`. */
+  block_id: string
+  change: 'added' | 'changed' | 'moved' | 'removed' | 'renamed'
+  /** Who the step is waiting on; empty when no writer was witnessed. */
+  by: Array<{ uid: number, name?: string, via?: string }>
+  step: ReviewStep
 }
 
 export interface KbPageOptions {
@@ -232,16 +247,14 @@ async function pageComments(
  * which is exactly what `canEdit` reports, so a reader who may not edit is
  * never sent into a 403.
  *
- * `blocks_pending` comes off the sidecar of the revision being projected,
- * filtered by the space's enforced steps.
+ * `blocks_pending` and `pending` are the editor's own count
+ * ({@link awaitingReview}), on the **working copy** whichever revision this
+ * read projects: that is the revision a publish transitions.
  *
  * `can_publish` is the strict question: publishing now puts the page live.
  * The editor's toolbar asks a looser one — where a sign-off is what publishes,
  * pressing Publish records the ask instead of being refused — so this adds the
- * blockers to {@link canPublishNow}. They are counted on the **working copy**
- * whichever revision this read projects, because that is the revision a
- * publish transitions: a published read reporting the live page's zero
- * blockers would answer "go" on a write that only waits.
+ * blockers to {@link canPublishNow}.
  *
  * A status that cannot be established leaves the field off rather than failing
  * the page: the content is what was asked for, the standing is the extra.
@@ -271,14 +284,36 @@ async function pageStatus(
     return undefined
   }
 
-  const steps = enforcedSteps(moderation)
-  const owed = (meta: string): number => Object.keys(blockers(parseBlockMeta(meta), steps)).length
+  const meta = parseBlockMeta(workingCopy)
+  const owed = awaitingReview(meta, moderation)
+  const pending = Object.entries(owed).flatMap(([id, steps]) =>
+    steps.map(step => pendingItem(id, meta[id], step)))
 
   return {
     draft_exists: moderation.hasUnpublishedChanges,
-    blocks_pending: owed(blockMeta),
-    can_publish: canPublishNow(moderation) && owed(workingCopy) === 0,
+    blocks_pending: Object.keys(owed).length,
+    pending,
+    can_publish: canPublishNow(moderation) && pending.length === 0,
   }
+}
+
+/**
+ * One owed step, with the writers it waits on named from the contributors.
+ * The agent step waits on what was written through an agent, so it names only
+ * those contributions.
+ */
+function pendingItem(id: string, block: PageBlock | undefined, step: ReviewStep): PendingItem {
+  const change = id === TITLE_REVIEW_KEY
+    ? 'renamed'
+    : block?.deleted ? 'removed' : block?.added ? 'added' : block?.moved ? 'moved' : 'changed'
+  // A uid can be credited twice: in person and through an agent.
+  const by = contributorsSince(block, step).flatMap((uid) => {
+    const credited = (block?.contributors ?? []).filter(c => c.uid === uid && (step !== 'agent' || c.via))
+    return credited.length === 0
+      ? [{ uid }]
+      : credited.map(c => ({ uid, ...(c.name ? { name: c.name } : {}), ...(c.via ? { via: c.via } : {}) }))
+  })
+  return { block_id: id, change, by, step }
 }
 
 /**

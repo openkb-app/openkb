@@ -1,15 +1,16 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Mapping } from '@tiptap/pm/transform'
 import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { blockIdOf, ID_BEARING_TYPES, mintBlockId } from '#shared/page-blocks'
+import { blockIdOf, ID_BEARING_TYPES, mintBlockId, resolveSharedIds } from '#shared/page-blocks'
 
 /**
  * Block ids, minted as the editor writes.
  *
  * Every top-level block the local user touches ends up on a unique stable id:
- * minted where it is missing, re-minted where a split left two blocks sharing
- * one. The id is content — it round-trips through the markdown as `{#id}` — and
+ * minted where it is missing, re-named where a split or a copy left two blocks
+ * sharing one. The id is content — it round-trips through the markdown as `{#id}` — and
  * everything else about a block is keyed on it: who wrote it, what review it
  * owes, which comment hangs off it. Nested blocks (list items, table cells) are
  * never id-bearing; shared/page-blocks.ts says why the granularity stops at
@@ -47,6 +48,8 @@ export interface IdAssignment {
   pos: number
   /** The duplicate id being replaced, or null when the block simply had none. */
   replaces: string | null
+  /** The id a duplicate takes, or null to mint a fresh one. */
+  id: string | null
 }
 
 /**
@@ -58,28 +61,50 @@ export interface IdAssignment {
  *     paragraph). Only blocks overlapping one of the given (new-doc) ranges
  *     qualify, so a small edit does not stamp an id onto every id-less block
  *     in the document at once.
- *   - **Duplicated** — splitting a block copies its attributes wholesale, so
- *     both halves come out carrying the same id. This is scanned over the
+ *   - **Duplicated** — splitting or pasting a block copies its attributes
+ *     wholesale, so two blocks come out carrying the same id. Scanned over the
  *     WHOLE document, not just the changed ranges: a split shows up as one
  *     changed range but corrupts a key shared with a block that may sit
- *     outside it. The first occurrence in document order keeps the id.
+ *     outside it. Only ids this edit made shared qualify (`before`): the block
+ *     the old id sat on keeps it, else the first in document order, and the
+ *     copy takes the `<id>-<n>` the commit gives it ({@link resolveSharedIds}).
+ *     A duplicate that arrived from elsewhere is the collab server's to name:
+ *     it knows which occurrence the stored id describes, and writes the answer
+ *     into the live doc at the next checkpoint.
  */
-export function blocksNeedingIds(doc: PMNode, ranges: Array<[number, number]>): IdAssignment[] {
+export function blocksNeedingIds(
+  doc: PMNode,
+  ranges: Array<[number, number]>,
+  before?: { doc: PMNode, map: (pos: number) => number },
+): IdAssignment[] {
   const out: IdAssignment[] = []
-  const seen = new Set<string>()
+  const blocks: { node: PMNode, pos: number, id: string | null }[] = []
+  eachTopLevel(doc, (node, pos) => blocks.push({ node, pos, id: isIdBearing(node) ? blockIdOf(node) : null }))
+
+  const was = new Map<string, number[]>()
+  if (before) eachTopLevel(before.doc, (node, pos) => {
+    const id = isIdBearing(node) ? blockIdOf(node) : null
+    if (id !== null) was.set(id, [...(was.get(id) ?? []), pos])
+  })
+  const keepers = new Map<string, number>()
+  for (const [id, [pos, ...others]] of was) {
+    if (pos === undefined || others.length > 0) continue
+    const at = blocks.filter(b => b.id === id).findIndex(b => b.pos === before!.map(pos))
+    if (at > 0) keepers.set(id, at)
+  }
+  const resolved = resolveSharedIds(blocks.map(b => b.id), keepers)
 
   const touched = (from: number, to: number) =>
     ranges.some(([lo, hi]) => from < hi && to > lo)
 
-  eachTopLevel(doc, (node, pos) => {
+  blocks.forEach(({ node, pos, id }, at) => {
     if (!isIdBearing(node)) return
-    const id = blockIdOf(node)
     if (id === null) {
-      if (touched(pos, pos + node.nodeSize)) out.push({ pos, replaces: null })
+      if (touched(pos, pos + node.nodeSize)) out.push({ pos, replaces: null, id: null })
       return
     }
-    if (seen.has(id)) out.push({ pos, replaces: id })
-    else seen.add(id)
+    if ((was.get(id)?.length ?? 0) > 1) return
+    if (resolved[at] !== id) out.push({ pos, replaces: id, id: resolved[at] ?? null })
   })
 
   return out
@@ -113,9 +138,9 @@ export function createBlockIdPlugin(): Plugin {
     // Mint ids for the top-level blocks this local edit left without a usable
     // key: the ones it created id-less (limited to the changed ranges, so a
     // small edit does not id the whole document at once) and the ones a split
-    // left sharing an id with a sibling (scanned document-wide — a duplicate
-    // is a broken key wherever the other half ended up).
-    appendTransaction(transactions, _oldState, newState) {
+    // or copy left sharing an id with a sibling (scanned document-wide — a
+    // duplicate is a broken key wherever the other half ended up).
+    appendTransaction(transactions, oldState, newState) {
       const local = transactions.filter(tr => tr.docChanged && !isChangeOrigin(tr))
       if (local.length === 0) return null
       const ranges: Array<[number, number]> = []
@@ -124,16 +149,20 @@ export function createBlockIdPlugin(): Plugin {
           map.forEach((_os, _oe, ns, ne) => ranges.push([ns, ne]))
         }
       }
-      const assignments = blocksNeedingIds(newState.doc, ranges)
+      const mapping = new Mapping()
+      for (const tr of transactions) mapping.appendMapping(tr.mapping)
+      const assignments = blocksNeedingIds(newState.doc, ranges, { doc: oldState.doc, map: pos => mapping.map(pos) })
       if (assignments.length === 0) return null
       const used = usedBlockIds(newState.doc)
+      for (const { id } of assignments) if (id) used.add(id)
       const tr = newState.tr
-      for (const { pos } of assignments) {
+      const fresh = () => {
         let id = mintBlockId()
         while (used.has(id)) id = mintBlockId()
         used.add(id)
-        tr.setNodeAttribute(pos, 'id', id)
+        return id
       }
+      for (const { pos, id } of assignments) tr.setNodeAttribute(pos, 'id', id ?? fresh())
       // Undoable, with the edit it is appended to. y-tiptap reads one
       // `addToHistory` off the last document change in a dispatch and applies
       // it to the whole Y update that dispatch writes, so excluding the mint

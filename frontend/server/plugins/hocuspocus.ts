@@ -18,7 +18,7 @@ import { seedBlockMeta, seedFromDrupal, type SeedDeps, type SeedOutcome } from '
 import { sharedFieldSource } from '../utils/drupal-fields'
 import { fetchCeWorkingCopy, fetchInlineComments, putInlineComments, type CePageRead } from '../utils/drupal'
 import { asCollabServer, collabAuthHeaders, collabIdentityConfigured, forgetCollabToken } from '../utils/collab-identity'
-import { adoptSnapshot, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionFrom, sessionPayload, sessionWindow, sharedIdKeepers, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
+import { adoptSnapshot, agentOnly, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionFrom, sessionPayload, sessionWindow, sharedIdKeepers, sharedIdRenames, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
 import { isAgentOrigin } from '../utils/agent-peer'
 import { initProseMirrorDoc } from '@tiptap/y-tiptap'
 import type { Node as ProseNode } from '@tiptap/pm/model'
@@ -717,6 +717,32 @@ export default defineNitroPlugin((nitroApp) => {
   }
 
   /**
+   * Writes the ids the last pass resolved for shared ids into the live document.
+   *
+   * - Browsers never see a duplicate they would have to name; their minter
+   *   leaves one it did not make alone.
+   * - No origin: a rename is nobody's writing. The pass already indexes each
+   *   copy under its new id, so the prints do not move.
+   */
+  function settleSharedIds(documentName: string): void {
+    const document = hp.documents.get(documentName)
+    const ledger = ledgers.get(documentName)
+    if (!document || !ledger) return
+    const ydoc = document as unknown as Y.Doc
+    const renames = sharedIdRenames(proseDocOf(ydoc), ledger.baseline)
+    if (renames.size === 0) return
+    const fragment = ydoc.getXmlFragment('default')
+    Y.transact(ydoc, () => {
+      for (const [at, { from, to }] of renames) {
+        const element = fragment.get(at)
+        if (element instanceof Y.XmlElement && element.getAttribute('id') === from) element.setAttribute('id', to)
+      }
+    })
+    // Re-take the baseline: its record of which occurrence kept an id is spent.
+    accountFor(documentName)
+  }
+
+  /**
    * Takes Drupal's sidecar back into the live session.
    *
    * The one place that re-takes the mirror, called after every checkpoint —
@@ -1068,21 +1094,24 @@ export default defineNitroPlugin((nitroApp) => {
     quietMs: COLLAB_COMMIT_QUIET_MS,
     maxDirtyMs: COLLAB_COMMIT_MAX_DIRTY_MS,
     commit: async (documentName, trigger, identity) => {
-      // An agent hands over its own token, and that write is the token
-      // owner's: no statement, no account switch (ADR 0001). Every other
-      // checkpoint goes out under this server's OAuth client and states who is
-      // acting. The captured peer cookie is never replayed onto a write.
-      const agentCarrier = identity?.token !== undefined
-      const carrier = agentCarrier ? identity : await collabCommitIdentity()
       // The ledger has to be complete before the window is read off it, and the
       // pass is local work — no round trip, no race with the unload the commit
       // below guards against.
       accountFor(documentName)
+      settleSharedIds(documentName)
       const ledger = ledgerFor(documentName)
       // What this checkpoint carries, taken here rather than after the write:
       // commitDocument serializes the body before its first await, and this is
       // the accounting for exactly that body.
       const window = sessionWindow(ledger, titleIsDirty(hp, documentName))
+      // An agent hands over its own token, and that write is the token
+      // owner's: no statement, no account switch (ADR 0001). Drupal credits
+      // all of it to the agent, so the token carries only a window the agent
+      // alone wrote. Every other checkpoint goes out under this server's OAuth
+      // client and states who is acting. The captured peer cookie is never
+      // replayed onto a write.
+      const agentCarrier = identity?.token !== undefined && agentOnly(window, { user: identity.user, uid: identity.uid, via: identity.via ?? null })
+      const carrier = agentCarrier ? identity : await collabCommitIdentity()
       const owed = Object.keys(window.blocks).length > 0
       // Whoever triggered this is who it acts as; one nobody triggered acts as
       // the human the window elected.

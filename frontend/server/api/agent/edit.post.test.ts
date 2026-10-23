@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import { AgentJoinError, AgentOpsError } from '../../utils/session-router'
-import { StaleBlockError, UnanchoredBlockError, UnchainedBlockError } from '../../utils/agent-peer'
+import { DuplicatedBlockError, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError } from '../../utils/agent-peer'
 import handler from './edit.post'
 
 /**
@@ -142,6 +142,8 @@ describe('POST /api/agent/edit', () => {
   it.each([
     ['an unanchored first op', new UnanchoredBlockError(0)],
     ['an op chaining after one that wrote nothing', new UnchainedBlockError(1)],
+    ['an op naming a block the page lacks', new UnknownBlockError('b-gone')],
+    ['an op naming an id two blocks wear', new DuplicatedBlockError('b-dup')],
   ])('maps %s onto 400 — the caller can fix the payload', async (_name, err) => {
     routeAgentEdit.mockRejectedValue(err)
     await expect(handler(event(bearer))).rejects.toMatchObject({

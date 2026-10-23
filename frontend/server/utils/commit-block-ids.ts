@@ -15,16 +15,14 @@ import type { CommitHooks, ProseMirrorJSON } from './commit'
  * into content the session never edited — rewriting somebody else's paragraphs
  * as a side effect of saving your own.
  *
- * A re-mint renames the block in this payload only; the live document keeps the
- * duplicate, because a commit does not write to the session. Nothing has to
- * follow the rename: the id stays on the occurrence `keepers` names, which is
- * the session's own accounting answering for the block it indexed (see
- * {@link sharedIdKeepers} in server/utils/collab-attribution.ts). Every other
- * occurrence arrives as a block in review that the session witnessed nobody
- * writing — credited to whoever's write carried it, or to nobody at all on a
- * checkpoint. That is the right way round: the block keeping the id is the one
- * every comment and sign-off already points at, and a client that duplicates
- * an id reaches only the block it introduced, never the one it aimed at.
+ * The checkpoint writes the same names into the live document before it
+ * commits (`settleSharedIds` in server/plugins/hocuspocus.ts); this pass covers
+ * a duplicate that lands in between. The id stays on
+ * the occurrence `keepers` names, the block every comment, contributor and
+ * sign-off already points at (see {@link sharedIdKeepers} in
+ * server/utils/collab-attribution.ts). Every other occurrence goes out under
+ * the id the session's accounting already indexes it by, so the writer who
+ * made the copy is the one the window states for it.
  *
  * The answer is taken from the accounting rather than worked out again here.
  * Whichever occurrence keeps the id inherits the sidecar keyed on it, so an end

@@ -90,8 +90,40 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
             blocks_pending: {
               type: 'integer',
               description:
-                'How many blocks of the working copy still need a human '
-                + 'sign-off.',
+                'How many review items of the working copy wait for review — '
+                + 'the count the editor shows.',
+            },
+            pending: {
+              type: 'array',
+              description:
+                'Those items, one entry per review step owed. `block_id` is the '
+                + 'sidecar key: a block id, a removed block\'s id, or '
+                + '`field:title`. `by` lists who the step waits on; empty means '
+                + 'no writer was witnessed, which only an edit of the block or a '
+                + 'site admin\'s sign-off clears.',
+              items: {
+                type: 'object',
+                properties: {
+                  block_id: { type: 'string' },
+                  change: { type: 'string', enum: ['added', 'changed', 'moved', 'removed', 'renamed'] },
+                  by: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        uid: { type: 'integer' },
+                        name: { type: 'string' },
+                        via: { type: 'string' },
+                      },
+                      required: ['uid'],
+                      additionalProperties: false,
+                    },
+                  },
+                  step: { type: 'string', enum: ['agent', 'peer'] },
+                },
+                required: ['block_id', 'change', 'by', 'step'],
+                additionalProperties: false,
+              },
             },
             can_publish: {
               type: 'boolean',
@@ -102,7 +134,7 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
                 + 'differ, so state it as yours.',
             },
           },
-          required: ['draft_exists', 'blocks_pending', 'can_publish'],
+          required: ['draft_exists', 'blocks_pending', 'pending', 'can_publish'],
           additionalProperties: false,
         },
         parent: {
