@@ -1408,9 +1408,17 @@ custom-mention,
   background: var(--ui-bg-accented);
 }
 
-/* Fence components: `CustomFence`. Each fence styles its own drawing. */
+/* Fence components: `CustomFence`. Each fence styles its own drawing.
+   More space than a paragraph's, so a drawing stands apart from the text. */
 .okb-fence {
-  margin: 0;
+  margin: 2rem 0;
+}
+/* Flush with the content's edges, like `okb-prose`'s first/last reset. */
+.okb-fence:first-child {
+  margin-top: 0;
+}
+.okb-fence:last-child {
+  margin-bottom: 0;
 }
 .okb-fence-error {
   display: flex;
