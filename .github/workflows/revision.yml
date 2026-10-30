@@ -1,0 +1,142 @@
+# Rebuilds a released version on the base images `1.x` pins now. The version
+# stays the same — app, both images and the drupal.org module — because only
+# base-image digests change.
+#
+# - Branch `release/X.Y.Z`, made from `vX.Y.Z` on the first revision: each
+#   `image:tag@sha256:…` in `docker/*/Dockerfile` takes the digest `1.x` pins
+#   for that same `image:tag`.
+# - The commit notes the revision in the version's CHANGELOG.md section and is
+#   tagged `vX.Y.Z+rN`; `images` publishes it as `X.Y.Z-rN` and moves the
+#   version's own image tags onto it.
+#
+# OPENKB_APP_TOKEN pushes, as in `release`: a push with `GITHUB_TOKEN` starts
+# no workflow.
+
+name: revision
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The released version to rebuild, without the `v`, e.g. 1.0.0-beta3.
+        required: true
+
+concurrency: release
+
+permissions:
+  contents: read
+
+env:
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  revision:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: '1.x'
+          fetch-depth: 0
+          token: ${{ secrets.OPENKB_APP_TOKEN }}
+          persist-credentials: true
+
+      - name: Check user permission
+        uses: drunomics/workflow-permission-action@6a16646e8631715d8e20e6ec293749b4bde4fee7 # 3.0.0
+        with:
+          listfile: .github/workflows/release-allowed-users
+
+      - name: Pin the base images of 1.x
+        id: pin
+        run: |
+          set -euo pipefail
+          case "$VERSION" in
+            v*|*+*) echo "Name the released version, without the v or a revision: $VERSION" >&2; exit 1 ;;
+          esac
+          git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null || {
+            echo "v$VERSION is not tagged." >&2
+            exit 1
+          }
+          # `images` moves the floating tags (`1.2`, `1`, `latest`) onto a
+          # stable revision, so only the newest stable version gets one. A
+          # pre-release carries its exact tag only.
+          case "$VERSION" in
+            *-*) ;;
+            *)
+              newest=$(git tag -l 'v*' --sort=-v:refname | grep -Ev '[-+]' | sed -n 1p)
+              [ "$newest" = "v$VERSION" ] || {
+                echo "v$VERSION is not the newest stable version ($newest)." >&2
+                exit 1
+              }
+              ;;
+          esac
+          branch=release/$VERSION
+          if git rev-parse -q --verify "refs/remotes/origin/$branch" > /dev/null; then
+            git switch -q -c "$branch" "origin/$branch"
+          else
+            git switch -q -c "$branch" "v$VERSION"
+          fi
+          pins='[^ =]*@sha256:[0-9a-f]\{64\}'
+          for file in docker/*/Dockerfile; do
+            { grep -o "$pins" "$file" || true; } | sort -u | while read -r pin; do
+              ref=${pin%@*}
+              new=$({ git show "origin/1.x:$file" 2> /dev/null || true; } | { grep -o "$pins" || true; } \
+                | awk -F@ -v ref="$ref" '$1 == ref && !n++ { print $2 }')
+              if [ -z "$new" ]; then
+                echo "1.x pins no $ref in $file; it stays." >&2
+              elif [ "$ref@$new" != "$pin" ]; then
+                sed -i "s|$pin|$ref@$new|g" "$file"
+                printf -- "- \`%s\`: \`%.12s\` → \`%.12s\`\n" "$ref" "${pin#*@sha256:}" "${new#sha256:}" >> "$RUNNER_TEMP/pins.md"
+              fi
+            done
+          done
+          [ -s "$RUNNER_TEMP/pins.md" ] || {
+            echo "1.x pins no other base image than $branch." >&2
+            exit 1
+          }
+          last=$(git tag -l "v$VERSION+r*" | sed 's/.*+r//' | sort -n | tail -1)
+          revision=r$(( ${last:-0} + 1 ))
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/pins.md"
+
+      # Under the version's section, so the release entry carries it.
+      - name: Note the revision in CHANGELOG.md
+        env:
+          REVISION: ${{ steps.pin.outputs.revision }}
+        run: |
+          set -euo pipefail
+          {
+            printf '### Image revision %s (%s)\n\n' "$REVISION" "$(date -u +%Y-%m-%d)"
+            printf 'Rebuilt on newer base images; nothing else changed.\n\n'
+            cat "$RUNNER_TEMP/pins.md"
+            printf '\n'
+          } > "$RUNNER_TEMP/note.md"
+          awk -v heading="## [$VERSION]" -v note="$RUNNER_TEMP/note.md" '
+            function add() { while ((getline line < note) > 0) print line; done = 1 }
+            index($0, heading) == 1 { found = 1; print; next }
+            found && !done && /^## / { add() }
+            { print }
+            END { if (!found) exit 1; if (!done) add() }
+          ' CHANGELOG.md > CHANGELOG.md.new || {
+            echo "CHANGELOG.md holds no '## [$VERSION]' section." >&2
+            exit 1
+          }
+          mv CHANGELOG.md.new CHANGELOG.md
+          git diff CHANGELOG.md
+
+      - name: Commit, tag and push
+        env:
+          REVISION: ${{ steps.pin.outputs.revision }}
+        run: |
+          set -euo pipefail
+          git config user.name 'OpenKB'
+          git config user.email 'noreply@openkb.app'
+          git commit -q -m "release: v$VERSION+$REVISION." CHANGELOG.md docker
+          git tag -a "v$VERSION+$REVISION" -m "OpenKB $VERSION, image revision $REVISION"
+          git push --atomic origin "release/$VERSION" "v$VERSION+$REVISION"
+          cat >> "$GITHUB_STEP_SUMMARY" <<SUMMARY
+          Tagged \`v$VERSION+$REVISION\`. \`images\` publishes \`$VERSION-$REVISION\`, moves \`$VERSION\` onto it and updates the release entry:
+
+          - <https://github.com/$GITHUB_REPOSITORY/actions>
+          - <https://github.com/$GITHUB_REPOSITORY/releases/tag/v$VERSION>
+          SUMMARY

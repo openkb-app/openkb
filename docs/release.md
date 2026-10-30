@@ -46,9 +46,39 @@ gh attestation verify oci://ghcr.io/openkb-app/openkb-drupal:1.2.3 --owner openk
 ## Publishing a tag again
 
 Actions → `images` → **Run workflow**, `version` = the existing tag
-(`v1.2.3`). It builds that tagged commit again under the same tags — how a
-base-image patch reaches a released version — and rewrites the release entry's
-notes from that tree's `CHANGELOG.md`.
+(`v1.2.3`). It builds that tagged tree again under the same tags, with the
+base-image digests the tree pins, and rewrites the release entry's notes from
+that tree's `CHANGELOG.md`. Once a version has image revisions, name the newest
+one (`v1.2.3+r2`); the workflow refuses the plain version tag.
+
+## Image revisions
+
+A base-image patch (FrankenPHP, Node) reaches a released version as an image
+revision: the same version, rebuilt on the base images `1.x` pins. The app, both
+images and the drupal.org module keep their version.
+
+1. Merge the digest bump into `1.x` and sync it.
+2. Actions → `revision` → **Run workflow**, `version` = `1.2.3`.
+
+The workflow:
+
+- makes `release/1.2.3` from `v1.2.3`, or continues it for a later revision
+- sets each `image:tag@sha256:…` in `docker/*/Dockerfile` to the digest `1.x`
+  pins for the same `image:tag`
+- stops when that changes nothing
+- adds an `Image revision rN` part to the version's `CHANGELOG.md` section
+- commits `release: v1.2.3+rN.`, then tags and pushes `v1.2.3+rN`
+
+`+rN` is semver build metadata: the same version, another build. `images`
+publishes it as `1.2.3-rN` (Docker tags carry no `+`). It moves `1.2.3`, `1.2`,
+`1` and `latest` onto it, as the `v1.2.3` tag would, and updates the `v1.2.3`
+release entry. A site on `OPENKB_TAG=1.2.3` gets the patch with
+`docker compose pull`; `OPENKB_TAG=1.2.3-rN` pins that build.
+
+A stable version gets revisions only while it is the newest stable one,
+because its floating tags move; any pre-release can get one. The
+revision note lives on `release/1.2.3` and in the release entry, not in the
+`CHANGELOG.md` of `1.x`.
 
 ## Development image
 

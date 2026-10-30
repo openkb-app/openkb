@@ -13,16 +13,19 @@ header = """
 # Changelog
 
 """
+# Each entry links its commit here; each version heading compares it with the
+# previous one.
 body = """
+{% set repo = "https://github.com/openkb-app/openkb" %}\
 {% if version %}\
-    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+    ## [{{ version | trim_start_matches(pat="v") }}]{% if previous.version %}({{ repo }}/compare/{{ previous.version }}...{{ version }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else %}\
     ## [Unreleased]
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
-        - {% if commit.breaking %}[**Breaking change**] {% endif %}{{ commit.message | trim | upper_first }}\
+        - {% if commit.breaking %}[**Breaking change**] {% endif %}{{ commit.message | trim | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}]({{ repo }}/commit/{{ commit.id }}))\
     {% endfor %}
 {% endfor %}\n
 """
@@ -50,5 +53,6 @@ commit_parsers = [
     { message = ".*", skip = true },
 ]
 filter_commits = false
-tag_pattern = "v[0-9].*"
+# Versions only: an image revision (`v1.2.3+r1`) is no release of its own.
+tag_pattern = "^v[0-9][^+]*$"
 sort_commits = "oldest"

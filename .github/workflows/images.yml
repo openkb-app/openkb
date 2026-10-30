@@ -10,6 +10,9 @@
 # - Tag `vX.Y.Z`, or a manual run naming one: the same, pushed for amd64 and
 #   arm64 under the semver tags, plus a release entry carrying the version's
 #   `CHANGELOG.md` section.
+# - Tag `vX.Y.Z+rN`, an image revision (the `revision` workflow): the same as
+#   `vX.Y.Z`, plus the image tag `X.Y.Z-rN`; the version's semver tags and its
+#   release entry move onto it.
 #
 # `inputs.version` is the tag a manual run publishes; it is empty on every
 # other event, and an empty `ref` checks out the event's own ref.
@@ -48,6 +51,11 @@ jobs:
             echo "Tag $VERSION does not exist — cut it with the release workflow first; this workflow only re-publishes an existing tag." >&2
             exit 1
           }
+          # Rebuilding a version under its revisions would undo them.
+          if [ -n "$(git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$VERSION+r*")" ]; then
+            echo "$VERSION has image revisions; name the newest one ($VERSION+rN)." >&2
+            exit 1
+          fi
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -200,6 +208,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # `vX.Y.Z+rN` publishes as `vX.Y.Z`; Docker tags carry no `+`.
+      - name: Version
+        id: version
+        env:
+          TAG: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/') && github.ref_name || '') }}
+        run: |
+          release=${TAG%%+*}
+          revision=${TAG#"$release"}
+          {
+            echo "release=$release"
+            echo "revision-tag=${revision:+${release#v}-${revision#+}}"
+          } >> "$GITHUB_OUTPUT"
+
       # A pre-release tag (v1.0.0-beta.1) collapses every pattern onto its
       # exact version and leaves `latest` unset — the action's own rule. On a
       # branch build the semver patterns yield nothing (they need a tag ref or
@@ -210,9 +231,10 @@ jobs:
         with:
           images: ghcr.io/openkb-app/openkb-${{ matrix.image }}
           tags: |
-            type=semver,pattern={{version}},value=${{ inputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version }}
-            type=semver,pattern={{major}},value=${{ inputs.version }}
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.release }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.release }}
+            type=semver,pattern={{major}},value=${{ steps.version.outputs.release }}
+            type=raw,value=${{ steps.version.outputs.revision-tag }}
             type=ref,event=branch,enable=${{ env.BRANCH_BUILD }}
             type=sha,enable=${{ env.BRANCH_BUILD }}
 
@@ -243,8 +265,8 @@ jobs:
           push-to-registry: true
 
   # The release entry for a version tag: the version's CHANGELOG.md section as
-  # notes, plus how to run it. A manual run re-publishing a tag updates the
-  # entry it already has.
+  # notes, plus how to run it. A manual run re-publishing a tag, or an image
+  # revision, updates the entry the version already has.
   release:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: publish
@@ -254,7 +276,7 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ inputs.version || github.ref_name }}
+      REF: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -263,6 +285,8 @@ jobs:
 
       - name: Take the version's section out of CHANGELOG.md
         run: |
+          TAG=${REF%%+*}
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
           version=${TAG#v}
           awk -v heading="## [$version]" '
             index($0, heading) == 1 { found = 1; print; next }
