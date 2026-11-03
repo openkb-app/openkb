@@ -44,7 +44,7 @@
     "ai": "^7.0.66",
     "comark": "^0.7.0",
     "drupal-jsonapi-params": "^3.0.1",
-    "nuxt": "^4.5.2",
+    "nuxt": "^4.6.4",
     "nuxtjs-drupal-ce": "^2.8.0",
     "pele": "1.6.0",
     "photoswipe": "5.4.4",
