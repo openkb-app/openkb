@@ -3,8 +3,8 @@
 # base-image digests change.
 #
 # - Branch `release/X.Y.Z`, made from `vX.Y.Z` on the first revision: each
-#   `image:tag@sha256:…` in `docker/*/Dockerfile` takes the digest `1.x` pins
-#   for that same `image:tag`.
+#   `image:tag@sha256:…` in `docker/*/Dockerfile` takes the tag and digest
+#   `1.x` pins for the same image and major, e.g. node 22 on Alpine.
 # - The commit notes the revision in the version's CHANGELOG.md section and is
 #   tagged `vX.Y.Z+rN`; `images` publishes it as `X.Y.Z-rN` and moves the
 #   version's own image tags onto it.
@@ -77,16 +77,19 @@ jobs:
             git switch -q -c "$branch" "v$VERSION"
           fi
           pins='[^ =]*@sha256:[0-9a-f]\{64\}'
+          # Each pin as "<line> <pin>": the line is the tag cut to its major,
+          # node:22.23.4-alpine@… → node:22-alpine.
+          lines() { sed -E 'h; s/@.*//; s/^([^:]*:v?[0-9]+)(\.[0-9]+)+/\1/; G; s/\n/ /'; }
           for file in docker/*/Dockerfile; do
-            { grep -o "$pins" "$file" || true; } | sort -u | while read -r pin; do
-              ref=${pin%@*}
-              new=$({ git show "origin/1.x:$file" 2> /dev/null || true; } | { grep -o "$pins" || true; } \
-                | awk -F@ -v ref="$ref" '$1 == ref && !n++ { print $2 }')
+            { grep -o "$pins" "$file" || true; } | sort -u | lines | while read -r line pin; do
+              new=$({ git show "origin/1.x:$file" 2> /dev/null || true; } | { grep -o "$pins" || true; } | lines \
+                | awk -v line="$line" '$1 == line && !n++ { print $2 }')
               if [ -z "$new" ]; then
-                echo "1.x pins no $ref in $file; it stays." >&2
-              elif [ "$ref@$new" != "$pin" ]; then
-                sed -i "s|$pin|$ref@$new|g" "$file"
-                printf -- "- \`%s\`: \`%.12s\` → \`%.12s\`\n" "$ref" "${pin#*@sha256:}" "${new#sha256:}" >> "$RUNNER_TEMP/pins.md"
+                echo "1.x pins no $line in $file; it stays." >&2
+              elif [ "$new" != "$pin" ]; then
+                sed -i "s|$pin|$new|g" "$file"
+                printf -- "- \`%s\` (\`%.12s\`) → \`%s\` (\`%.12s\`)\n" \
+                  "${pin%@*}" "${pin#*@sha256:}" "${new%@*}" "${new#*@sha256:}" >> "$RUNNER_TEMP/pins.md"
               fi
             done
           done

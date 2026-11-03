@@ -34,6 +34,8 @@ docker compose pull
 docker compose up -d
 ```
 
+MariaDB and OpenSearch run at the versions `docker-compose.yml` names, which each release updates. `OPENKB_MARIADB_IMAGE` and `OPENKB_OPENSEARCH_IMAGE` run another image, e.g. a newer patch release before OpenKB ships it.
+
 Where the new images bring database updates, the site holds itself until they have been run: maintenance mode with a message naming `update.php`, cron paused, and the "setting up" page on the frontend. The Drupal host keeps serving the routes maintenance mode leaves open — `/` and `/user/login` answer 200, and `/update.php` answers an account that may run it — which is what the two steps below use. Updates are never run unattended — back up first (below), then:
 
 1. sign in at `https://admin.kb.example.com/user/login` as an account with *Administer software updates*,

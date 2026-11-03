@@ -57,14 +57,15 @@ A base-image patch (FrankenPHP, Node) reaches a released version as an image
 revision: the same version, rebuilt on the base images `1.x` pins. The app, both
 images and the drupal.org module keep their version.
 
-1. Merge the digest bump into `1.x` and sync it.
+1. Merge the base-image bump into `1.x` and sync it.
 2. Actions → `revision` → **Run workflow**, `version` = `1.2.3`.
 
 The workflow:
 
 - makes `release/1.2.3` from `v1.2.3`, or continues it for a later revision
-- sets each `image:tag@sha256:…` in `docker/*/Dockerfile` to the digest `1.x`
-  pins for the same `image:tag`
+- sets each `image:tag@sha256:…` in `docker/*/Dockerfile` to the tag and
+  digest `1.x` pins for the same image and major (Node 22, FrankenPHP 1 on
+  PHP 8.3)
 - stops when that changes nothing
 - adds an `Image revision rN` part to the version's `CHANGELOG.md` section
 - commits `release: v1.2.3+rN.`, then tags and pushes `v1.2.3+rN`

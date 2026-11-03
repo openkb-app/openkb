@@ -132,7 +132,7 @@ services:
       - collab-store:/app/frontend/var
 
   mariadb:
-    image: mariadb:11.4
+    image: ${OPENKB_MARIADB_IMAGE:-mariadb:11.4.13}
     << : *container-defaults
     # The isolation level Drupal asks for.
     command:
@@ -152,7 +152,7 @@ services:
       - mariadb-data:/var/lib/mysql
 
   opensearch:
-    image: opensearchproject/opensearch:3
+    image: ${OPENKB_OPENSEARCH_IMAGE:-opensearchproject/opensearch:3.9.0}
     << : *container-defaults
     environment:
       discovery.type: single-node

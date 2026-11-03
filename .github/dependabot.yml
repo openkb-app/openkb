@@ -1,4 +1,4 @@
-# One GROUPED update per ecosystem and one per base image, so at most 5
+# One GROUPED update per ecosystem and one per base image, so at most 6
 # dependency PRs are open at once — dependabot maintains the collective PR and
 # CI tests it as one.
 version: 2
@@ -36,8 +36,8 @@ updates:
     groups:
       php-deps:
         patterns: ["*"]
-  # The base images are pinned as tag@digest. Only the digest moves here, when
-  # upstream re-pushes the tag; a tag change (PHP 8.4, Node 24) is a decision.
+  # The base images are pinned as version@digest. Minor and patch releases and
+  # re-pushed digests move here; a major or a PHP line (8.4) is a decision.
   # - One PR per image directory: a hand bump of one pin closes only that
   #   image's PR.
   # - Daily: a closed PR comes back the next day, not the next week.
@@ -50,4 +50,21 @@ updates:
     open-pull-requests-limit: 2
     ignore:
       - dependency-name: "*"
-        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+        update-types: ["version-update:semver-major"]
+  # The service images of the compose files, by exact version. MariaDB stays
+  # on its 11.4 LTS line.
+  - package-ecosystem: docker-compose
+    directories:
+      - /
+      - /quickstart
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "mariadb"
+        update-types: ["version-update:semver-minor"]
+    groups:
+      compose-images:
+        patterns: ["*"]

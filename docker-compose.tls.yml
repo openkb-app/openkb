@@ -5,7 +5,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
 services:
   tls:
-    image: caddy:2-alpine
+    image: ${TLS_CADDY_IMAGE:-caddy:2.11.7-alpine}
     restart: ${COMPOSE_CONTAINER_RESTART:-unless-stopped}
     environment:
       FRONTEND_HOST: ${FRONTEND_HOST:?set FRONTEND_HOST, see .env.example}
