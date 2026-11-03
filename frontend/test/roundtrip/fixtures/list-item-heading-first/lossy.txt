@@ -1,0 +1,1 @@
+known gap G2: @tiptap/extension-list turns a list item's leading heading into a paragraph

@@ -46,3 +46,10 @@ saved markdown; everything else is pure re-formatting.
 | L4 | Heading auto-ids (`id="slug"` from comark) | Never stored in the editor; regenerated from text at next parse |
 | L5 | Unescaped `data:` URI in an image (`data:image/svg+xml;utf8,<svg …/>`) | Not parsed as a link; the URI content after the comma is lost. Base64 and percent-encoded `data:` URIs round-trip. Agent writes are percent-encoded at the write door (`server/utils/comark-data-uri.ts`), so a body arriving that way carries no such URI; a destination that does not close after its payload is refused with a 422 |
 | L6 | A mark around an inline page or file link (`**see :doc[Intro]{nid="7"} here**`, `*:attachment[plan]{file="…"}*`) | The mark splits around the link (`**see** :doc[…] **here**`): `@tiptap/markdown` marks text nodes only |
+
+## Known gaps (not accepted)
+
+| # | Input | Output | Fixture |
+|---|---|---|---|
+| G1 | List item starting with a multi-line block: a code fence (`` - ```…``` ``), a multi-line quote (`- > a\n  > b`), a component followed by more blocks (`- ::callout…::` + text), a nested list of two or more items (`- - a\n  - b`) | The first block's continuation lines lose their list indent, so the next parse moves them: code text and the callout leave the list, nested items move up into the outer list, and a code fence also pulls the next item into the fence. Single-line leads (`- > q`, `- - b`) round-trip | none |
+| G2 | List item starting with a heading (`- ## a`, setext `- a\n  ---`) | `@tiptap/extension-list` parses the heading as a paragraph: `- ## a` saves as `- a`. The read page shows the heading until the page is saved from the editor. A heading followed by more blocks (`- # T\n\n  text`) saves as `- T\n  text`, which the next load reads as one paragraph | `list-item-heading-first` (pins the current output) |

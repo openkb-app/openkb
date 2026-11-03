@@ -197,7 +197,7 @@ export interface TreeOptions {
   /**
    * The text is a partial chat answer: comark auto-closes open constructs.
    * Off for a stored document, which is complete; there the auto-close only
-   * misreads markers, e.g. `**b***i*` gains a trailing `*****`.
+   * misreads markers, e.g. `**b***i*` gains a trailing `****`.
    */
   streaming?: boolean
 }

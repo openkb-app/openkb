@@ -46,7 +46,7 @@ export function serializeDocToMarkdown(doc: ProseNode | JSONContent): string {
   const json = doc instanceof ProseNode ? doc.toJSON() as JSONContent : doc
   // Lower attrs.id back to trailing `{#id}` text so the serializer emits the
   // id exactly where the read path (comark) puts it — byte-identical output.
-  return markdownManager().serialize(lowerBlockIds(dropTrailingEmptyParagraphs(trimTextblockEdges(json))))
+  return markdownManager().serialize(lowerBlockIds(dropTrailingEmptyParagraphs(trimTextblockEdges(dropListItemLeads(json)))))
 }
 
 /**
@@ -93,6 +93,13 @@ function trimEdge(content: JSONContent[], edge: 'start' | 'end'): JSONContent[] 
     content.splice(at, 1)
   }
   return content
+}
+
+/** Drops the empty paragraph `listItemBlocks` skips, in every list item. */
+function dropListItemLeads(node: JSONContent): JSONContent {
+  if (!node.content) return node
+  const content = node.type === 'listItem' ? listItemBlocks(node) : node.content
+  return { ...node, content: content.map(dropListItemLeads) }
 }
 
 const COMPONENT_NODES = new Set(['callout', 'infobox', 'image', 'attachment', 'embed'])
@@ -182,8 +189,17 @@ function adoptImageIds(doc: JSONContent): JSONContent {
   return { ...doc, content: blocks }
 }
 
+/**
+ * An item's blocks without a leading empty paragraph, as @tiptap/extension-list
+ * puts one before a leading non-paragraph block.
+ */
+function listItemBlocks(item: JSONContent): JSONContent[] {
+  const [first, ...rest] = item.content ?? []
+  return first?.type === 'paragraph' && !first.content?.length && rest.length > 0 ? rest : item.content ?? []
+}
+
 function isComponentOnlyListItem(item: JSONContent): boolean {
-  const children = item.content ?? []
+  const children = listItemBlocks(item)
   return item.type === 'listItem'
     && children.length > 0
     && children.every(c => COMPONENT_NODES.has(c.type ?? ''))
@@ -213,7 +229,7 @@ function splitListAroundComponentItems(list: JSONContent): JSONContent[] {
   for (const item of list.content ?? []) {
     if (isComponentOnlyListItem(item)) {
       flushRun()
-      result.push(...normalizeBlocks(item.content ?? []))
+      result.push(...normalizeBlocks(listItemBlocks(item)))
       position += 1
       runStart = position
     }

@@ -39,22 +39,22 @@ describe('ComarkAnswer', () => {
 
   it('renders a finished answer without the streaming repair', async () => {
     const { root } = mount(NESTED, false)
-    expect(await rendered(root, 'text.')).not.toContain('*****')
+    expect(await rendered(root, 'text.')).not.toContain('****')
   })
 
   it('re-parses without the repair once the stream is done', async () => {
     const { root, props } = mount(NESTED, true)
     await rendered(root, 'text.')
     props.value = { text: `${NESTED} Done.`, streaming: false }
-    expect(await rendered(root, 'Done.')).not.toContain('*****')
+    expect(await rendered(root, 'Done.')).not.toContain('****')
   })
 
   it('re-parses when only the streaming flag flips', async () => {
     // The last chunk arrives before the status flips.
     const { root, props } = mount(NESTED, true)
-    await rendered(root, '*****')
+    await rendered(root, '****')
     props.value = { text: NESTED, streaming: false }
-    await vi.waitFor(() => expect(root.textContent).not.toContain('*****'))
+    await vi.waitFor(() => expect(root.textContent).not.toContain('****'))
     expect(root.textContent).toContain('text.')
   })
 })
