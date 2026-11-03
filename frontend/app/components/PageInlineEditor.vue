@@ -5,6 +5,7 @@ import { PluginKey } from '@tiptap/pm/state'
 import type { EditorState } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import { starterKitMarkdownOverrides } from '~/editor/extensions'
+import { CollabTrailingNode } from '~/editor/collab-trailing-node'
 import { readUnreadSelection } from '~/editor/selection-sync'
 import { LINK_BUBBLE_KEY, bubbleTargetAt } from '~/editor/link-target'
 import { useEditorSession } from '~/composables/useEditorSession'
@@ -54,6 +55,9 @@ const {
   blockMenu, hoveredBlock, openBlockMenu, closeBlockMenu, onBlockMenuCloseAutoFocus,
   selectBlockAt,
 } = session
+
+// Stands in for the starter kit's trailing node, which breaks the collab redo.
+const editorExtensions = computed(() => [...extensions.value, CollabTrailingNode])
 
 /**
  * The block the handle is floating over. `hover` carries the node as JSON,
@@ -235,10 +239,10 @@ const dragHandleOptions = {
     <UEditor
       ref="editorRef"
       content-type="markdown"
-      :starter-kit="{ history: false, undoRedo: false, ...starterKitMarkdownOverrides }"
+      :starter-kit="{ history: false, undoRedo: false, trailingNode: false, ...starterKitMarkdownOverrides }"
       :mention="false"
       :image="false"
-      :extensions="extensions"
+      :extensions="editorExtensions"
       :handlers="comarkHandlers"
       :editor-props="editorProps"
       class="inplace-editor"

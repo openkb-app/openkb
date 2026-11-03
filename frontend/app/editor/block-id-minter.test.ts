@@ -6,7 +6,7 @@ import Document from '@tiptap/extension-document'
 import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
 import Collaboration from '@tiptap/extension-collaboration'
-import { EditorState } from '@tiptap/pm/state'
+import { EditorState, Plugin } from '@tiptap/pm/state'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { editorSchema } from '../../server/utils/editor-schema'
 import { BlockId } from './nodes/block-id'
@@ -111,6 +111,30 @@ describe('the minting plugin (local edit path)', () => {
     let state = stateWith(para('original', 'b-1'), para('other', 'b-2'))
     state = state.apply(state.tr.insert(0, para('original', 'b-1')))
     expect(state.doc.children.map(n => n.attrs.id)).toEqual(['b-1-2', 'b-1', 'b-2'])
+  })
+
+  describe('the history flag of the mint', () => {
+    /** Mints after an edit typed at 3, plus one more an earlier plugin appends; returns the mint. */
+    function mintAfter(edit: { inHistory: boolean }, appended: { inHistory: boolean }) {
+      const append = new Plugin({
+        appendTransaction: (transactions, _old, state) => transactions.some(tr => tr.getMeta('edit'))
+          ? state.tr.insertText('!', 1).setMeta('addToHistory', appended.inHistory)
+          : null,
+      })
+      const state = EditorState.create({ schema: editorSchema, doc: doc(para('hi', null)), plugins: [append, createBlockIdPlugin()] })
+      const { transactions } = state.applyTransaction(state.tr.insertText('x', 3).setMeta('edit', true).setMeta('addToHistory', edit.inHistory))
+      expect(transactions).toHaveLength(3)
+      return transactions[2]!
+    }
+
+    it('keeps the mint out of the history when every edit it follows is', () => {
+      expect(mintAfter({ inHistory: false }, { inHistory: false }).getMeta('addToHistory')).toBe(false)
+    })
+
+    it('keeps the mint in the history when any edit it follows is', () => {
+      expect(mintAfter({ inHistory: true }, { inHistory: false }).getMeta('addToHistory')).toBeUndefined()
+      expect(mintAfter({ inHistory: false }, { inHistory: true }).getMeta('addToHistory')).toBeUndefined()
+    })
   })
 
   it('mints for the container itself, never inside it', () => {

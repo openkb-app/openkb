@@ -127,6 +127,12 @@ describe('serializer rules', () => {
     expect(serializeDocToMarkdown(doc(img, p('after')))).toBe('![alt](/i.png "T")\n\nafter')
   })
 
+  test('the empty paragraphs a document ends on are not written', () => {
+    const code = s.node('codeBlock', null, s.text('code'))
+    expect(serializeDocToMarkdown(doc(p('intro'), code, p(), p()))).toBe('intro\n\n```\ncode\n```')
+    expect(serializeDocToMarkdown(doc(p()))).toBe('')
+  })
+
   test('hardBreak serializes as a backslash break', () => {
     const para = p([text('one'), s.node('hardBreak'), text('two')])
     expect(serializeDocToMarkdown(doc(para))).toBe('one\\\ntwo')

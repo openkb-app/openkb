@@ -61,6 +61,16 @@ describe('PageFileDropHandler', () => {
     expect(uploadedKinds()).toEqual(['file', 'image', 'image'])
   })
 
+  it('focuses the editor with the caret at the drop point', async () => {
+    editor.commands.setContent(parseMarkdownToJson('First.\n\nSecond.'))
+    const focus = vi.spyOn(editor.view, 'focus')
+    drop([file('plan.pdf', 'application/pdf')], 11)
+    expect(focus).toHaveBeenCalledOnce()
+    expect(editor.state.selection.from).toBe(11)
+    expect(editor.state.selection.empty).toBe(true)
+    await vi.waitFor(() => expect(uploadIntoEditor).toHaveBeenCalledOnce())
+  })
+
   it('drops into a list after the list', async () => {
     editor.commands.setContent(parseMarkdownToJson('- One\n- Two\n\nAfter.'))
     drop([file('plan.pdf', 'application/pdf')], 4)

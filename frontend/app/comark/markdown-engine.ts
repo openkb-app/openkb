@@ -46,7 +46,18 @@ export function serializeDocToMarkdown(doc: ProseNode | JSONContent): string {
   const json = doc instanceof ProseNode ? doc.toJSON() as JSONContent : doc
   // Lower attrs.id back to trailing `{#id}` text so the serializer emits the
   // id exactly where the read path (comark) puts it — byte-identical output.
-  return markdownManager().serialize(lowerBlockIds(trimTextblockEdges(json)))
+  return markdownManager().serialize(lowerBlockIds(dropTrailingEmptyParagraphs(trimTextblockEdges(json))))
+}
+
+/**
+ * Drops the empty paragraphs a document ends on: they show nothing, and the
+ * editor's trailing node adds one to every page ending in another block, so
+ * writing it would make a visit look like an edit.
+ */
+function dropTrailingEmptyParagraphs(doc: JSONContent): JSONContent {
+  const content = [...(doc.content ?? [])]
+  while (content.at(-1)?.type === 'paragraph' && !content.at(-1)?.content?.length) content.pop()
+  return { ...doc, content }
 }
 
 /**

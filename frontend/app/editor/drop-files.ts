@@ -1,4 +1,5 @@
 import { FileHandler } from '@tiptap/extension-file-handler'
+import { Selection } from '@tiptap/pm/state'
 import { posAfterEnclosingList } from '~/editor/menu-items'
 import { pageFileLimits, uploadIntoEditor, type FilePickKind } from '~/editor/page-file-insert'
 import { trackRange } from '~/editor/tracked-range'
@@ -12,9 +13,14 @@ export function droppedKind(file: File, imageExtensions: string[]): FilePickKind
 /**
  * Dropped files go on the page at the drop point (inside a list, after it), in
  * drop order, through the block menu's upload.
+ * - The drop focuses the editor at the drop point, as a click there would, so
+ *   typing on lands in the page even when the editor had no focus.
  */
 export const PageFileDropHandler = FileHandler.extend({ name: 'pageFileDrop' }).configure({
   onDrop: async (editor, files, pos) => {
+    const { view } = editor
+    view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(pos))))
+    view.focus()
     const at = trackRange(editor, posAfterEnclosingList(editor, editor.state.doc.resolve(pos)) ?? pos)
     try {
       const imageExtensions = (await pageFileLimits('images'))?.extensions ?? []

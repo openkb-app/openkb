@@ -163,10 +163,10 @@ export function createBlockIdPlugin(): Plugin {
         return id
       }
       for (const { pos, id } of assignments) tr.setNodeAttribute(pos, 'id', id ?? fresh())
-      // Undoable, with the edit it is appended to. y-tiptap reads one
-      // `addToHistory` off the last document change in a dispatch and applies
-      // it to the whole Y update that dispatch writes, so excluding the mint
-      // here would exclude the keystroke that asked for it.
+      // Follows the history flag of the edits it is appended to: y-tiptap
+      // applies the last doc change's `addToHistory` to the whole Y update of
+      // a dispatch.
+      if (local.every(t => t.getMeta('addToHistory') === false)) tr.setMeta('addToHistory', false)
       return tr
     },
   })

@@ -24,9 +24,22 @@ import { PAGE_FILE_KEYS, fileArray, hiddenFileMap } from '#shared/utils/page-fil
  *
  * So re-assert it on every plugin view this editor builds. Adding is idempotent
  * and never competes with the restore, which only ever adds.
+ *
+ * The redo keys are bound here, ahead of Collaboration's, and always handled:
+ * with nothing to redo, ProseMirror's keymap would try Shift-Mod-z without its
+ * Shift, as Mod-z, and undo (a lowercase `z` key with Shift, e.g. Caps Lock).
  */
 export const CollabHistory = Extension.create({
   name: 'collabHistory',
+  priority: 1001,
+
+  addKeyboardShortcuts() {
+    const redo = () => {
+      this.editor.commands.redo()
+      return true
+    }
+    return { 'Shift-Mod-z': redo, 'Mod-y': redo }
+  },
 
   addProseMirrorPlugins() {
     return [

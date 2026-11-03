@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core'
-import { NodeSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { NodeSelection, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state'
 import type * as Y from 'yjs'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import { isChangeOrigin } from '@tiptap/extension-collaboration'
@@ -83,10 +83,11 @@ function refuse(name: string, message: string): void {
 }
 
 /**
- * Uploads one file into `key` and adds it to the page's list, with a toast for
- * its progress. Resolves with its UUID, or null when refused.
+ * Uploads one file into `key`, with a toast for its progress. Resolves with its
+ * UUID, or null when refused. The caller lists it, in the undo step that puts
+ * it on the page.
  */
-async function uploadPageFile(doc: Y.Doc | null, key: PageFileKey, file: File): Promise<string | null> {
+async function uploadPageFile(key: PageFileKey, file: File): Promise<string | null> {
   const maxBytes = (await pageFileLimits(key))?.maxBytes
   if (maxBytes !== undefined && file.size > maxBytes) {
     refuse(file.name, `It is too large: the limit is ${formatFileSize(maxBytes)}.`)
@@ -105,7 +106,6 @@ async function uploadPageFile(doc: Y.Doc | null, key: PageFileKey, file: File): 
     return null
   }
   toast.remove(id)
-  if (doc) addPageFile(doc, key, uuid)
   return uuid
 }
 
@@ -137,13 +137,36 @@ function embedNode(kind: FilePickKind, uuid: string) {
 }
 
 /**
- * Inserts the embed of a file at `pos`. A file shown as `::embed` is hidden
- * from the read page's attachments list, in the same undo step.
+ * Puts the caret right after a block, so typing on goes below it.
+ * - `end`: the block's end, or the start of the textblock right after it (a
+ *   block inserted inside a paragraph splits it).
+ * - The caret goes into the paragraph after the block; a new empty one when
+ *   none follows, or another kind of block (a heading, a code block) does.
  */
-function insertEmbed(editor: Editor, kind: FilePickKind, uuid: string, pos: number, focus = false, updateSelection = true): void {
+function caretAfter(tr: Transaction, end: number): void {
+  const $end = tr.doc.resolve(end)
+  const at = $end.parent.isTextblock ? $end.before() : end
+  if (tr.doc.nodeAt(at)?.type.name !== 'paragraph') tr.insert(at, tr.doc.type.schema.nodes.paragraph!.create())
+  tr.setSelection(TextSelection.create(tr.doc, at + 1))
+}
+
+/**
+ * Inserts the embed of a file at `pos` and lists the file, as one undo step.
+ * - `placeCaret`: the caret goes after the embed.
+ * - A file shown as `::embed` is hidden from the read page's attachments list.
+ */
+function insertEmbed(editor: Editor, kind: FilePickKind, uuid: string, pos: number, focus = false, placeCaret = true): void {
   const chain = focus ? editor.chain().focus() : editor.chain()
-  chain.insertContentAt(Math.min(pos, editor.state.doc.content.size), embedNode(kind, uuid), { updateSelection }).run()
-  if (pickEmbedKinds(kind)) undoableFileChange(editor, doc => setFileHidden(doc, uuid, true))
+  chain.insertContentAt(Math.min(pos, editor.state.doc.content.size), embedNode(kind, uuid), { updateSelection: placeCaret })
+    .command(({ tr }) => {
+      if (placeCaret) caretAfter(tr, tr.selection.to)
+      return true
+    })
+    .run()
+  undoableFileChange(editor, (doc) => {
+    addPageFile(doc, pickKey(kind), uuid)
+    if (pickEmbedKinds(kind)) setFileHidden(doc, uuid, true)
+  })
 }
 
 /** The picker kind of each node type that shows one file. */
@@ -167,9 +190,8 @@ function endOfEmbed(editor: Editor, uuid: string): number | null {
  * Uploads `files`, inserting one embed per file at `insertAt`, in the order
  * given, followed through every edit until the uploads settle.
  * - `kind` is one for all files, or picked per file.
- * - The embed takes the selection only if the user changed neither text nor
- *   selection meanwhile (their own undo/redo counts): typing on must not
- *   replace a selected embed.
+ * - The caret goes after the embed only if the user changed neither text nor
+ *   selection meanwhile (their own undo/redo counts).
  * - Offline refuses: the file has to reach Drupal before anything refers to it.
  */
 export async function uploadIntoEditor(editor: Editor, kind: FilePickKind | ((file: File) => FilePickKind), files: File[], insertAt: number): Promise<void> {
@@ -184,9 +206,8 @@ export async function uploadIntoEditor(editor: Editor, kind: FilePickKind | ((fi
   }
   editor.on('transaction', follow)
   try {
-    const doc = sessionDoc(editor)
     const kinds = files.map(file => typeof kind === 'function' ? kind(file) : kind)
-    const uploads = files.map((file, i) => uploadPageFile(doc, pickKey(kinds[i]!), file))
+    const uploads = files.map((file, i) => uploadPageFile(pickKey(kinds[i]!), file))
     for (const [i, upload] of uploads.entries()) {
       const uuid = await upload
       if (!uuid || editor.isDestroyed) continue
@@ -267,8 +288,6 @@ export async function insertPageFile(editor: Editor, kind: FilePickKind, insertA
     if (!choice || editor.isDestroyed) return
     const pos = at.current()?.from ?? editor.state.doc.content.size
     if ('upload' in choice) return await uploadIntoEditor(editor, kind, choice.upload, pos)
-    const doc = sessionDoc(editor)
-    if (doc) addPageFile(doc, pickKey(kind), choice.id)
     insertEmbed(editor, kind, choice.id, pos, true)
   }
   finally {
@@ -279,19 +298,21 @@ export async function insertPageFile(editor: Editor, kind: FilePickKind, insertA
 /**
  * Opens the file picker for one file and hands it to `link`: an upload, a file
  * on this page or one of the caller's own. A chosen file joins the page's
- * attachments only when `link` embedded it; an upload is listed anyway.
+ * attachments only when `link` embedded it; an upload is listed anyway. The
+ * link and the list entry are one undo step.
  */
 export async function pickPageAttachment(editor: Editor, link: (uuid: string) => boolean): Promise<void> {
   const choice = await requestFilePick('file', false)
   if (!choice || editor.isDestroyed) return
-  const doc = sessionDoc(editor)
   if (!('upload' in choice)) {
-    if (link(choice.id) && doc) addPageFile(doc, 'attachments', choice.id)
+    if (link(choice.id)) undoableFileChange(editor, doc => addPageFile(doc, 'attachments', choice.id))
     return
   }
   if (!navigator.onLine) return refuseOffline(choice.upload)
-  const uuid = choice.upload[0] ? await uploadPageFile(doc, 'attachments', choice.upload[0]) : null
-  if (uuid && !editor.isDestroyed) link(uuid)
+  const uuid = choice.upload[0] ? await uploadPageFile('attachments', choice.upload[0]) : null
+  if (!uuid || editor.isDestroyed) return
+  link(uuid)
+  undoableFileChange(editor, doc => addPageFile(doc, 'attachments', uuid))
 }
 
 /** The node types that embed a file of each list. */
@@ -364,9 +385,9 @@ function embeds(editor: Editor, key: PageFileKey, uuid: string): boolean {
  * Swaps the file of the image, card or embed at `pos` for one the picker
  * gives: an upload, a file on this page or one of the caller's own. Alt text,
  * description, title and block id stay. The old file leaves the page's list once
- * nothing embeds it. One undo step: the swap and the list change (an upload
- * stays listed, as after undoing its insert). A new `::embed` file is hidden
- * from the read page's attachments list.
+ * nothing embeds it. One undo step: the swap and the list change. A new
+ * `::embed` file is hidden from the read page's attachments list. While the
+ * block is still selected, the caret goes after it, so typing on keeps it.
  */
 export async function replacePageFile(editor: Editor, pos: number): Promise<void> {
   const node = editor.state.doc.nodeAt(pos)
@@ -378,11 +399,10 @@ export async function replacePageFile(editor: Editor, pos: number): Promise<void
   try {
     const choice = await requestFilePick(kind, false)
     if (!choice || editor.isDestroyed) return
-    const doc = sessionDoc(editor)
     let uuid: string | null
     if ('upload' in choice) {
       if (!navigator.onLine) return refuseOffline(choice.upload)
-      uuid = choice.upload[0] ? await uploadPageFile(doc, key, choice.upload[0]) : null
+      uuid = choice.upload[0] ? await uploadPageFile(key, choice.upload[0]) : null
     }
     else {
       uuid = choice.id
@@ -391,7 +411,9 @@ export async function replacePageFile(editor: Editor, pos: number): Promise<void
     const target = current === undefined ? null : editor.state.doc.nodeAt(current)
     if (!uuid || editor.isDestroyed || !target || target.type !== node.type || target.attrs.file !== old) return
     editor.chain().focus().command(({ tr }) => {
+      const selected = tr.selection instanceof NodeSelection && tr.selection.from === current
       tr.setNodeMarkup(current!, undefined, { ...target.attrs, file: uuid })
+      if (selected) caretAfter(tr, current! + target.nodeSize)
       return true
     }).run()
     undoableFileChange(editor, (doc) => {
