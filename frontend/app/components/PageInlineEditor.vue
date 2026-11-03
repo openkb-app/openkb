@@ -187,9 +187,9 @@ function bubbleShouldShow(
   return editor.isActive('table') || (!selection.empty && !isEmptyTextBlock)
 }
 
-/** The embed bubble: a selected image or file card in the focused editor. */
-function embedBubbleShouldShow({ editor, view }: { editor: Editor, view: EditorView }): boolean {
-  return !pressed && editor.isEditable && view.hasFocus() && embedSelected(editor)
+/** The embed bubble: a selected image, file card or HTML/PDF embed in the focused editor or bubble. */
+function embedBubbleShouldShow({ editor, element, view }: { editor: Editor, element: HTMLElement, view: EditorView }): boolean {
+  return !pressed && editor.isEditable && (view.hasFocus() || element.contains(document.activeElement)) && embedSelected(editor)
 }
 
 /**
@@ -271,7 +271,11 @@ const dragHandleOptions = {
           :should-show="embedBubbleShouldShow"
           data-testid="embed-bubble-toolbar"
           class="rounded-md border border-default bg-default shadow-lg"
-        />
+        >
+          <template #rename="{ item }">
+            <EditorFileRenameItem :key="item.file" :files="editorPageFiles" :uuid="item.file" :editor="editor" />
+          </template>
+        </UEditorToolbar>
         <EditorLinkTargetBubble
           :editor="editor"
           :resolve="resolveTarget"

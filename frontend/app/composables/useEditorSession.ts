@@ -1212,8 +1212,7 @@ export async function useEditorSession(
     ],
   ])
 
-  // The bubble on a selected image or file card, as Nuxt UI's editor docs lay
-  // out the image one: download, replace, delete, plus Comment.
+  /** The bubble on a selected image, file card or HTML/PDF embed: download, rename (the toolbar's `rename` slot), replace, size, delete, comment. */
   const embedBubbleItems = computed(() => {
     const embed = embedSelection.value
     const url = embed?.file ? editorPageFiles.resolved.value[embed.file]?.url : undefined
@@ -1221,6 +1220,7 @@ export async function useEditorSession(
     return [
       [
         ...(url ? [{ icon: 'i-lucide-download', to: url, download: true, target: '_blank', 'aria-label': 'Download', tooltip: { text: 'Download' } }] : []),
+        ...(url && embed?.file ? [{ slot: 'rename' as const, file: embed.file }] : []),
         {
           icon: 'i-lucide-refresh-cw',
           'aria-label': 'Replace',
