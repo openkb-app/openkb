@@ -120,6 +120,12 @@
 - State that a space's managers enable and disable it.
 - Re-index the architecture diagram's linkStyle to its 19 links.
 
+### Image revision r1 (2026-11-03)
+
+Rebuilt on newer base images; nothing else changed.
+
+- `dunglas/frankenphp:1-php8.3-alpine`: `376c492a5eef` → `28a0346a26e5`
+
 ## [1.0.0-beta2] - 2026-09-30
 
 ### Fixes
