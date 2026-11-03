@@ -15,10 +15,12 @@ export interface RevisionProps {
   authorUid?: number | null
   log?: string | null
   state?: string | null
-  /** The newest revision: what the editing surfaces open. */
+  /** The working copy: the newest revision, marked only for a reader who edits drafts. */
   current?: boolean
   /** The revision being served to readers. */
   published?: boolean
+  /** The revision's read page, Drupal's path. */
+  url?: string | null
 }
 
 /** A marker on a revision row, in the order returned. */

@@ -15,7 +15,7 @@
 import { MarkdownDocument } from '@comark/vue'
 import { comarkComponents } from '~/comark/components'
 import { liftTitleBlockId, type CitationSource, type ComarkNode } from '#shared/utils/comark-tree'
-import { referenceLabels, type CeEntityReference } from '#shared/utils/kb-meta'
+import { absoluteDateTime, referenceLabels, type CeEntityReference } from '#shared/utils/kb-meta'
 import { spaceReviewSteps, spaceSlug, type KbSpaceCeProp } from '#shared/utils/kb-spaces'
 import { enforcedSteps, mayModerate } from '#shared/utils/moderation'
 import { BLOCK_ID_PREFIX, TITLE_REVIEW_KEY, type BlockByline, type ReviewStep } from '#shared/page-blocks'
@@ -24,6 +24,8 @@ import { readFences, readFencesKey } from '~/editor/fence-renders'
 import { itemName, reviewMarkOf } from '~/editor/review-marks'
 import type { CommentAssignee } from '#shared/block-comments'
 import type { PageAttachment } from '#shared/utils/files'
+// Relative: the SFC type resolver does not read Nuxt's aliases.
+import type { RevisionProps } from '../../utils/revision-history'
 
 // Flat props off the CE display — no defaults, no placeholders: a field the
 // editor left empty renders as nothing at all. The body arrives as the comark
@@ -45,6 +47,8 @@ const props = defineProps<{
   /** The page's files this reader may download (ADR 0020). */
   pageFiles?: PageAttachment[]
   bodyTree?: ComarkNode[]
+  /** Set on one revision's page: which version this is. */
+  revision?: RevisionProps
 }>()
 
 const env = useKbCePage()
@@ -54,8 +58,19 @@ const nodeId = computed(() => Number(props.nid) || undefined)
 // The raw-markdown projection of the page at this path — the address IS the
 // route, so the `.md` link is the current path with a `.md` suffix (a page
 // has no slug field to build it from; the path alias is the address).
+// A single revision's page has none: its markdown would be the live page's.
 const route = useRoute()
-const rawHref = computed(() => `/api/kb${route.path}.md`)
+const rawHref = computed(() => props.revision ? undefined : `/api/kb${route.path}.md`)
+
+// A revision's page: last updated is that revision's save, and the tab names it.
+const revisionCreatedMs = computed(() => {
+  const ms = props.revision ? Date.parse(props.revision.created) : Number.NaN
+  return Number.isNaN(ms) ? null : ms
+})
+const shownChanged = computed(() => revisionCreatedMs.value === null ? props.changed : revisionCreatedMs.value / 1000)
+useHead(() => props.revision
+  ? { title: `${props.title ?? ''} — version of ${absoluteDateTime(revisionCreatedMs.value) ?? ''}` }
+  : {})
 
 const moderation = useModerationStatus(nodeId, env.canEdit)
 const {
@@ -446,7 +461,7 @@ const { wide } = useSidePane()
         <article class="min-w-0">
           <ViewPageMetaStrip
             :doc-type="docType"
-            :changed="changed"
+            :changed="shownChanged"
             :raw-href="rawHref"
             :working-copy="mode === 'edit' && session ? session.markdown : undefined"
             :editable="mode === 'edit'"
@@ -485,6 +500,8 @@ const { wide } = useSidePane()
           >
             {{ title }}
           </h1>
+
+          <NodeRevisionNotice v-if="revision" :revision="revision" />
 
           <p v-if="summary" class="mb-5 max-w-[60ch] text-[15px] leading-relaxed text-muted">
             {{ summary }}

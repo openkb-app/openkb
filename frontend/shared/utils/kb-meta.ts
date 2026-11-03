@@ -87,6 +87,14 @@ export function absoluteDate(ms: number | null): string | null {
 }
 
 /**
+ * Date and time to the second, in UTC: names one revision among checkpoints
+ * saved a moment apart. UTC so server and client render the same text.
+ */
+export function absoluteDateTime(ms: number | null): string | null {
+  return ms === null ? null : `${new Date(ms).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+}
+
+/**
  * Up to two initials for the owner avatar, from a display name. A single-word
  * name — usernames like `admin` have no surname — gives its first two
  * characters. Peer avatars spell initials differently, in

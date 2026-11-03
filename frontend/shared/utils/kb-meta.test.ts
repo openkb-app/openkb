@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   absoluteDate,
+  absoluteDateTime,
   changedToMs,
   docTypeLabel,
   lastUpdatedLabel,
@@ -106,5 +107,12 @@ describe('ownerInitials', () => {
   it('is empty for no name', () => {
     expect(ownerInitials(undefined)).toBe('')
     expect(ownerInitials('   ')).toBe('')
+  })
+})
+
+describe('absoluteDateTime', () => {
+  it('names the moment to the second, in UTC', () => {
+    expect(absoluteDateTime(1785077569000)).toBe('2026-07-26 14:52:49 UTC')
+    expect(absoluteDateTime(null)).toBeNull()
   })
 })

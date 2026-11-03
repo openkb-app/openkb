@@ -2,7 +2,7 @@
 // One `node-revision` element: a row of the version history. Read-only, and
 // every field is something Drupal recorded — nothing is derived from another
 // row, so a row means the same thing wherever it sits.
-import { absoluteDate, lastUpdatedLabel } from '#shared/utils/kb-meta'
+import { absoluteDateTime, lastUpdatedLabel } from '#shared/utils/kb-meta'
 // Relative, not `~/utils/…`: the props interface is resolved by the SFC
 // compiler's own type resolver, which does not read Nuxt's aliases, and
 // `defineProps<RevisionProps>()` fails the build on an aliased import.
@@ -22,7 +22,7 @@ const createdMs = computed(() => {
 // The app's own last-updated vocabulary; the exact moment is in the tooltip.
 const now = useKbNow()
 const whenLabel = computed(() => lastUpdatedLabel(createdMs.value, now.value))
-const whenTitle = computed(() => absoluteDate(createdMs.value) ?? undefined)
+const whenTitle = computed(() => absoluteDateTime(createdMs.value) ?? undefined)
 </script>
 
 <template>
@@ -58,6 +58,14 @@ const whenTitle = computed(() => absoluteDate(createdMs.value) ?? undefined)
         >
           {{ marker.label }}
         </UBadge>
+        <NuxtLink
+          v-if="url"
+          :to="url"
+          class="ml-1 text-[12.5px] text-muted underline underline-offset-2 hover:text-primary"
+          data-testid="revision-open"
+        >
+          View<span class="sr-only"> version of {{ whenTitle ?? whenLabel }}<template v-if="stateText">, {{ stateText }}</template></span>
+        </NuxtLink>
       </span>
     </div>
     <p v-if="log" class="mt-1 text-[13px] text-toned">

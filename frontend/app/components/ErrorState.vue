@@ -28,6 +28,8 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ retry: [] }>()
 
+const { isSignedIn } = useCurrentUser()
+
 type Kind = 'not-found' | 'forbidden' | 'refused' | 'unavailable'
 
 const kind = computed<Kind>(() => {
@@ -46,7 +48,9 @@ const copy = computed(() => ({
   'forbidden': {
     icon: 'i-lucide-lock',
     title: 'You don’t have access',
-    description: 'This page needs a signed-in account with access to it. Sign in and try again.',
+    description: isSignedIn.value
+      ? 'Your account has no access to this page.'
+      : 'This page needs a signed-in account with access to it. Sign in and try again.',
   },
   'refused': {
     icon: 'i-lucide-circle-slash',
@@ -101,7 +105,7 @@ const showRetry = computed(() => props.retryable && kind.value === 'unavailable'
           Try again
         </UButton>
         <UButton
-          v-if="kind === 'forbidden'"
+          v-if="kind === 'forbidden' && !isSignedIn"
           :to="loginHref"
           color="primary"
           size="md"
@@ -112,8 +116,8 @@ const showRetry = computed(() => props.retryable && kind.value === 'unavailable'
         </UButton>
         <UButton
           to="/"
-          :color="showRetry || kind === 'forbidden' ? 'neutral' : 'primary'"
-          :variant="showRetry || kind === 'forbidden' ? 'outline' : 'solid'"
+          :color="showRetry || (kind === 'forbidden' && !isSignedIn) ? 'neutral' : 'primary'"
+          :variant="showRetry || (kind === 'forbidden' && !isSignedIn) ? 'outline' : 'solid'"
           size="md"
           block
           icon="i-lucide-home"
