@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as Y from 'yjs'
-import { addPageFile, changePageFiles, embeddedFiles, liveFileLists, liveHiddenFiles, removePageFile, setFileHidden, setHiddenFiles, setPageFiles } from './page-files'
+import { addPageFile, changePageFiles, embeddedFiles, liveFileLists, liveFileNames, liveHiddenFiles, removePageFile, setFileHidden, setHiddenFiles, setPageFiles } from './page-files'
 
 const A = '11111111-2222-4333-8444-555555555555'
 const B = '66666666-7777-4888-9999-000000000000'
@@ -82,6 +82,17 @@ describe('page file lists', () => {
     const doc = new Y.Doc()
     addPageFile(doc, 'images', A)
     expect(changePageFiles(doc, 'images', { add: [A], remove: [B] })).toBe(false)
+  })
+
+  it('names the files on the list, a file it adds included, and skips one not on it', () => {
+    const doc = new Y.Doc()
+    addPageFile(doc, 'attachments', A)
+    expect(changePageFiles(doc, 'images', { add: [B], names: { [A]: 'Report', [B]: ' Chart ' } })).toBe(true)
+    expect(liveFileNames(doc)).toEqual({ [B]: 'Chart' })
+    expect(changePageFiles(doc, 'attachments', { names: { [A]: 'Report' } })).toBe(true)
+    expect(changePageFiles(doc, 'attachments', { names: { [A]: 'Report' } })).toBe(false)
+    expect(changePageFiles(doc, 'images', { names: { [B]: '' } })).toBe(true)
+    expect(liveFileNames(doc)).toEqual({ [A]: 'Report' })
   })
 })
 

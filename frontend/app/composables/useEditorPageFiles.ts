@@ -1,20 +1,24 @@
 import * as Y from 'yjs'
-import { PAGE_FILE_KEYS, fileArray, hiddenFileMap, liveFileLists, liveHiddenFiles, removePageFile, setFileHidden, type PageFileLists } from '#shared/utils/page-files'
+import { PAGE_FILE_KEYS, fileArray, hiddenFileMap, liveFileLists, liveHiddenFiles, removePageFile, setFileHidden, setFileName, type PageFileLists } from '#shared/utils/page-files'
 import type { ResolvedFile } from '#shared/utils/files'
 import type { Editor } from '@tiptap/core'
 import type { PageFileChoice } from '~/editor/link-target'
-import { removeFileFromPage, undoableFileChange } from '~/editor/page-file-insert'
+import { removeFileFromPage, renamePageFile, setFileDescription, undoableFileChange } from '~/editor/page-file-insert'
 
 /**
  * The editor's page file lists (ADR 0020), live from the session:
  * - `lists`, `resolved`, `settled`, `descriptions`, `hidden` and the edits,
- *   `remove` and `setHidden`, for the list below the editor;
+ *   `remove`, `setHidden`, `rename` and `describe`, for the list below the
+ *   editor;
  * - `attachments`: what the link bubble offers, and what a pasted download URL
  *   is matched against.
  */
 export interface EditorPageFiles {
   lists: Ref<PageFileLists>
+  /** The files, each under its name on this page. */
   resolved: Ref<Record<string, ResolvedFile>>
+  /** Each file's own name, where this page shows another. */
+  fileNames: Ref<Record<string, string>>
   /** False while unresolved files are still asked for. */
   settled: Ref<boolean>
   /** Each file's description: its first `::attachment` embed's, as on the read page. */
@@ -25,6 +29,12 @@ export interface EditorPageFiles {
   hidden: Ref<string[]>
   /** Hides an attachment from the read page's list or shows it, as one undo step. */
   setHidden: (uuid: string, hidden: boolean) => void
+  /** Names a file on this page, as one undo step; an empty name shows the file's own. */
+  rename: (uuid: string, name: string) => void
+  /** The files with an `::attachment` card in the text: their description is editable. */
+  carded: Ref<string[]>
+  /** Sets the description of a file's `::attachment` cards, as one undo step. */
+  describe: (uuid: string, description: string) => void
   attachments: Ref<PageFileChoice[]>
 }
 
@@ -40,13 +50,17 @@ export function useEditorPageFiles(ydoc: Y.Doc, editor: () => Editor | undefined
 
   const body = ydoc.getXmlFragment('default')
   const descriptions = ref<Record<string, string>>({})
+  const carded = ref<string[]>([])
   const readDescriptions = () => {
     const found: Record<string, string> = {}
+    const cards = new Set<string>()
     for (const node of body.createTreeWalker(node => node instanceof Y.XmlElement && node.nodeName === 'attachment')) {
       const { file, description } = (node as Y.XmlElement).getAttributes()
+      if (typeof file === 'string') cards.add(file)
       if (typeof file === 'string' && typeof description === 'string' && description) found[file] ??= description
     }
     descriptions.value = found
+    carded.value = [...cards]
   }
 
   onMounted(() => {
@@ -62,7 +76,11 @@ export function useEditorPageFiles(ydoc: Y.Doc, editor: () => Editor | undefined
     body.unobserveDeep(readDescriptions)
   })
 
-  const { resolved, settled } = useResolvedPageFiles(computed(() => PAGE_FILE_KEYS.flatMap(key => lists.value[key])))
+  const names = usePageFileNames(ydoc)
+  const { resolved: own, settled } = useResolvedPageFiles(computed(() => PAGE_FILE_KEYS.flatMap(key => lists.value[key])))
+  const resolved = computed(() => Object.fromEntries(Object.entries(own.value)
+    .map(([uuid, file]) => [uuid, names.value[uuid] ? { ...file, name: names.value[uuid] } : file])))
+  const fileNames = computed(() => Object.fromEntries(Object.keys(names.value).flatMap(uuid => own.value[uuid] ? [[uuid, own.value[uuid].name]] : [])))
   const attachments = computed<PageFileChoice[]>(() => lists.value.attachments.flatMap((uuid) => {
     const file = resolved.value[uuid]
     return file ? [{ uuid, name: file.name, size: file.size, url: file.url }] : []
@@ -81,5 +99,17 @@ export function useEditorPageFiles(ydoc: Y.Doc, editor: () => Editor | undefined
     else setFileHidden(ydoc, uuid, value)
   }
 
-  return { lists, resolved, settled, descriptions, remove, hidden, setHidden, attachments }
+  const rename = (uuid: string, name: string) => {
+    const live = editor()
+    const fileName = own.value[uuid]?.name ?? ''
+    if (live && !live.isDestroyed) renamePageFile(live, uuid, name, resolved.value[uuid]?.name ?? fileName, fileName)
+    else setFileName(ydoc, uuid, name.trim() === fileName ? '' : name)
+  }
+
+  const describe = (uuid: string, description: string) => {
+    const live = editor()
+    if (live && !live.isDestroyed) setFileDescription(live, uuid, description)
+  }
+
+  return { lists, resolved, fileNames, settled, descriptions, remove, hidden, setHidden, rename, carded, describe, attachments }
 }

@@ -9,11 +9,16 @@ import { PAGE_FILE_FIELDS, type PageFileKey } from './files'
  * - `files.hidden` holds the attachments the read page's list leaves out:
  *   `display: 0` on their field item. Taking a file off the attachments drops
  *   its flag, so a file attached again is listed.
+ * - `files.names` holds each file's name on this page: the field item's
+ *   `description` (attachment) or `title` (image). Taking a file off the last
+ *   list drops its name.
  */
 
 export type PageFileLists = Record<PageFileKey, string[]> & {
   /** Attachments hidden from the read page's list. Absent: none. */
   hidden?: string[]
+  /** File UUID → its name on this page. Absent: none. */
+  names?: Record<string, string>
 }
 
 export const PAGE_FILE_KEYS = Object.keys(PAGE_FILE_FIELDS) as PageFileKey[]
@@ -41,6 +46,12 @@ export function addPageFile(doc: Y.Doc, key: PageFileKey, uuid: string): void {
   if (!list.toArray().includes(uuid)) list.push([uuid])
 }
 
+/** Drops the per-file values of a file that left `key`'s list. */
+function forgetFile(doc: Y.Doc, key: PageFileKey, uuid: string): void {
+  if (key === 'attachments') hiddenFileMap(doc).delete(uuid)
+  if (!PAGE_FILE_KEYS.some(other => fileArray(doc, other).toArray().includes(uuid))) fileNameMap(doc).delete(uuid)
+}
+
 /** Removes a file from a field's list, wherever it sits. */
 export function removePageFile(doc: Y.Doc, key: PageFileKey, uuid: string): void {
   const list = fileArray(doc, key)
@@ -48,7 +59,7 @@ export function removePageFile(doc: Y.Doc, key: PageFileKey, uuid: string): void
     for (let index = list.length - 1; index >= 0; index--) {
       if (list.get(index) === uuid) list.delete(index, 1)
     }
-    if (key === 'attachments') hiddenFileMap(doc).delete(uuid)
+    forgetFile(doc, key, uuid)
   })
 }
 
@@ -64,7 +75,7 @@ export function setPageFiles(doc: Y.Doc, key: PageFileKey, uuids: string[]): voi
       const uuid = list.get(index)
       if (wanted.has(uuid)) continue
       list.delete(index, 1)
-      if (key === 'attachments') hiddenFileMap(doc).delete(uuid)
+      forgetFile(doc, key, uuid)
     }
     const held = new Set(list.toArray())
     const added = [...wanted].filter(uuid => !held.has(uuid))
@@ -76,19 +87,27 @@ export function setPageFiles(doc: Y.Doc, key: PageFileKey, uuids: string[]): voi
 export interface PageFileChange {
   add?: string[]
   remove?: string[]
+  /** File UUID → its name on this page; an empty name shows the file's own. */
+  names?: Record<string, string>
 }
 
 /**
  * Adds and removes the named files only, so a file a peer added meanwhile
- * stays. Answers whether the list changed.
+ * stays, then renames the files of `names` that are on the list. Answers
+ * whether the list or a name changed.
  */
 export function changePageFiles(doc: Y.Doc, key: PageFileKey, change: PageFileChange): boolean {
-  const before = JSON.stringify(fileArray(doc, key).toArray())
+  const state = () => JSON.stringify([fileArray(doc, key).toArray(), liveFileNames(doc)])
+  const before = state()
   doc.transact(() => {
     for (const uuid of change.remove ?? []) removePageFile(doc, key, uuid)
     for (const uuid of change.add ?? []) addPageFile(doc, key, uuid)
+    const listed = fileArray(doc, key).toArray()
+    for (const [uuid, name] of Object.entries(change.names ?? {})) {
+      if (listed.includes(uuid)) setFileName(doc, uuid, name)
+    }
   })
-  return JSON.stringify(fileArray(doc, key).toArray()) !== before
+  return state() !== before
 }
 
 /** The live hidden flags: file UUID → true. */
@@ -113,6 +132,41 @@ export function setFileHidden(doc: Y.Doc, uuid: string, hidden: boolean): void {
 export function setHiddenFiles(doc: Y.Doc, attachments: string[], hidden: string[]): void {
   doc.transact(() => {
     for (const uuid of attachments) setFileHidden(doc, uuid, hidden.includes(uuid))
+  })
+}
+
+/** The live names: file UUID → its name on this page. */
+export function fileNameMap(doc: Y.Doc): Y.Map<string> {
+  return doc.getMap<string>('files.names')
+}
+
+/** The names of the files on the page's lists. */
+export function liveFileNames(doc: Y.Doc): Record<string, string> {
+  const lists = liveFileLists(doc)
+  const listed = new Set(PAGE_FILE_KEYS.flatMap(key => lists[key]))
+  return Object.fromEntries([...fileNameMap(doc).entries()].filter(([uuid, name]) => listed.has(uuid) && name !== ''))
+}
+
+/** The longest name a file may have on a page, in characters. */
+export const FILE_NAME_MAX_LENGTH = 255
+
+/** Trims a file's name on a page and cuts it to {@link FILE_NAME_MAX_LENGTH} characters, never inside one. */
+export function cleanFileName(name: string): string {
+  return Array.from(name.trim()).slice(0, FILE_NAME_MAX_LENGTH).join('')
+}
+
+/** Sets a file's name on this page; an empty name drops it, so the file's own shows. */
+export function setFileName(doc: Y.Doc, uuid: string, name: string): void {
+  const map = fileNameMap(doc)
+  const value = cleanFileName(name)
+  if (value && map.get(uuid) !== value) map.set(uuid, value)
+  else if (!value && map.has(uuid)) map.delete(uuid)
+}
+
+/** Makes the names of `files` the ones `names` gives; the others go. */
+export function setFileNames(doc: Y.Doc, files: string[], names: Record<string, string>): void {
+  doc.transact(() => {
+    for (const uuid of files) setFileName(doc, uuid, names[uuid] ?? '')
   })
 }
 

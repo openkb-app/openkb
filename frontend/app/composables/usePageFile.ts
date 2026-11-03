@@ -74,10 +74,14 @@ export function useResolvedPageFiles(uuids: Ref<string[]>) {
   return { resolved, settled }
 }
 
-/** One page file, resolved for the current reader. */
-export function usePageFile(uuid: Ref<string | null | undefined>) {
+/** One page file, resolved for the current reader, under its name on the page when `names` gives one. */
+export function usePageFile(uuid: Ref<string | null | undefined>, names?: Ref<Record<string, string>>) {
   const { resolved, settled } = useResolvedPageFiles(computed(() => uuid.value ? [uuid.value] : []))
-  const file = computed(() => uuid.value ? resolved.value[uuid.value] ?? null : null)
+  const file = computed(() => {
+    const found = uuid.value ? resolved.value[uuid.value] ?? null : null
+    const name = uuid.value ? names?.value[uuid.value] : undefined
+    return found && name ? { ...found, name } : found
+  })
   const state = computed<'idle' | 'loading' | 'ready' | 'unavailable'>(() => {
     if (!uuid.value) return 'idle'
     if (file.value) return 'ready'

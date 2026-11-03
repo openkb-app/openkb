@@ -2,12 +2,12 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { yUndoPluginKey } from '@tiptap/y-tiptap'
 import type * as Y from 'yjs'
-import { PAGE_FILE_KEYS, fileArray, hiddenFileMap } from '#shared/utils/page-files'
+import { PAGE_FILE_KEYS, fileArray, fileNameMap, hiddenFileMap } from '#shared/utils/page-files'
 
 /**
  * Keeps the collaborative undo redoable, and makes it cover the page file lists.
  *
- * The lists (ADR 0020) and the hidden flags live outside the text's XmlFragment,
+ * The lists (ADR 0020), the hidden flags and the file names live outside the text's XmlFragment,
  * so the UndoManager gets them added to its scope (idempotent): removing a file
  * and its embeds is one step.
  *
@@ -50,7 +50,7 @@ export const CollabHistory = Extension.create({
           const undoManager = state?.undoManager
           if (undoManager) {
             undoManager.trackedOrigins.add(undoManager)
-            undoManager.addToScope([...PAGE_FILE_KEYS.map(key => fileArray(undoManager.doc, key)), hiddenFileMap(undoManager.doc)])
+            undoManager.addToScope([...PAGE_FILE_KEYS.map(key => fileArray(undoManager.doc, key)), hiddenFileMap(undoManager.doc), fileNameMap(undoManager.doc)])
           }
           return {}
         },

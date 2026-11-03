@@ -12,6 +12,7 @@ import {
   routeAgentEdit,
 } from '../mcp-server.test-harness'
 import { AgentJoinError, AgentOpsError } from '../session-router'
+import { UnlistedFileError } from '../agent-peer'
 
 /**
  * updateFields, driven through a real MCP client. The session router is mocked
@@ -90,6 +91,44 @@ describe('updateFields', () => {
     const bare = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { attachments: [A] } } })
     expect(bare.isError).toBe(true)
     expect(routeAgentEdit).not.toHaveBeenCalled()
+  })
+
+  it('updateFields routes file names, and refuses a name keyed by something not a file UUID', async () => {
+    const A = '11111111-2222-4333-8444-555555555555'
+    const { client } = await connect()
+    const files = { attachments: { names: { [A]: 'Annual report' } } }
+    const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files } })
+    expect(res.isError).toBeFalsy()
+    expect(routeAgentEdit).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: {}, files }, undefined,
+    )
+
+    routeAgentEdit.mockClear()
+    const bad = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { attachments: { names: { 'report.pdf': 'Annual report' } } } } })
+    expect(bad.isError).toBe(true)
+    expect(routeAgentEdit).not.toHaveBeenCalled()
+  })
+
+  it('updateFields refuses a name longer than 255 characters, counting an emoji as one', async () => {
+    const A = '11111111-2222-4333-8444-555555555555'
+    const { client } = await connect()
+    const fits = { attachments: { names: { [A]: `${'a'.repeat(254)}😀` } } }
+    expect((await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: fits } })).isError).toBeFalsy()
+
+    routeAgentEdit.mockClear()
+    const long = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { attachments: { names: { [A]: 'a'.repeat(256) } } } } })
+    expect(long.isError).toBe(true)
+    expect(long.structuredContent).toMatchObject({ ok: false, errors: { attachments: [expect.stringContaining('255')] } })
+    expect(routeAgentEdit).not.toHaveBeenCalled()
+  })
+
+  it('updateFields refuses a name for a file not on the list', async () => {
+    const A = '11111111-2222-4333-8444-555555555555'
+    routeAgentEdit.mockRejectedValue(new UnlistedFileError('images', A))
+    const { client } = await connect()
+    const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { images: { names: { [A]: 'Chart' } } } } })
+    expect(res.isError).toBe(true)
+    expect((res.content as any[])[0].text).toContain(`File "${A}" is not on the page's images`)
   })
 
   it('an unknown field key is answered per field, not refused as an undeclared argument', async () => {

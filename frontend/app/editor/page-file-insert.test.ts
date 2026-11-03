@@ -6,13 +6,13 @@ import Collaboration from '@tiptap/extension-collaboration'
 import * as Y from 'yjs'
 import { TextSelection } from '@tiptap/pm/state'
 import { buildCommitSchemaExtensions } from '~~/server/utils/editor-schema'
-import { parseMarkdownToJson } from '~/comark/markdown-engine'
+import { parseMarkdownToJson, serializeDocToMarkdown } from '~/comark/markdown-engine'
 import type { PageFileKey } from '#shared/utils/files'
-import { addPageFile, fileArray, liveHiddenFiles, setFileHidden } from '#shared/utils/page-files'
+import { addPageFile, fileArray, liveFileNames, liveHiddenFiles, setFileHidden } from '#shared/utils/page-files'
 import { BlockIdMinter } from './block-id-minter'
 import { CollabHistory } from './collab-history'
 import { redo, undo, yUndoPluginKey } from '@tiptap/y-tiptap'
-import { closeFilePicker, type FilePickerChoice, insertPageFile, pickPageAttachment, removeFileEmbeds, removeFileFromPage, replacePageFile, undoableFileChange, uploadIntoEditor, useFilePickerRequest } from './page-file-insert'
+import { closeFilePicker, type FilePickerChoice, insertPageFile, pickPageAttachment, removeFileEmbeds, removeFileFromPage, renamePageFile, replacePageFile, setFileDescription, undoableFileChange, uploadIntoEditor, useFilePickerRequest } from './page-file-insert'
 
 const FILE = '66666666-7777-4888-9999-000000000000'
 
@@ -634,5 +634,62 @@ describe('replacePageFile', () => {
     undo(editor.state)
     expect(blocks().filter(Boolean)).toEqual([`image:${OLD}`])
     expect(fileArray(sessionDoc(), 'images').toArray()).toEqual([OLD])
+  })
+})
+
+describe('renamePageFile', () => {
+  const labels = () => {
+    const found: string[] = []
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'attachmentInline') found.push(String(node.attrs.label ?? ''))
+    })
+    return found
+  }
+
+  it('names the file on the page, a link labelled with the old name follows it label-less, and undoes as one step', () => {
+    mountShared(`See :attachment[report.pdf]{file="${FILE}"}, :attachment{file="${FILE}"} and :attachment[the plan]{file="${FILE}"}.`)
+    addPageFile(sessionYDoc(), 'attachments', FILE)
+    renamePageFile(editor, FILE, 'Annual report', 'report.pdf', 'report.pdf')
+    expect(liveFileNames(sessionYDoc())).toEqual({ [FILE]: 'Annual report' })
+    expect(labels()).toEqual(['', '', 'the plan'])
+
+    undo(editor.state)
+    expect(liveFileNames(sessionYDoc())).toEqual({})
+    expect(labels()).toEqual(['report.pdf', '', 'the plan'])
+  })
+
+  it('shows the file\'s own name again for an empty name; a link with the old name drops its label', () => {
+    mountShared(`See :attachment[Annual report]{file="${FILE}"}.`)
+    addPageFile(sessionYDoc(), 'attachments', FILE)
+    renamePageFile(editor, FILE, 'Annual report', 'report.pdf', 'report.pdf')
+    renamePageFile(editor, FILE, '', 'Annual report', 'report.pdf')
+    expect(liveFileNames(sessionYDoc())).toEqual({})
+    expect(labels()).toEqual([''])
+  })
+
+  it('keeps brackets in the name: the link stores no label to escape and follows the next rename', () => {
+    mountShared(`See :attachment[report.pdf]{file="${FILE}"}.`)
+    addPageFile(sessionYDoc(), 'attachments', FILE)
+    renamePageFile(editor, FILE, 'Q3 [draft]', 'report.pdf', 'report.pdf')
+    expect(liveFileNames(sessionYDoc())).toEqual({ [FILE]: 'Q3 [draft]' })
+    expect(serializeDocToMarkdown(editor.state.doc)).not.toContain('(draft)')
+    expect(labels()).toEqual([''])
+    renamePageFile(editor, FILE, 'Q3 final', 'Q3 [draft]', 'report.pdf')
+    expect(liveFileNames(sessionYDoc())).toEqual({ [FILE]: 'Q3 final' })
+    expect(labels()).toEqual([''])
+  })
+})
+
+describe('setFileDescription', () => {
+  it('writes the description into every card of the file, as one undo step', () => {
+    const OTHER = '11111111-2222-4333-8444-555555555555'
+    mountShared(`::attachment{file="${FILE}"}\n::\n\n::attachment{file="${FILE}" description="Old"}\n::\n\n::attachment{file="${OTHER}"}\n::`)
+    const descriptions = () => editor.state.doc.content.content.filter(node => node.type.name === 'attachment').map(node => node.attrs.description ?? null)
+    setFileDescription(editor, FILE, 'Q3 figures')
+    expect(descriptions()).toEqual(['Q3 figures', 'Q3 figures', null])
+    undo(editor.state)
+    expect(descriptions()).toEqual([null, 'Old', null])
+    setFileDescription(editor, FILE, ' ')
+    expect(descriptions()).toEqual([null, null, null])
   })
 })

@@ -3,7 +3,8 @@
  * The file card of a page file (ADR 0020): a thumbnail for an image, an icon
  * by MIME type otherwise, the name linking
  * to the file, size, a download link, and the author's optional description.
- * Slots: `description` replaces the description, `actions` adds buttons.
+ * Slots: `name` replaces the name link, `description` the description,
+ * `actions` adds buttons.
  * `inline` is the link alone, for a file
  * mentioned inside a sentence. No file is a placeholder: the file is gone, or
  * not readable for this reader (yet — a peer's fresh upload, until the next
@@ -53,7 +54,9 @@ const size = computed(() => formatFileSize(props.file?.size))
     <img v-if="file.mime.startsWith('image/')" :src="file.url" alt="" loading="lazy" class="size-10 shrink-0 rounded object-cover">
     <UIcon v-else :name="fileIcon(file.mime)" class="size-6 shrink-0 text-muted" aria-hidden="true" />
     <div class="min-w-0 flex-1">
-      <a :href="file.url" target="_blank" rel="noopener" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
+      <slot name="name">
+        <a :href="file.url" target="_blank" rel="noopener" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
+      </slot>
       <slot name="description">
         <p v-if="description" class="text-sm text-muted" data-test="attachment-description">
           {{ description }}

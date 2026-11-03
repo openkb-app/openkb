@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { blockProvenanceFrom, enrichCePage, pageAttachments, type CePage } from './drupal-ce-enrich'
 import { serializeBlockMeta, type BlockMetaMap } from '#shared/page-blocks'
 
@@ -180,5 +180,22 @@ describe('pageAttachments', () => {
   it('keeps a file only the text embeds', () => {
     const tree = [['p', {}, ['attachment', { file: 'c' }]]]
     expect(pageAttachments([], [], tree, resolved).map(entry => entry.id)).toEqual(['c'])
+  })
+})
+
+describe('enrichCePage file names', () => {
+  it('shows a file under its name on this page, in the text and the list', async () => {
+    const A = '11111111-2222-4333-8444-555555555555'
+    const page = kbResponse()
+    page.content!.props!.body = { value: `::attachment{file="${A}"}\n::\n` }
+    page.content!.props!.attachments = [{ uuid: A, display: true, name: 'Annual report' }]
+    const resolved = { [A]: { url: '/system/files/report.pdf', name: 'report.pdf', size: 1, mime: 'application/pdf', owner: null, created: null } }
+    vi.doMock('./files', async original => ({ ...await original<typeof import('./files')>(), resolveFileUuids: async (_auth: unknown, uuids: string[]) => Object.fromEntries(uuids.map(uuid => [uuid, resolved[uuid as typeof A]])) }))
+    vi.resetModules()
+    const { enrichCePage: enrich } = await import('./drupal-ce-enrich')
+    const out = await enrich(page)
+    expect(out.content?.props?.pageFiles?.map(file => file.name)).toEqual(['Annual report'])
+    expect(JSON.stringify(out.content?.props?.bodyTree)).toContain('"name":"Annual report"')
+    vi.doUnmock('./files')
   })
 })

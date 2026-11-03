@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
+import { sessionDoc } from '~/editor/page-file-insert'
 
 /**
  * Editor NodeView for `::attachment{file}` and the inline `:attachment[Label]{file}`
@@ -11,7 +12,7 @@ const props = defineProps(nodeViewProps)
 
 const inline = computed(() => props.node.type.name === 'attachmentInline')
 const uuid = computed(() => props.node.attrs.file as string | null)
-const { file, state } = usePageFile(uuid)
+const { file, state } = usePageFile(uuid, usePageFileNames(sessionDoc(props.editor)))
 
 // Typed text stays local until `change`, so a re-render keeps it.
 const description = ref('')

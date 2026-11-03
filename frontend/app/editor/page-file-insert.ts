@@ -4,7 +4,7 @@ import type * as Y from 'yjs'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { EMBED_MIMES, PAGE_FILE_FIELDS, formatFileSize, type EmbedKind, type PageAttachment, type PageFileKey, type PageFileLimits, type PageFileLimitsByField } from '#shared/utils/files'
-import { addPageFile, removePageFile, setFileHidden } from '#shared/utils/page-files'
+import { addPageFile, cleanFileName, removePageFile, setFileHidden, setFileName } from '#shared/utils/page-files'
 import { trackRange } from '~/editor/tracked-range'
 import { csrfToken } from '~/utils/csrf'
 
@@ -72,7 +72,7 @@ async function send(file: File, key: PageFileKey, progress: (percent: number) =>
 }
 
 /** The session's Y.Doc, off the editor's Collaboration extension. */
-function sessionDoc(editor: Editor): Y.Doc | null {
+export function sessionDoc(editor: Editor): Y.Doc | null {
   const collaboration = editor.extensionManager.extensions.find(extension => extension.name === 'collaboration')
   return (collaboration?.options as { document?: Y.Doc } | undefined)?.document ?? null
 }
@@ -353,6 +353,36 @@ export function undoableFileChange(editor: Editor, change: (doc: Y.Doc) => void)
   if (!doc) return
   doc.transact(() => change(doc), ySyncPluginKey)
   editor.view.dispatch(editor.state.tr)
+}
+
+/**
+ * Renames a file on this page, as one undo step:
+ * - `name` goes into `files.names`; an empty one or `fileName`, the file's own, drops it;
+ * - an inline link labelled `shown`, the name it showed so far, loses its
+ *   label, so it shows the file's name on this page and follows the next rename.
+ */
+export function renamePageFile(editor: Editor, uuid: string, name: string, shown: string, fileName: string): void {
+  const next = cleanFileName(name)
+  const { tr } = editor.state
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === 'attachmentInline' && node.attrs.file === uuid && node.attrs.label && node.attrs.label === shown) {
+      tr.setNodeAttribute(pos, 'label', '')
+    }
+  })
+  if (tr.docChanged) editor.view.dispatch(tr)
+  undoableFileChange(editor, doc => setFileName(doc, uuid, next === fileName ? '' : next))
+}
+
+/** Sets the description of every `::attachment` card of a file, as one undo step. */
+export function setFileDescription(editor: Editor, uuid: string, description: string): void {
+  const { tr } = editor.state
+  const value = description.trim() || null
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === 'attachment' && node.attrs.file === uuid && (node.attrs.description ?? null) !== value) {
+      tr.setNodeAttribute(pos, 'description', value)
+    }
+  })
+  if (tr.docChanged) editor.view.dispatch(tr)
 }
 
 /** Takes a file off the page, as one undo step: its embeds out of the text, then out of the lists `keys`. */

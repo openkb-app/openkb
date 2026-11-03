@@ -16,6 +16,7 @@ import {
   UnchainedBlockError,
   UnknownBlockError,
   UnknownThreadError,
+  UnlistedFileError,
   isAgentOrigin,
   openAgentSession,
   readBlockOpList,
@@ -28,7 +29,7 @@ import {
 import { blockVersions } from './block-versions'
 import type { FieldSpec } from './entity-fields'
 import { readBlockMeta } from '#shared/page-blocks'
-import { liveHiddenFiles, setFileHidden } from '#shared/utils/page-files'
+import { liveFileLists, liveFileNames, liveHiddenFiles, setFileHidden } from '#shared/utils/page-files'
 import { readThreads } from '#shared/block-comments'
 import { collabColor } from '#shared/utils/presence'
 
@@ -614,6 +615,25 @@ describe('openAgentSession', () => {
     session.apply({ body: `::embed{file="${OLD}"}\n::\n\n::embed{file="${NEW}"}\n::` })
 
     expect(liveHiddenFiles(document)).toEqual([NEW])
+  })
+
+  it('refuses a name for a file not on its list, and writes nothing', async () => {
+    const A = '11111111-2222-4333-8444-555555555555'
+    const B = '66666666-7777-4888-9999-000000000000'
+    const { host, document } = hostFor(new Y.Doc())
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+    session.apply({ files: { attachments: { add: [A] } } })
+
+    expect(() => session.apply({ fields: { summary: 'new' }, files: { attachments: { names: { [A]: 'Report', [B]: 'Chart' } } } }))
+      .toThrow(UnlistedFileError)
+    expect(() => session.apply({ files: { attachments: { remove: [A], names: { [A]: 'Report' } } } }))
+      .toThrow(UnlistedFileError)
+    expect(liveFileNames(document)).toEqual({})
+    expect(liveFileLists(document).attachments).toEqual([A])
+    expect(document.getMap('fields').get('summary')).toBeUndefined()
+
+    session.apply({ files: { attachments: { add: [B], names: { [B]: 'Chart' } } } })
+    expect(liveFileNames(document)).toEqual({ [B]: 'Chart' })
   })
 
   it('seats an agent as a peer carrying its via (ADR 0003)', async () => {

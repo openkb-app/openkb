@@ -2,10 +2,13 @@ import type * as Y from 'yjs'
 import { PAGE_FILE_FIELDS, type PageFileKey } from '#shared/utils/files'
 import {
   PAGE_FILE_KEYS,
+  cleanFileName,
   emptyFileLists,
   liveFileLists,
+  liveFileNames,
   liveHiddenFiles,
   removePageFile,
+  setFileNames,
   setHiddenFiles,
   setPageFiles,
   type PageFileLists,
@@ -14,9 +17,11 @@ import type { CommitContext, CommitHooks } from './commit'
 
 /**
  * The page files in the commit payload (ADR 0020).
- * - A list that moved off `_meta.files_baseline` goes out as the field; so do
- *   the attachments when their hidden flags moved.
- * - Each attachment carries its flag as `meta.display`.
+ * - A list that moved off `_meta.files_baseline` goes out as the field; so does
+ *   a list when its hidden flags or file names moved.
+ * - Each item carries its file's name on this page (`meta.description` for an
+ *   attachment, `meta.title` for an image), an attachment its flag as
+ *   `meta.display`.
  * - Drupal answers with the files it kept; the baseline advances to that, and
  *   a dropped file leaves the live list too.
  */
@@ -29,22 +34,31 @@ export function filesBaseline(doc: Y.Doc): PageFileLists | null {
 /** Brings the lists in line with Drupal and records the baseline. */
 export function seedFiles(doc: Y.Doc, values: PageFileLists): void {
   const hidden = values.hidden ?? []
+  const names = values.names ?? {}
   doc.transact(() => {
     for (const key of PAGE_FILE_KEYS) setPageFiles(doc, key, values[key])
     setHiddenFiles(doc, values.attachments, hidden)
-    doc.getMap('_meta').set('files_baseline', { ...values, hidden })
+    setFileNames(doc, PAGE_FILE_KEYS.flatMap(key => values[key]), names)
+    doc.getMap('_meta').set('files_baseline', { ...values, hidden, names })
   })
 }
 
-/** The page file lists out of a CE page's props (`attachments`, `images`), with the hidden attachments. */
+/**
+ * The page file lists out of a CE page's props (`attachments`, `images`), with
+ * the hidden attachments and the file names. A file on both lists takes its
+ * attachment's name.
+ */
 export function ceFileLists(props: Record<string, unknown>): PageFileLists {
-  const lists: PageFileLists = { ...emptyFileLists(), hidden: [] }
+  const lists: PageFileLists = { ...emptyFileLists(), hidden: [], names: {} }
   for (const key of PAGE_FILE_KEYS) {
     const raw = props[key]
-    const items = Array.isArray(raw) ? raw : raw ? [raw] : []
-    lists[key] = items.flatMap(item => typeof item?.uuid === 'string' ? [item.uuid as string] : [])
+    const items = (Array.isArray(raw) ? raw : raw ? [raw] : []).filter(item => typeof item?.uuid === 'string')
+    lists[key] = items.map(item => item.uuid as string)
     if (key === 'attachments') {
-      lists.hidden = items.flatMap(item => typeof item?.uuid === 'string' && item.display === false ? [item.uuid as string] : [])
+      lists.hidden = items.flatMap(item => item.display === false ? [item.uuid as string] : [])
+    }
+    for (const item of items) {
+      if (typeof item.name === 'string' && item.name) lists.names![item.uuid] ??= item.name
     }
   }
   return lists
@@ -56,15 +70,18 @@ function sameFiles(one: string[], two: string[]): boolean {
 }
 
 /**
- * Fields whose live list moved off the baseline; the attachments also when
- * their hidden flags did. None before a seed.
+ * Fields whose live list moved off the baseline; also a list one of whose
+ * files was renamed, and the attachments when their hidden flags moved. None
+ * before a seed.
  */
 export function dirtyFileKeys(doc: Y.Doc): Array<PageFileKey> {
   const baseline = filesBaseline(doc)
   if (!baseline) return []
   const live = liveFileLists(doc)
+  const names = liveFileNames(doc)
   const hiddenMoved = !sameFiles(liveHiddenFiles(doc), baseline.hidden ?? [])
   return PAGE_FILE_KEYS.filter(key => JSON.stringify(live[key]) !== JSON.stringify(baseline[key] ?? [])
+    || live[key].some(uuid => (names[uuid] ?? '') !== (baseline.names?.[uuid] ?? ''))
     || (key === 'attachments' && hiddenMoved))
 }
 
@@ -86,7 +103,7 @@ const captures = new WeakMap<CommitContext, FilesCapture>()
 function captured(ctx: CommitContext): FilesCapture {
   let capture = captures.get(ctx)
   if (!capture) {
-    capture = { dirty: dirtyFileKeys(ctx.doc), live: { ...liveFileLists(ctx.doc), hidden: liveHiddenFiles(ctx.doc) } }
+    capture = { dirty: dirtyFileKeys(ctx.doc), live: { ...liveFileLists(ctx.doc), hidden: liveHiddenFiles(ctx.doc), names: liveFileNames(ctx.doc) } }
     captures.set(ctx, capture)
   }
   return capture
@@ -104,10 +121,11 @@ export function filesCommitHooks(): Pick<CommitHooks, 'captures' | 'dirtyChecks'
       if (dirty.length === 0) return extra
       const relationships = { ...(extra.relationships ?? {}) }
       for (const key of dirty) {
+        const name = (id: string) => cleanFileName(live.names?.[id] ?? '')
         relationships[PAGE_FILE_FIELDS[key]] = {
           data: live[key].map(id => key === 'attachments'
-            ? { type: 'file--file', id, meta: { display: live.hidden?.includes(id) ? 0 : 1 } }
-            : { type: 'file--file', id }),
+            ? { type: 'file--file', id, meta: { display: live.hidden?.includes(id) ? 0 : 1, description: name(id) } }
+            : { type: 'file--file', id, meta: { title: name(id) } }),
         }
       }
       return { ...extra, relationships }
@@ -117,15 +135,22 @@ export function filesCommitHooks(): Pick<CommitHooks, 'captures' | 'dirtyChecks'
       const { dirty, live } = captured(ctx)
       if (!result.committed || dirty.length === 0) return
       const baseline: PageFileLists = { ...(filesBaseline(ctx.doc) ?? emptyFileLists()) }
+      const names = { ...baseline.names }
       ctx.doc.transact(() => {
         for (const key of dirty) {
           const kept = result.files?.[PAGE_FILE_FIELDS[key]] ?? live[key]
           baseline[key] = kept
           if (key === 'attachments') baseline.hidden = (live.hidden ?? []).filter(uuid => kept.includes(uuid))
+          for (const uuid of kept) {
+            if (live.names?.[uuid]) names[uuid] = live.names[uuid]
+            else delete names[uuid]
+          }
           for (const uuid of live[key]) {
             if (!kept.includes(uuid)) removePageFile(ctx.doc, key, uuid)
           }
         }
+        const listed = new Set(PAGE_FILE_KEYS.flatMap(key => baseline[key] ?? []))
+        baseline.names = Object.fromEntries(Object.entries(names).filter(([uuid]) => listed.has(uuid)))
         ctx.doc.getMap('_meta').set('files_baseline', baseline)
       })
     }],

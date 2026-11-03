@@ -40,7 +40,7 @@ import type { WritableComputedRef } from 'vue'
 import type { FieldValidationApi } from '~/composables/useFieldValidation'
 import { TITLE_KEY, type FieldValue } from '~~/server/utils/entity-fields'
 import { FALLBACK_COLOR, FALLBACK_NAME, claimsByBlock, collabColor, presenceFromStates, readableInkOn, type AwarenessUser } from '#shared/utils/presence'
-import { PAGE_FILE_KEYS, fileArray, hiddenFileMap } from '#shared/utils/page-files'
+import { PAGE_FILE_KEYS, fileArray, fileNameMap, hiddenFileMap } from '#shared/utils/page-files'
 
 export interface Page {
   id: string
@@ -602,6 +602,7 @@ export async function useEditorSession(
     // The file lists are their own lane: their edits fire no editor update.
     for (const key of PAGE_FILE_KEYS) fileArray(ydoc, key).observe(markDirty)
     hiddenFileMap(ydoc).observe(markDirty)
+    fileNameMap(ydoc).observe(markDirty)
     const trackCaret = () => {
       const node = selectedBlock()?.node
       caretBlockId.value = node ? blockIdOf(node) : null

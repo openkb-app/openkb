@@ -1,5 +1,5 @@
 import { createError } from 'h3'
-import { changePageFiles, embeddedFiles, setFileHidden, type PageFileChange } from '#shared/utils/page-files'
+import { changePageFiles, embeddedFiles, liveFileLists, setFileHidden, type PageFileChange } from '#shared/utils/page-files'
 import type { PageFileKey } from '#shared/utils/files'
 import * as Y from 'yjs'
 import { removeAwarenessStates } from 'y-protocols/awareness'
@@ -542,6 +542,30 @@ export class UnknownThreadError extends Error {
   }
 }
 
+/** Raised when a write names a file that its list will not hold. */
+export class UnlistedFileError extends Error {
+  constructor(public readonly key: PageFileKey, public readonly uuid: string) {
+    super(`File "${uuid}" is not on the page's ${key}, so it has no name there. Nothing was written.`)
+    this.name = 'UnlistedFileError'
+  }
+}
+
+/**
+ * Refuses the whole call when it names a file that is not on its list once
+ * the call's own adds and removes are applied.
+ *
+ * @throws {UnlistedFileError}
+ */
+export function refuseUnlistedFileNames(doc: Y.Doc, files: Partial<Record<PageFileKey, PageFileChange>>): void {
+  const lists = liveFileLists(doc)
+  for (const [key, change] of Object.entries(files) as Array<[PageFileKey, PageFileChange]>) {
+    const listed = new Set([...lists[key], ...change.add ?? []])
+    for (const uuid of change.remove ?? []) listed.delete(uuid)
+    const unlisted = Object.keys(change.names ?? {}).find(uuid => !listed.has(uuid))
+    if (unlisted) throw new UnlistedFileError(key, unlisted)
+  }
+}
+
 /** What an agent asks a session to apply. Every lane is optional. */
 export interface AgentOps {
   /** Frontmatter keys (plus `title`) → new values. */
@@ -730,6 +754,7 @@ export async function openAgentSession(
         // Before anything in this transaction is written: a stale write must
         // leave the document exactly as it found it, fields included.
         if (ops.blocks?.length) refuseStaleBlocks(document, ops.blocks)
+        if (ops.files) refuseUnlistedFileNames(document, ops.files)
         const embedded = embeddedFiles(document)
         if (ops.fields) result.fields = applyFieldValues(document, ops.fields)
         for (const [key, change] of Object.entries(ops.files ?? {}) as Array<[PageFileKey, PageFileChange]>) {

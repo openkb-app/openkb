@@ -142,9 +142,15 @@ export async function enrichCePage(
   // One file lookup for the text and the field: the tree asks first, the
   // field's files it did not name are asked for after.
   const files: Record<string, ResolvedFile> = {}
-  const { attachments: fieldIds, hidden = [] } = ceFileLists(content.props ?? {})
+  const { attachments: fieldIds, hidden = [], names = {} } = ceFileLists(content.props ?? {})
+  // A file shows under its name on this page, in the text and the list.
+  const resolve = async (uuids: string[]) => {
+    const found = await resolveFileUuids(auth, uuids)
+    for (const [uuid, file] of Object.entries(found)) files[uuid] = names[uuid] ? { ...file, name: names[uuid] } : file
+    return files
+  }
   const bodyTree = await markdownToTree(markdown, {
-    resolveFiles: async uuids => Object.assign(files, await resolveFileUuids(auth, uuids)),
+    resolveFiles: resolve,
     resolveDocs: nids => resolveDocNids(auth, nids),
     resolveCites: nids => resolveCiteNids(auth, nids),
     allowedHtml,
@@ -154,7 +160,7 @@ export async function enrichCePage(
   })
   const asked = new Set(Object.keys(files))
   const rest = fieldIds.filter(id => !asked.has(id) && !hidden.includes(id))
-  if (rest.length > 0) Object.assign(files, await resolveFileUuids(auth, rest))
+  if (rest.length > 0) await resolve(rest)
   const pageFiles = pageAttachments(fieldIds, hidden, bodyTree, files)
   const blockCitations = citationsByBlock(bodyTree)
   // The raw file lists are consumed into `pageFiles` and `::image{file}`.

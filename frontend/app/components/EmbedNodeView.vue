@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
+import { sessionDoc } from '~/editor/page-file-insert'
 
 /**
  * Editor NodeView for `::embed{file title}` (app/editor/nodes/embed.ts): the
@@ -9,7 +10,7 @@ import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 const props = defineProps(nodeViewProps)
 
 const uuid = computed(() => props.node.attrs.file as string | null)
-const { file, state } = usePageFile(uuid)
+const { file, state } = usePageFile(uuid, usePageFileNames(sessionDoc(props.editor)))
 
 // Typed text stays local until `change`, so a re-render keeps it.
 const title = ref('')

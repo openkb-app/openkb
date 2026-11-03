@@ -1,6 +1,6 @@
 import type { FieldValues } from '../entity-fields'
 import { isFileUuid, PAGE_FILE_FIELDS, type PageFileKey } from '#shared/utils/files'
-import type { PageFileChange } from '#shared/utils/page-files'
+import { FILE_NAME_MAX_LENGTH, type PageFileChange } from '#shared/utils/page-files'
 import { TARGET_PROPERTIES, WRITE_OUTPUT_SCHEMA } from './schemas'
 import { runWrite, writeRefusal } from './write'
 import type { JsonSchema, KbTool } from './types'
@@ -8,13 +8,20 @@ import type { JsonSchema, KbTool } from './types'
 const UUID_LIST = { type: 'array', items: { type: 'string', format: 'uuid' } }
 
 const FILES_DESCRIPTION = 'File UUIDs to add to and remove from the page\'s file lists, per list: '
-  + '"attachments" and "images", each {add, remove}. A file no revision of the page holds is kept '
-  + 'only if the agent owner owns it: their fresh upload, or a permanent file they may still download.'
+  + '"attachments" and "images", each {add, remove, names}. A file no revision of the page holds is kept '
+  + 'only if the agent owner owns it: their fresh upload, or a permanent file they may still download. '
+  + '"names" maps a file UUID on the list to its name on this page, at most 255 characters; an empty '
+  + 'name shows the file\'s own again. The file itself keeps its name.'
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
 function isFileChange(change: unknown): change is PageFileChange {
-  if (typeof change !== 'object' || change === null || Array.isArray(change)) return false
-  return Object.entries(change).every(([op, uuids]) =>
-    (op === 'add' || op === 'remove') && Array.isArray(uuids) && uuids.every(isFileUuid))
+  if (!isObject(change)) return false
+  return Object.entries(change).every(([op, value]) => op === 'names'
+    ? isObject(value) && Object.entries(value).every(([uuid, name]) => isFileUuid(uuid) && typeof name === 'string')
+    : (op === 'add' || op === 'remove') && Array.isArray(value) && value.every(isFileUuid))
 }
 
 /**
@@ -39,7 +46,8 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
       + "inside the page's collaborative editing session, so a human with the "
       + 'page open sees it arrive live. It does not publish — read it back with '
       + 'getPageForEditing. `files` adds file UUIDs to and removes them from the '
-      + 'page\'s file lists (attachments, images); files you do not name stay.',
+      + 'page\'s file lists (attachments, images) and names them on this page; '
+      + 'files you do not name stay.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -51,7 +59,11 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
           description: FILES_DESCRIPTION,
           properties: Object.fromEntries(Object.keys(PAGE_FILE_FIELDS).map(key => [key, {
             type: 'object',
-            properties: { add: UUID_LIST, remove: UUID_LIST },
+            properties: {
+              add: UUID_LIST,
+              remove: UUID_LIST,
+              names: { type: 'object', additionalProperties: { type: 'string', maxLength: FILE_NAME_MAX_LENGTH } },
+            },
             additionalProperties: false,
           }])),
           additionalProperties: false,
@@ -69,7 +81,12 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
       const bad = Object.entries(files).filter(([key, change]) =>
         !Object.hasOwn(PAGE_FILE_FIELDS, key) || !isFileChange(change))
       if (bad.length > 0) {
-        return writeRefusal('"files" takes "add" and "remove" lists of file UUIDs.', Object.fromEntries(bad.map(([key]) => [key, ['Not "add" / "remove" lists of file UUIDs.']])))
+        return writeRefusal('"files" takes "add" and "remove" lists of file UUIDs and a "names" map.', Object.fromEntries(bad.map(([key]) => [key, ['Not "add" / "remove" lists of file UUIDs and a "names" map of file UUIDs to names.']])))
+      }
+      const long = Object.entries(files).filter(([, change]) =>
+        Object.values(change.names ?? {}).some(name => Array.from(name).length > FILE_NAME_MAX_LENGTH))
+      if (long.length > 0) {
+        return writeRefusal(`A file name is at most ${FILE_NAME_MAX_LENGTH} characters.`, Object.fromEntries(long.map(([key]) => [key, [`A name in "names" is longer than ${FILE_NAME_MAX_LENGTH} characters.`]])))
       }
       return runWrite(event, args, {
         fields: fields as FieldValues,
