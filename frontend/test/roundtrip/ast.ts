@@ -8,8 +8,7 @@
  * anything else (a dropped paragraph, lost checkbox state, a destroyed
  * table) still diverges and fails the comparison.
  */
-import { parseMarkdown } from 'comark'
-import { dataImages } from '#shared/utils/comark-tree'
+import { DROPPED_TAGS, parseComark } from '#shared/utils/comark-tree'
 
 type ComarkProps = Record<string, unknown>
 type ComarkNode = string | [tag: string, props: ComarkProps, ...children: ComarkNode[]]
@@ -29,8 +28,7 @@ const INLINE_HTML_UNWRAP = new Set(['kbd', 'abbr', 'ins', 'sub', 'sup', 'mark', 
 
 export async function normalizedAst(markdown: string): Promise<unknown[]> {
   // Complete documents, parsed as the read page does (see parseComark).
-  const tree = await parseMarkdown(markdown, { plugins: [dataImages], autoClose: false })
-  return normalizeChildren(tree.nodes as ComarkNode[], false)
+  return normalizeChildren(await parseComark(markdown) as ComarkNode[], false)
 }
 
 function normalizeChildren(nodes: ComarkNode[], pre: boolean): unknown[] {
@@ -64,6 +62,9 @@ function normalizeNode(node: ComarkNode, pre: boolean): unknown[] {
   const [tag, props, ...children] = node
   const meta = props?.['$'] as { block?: number } | undefined
 
+  // The read page drops these with their content, and comments (no tag).
+  if (!tag || DROPPED_TAGS.has(tag)) return []
+
   // Raw block-level HTML: the editor drops the node (no schema node for
   // it) — accepted as lossy, so the normalizer drops it on the comark
   // side too and it is invisible to S3.
@@ -82,7 +83,8 @@ function normalizeNode(node: ComarkNode, pre: boolean): unknown[] {
   const keptProps: Record<string, string> = {}
   for (const [k, v] of Object.entries(props ?? {})) {
     if (DROP_PROPS.has(k) || v === undefined || v === null || v === false) continue
-    keptProps[k.startsWith(':') ? k.slice(1) : k] = String(v)
+    // comark keeps a backslash-escaped quote in a prop value raw; the mapper drops the backslash.
+    keptProps[k.startsWith(':') ? k.slice(1) : k] = String(v).replace(/\\(["'])/g, '$1')
   }
 
   const inPre = pre || tag === 'pre' || tag === 'code'

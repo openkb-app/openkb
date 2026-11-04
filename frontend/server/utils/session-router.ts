@@ -15,6 +15,7 @@ import {
   type AgentPeerHost,
   type AgentSession,
 } from './agent-peer'
+import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
 import {
   agentSessionKey,
   agentSessionRemainingMs,
@@ -416,7 +417,10 @@ async function hydrateHeadlessBody(
   if (session.doc.getXmlFragment('default').length > 0) return
   const body = await deps.fetchBody(nid)
   if (!body) return
-  applyBodyMarkdown(session.doc, body)
+  const parsed = await parseMarkdownToJson(body)
+  // A peer may have filled the fragment while the body was read and parsed.
+  if (session.doc.getXmlFragment('default').length > 0) return
+  applyBodyMarkdown(session.doc, parsed)
 }
 
 /**
@@ -496,6 +500,13 @@ function startAgentSession(
   return run
 }
 
+/**
+ * Opens an agent's session on a page, loads the page body into it and holds
+ * it under `key`, so the agent's next calls ride the same session.
+ *
+ * A session whose body fails to load is left again before the error is
+ * rethrown.
+ */
 async function openHeldAgentSession(
   deps: RouterDeps,
   key: string,
@@ -505,7 +516,15 @@ async function openHeldAgentSession(
   const identity = commitIdentityOf(actor)
   captureHeadlessCarrier(deps, nid, identity)
   const session = await openAgentSession(deps.host, nid, actor)
-  await hydrateHeadlessBody(deps, session, nid)
+  try {
+    await hydrateHeadlessBody(deps, session, nid)
+  }
+  catch (error) {
+    // No session is held yet, so nothing else would close its connection.
+    // The load error is the one to report.
+    await session.leave().catch(() => {})
+    throw error
+  }
   await holdAgentSession(key, {
     session,
     actor,
@@ -620,6 +639,6 @@ export async function routeAgentEdit(
     // would serialize is this session's work — its credit follows.
     deps.captureCarrier(session.documentName, commitIdentityOf(actor))
   }
-  const applied = session.apply(ops)
+  const applied = await session.apply(ops)
   return { nid, entry: session.entry, observers: session.humanPeers(), applied }
 }

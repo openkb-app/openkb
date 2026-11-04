@@ -75,27 +75,43 @@ const DOC_CODE_MENTION: Json = {
 }
 
 describe('serializeYDoc', () => {
-  it('marks + heading + bullet list', () => {
-    expect(serializeYDoc(seed(DOC_MARKS))).toBe('## Title\n\n**bold** plain *it* `c`\n\n- one\n- two')
+  it('marks + heading + bullet list', async () => {
+    expect(await serializeYDoc(seed(DOC_MARKS))).toBe('## Title\n\n**bold** plain *it* `c`\n\n- one\n- two')
   })
 
-  it('nested callout/infobox fences (variable-length markers)', () => {
-    expect(serializeYDoc(seed(DOC_FENCES))).toBe(':::callout{type="warning"}\nheads up\n\n::infobox{title="Note"}\ninner\n::\n:::')
+  it('nested callout/infobox fences (variable-length markers)', async () => {
+    expect(await serializeYDoc(seed(DOC_FENCES))).toBe('::callout{type="warning"}\nheads up\n\n  :::infobox{title="Note"}\n  inner\n  :::\n::')
   })
 
-  it('code block language + mention (uid round-trips)', () => {
-    expect(serializeYDoc(seed(DOC_CODE_MENTION))).toBe('```ts\nconst x = 1\n```\n\nhi :mention[alice]{uid="5"}')
+  it('code block language + mention (uid round-trips)', async () => {
+    expect(await serializeYDoc(seed(DOC_CODE_MENTION))).toBe('```ts\nconst x = 1\n```\n\nhi :mention[alice]{uid="5"}')
   })
 
-  it('byte-parity: Y.Doc path equals the direct (retired client) serialize path', () => {
+  it('byte-parity: Y.Doc path equals the direct (retired client) serialize path', async () => {
     // The old client path was serializeDocToMarkdown(editor.state.doc), i.e.
     // serialize(Node.fromJSON(<schema>, json)). serializeYDoc goes through the
     // Y.Doc, which round-trips the same JSON. Same schema + same (unchanged)
     // serializer ⇒ identical bytes.
     for (const json of [DOC_MARKS, DOC_FENCES, DOC_CODE_MENTION]) {
-      const direct = serializeDocToMarkdown(PMNode.fromJSON(editorSchema, json as never))
-      expect(serializeYDoc(seed(json))).toBe(direct)
+      const direct = await serializeDocToMarkdown(PMNode.fromJSON(editorSchema, json as never))
+      expect(await serializeYDoc(seed(json))).toBe(direct)
     }
+  })
+
+  it('checkpoints an ordered list holding a stale `type` with digits', async () => {
+    const ydoc = new Y.Doc()
+    const text = new Y.XmlText()
+    text.insert(0, 'foo')
+    const paragraph = new Y.XmlElement('paragraph')
+    paragraph.insert(0, [text])
+    const item = new Y.XmlElement('listItem')
+    item.insert(0, [paragraph])
+    const list = new Y.XmlElement('orderedList')
+    list.setAttribute('type', 'a')
+    list.setAttribute('start', 2 as never)
+    list.insert(0, [item])
+    ydoc.getXmlFragment('default').insert(0, [list])
+    expect(await serializeYDoc(ydoc)).toBe('2. foo')
   })
 })
 
@@ -130,7 +146,7 @@ describe('commitDocument', () => {
   it('is idempotent: unchanged doc (matching hash) writes zero revisions', async () => {
     const ydoc = seed(DOC_MARKS)
     const meta = ydoc.getMap('_meta')
-    meta.set('last_commit_hash', contentHash(serializeYDoc(ydoc)))
+    meta.set('last_commit_hash', contentHash(await serializeYDoc(ydoc)))
 
     const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
@@ -230,7 +246,7 @@ describe('commitDocument', () => {
     const ydoc = seed(DOC_MARKS)
     ydoc.getMap('_meta').set('drupal_changed', 100)
     ydoc.getMap('_meta').set('external_change_detected', { actual: 200, at: 1 })
-    const markdown = serializeYDoc(ydoc)
+    const markdown = await serializeYDoc(ydoc)
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 200, body: markdown } as never)
 
     const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
@@ -253,7 +269,7 @@ describe('commitDocument', () => {
     // The discharge reads this flag, so the ordinary "nothing changed" answer
     // must not carry it — it would drop a window Drupal has never seen.
     const ydoc = seed(DOC_MARKS)
-    ydoc.getMap('_meta').set('last_commit_hash', contentHash(serializeYDoc(ydoc)))
+    ydoc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(ydoc)))
 
     const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
@@ -452,7 +468,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
 
     expect(res.outcome).toBe('committed')
     // No-op hooks leave the serialized markdown byte-identical to no hooks.
-    expect(res.markdown).toBe(serializeYDoc(seed(DOC_MARKS)))
+    expect(res.markdown).toBe(await serializeYDoc(seed(DOC_MARKS)))
     expect(seen).toEqual(['pre', 'payload', 'post'])
     // Body attribute PATCHed with no extra fields beyond the revision log —
     // the stored text is the document plus its final newline.
@@ -685,7 +701,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
 
   it('a dirty predicate makes a hash-clean doc commit; none keeps it clean', async () => {
     const ydoc = seed(DOC_MARKS)
-    ydoc.getMap('_meta').set('last_commit_hash', contentHash(serializeYDoc(ydoc)))
+    ydoc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(ydoc)))
     const arg = { trigger: 'quiet' as const, identity: { token: 'collab' } }
 
     expect((await commitDocument(hp('node:1', ydoc), 'node:1', {
@@ -698,7 +714,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
 
   it('an async dirty predicate commits, and a predicate after a true one is not asked', async () => {
     const ydoc = seed(DOC_MARKS)
-    ydoc.getMap('_meta').set('last_commit_hash', contentHash(serializeYDoc(ydoc)))
+    ydoc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(ydoc)))
     const arg = { trigger: 'quiet' as const, identity: { token: 'collab' } }
 
     // Async because the collaboration server asks Drupal whether anything
@@ -709,7 +725,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
 
     const asked: string[] = []
     const fresh = seed(DOC_MARKS)
-    fresh.getMap('_meta').set('last_commit_hash', contentHash(serializeYDoc(fresh)))
+    fresh.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(fresh)))
     expect((await commitDocument(hp('node:1', fresh), 'node:1', {
       ...arg,
       hooks: { dirtyChecks: [
@@ -745,7 +761,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     // this body. The adopt branch is the exit it reaches, so returning `clean`
     // there would drop the Save and leave the draft standing.
     const ydoc = seed(DOC_MARKS)
-    const markdown = serializeYDoc(ydoc)
+    const markdown = await serializeYDoc(ydoc)
     ydoc.getMap('_meta').set('drupal_changed', 100)
     ydoc.getMap('_meta').set('last_commit_hash', contentHash(markdown))
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 200, body: markdown } as never)
@@ -765,7 +781,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
   it('the body-adopt branch still PATCHes a pending extender payload', async () => {
     const ydoc = seed(DOC_MARKS)
     ydoc.getMap('_meta').set('drupal_changed', 100)
-    const markdown = serializeYDoc(ydoc)
+    const markdown = await serializeYDoc(ydoc)
     // Drupal moved (changed 100 → 200) but holds exactly this body: without a
     // field payload that is `clean` (covered above); with one, the adopted
     // baseline must unblock the PATCH instead of dropping the field change.
@@ -861,7 +877,8 @@ describe('the title heading', () => {
 
     const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
 
-    expect(res.markdown).toMatch(/^\n/)
+    // The writer leaves out an empty paragraph a document opens on.
+    expect(res.markdown).toBe('edited')
     expect(commitMock.mock.lastCall![2]).toBe('# Data model {#b-3a1c9e04}\n\nedited\n')
   })
 

@@ -1,5 +1,4 @@
 import { Node, mergeAttributes } from '@tiptap/core'
-import { mdcFenceTokenizer, parseMdcFence, renderMdcFence } from './mdc-markdown'
 
 /**
  * TipTap node for ::infobox{title="…"} comark fences — schema only (no NodeView).
@@ -20,15 +19,13 @@ export const Infobox = Node.create({
   content: 'block+',
   defining: true,
 
+  /** The box's title and its block id. */
   addAttributes() {
     return {
       title: {
         default: '',
-        // comark keeps `\"` escape sequences raw inside attribute
-        // values, so unescape here; the serializer re-escapes on save
-        // (round-trip corpus fixture: infobox-escaped-quotes).
-        parseHTML: (element: HTMLElement) =>
-          (element.getAttribute('title') ?? '').replace(/\\"/g, '"'),
+        /** Reads the title off the element's `title` attribute. */
+        parseHTML: (element: HTMLElement) => element.getAttribute('title') ?? '',
       },
       // Stable block id (`{#b-…}` fence shorthand) — carried through the
       // markdown round-trip; OKB-25 builds on it.
@@ -49,16 +46,5 @@ export const Infobox = Node.create({
   renderHTML({ HTMLAttributes }) {
     const title = (HTMLAttributes as { title?: string }).title ?? ''
     return ['custom-infobox', mergeAttributes({ title }), 0]
-  },
-
-  markdownTokenName: 'infobox',
-  markdownTokenizer: mdcFenceTokenizer('infobox'),
-  parseMarkdown: parseMdcFence('infobox', { title: '' }),
-  renderMarkdown(node, helpers) {
-    const attrs = node.attrs as { title?: string, id?: string | null } | undefined
-    const title = attrs?.title ?? ''
-    const props: Record<string, string> = title !== '' ? { title } : {}
-    if (attrs?.id) props.id = attrs.id
-    return renderMdcFence('infobox', node, helpers, props)
   },
 })

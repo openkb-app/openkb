@@ -19,23 +19,23 @@ describe('parseImageWidth', () => {
 })
 
 describe('image width in the fence', () => {
-  it('loads the width as a percent number', () => {
-    expect(parseMarkdownToJson(`::image{file="${FILE}" width="70%"}\n::`).content?.[0])
+  it('loads the width as a percent number', async () => {
+    expect((await parseMarkdownToJson(`::image{file="${FILE}" width="70%"}\n::`)).content?.[0])
       .toMatchObject({ type: 'image', attrs: { file: FILE, width: 70 } })
   })
 
-  it('serializes the width after alt and before the id', () => {
+  it('serializes the width after alt and before the id', async () => {
     const doc = { type: 'doc', content: [{ type: 'image', attrs: { file: FILE, alt: 'Plan', width: 40, id: 'b-1' } }] }
-    expect(serializeDocToMarkdown(doc)).toBe(`::image{file="${FILE}" alt="Plan" width="40%" #b-1}\n::`)
+    expect(await serializeDocToMarkdown(doc)).toBe(`::image{file="${FILE}" alt="Plan" width="40%" #b-1}\n::`)
   })
 
-  it('leaves out an unset width', () => {
+  it('leaves out an unset width', async () => {
     const doc = { type: 'doc', content: [{ type: 'image', attrs: { file: FILE, alt: 'Plan' } }] }
-    expect(serializeDocToMarkdown(doc)).toBe(`::image{file="${FILE}" alt="Plan"}\n::`)
+    expect(await serializeDocToMarkdown(doc)).toBe(`::image{file="${FILE}" alt="Plan"}\n::`)
   })
 
-  it('drops a width that is not a percent', () => {
-    const doc = parseMarkdownToJson(`::image{file="${FILE}" width="640"}\n::`)
-    expect(serializeDocToMarkdown(doc)).toBe(`::image{file="${FILE}"}\n::`)
+  it('drops a width that is not a percent', async () => {
+    const doc = await parseMarkdownToJson(`::image{file="${FILE}" width="640"}\n::`)
+    expect(await serializeDocToMarkdown(doc)).toBe(`::image{file="${FILE}"}\n::`)
   })
 })

@@ -32,6 +32,12 @@ describe('syncChipView', () => {
     expect(syncChipView('synced', '2m', 'saved').label).toBe('Synced · 2m')
   })
 
+  it('keeps a load error over any commit state, a peer\'s commit included', () => {
+    const loadError = 'The page could not be loaded. Reload to try again.'
+    expect(syncChipView('synced', '2m', 'saved', undefined, loadError)).toMatchObject({ label: loadError, color: 'error' })
+    expect(syncChipView('synced', '2m', 'dirty', undefined, loadError)).toMatchObject({ label: loadError, color: 'error' })
+  })
+
   it('lets a broken live status win over any commit state', () => {
     expect(syncChipView('offline', '2m', 'dirty')).toMatchObject({ label: 'Offline', color: 'warning' })
     expect(syncChipView('auth-error', '2m', 'saving')).toMatchObject({ label: 'Not signed in', color: 'error' })

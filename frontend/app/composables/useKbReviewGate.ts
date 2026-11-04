@@ -97,7 +97,8 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
    * names both holds before the refusal does.
    */
   const unidentifiedCount = ref(0)
-  watch([awaitingBlocks, reviewOpen], () => {
+  // Hydration seeds the document after the parse is awaited, so it is a trigger too.
+  watch([awaitingBlocks, reviewOpen, () => session.value?.hydrated.value], () => {
     const doc = editorInstance.value?.state.doc
     const sidecar = session.value?.blockMeta.value ?? {}
     // No session yet means no editor either, so the queue below is empty and

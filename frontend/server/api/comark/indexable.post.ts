@@ -3,6 +3,7 @@ import { markdownToIndexable } from '../../utils/comark-indexable'
 import { DEFAULT_CHUNK_OPTIONS, type ChunkOptions } from '../../utils/comark-chunks'
 import { bodyAllowedHtml } from '../../utils/comark-allowed-html'
 import { readCappedBody } from '../../utils/capped-body'
+import { requireSidecarSecret } from '../../utils/sidecar-secret'
 
 /**
  * Called by Drupal's ComarkIndexable search_api processor at index time.
@@ -16,9 +17,8 @@ import { readCappedBody } from '../../utils/capped-body'
  * (`openkb_search.settings`) because the strategy that embeds the chunks is
  * configured there. The defaults below only answer a caller that names none.
  *
- * No auth, no JSON:API — Drupal already has the markdown and passes it in
- * the request body. The Nuxt sidecar runs in the same docker container
- * (pm2 on web:3000), so the call is intra-container.
+ * No JSON:API — Drupal already has the markdown and passes it in the request
+ * body, with the key derived from the shared secret (`requireSidecarSecret`).
  *
  * The route is reachable from outside, so a body over {@link MAX_BODY_BYTES}
  * is a 413. The cap leaves room for `data:` images in a page.
@@ -26,6 +26,7 @@ import { readCappedBody } from '../../utils/capped-body'
 export const MAX_BODY_BYTES = 8 * 1024 * 1024
 
 export default defineEventHandler(async (event) => {
+  requireSidecarSecret(event)
   const raw = await readCappedBody(event, MAX_BODY_BYTES)
   let body: { markdown?: string, chunkOptions?: Partial<ChunkOptions> } | undefined
   try {
@@ -48,6 +49,7 @@ function chunkOptions(asked?: Partial<ChunkOptions>): ChunkOptions {
   }
 }
 
+/** The value when it is a positive integer. */
 function positive(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
 }

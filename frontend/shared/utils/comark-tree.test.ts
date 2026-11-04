@@ -225,6 +225,28 @@ describe('inline components', () => {
     expect(tags(children(strong))).toEqual([null, 'doc', null])
   })
 
+  it.each([
+    ':mention[A]{uid="1"}',
+    ':doc[L]{nid="7"}',
+    ':citation{nid="7"}',
+    ':attachment[F]{file="u-1"}',
+    ':image{file="u-1"}',
+  ])('parses %s after any character', async (component) => {
+    const tag = component.match(/^:(\w+)/)![1]
+    for (const before of ['(', 'see:', 'x', '7', component]) {
+      const paragraph = at(await parseComark(`${before}${component})`))
+      expect(tags(children(paragraph)), before).toEqual(before === component ? [tag, tag, null] : [null, tag, null])
+    }
+  })
+
+  it('leaves other component syntax after a character as text', async () => {
+    for (const typed of ['x:foo', 'x:foo[a]', 'x:mentions[a]', '(:doc-x', 'x\\:mention[a]{uid="1"}', 'x:mention', 'std::doc', 're:citation', 'x:image.', 'data:image/png;base64,AAAA', 'x:image{{a}}']) {
+      const paragraph = at(await parseComark(typed))
+      expect(tags(children(paragraph)).filter(tag => ['mention', 'doc', 'citation', 'attachment', 'image'].includes(tag!)), typed).toEqual([])
+    }
+    expect(await parseComark('x:foo')).toEqual([['p', {}, 'x:foo']])
+  })
+
   it('renders an inline image through the image component', async () => {
     const nodes = await markdownToTree(
       'An :image{file="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"} here.',
@@ -334,10 +356,9 @@ describe('inline components', () => {
     expect(at(nodes)[1]).toEqual({ type: 'info', inline: 'true' })
   })
 
-  it('leaves a directive that opens right after a quote as the author’s text', async () => {
+  it('parses a doc link right after a quote, as the editor does', async () => {
     const nodes = await markdownToTree('He said ":doc[L]{nid="7"}" loudly.', linked)
-    expect(JSON.stringify(nodes)).toContain(':doc')
-    expect(find(nodes, 'doc')).toBeUndefined()
+    expect(tags(children(at(nodes)))).toEqual([null, 'doc', null])
   })
 })
 
@@ -458,6 +479,57 @@ describe('dropped tags', () => {
     expect(JSON.stringify(nodes)).not.toContain('alert(1)')
     expect(JSON.stringify(nodes)).not.toContain('color:red')
     expect(children(at(nodes))).toEqual(['Visible.'])
+  })
+})
+
+describe('HTML comments, processing instructions and CDATA', () => {
+  const notes = {
+    'a comment': '<!-- note -->',
+    'a processing instruction': '<?php echo "note"; ?>',
+    'CDATA': '<![CDATA[note]]>',
+    'a declaration': '<!DOCTYPE note>',
+  }
+
+  for (const [name, note] of Object.entries(notes)) {
+    it(`drops ${name} on a line of its own`, async () => {
+      const nodes = await markdownToTree(`Before.\n\n${note}\n\nAfter.\n`)
+      expect(collect(nodes)).toBe('Before.After.')
+    })
+
+    it(`drops ${name} inside a paragraph`, async () => {
+      expect(collect(await markdownToTree(`Before ${note} after.\n`))).toBe('Before  after.')
+    })
+  }
+
+  it('drops a multi-line comment', async () => {
+    expect(collect(await markdownToTree('<!--\nnote\n-->\n\nText.\n'))).toBe('Text.')
+    expect(collect(await markdownToTree('Before <!-- a\nnote --> after.\n'))).toBe('Before  after.')
+  })
+
+  it('drops a comment inside an HTML block, a heading or a link', async () => {
+    const shown = '<div>\n<!-- note -->\nKept.\n</div>\n\n# Title <!-- note -->\n\n[link <!-- note -->](/to)\n'
+    expect(collect(await markdownToTree(shown, { allowedHtml: shippedAllowedHtml() }))).not.toContain('note')
+  })
+
+  it('keeps an escaped comment and one in code as written', async () => {
+    const nodes = await markdownToTree('Shown \\<!-- a -->, `<!-- b -->`.\n\n```\n<!-- c -->\n```\n')
+    expect(collect(nodes)).toBe('Shown <!-- a -->, <!-- b -->.<!-- c -->')
+  })
+
+  it('keeps an unterminated comment as text', async () => {
+    expect(collect(await markdownToTree('Before <!-- after.\n'))).toBe('Before <!-- after.')
+  })
+
+  it('drops the edge forms <!--> and <!--->, and keeps ---->', async () => {
+    expect(collect(await markdownToTree('<!-->\n\nA <!--> b <!---> c ----> d.\n'))).toBe('A  b  c ----> d.')
+  })
+
+  it('drops a paragraph holding only a lowercase declaration', async () => {
+    expect(await markdownToTree('<!doctype html>\n\nNext.\n')).toEqual([['p', {}, 'Next.']])
+  })
+
+  it('hides a comment block up to its end marker, blank lines included', async () => {
+    expect(collect(await markdownToTree('<!-- todo\n\nHidden.\n-->\n\nShown.\n'))).toBe('Shown.')
   })
 })
 
@@ -758,6 +830,12 @@ describe('the shipped format', () => {
     const source = `::attachment{file="${file}" description="Signed contract"}\n::\n`
     const nodes = await markdownToTree(source, { resolveFiles: async () => ({}), allowedHtml: listed })
     expect(nodes[0]?.[1]).toMatchObject({ file, description: 'Signed contract' })
+  })
+
+  it('renders the editor\'s HTML form of bold, italic and strike as the mark', async () => {
+    const nodes = await markdownToTree('a<strong>(b)</strong> <em>c.</em>d e<del>$5</del>\n', { allowedHtml: listed })
+    expect(tags(children(at(nodes)))).toEqual([null, 'strong', null, 'em', null, 'del'])
+    expect(collect(nodes)).toBe('a(b) c.d e$5')
   })
 })
 

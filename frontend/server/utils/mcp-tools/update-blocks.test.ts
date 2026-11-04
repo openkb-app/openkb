@@ -273,6 +273,22 @@ describe('updateBlocks', () => {
     expect(routeAgentEdit).not.toHaveBeenCalled()
   })
 
+  it('hands a served mark tag back to the session as a tag, so a block read and written back is unchanged', async () => {
+    routeAgentEdit.mockResolvedValue({
+      nid: 7,
+      entry: 'started',
+      observers: 0,
+      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' } },
+    })
+    const { client } = await connect()
+    await client.listTools()
+    const markdown = 'alpha <u>gamma</u> a<strong>.x</strong>b a<em>.x</em>b a<del>.x</del>b {#b-1}'
+
+    await client.callTool({ name: 'updateBlocks', arguments: { path: 'intro', blocks: [{ id: 'b-1', markdown }] } })
+
+    expect(routeAgentEdit.mock.calls[0]![3]).toEqual({ blocks: [{ id: 'b-1', markdown }] })
+  })
+
   it('hands a fence that passes the check to the session byte for byte', async () => {
     routeAgentEdit.mockResolvedValue({
       nid: 7,

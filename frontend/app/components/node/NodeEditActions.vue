@@ -39,7 +39,8 @@ const emit = defineEmits<{
 const reviewOpen = defineModel<boolean>('reviewOpen', { default: false })
 
 const saveDisabled = computed(() =>
-  props.session.commitStatus.value === 'saving'
+  !props.session.hydrated.value
+  || props.session.commitStatus.value === 'saving'
   || isAuthFailedStatus(props.session.liveStatus.value))
 
 const dirty = computed(() => props.session.commitStatus.value === 'dirty')

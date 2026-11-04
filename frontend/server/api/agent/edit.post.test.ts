@@ -109,7 +109,7 @@ describe('POST /api/agent/edit', () => {
 
   it('hands the session block markdown the parser reads as the sender\'s text', async () => {
     // The write surfaces share one entity boundary (ADR 0014): what arrives
-    // as source is spelled the serializer's way before the parser sees it,
+    // as source is spelled the way comark writes it before the parser sees it,
     // and the field values, which never meet the parser, are left alone.
     readBody.mockResolvedValue({
       nid: 7,

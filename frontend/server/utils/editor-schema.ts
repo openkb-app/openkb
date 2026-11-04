@@ -4,9 +4,8 @@ import Code from '@tiptap/extension-code'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import type { Schema } from '@tiptap/pm/model'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
-import { TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import { BlockId } from '../../app/editor/nodes/block-id'
-import { BlockWrapper } from '../../app/editor/nodes/block-wrapper'
 import { Callout } from '../../app/editor/nodes/callout'
 import { OkbCite } from '../../app/editor/nodes/cite'
 import { OkbDocLink } from '../../app/editor/nodes/doc-link'
@@ -15,17 +14,8 @@ import { OkbAttachment, OkbAttachmentInline } from '../../app/editor/nodes/attac
 import { OkbEmbed } from '../../app/editor/nodes/embed'
 import { Infobox } from '../../app/editor/nodes/infobox'
 import { OkbMention } from '../../app/editor/nodes/mention'
-import {
-  OkbCodeBlock,
-  OkbHardBreak,
-  OkbHeading,
-  OkbLink,
-  OkbListItem,
-  OkbParagraph,
-  OkbTable,
-  OkbUnderline,
-  markdownOverrideExtensions,
-} from '../../app/editor/nodes/markdown-overrides'
+import { OkbOrderedList } from '../../app/editor/nodes/ordered-list'
+import { OkbCodeBlock } from '../../app/editor/nodes/code-block'
 
 /**
  * Schema-only mirror of the live editor's extension set — no Vue, no
@@ -44,7 +34,9 @@ import {
  *
  * UEditor's own Image copy is disabled (`:image="false"` on the edit pages)
  * in favor of OkbImage — the same node extended with the `file` attribute
- * and the `::image` fence grammar (see app/editor/nodes/image.ts).
+ * (see app/editor/nodes/image.ts). StarterKit's code block and ordered list
+ * are disabled the same way, for our own (the client's NodeView; a digit
+ * list only, app/editor/nodes/ordered-list.ts).
  *
  * plus the GFM Table family + TaskList/TaskItem and our own Callout / Infobox
  * nodes — the latter imported from the exact Vue-free modules
@@ -57,43 +49,30 @@ import {
  * Extensions that add ProseMirror plugins but no schema (Collaboration,
  * CollaborationCaret, Placeholder, the mention suggestion) are intentionally
  * omitted — they contribute nothing to a Schema and some pull in browser-only
- * code. Markdown parsing is never done here (that is the client's HTML-seed
- * job); the server only serializes an already-synced Y.Doc.
+ * code.
  */
 export function buildUEditorBaseExtensions() {
   return [
     StarterKit.configure({
       code: false,
       horizontalRule: false,
-      // Replaced below by comark-canonical markdown overrides (same
-      // schema, different markdown grammar) — see markdown-overrides.ts.
+      // The pages disable them too: buildEditorExtensions brings its own.
       codeBlock: false,
-      hardBreak: false,
-      heading: false,
-      link: false,
-      listItem: false,
-      paragraph: false,
-      underline: false,
+      orderedList: false,
+      link: { openOnClick: false },
     }),
     Code.extend({ excludes: 'code' }),
     HorizontalRule,
     OkbMention,
     OkbCodeBlock,
-    OkbHardBreak,
-    OkbHeading,
-    OkbLink.configure({ openOnClick: false }),
-    OkbListItem,
-    OkbParagraph,
-    OkbUnderline,
+    OkbOrderedList,
   ]
 }
 
 export function buildCommitSchemaExtensions() {
   return [
     ...buildUEditorBaseExtensions(),
-    ...markdownOverrideExtensions(),
     BlockId,
-    BlockWrapper,
     Callout,
     OkbCite,
     OkbDocLink,
@@ -102,7 +81,7 @@ export function buildCommitSchemaExtensions() {
     OkbAttachment,
     OkbAttachmentInline,
     OkbEmbed,
-    OkbTable,
+    Table,
     TableRow,
     TableHeader,
     TableCell,

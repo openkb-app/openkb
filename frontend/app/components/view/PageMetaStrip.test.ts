@@ -15,7 +15,7 @@ interface Copies { published: number, plain: [string, string][] }
 function mount(props: {
   docType?: string
   rawHref?: string
-  workingCopy?: () => string
+  workingCopy?: () => Promise<string>
   editable?: boolean
 }) {
   const copies: Copies = { published: 0, plain: [] }
@@ -70,7 +70,7 @@ describe('the page meta strip', () => {
     const { root, copies } = mount({
       docType: 'guide',
       rawHref: RAW_HREF,
-      workingCopy: () => 'The body as it stands.',
+      workingCopy: async () => 'The body as it stands.',
     })
 
     expect(root.querySelector(`a[href="${RAW_HREF}"]`)).toBeNull()
@@ -78,7 +78,7 @@ describe('the page meta strip', () => {
     const copy = root.querySelector<HTMLButtonElement>('[data-testid="copy-as-markdown"]')!
     expect(copy.getAttribute('aria-label')).toBe('Copy the working copy as Markdown')
     copy.click()
-    expect(copies.plain).toEqual([['The body as it stands.', 'Working copy']])
+    await vi.waitFor(() => expect(copies.plain).toEqual([['The body as it stands.', 'Working copy']]))
     expect(copies.published).toBe(0)
   })
 

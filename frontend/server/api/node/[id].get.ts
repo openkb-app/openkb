@@ -38,5 +38,5 @@ export default defineEventHandler(async (event) => {
   const read = getQuery(event).version === 'default'
     ? await fetchCeNode(auth, nid)
     : await fetchCeWorkingCopy(auth, nid)
-  return { ...read.page, versions: blockVersions(bodyForms(read.page.body).canonical) }
+  return { ...read.page, versions: blockVersions((await bodyForms(read.page.body)).canonical) }
 })

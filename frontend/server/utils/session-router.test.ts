@@ -258,7 +258,7 @@ describe('routeAgentEdit', () => {
       blocks: { [SEED_BLOCK]: expect.stringMatching(/^[\da-f]{12}$/) },
     })
     // Authored content, so the block carries a minted id (agent-block-ids.ts).
-    expect(serializeYDoc(doc)).toBe(REWRITTEN_SEED)
+    expect(await serializeYDoc(doc)).toBe(REWRITTEN_SEED)
     expect(doc.getMap('fields').get('summary')).toBe('a summary')
     // Nothing was written to Drupal, and the peer is still in the room.
     expect(checkpoint).not.toHaveBeenCalled()
@@ -276,7 +276,7 @@ describe('routeAgentEdit', () => {
     expect(deps.checkNodeAccess).not.toHaveBeenCalled()
     expect(deps.host.openDirectConnection).toHaveBeenCalledOnce()
     expect(Object.keys(second.applied.blocks)).toEqual([SEED_BLOCK])
-    expect(serializeYDoc(doc)).toBe(`second {#${SEED_BLOCK}}`)
+    expect(await serializeYDoc(doc)).toBe(`second {#${SEED_BLOCK}}`)
   })
 
   it('opens one session for parallel first calls of one credential', async () => {
@@ -372,7 +372,7 @@ describe('routeAgentEdit', () => {
     expect(result.observers).toBe(2)
     // The edit landed in the shared document; nothing was written to Drupal,
     // which is exactly why the peers see no external-change banner.
-    expect(serializeYDoc(doc)).toBe(REWRITTEN_SEED)
+    expect(await serializeYDoc(doc)).toBe(REWRITTEN_SEED)
     expect(checkpoint).not.toHaveBeenCalled()
   })
 
@@ -414,7 +414,7 @@ describe('routeAgentEdit', () => {
       .rejects.toMatchObject({ statusCode: 422 })
 
     expect(deps.host.openDirectConnection).not.toHaveBeenCalled()
-    expect(serializeYDoc(doc)).toBe(`before {#${SEED_BLOCK}}`)
+    expect(await serializeYDoc(doc)).toBe(`before {#${SEED_BLOCK}}`)
   })
 
   it('refuses ops the exposure contract cannot address — before joining', async () => {
@@ -428,7 +428,7 @@ describe('routeAgentEdit', () => {
     await expect(routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { blocks: [{ id: SEED_BLOCK, markdown: 'after' }] }))
       .rejects.toMatchObject({ denial: 'access' })
     expect(deps.host.openDirectConnection).not.toHaveBeenCalled()
-    expect(serializeYDoc(doc)).toBe(`before {#${SEED_BLOCK}}`)
+    expect(await serializeYDoc(doc)).toBe(`before {#${SEED_BLOCK}}`)
   })
 
   it('fills an empty headless body from Drupal before a fields-only write', async () => {
@@ -448,9 +448,49 @@ describe('routeAgentEdit', () => {
 
     const result = await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'only fields' } })
 
-    expect(serializeYDoc(doc)).toBe('from drupal')
+    expect(await serializeYDoc(doc)).toBe('from drupal')
     // The body was restored, not authored — the caller is not told it wrote one.
     expect(result.applied.body).toBe(false)
+  })
+
+  it('leaves a headless body a peer filled while Drupal\'s was read', async () => {
+    doc = docWith('seeded but never hydrated')
+    const fragment = doc.getXmlFragment('default')
+    fragment.delete(0, fragment.length)
+    const peerDoc = docWith('a peer wrote this')
+    deps = {
+      ...deps,
+      fetchBody: vi.fn(async () => {
+        Y.applyUpdate(doc, Y.encodeStateAsUpdate(peerDoc))
+        return 'from drupal'
+      }),
+      host: {
+        documents: new Map(),
+        openDirectConnection: vi.fn(async () => ({ document: doc, disconnect, transact: vi.fn() })),
+      },
+    } as unknown as RouterDeps
+
+    await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'only fields' } })
+
+    expect(await serializeYDoc(doc)).toBe(`a peer wrote this {#${SEED_BLOCK}}`)
+  })
+
+  it('leaves the document when reading Drupal\'s body for an empty headless one fails', async () => {
+    doc = docWith('seeded but never hydrated')
+    const fragment = doc.getXmlFragment('default')
+    fragment.delete(0, fragment.length)
+    deps = {
+      ...deps,
+      fetchBody: vi.fn(async () => { throw new Error('Drupal is down') }),
+      host: {
+        documents: new Map(),
+        openDirectConnection: vi.fn(async () => ({ document: doc, disconnect, transact: vi.fn() })),
+      },
+    } as unknown as RouterDeps
+
+    await expect(routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'only fields' } }))
+      .rejects.toThrow('Drupal is down')
+    expect(disconnect).toHaveBeenCalledOnce()
   })
 
   it('keeps the block ids Drupal\'s body carries when it fills a headless one', async () => {
@@ -478,7 +518,7 @@ describe('routeAgentEdit', () => {
     expect([...present]).toEqual(['b-1', 'b-2'])
     // Restoration, not authorship: no tally, and the bytes go back unchanged.
     expect((doc.getMap('blockMeta').get('b-1') as { contributors: unknown[] }).contributors).toHaveLength(1)
-    expect(serializeYDoc(doc)).toBe('kept {#b-1}\n\nsecond {#b-2}')
+    expect(await serializeYDoc(doc)).toBe('kept {#b-1}\n\nsecond {#b-2}')
   })
 
   it('hands a headless document its own carrier before it loads', async () => {
@@ -503,7 +543,7 @@ describe('routeAgentEdit', () => {
   it('never re-fills a body the writer is replacing anyway', async () => {
     await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { blocks: [{ id: SEED_BLOCK, markdown: 'after' }] })
     expect(deps.fetchBody).not.toHaveBeenCalled()
-    expect(serializeYDoc(doc)).toBe(REWRITTEN_SEED)
+    expect(await serializeYDoc(doc)).toBe(REWRITTEN_SEED)
   })
 
   it('leaves a live session\'s fragment alone', async () => {
@@ -513,7 +553,7 @@ describe('routeAgentEdit', () => {
     doc.getXmlFragment('default').delete(0, doc.getXmlFragment('default').length)
     await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'x' } })
     expect(deps.fetchBody).not.toHaveBeenCalled()
-    expect(serializeYDoc(doc)).toBe('')
+    expect(await serializeYDoc(doc)).toBe('')
   })
 
   it('refuses a value the commit could not write — before joining', async () => {

@@ -8,8 +8,6 @@ import {
   contributorsSince,
   hasRecord,
   isPending,
-  liftBlockIds,
-  lowerBlockIds,
   mayApprove,
   mintBlockId,
   mintMissingIds,
@@ -35,176 +33,6 @@ function para(text: string, id?: string): JSONContent {
 function doc(...blocks: JSONContent[]): JSONContent {
   return { type: 'doc', content: blocks }
 }
-
-/** The first top-level block of a lifted/lowered document. */
-function first(d: JSONContent): JSONContent {
-  return d.content![0]!
-}
-
-describe('liftBlockIds', () => {
-  it('lifts a trailing {#id} off a top-level paragraph onto attrs.id', () => {
-    const p = first(liftBlockIds(doc(para('Hello world {#b-71c2}'))))
-    expect(p.attrs?.id).toBe('b-71c2')
-    expect(p.content).toEqual([{ type: 'text', text: 'Hello world' }])
-  })
-
-  it('lifts off a heading and preserves the heading level', () => {
-    const h = first(liftBlockIds(doc({
-      type: 'heading',
-      attrs: { level: 2 },
-      content: [{ type: 'text', text: 'Section title {#b-3f9a}' }],
-    })))
-    expect(h.attrs).toMatchObject({ level: 2, id: 'b-3f9a' })
-    expect(h.content).toEqual([{ type: 'text', text: 'Section title' }])
-  })
-
-  it('leaves a nested paragraph alone — a blockquote keeps its id as text', () => {
-    // comark attaches this id to the BLOCKQUOTE, not the inner paragraph; a
-    // container's own id rides the ::block wrapper fence, never trailing
-    // text. Untouched text round-trips byte-identically.
-    const bq = first(liftBlockIds(doc({
-      type: 'blockquote',
-      content: [para('A quoted block. {#b-8d4e}')],
-    })))
-    expect(bq.content?.[0]?.attrs?.id).toBeUndefined()
-    expect(bq.content?.[0]?.content).toEqual([{ type: 'text', text: 'A quoted block. {#b-8d4e}' }])
-  })
-
-  it('leaves list-item text alone', () => {
-    const list = first(liftBlockIds(doc({
-      type: 'bulletList',
-      content: [{ type: 'listItem', content: [para('first item {#b-a001}')] }],
-    })))
-    expect(list.attrs?.id).toBeUndefined()
-    expect(list.content?.[0]?.content?.[0]?.content)
-      .toEqual([{ type: 'text', text: 'first item {#b-a001}' }])
-  })
-
-  it('leaves a block with no trailing id untouched', () => {
-    const p = first(liftBlockIds(doc(para('Just prose.'))))
-    expect(p.attrs?.id).toBeUndefined()
-    expect(p.content).toEqual([{ type: 'text', text: 'Just prose.' }])
-  })
-
-  it('does not treat a non-id trailing brace as an id', () => {
-    // `{#anything with spaces}` is not the `[\w-]+` shorthand shape.
-    expect(first(liftBlockIds(doc(para('See rule {#a b}')))).attrs?.id).toBeUndefined()
-  })
-
-  it('drops the text node entirely when the block is only an id', () => {
-    const p = first(liftBlockIds(doc(para('{#b-only}'))))
-    expect(p.attrs?.id).toBe('b-only')
-    expect(p.content).toEqual([])
-  })
-
-  it('does not mutate its input', () => {
-    const input = doc(para('Hello {#b-1234}'))
-    const snapshot = JSON.parse(JSON.stringify(input))
-    liftBlockIds(input)
-    expect(input).toEqual(snapshot)
-  })
-
-  it('dissolves a ::block wrapper onto its container', () => {
-    const table = { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [para('c')] }] }] }
-    const lifted = liftBlockIds(doc({ type: 'blockWrapper', attrs: { id: 'b-w1' }, content: [table] }))
-    expect(lifted.content).toHaveLength(1)
-    expect(first(lifted).type).toBe('table')
-    expect(first(lifted).attrs?.id).toBe('b-w1')
-  })
-
-  it('dissolves a hand-authored multi-child wrapper into top-level blocks', () => {
-    const lifted = liftBlockIds(doc({
-      type: 'blockWrapper',
-      attrs: { id: 'b-w2' },
-      content: [para('one'), para('two {#b-own}')],
-    }))
-    expect(lifted.content?.map(node => node.type)).toEqual(['paragraph', 'paragraph'])
-    // The wrapper id lands on the first child; a child's own trailing id wins.
-    expect(lifted.content?.[0]?.attrs?.id).toBe('b-w2')
-    expect(lifted.content?.[1]?.attrs?.id).toBe('b-own')
-  })
-})
-
-describe('lowerBlockIds', () => {
-  it('puts attrs.id back as trailing text and clears the attribute', () => {
-    const p = first(lowerBlockIds(doc(para('Hello world', 'b-71c2'))))
-    expect(p.content).toEqual([{ type: 'text', text: 'Hello world {#b-71c2}' }])
-    expect((p.attrs as { id?: unknown })?.id).toBeUndefined()
-  })
-
-  it('keeps the id out of a marked tail', () => {
-    // Joined onto the marked node, the id serializes inside the mark's
-    // delimiters (`**ends bold {#b-1}**`), where it is no longer trailing and
-    // no segmentation can find it.
-    for (const mark of ['bold', 'italic', 'code', { type: 'link', attrs: { href: 'https://example.com' } }]) {
-      const p = first(lowerBlockIds(doc({
-        type: 'paragraph',
-        attrs: { id: 'b-71c2' },
-        content: [
-          { type: 'text', text: 'some text ' },
-          { type: 'text', text: 'tail', marks: [typeof mark === 'string' ? { type: mark } : mark] },
-        ],
-      })))
-      expect(p.content?.[2]).toEqual({ type: 'text', text: ' {#b-71c2}' })
-    }
-  })
-
-  it('adds no leading space for an id-only block', () => {
-    const p = first(lowerBlockIds(doc({ type: 'paragraph', attrs: { id: 'b-only' }, content: [] })))
-    expect(p.content).toEqual([{ type: 'text', text: '{#b-only}' }])
-  })
-
-  it('leaves a block without an id untouched', () => {
-    expect(first(lowerBlockIds(doc(para('Plain')))).content)
-      .toEqual([{ type: 'text', text: 'Plain' }])
-  })
-
-  it('never lowers an id sitting on a nested block', () => {
-    // A stray nested id (e.g. a top-level paragraph dragged into a list) is
-    // inert: it must not leak `{#id}` into list-item or table-cell text.
-    const list = first(lowerBlockIds(doc({
-      type: 'bulletList',
-      content: [{ type: 'listItem', content: [para('item', 'b-stray')] }],
-    })))
-    expect(list.content?.[0]?.content?.[0]?.content)
-      .toEqual([{ type: 'text', text: 'item' }])
-  })
-
-  it('does not mutate its input', () => {
-    const input = doc(para('Hello', 'b-1234'))
-    const snapshot = JSON.parse(JSON.stringify(input))
-    lowerBlockIds(input)
-    expect(input).toEqual(snapshot)
-  })
-
-  it('folds an id-carrying container into a ::block wrapper', () => {
-    const table = { type: 'table', attrs: { id: 'b-w1' }, content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [para('c')] }] }] }
-    const lowered = first(lowerBlockIds(doc(table)))
-    expect(lowered.type).toBe('blockWrapper')
-    expect(lowered.attrs).toEqual({ id: 'b-w1' })
-    expect(lowered.content?.[0]?.type).toBe('table')
-    expect((lowered.content?.[0]?.attrs as { id?: unknown } | undefined)?.id).toBeUndefined()
-  })
-
-  it('leaves either image form to its own renderer, which carries the id', () => {
-    const plain = { type: 'image', attrs: { id: 'b-i1', src: 'https://example.com/a.png', alt: 'A', file: null } }
-    const file = { type: 'image', attrs: { id: 'b-i2', file: '1111', alt: 'A' } }
-    expect(first(lowerBlockIds(doc(plain)))).toEqual(plain)
-    expect(first(lowerBlockIds(doc(file)))).toEqual(file)
-  })
-
-  it('serializes an id-less container bare — no wrapper to emit', () => {
-    const table = { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [para('c')] }] }] }
-    expect(first(lowerBlockIds(doc(table)))).toEqual(table)
-  })
-})
-
-describe('lift/lower round-trip', () => {
-  it('is the identity on a lifted tree', () => {
-    const lowered = lowerBlockIds(liftBlockIds(doc(para('Hello world {#b-71c2}'))))
-    expect(first(lowered).content).toEqual([{ type: 'text', text: 'Hello world {#b-71c2}' }])
-  })
-})
 
 describe('mintBlockId', () => {
   it('prefixes b- and passes the source through', () => {
@@ -300,28 +128,28 @@ describe('mintMissingIds', () => {
 })
 
 describe('markdown engine block-id integration', () => {
-  it('parses a heading id into a structured attribute (not text)', () => {
-    const json = parseMarkdownToJson('## Section title {#b-3f9a}')
+  it('parses a heading id into a structured attribute (not text)', async () => {
+    const json = await parseMarkdownToJson('## Section title {#b-3f9a}')
     const heading = json.content?.[0]
     expect(heading?.type).toBe('heading')
     expect(heading?.attrs?.id).toBe('b-3f9a')
     expect(heading?.content).toEqual([{ type: 'text', text: 'Section title' }])
   })
 
-  it('serializes a block id back to canonical trailing {#id}', () => {
+  it('serializes a block id back to canonical trailing {#id}', async () => {
     const json: JSONContent = {
       type: 'doc',
       content: [{ type: 'paragraph', attrs: { id: 'b-71c2' }, content: [{ type: 'text', text: 'A paragraph carrying a block id.' }] }],
     }
-    expect(serializeDocToMarkdown(json)).toBe('A paragraph carrying a block id. {#b-71c2}')
+    expect(await serializeDocToMarkdown(json)).toBe('A paragraph carrying a block id. {#b-71c2}')
   })
 
-  it('round-trips markdown byte-identically through the structured attribute', () => {
+  it('round-trips markdown byte-identically through the structured attribute', async () => {
     const md = '## Section title {#b-3f9a}\n\nA paragraph carrying a block id. {#b-71c2}'
-    expect(serializeDocToMarkdown(parseMarkdownToJson(md))).toBe(md)
+    expect(await serializeDocToMarkdown(await parseMarkdownToJson(md))).toBe(md)
   })
 
-  it('round-trips a block whose last span is marked', () => {
+  it('round-trips a block whose last span is marked', async () => {
     for (const md of [
       'some text **ends bold** {#b-71c2}',
       'some text *ends emphasis* {#b-71c2}',
@@ -330,13 +158,13 @@ describe('markdown engine block-id integration', () => {
       '**all bold** {#b-71c2}',
       '## Heading **ending bold** {#b-3f9a}',
     ]) {
-      expect(serializeDocToMarkdown(parseMarkdownToJson(md))).toBe(md)
+      expect(await serializeDocToMarkdown(await parseMarkdownToJson(md))).toBe(md)
     }
   })
 
-  it('heals a block whose id was written into its marked tail', () => {
-    expect(serializeDocToMarkdown(parseMarkdownToJson('some text **ends bold {#b-71c2}**')))
-      .toBe('some text **ends bold** {#b-71c2}')
+  it('drops an id written into a marked tail: comark reads it as the mark\'s attribute, not as text', async () => {
+    expect(await serializeDocToMarkdown(await parseMarkdownToJson('some text **ends bold {#b-71c2}**')))
+      .toBe('some text **ends bold**')
   })
 })
 

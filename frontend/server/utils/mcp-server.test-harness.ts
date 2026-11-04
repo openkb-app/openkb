@@ -2,7 +2,6 @@ import { vi } from 'vitest'
 import type { H3Event } from 'h3'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import type { StaleBlockError } from './agent-peer'
 
 /**
@@ -139,13 +138,9 @@ export const STALE = 'c070666432ee'
 /** A refusal the real CAS check produced, not a hand-written stand-in. */
 export async function refusalFromTheCasCheck(): Promise<StaleBlockError> {
   const { refuseStaleBlocks } = await import('./agent-peer')
-  const { editorSchema } = await import('./editor-schema')
-  const doc = prosemirrorJSONToYDoc(editorSchema, {
-    type: 'doc',
-    content: [{ type: 'paragraph', attrs: { id: 'b-1' }, content: [{ type: 'text', text: 'first' }] }],
-  } as never, 'default')
+  const { blockSegments } = await import('./block-versions')
   try {
-    refuseStaleBlocks(doc, [{ id: 'b-1', expect: STALE, markdown: 'agent rewrite' }])
+    refuseStaleBlocks(blockSegments('first {#b-1}'), [{ id: 'b-1', expect: STALE, markdown: 'agent rewrite' }])
   }
   catch (err) {
     return err as StaleBlockError

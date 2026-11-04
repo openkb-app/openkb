@@ -2,27 +2,16 @@
 import { describe, it, expect } from 'vitest'
 import { Editor } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
+import Link from '@tiptap/extension-link'
+import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
-import { OkbDocLink, docLinkLabel } from './doc-link'
-import { OkbLink, OkbParagraph } from './markdown-overrides'
-
-describe('docLinkLabel', () => {
-  it('keeps a bracketed title inside the component', () => {
-    // comark reads the label up to the first `]` and offers no escape, so a
-    // bracket would truncate the link's words.
-    expect(docLinkLabel('Release [beta] process')).toBe('Release (beta) process')
-  })
-
-  it('leaves an ordinary title alone', () => {
-    expect(docLinkLabel('Release process')).toBe('Release process')
-  })
-})
+import { OkbDocLink } from './doc-link'
 
 describe('pasting a rendered document link', () => {
   function parse(html: string) {
     const editor = new Editor({
       element: document.createElement('div'),
-      extensions: [Document, OkbParagraph, Text, OkbLink.configure({ openOnClick: false }), OkbDocLink],
+      extensions: [Document, Paragraph, Text, Link.configure({ openOnClick: false }), OkbDocLink],
       content: html,
     })
     const json = editor.getJSON()

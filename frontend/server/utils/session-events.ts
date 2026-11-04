@@ -308,7 +308,8 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
     return view
   }
 
-  const segments = (): Map<string, string> =>
+  /** The body's block segments, read off the document when called. */
+  const segments = (): Promise<Map<string, string>> =>
     blockSegmentsOfDoc(docView().pm.toJSON() as ProseMirrorJSON)
 
   const peersNow = (): Map<number, WatchedPeer> => {
@@ -321,32 +322,68 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
   }
 
   // The blocks and peers already there are the baseline the diffs run against.
-  let blocks = segments()
+  // A failed render leaves none: the next settle's render becomes it.
+  let blocks: Promise<Map<string, string> | null> = segments().catch(() => null)
   let peers = peersNow()
   let hadEditors = watch.humanPeers() > 0
   /** Who wrote into the body since the last block settle. */
   let writers: EventPeer[] = []
 
-  /** Reports every block that moved and went quiet, and every one that went. */
-  function settleBlocks(): void {
-    const current = segments()
-    const at = now()
-    // Attribution is per settle window, not per block: two peers writing
-    // different blocks inside one window leave it unattributed rather than
-    // crediting the wrong one.
-    const by = writers.length === 1 ? writers[0]! : null
-    for (const [id, markdown] of current) {
-      if (blocks.get(id) === markdown) continue
-      record(at, {
-        kind: 'blocks', event: 'settled', blockId: id, version: blockVersion(markdown), markdown, by,
-      })
+  /** Whether a settle is rendering, and whether another was asked for meanwhile. */
+  let settling = false
+  let settleAgain = false
+
+  /** Whether two writers are the same account through the same client. */
+  const isSameWriter = (a: Pick<EventPeer, 'uid' | 'via'>, b: Pick<EventPeer, 'uid' | 'via'>): boolean => a.uid === b.uid && a.via === b.via
+
+  /**
+   * Reports every block that moved and went quiet, and every one that went.
+   * One settle at a time: one asked for while another renders runs after it.
+   */
+  async function settleBlocks(): Promise<void> {
+    if (settling) {
+      settleAgain = true
+      return
     }
-    for (const id of blocks.keys()) {
-      if (current.has(id)) continue
-      record(at, { kind: 'blocks', event: 'removed', blockId: id, version: null, markdown: null, by })
+    settling = true
+    try {
+      do {
+        settleAgain = false
+        // Attribution is per settle window, not per block: two peers writing
+        // different blocks inside one window leave it unattributed rather than
+        // crediting the wrong one.
+        const taken = writers
+        const by = taken.length === 1 ? taken[0]! : null
+        writers = []
+        const before = await blocks
+        let current: Map<string, string>
+        try {
+          current = await segments()
+        }
+        catch {
+          // The previous blocks and their writers stay; the next edit settles again.
+          writers = [...taken, ...writers.filter(writer => !taken.some(seen => isSameWriter(seen, writer)))]
+          continue
+        }
+        blocks = Promise.resolve(current)
+        if (watch.closed) return
+        if (!before) continue
+        const at = now()
+        for (const [id, markdown] of current) {
+          if (before.get(id) === markdown) continue
+          record(at, {
+            kind: 'blocks', event: 'settled', blockId: id, version: blockVersion(markdown), markdown, by,
+          })
+        }
+        for (const id of before.keys()) {
+          if (current.has(id)) continue
+          record(at, { kind: 'blocks', event: 'removed', blockId: id, version: null, markdown: null, by })
+        }
+      } while (settleAgain)
     }
-    blocks = current
-    writers = []
+    finally {
+      settling = false
+    }
   }
 
   /**
@@ -399,16 +436,20 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
     via: wrote.via,
   })
 
+  /**
+   * Notes the update's writer and restarts the block and presence settles, so
+   * a burst of edits is reported once it is quiet.
+   */
   const onUpdate = (_update: Uint8Array, origin: unknown): void => {
     view = null
     const wrote = writerOfOrigin(origin)
-    if (wrote && !writers.some(seen => seen.uid === wrote.uid && seen.via === wrote.via)) {
+    if (wrote && !writers.some(seen => isSameWriter(seen, wrote))) {
       writers.push(peerOfWriter(wrote))
     }
     if (blockTimer) clearTimer(blockTimer)
     blockTimer = setTimer(() => {
       blockTimer = null
-      settleBlocks()
+      void settleBlocks()
     }, options.settleMs ?? COLLAB_BLOCK_SETTLE_MS)
     ;(blockTimer as { unref?: () => void }).unref?.()
     // Content moving moves the carets in it, so presence re-settles with the

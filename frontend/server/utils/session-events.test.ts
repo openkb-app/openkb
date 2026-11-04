@@ -4,7 +4,8 @@ import { Awareness } from 'y-protocols/awareness'
 import { absolutePositionToRelativePosition, initProseMirrorDoc, prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import { editorSchema } from './editor-schema'
 import { presenceCarrier, publishAwareness, type AwareDoc } from './agent-awareness'
-import { applyBlockOps, applyComment, type AgentActor } from './agent-peer'
+import { applyBlockOps, applyComment, type AgentActor, type BlockOp } from './agent-peer'
+import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
 import { recordCommentMessage } from '#shared/block-comments'
 import {
   awaitChanges,
@@ -15,6 +16,22 @@ import {
   watchSession,
   type ChangeEvent,
 } from './session-events'
+
+/** How many of the next renders reject. */
+const render = vi.hoisted(() => ({ failures: 0 }))
+vi.mock('./block-versions', async (original) => {
+  const actual = await original<typeof import('./block-versions')>()
+  return {
+    ...actual,
+    blockSegmentsOfDoc: async (json: Parameters<typeof actual.blockSegmentsOfDoc>[0]) => {
+      if (render.failures > 0) {
+        render.failures--
+        throw new Error('render failed')
+      }
+      return actual.blockSegmentsOfDoc(json)
+    },
+  }
+})
 
 /**
  * The event derivation behind `waitForChanges`, against a real document.
@@ -50,6 +67,9 @@ function watch(doc: AwareDoc, name = 'node:1') {
   return watchSession({ documentName: name, doc, humanPeers: () => humans }, FAST)
 }
 
+/** Each op's markdown, parsed, as `applyBlockOps` takes it. */
+const parsed = (ops: BlockOp[]) => Promise.all(ops.map(op => parseMarkdownToJson(op.markdown)))
+
 /** Everything the log holds, for a reader that asked for everything. */
 function seen(log: ReturnType<typeof watch>, cursor?: string, kinds = ALL): ChangeEvent[] {
   return changesSince(log, cursor, kinds).events
@@ -57,8 +77,15 @@ function seen(log: ReturnType<typeof watch>, cursor?: string, kinds = ALL): Chan
 
 const ALL = ['comments', 'blocks', 'presence'] as const
 
-/** Timers are fake: this runs every settle window that falls due. */
-const settled = (): Promise<void> => vi.advanceTimersByTimeAsync(SETTLED_MS).then(() => {})
+/**
+ * Timers are fake: this runs every settle window that falls due, and the
+ * settle's render, which loads the renderer on first use.
+ */
+async function settled(): Promise<void> {
+  await vi.advanceTimersByTimeAsync(SETTLED_MS)
+  await vi.dynamicImportSettled()
+  await vi.advanceTimersByTimeAsync(0)
+}
 
 /** Lets a wait run to its timeout. */
 async function timedOut<T>(waiting: Promise<T>, ms: number): Promise<T> {
@@ -86,6 +113,7 @@ describe('session events', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   })
   afterEach(() => {
+    render.failures = 0
     stopAllWatches()
     vi.useRealTimers()
   })
@@ -97,7 +125,8 @@ describe('session events', () => {
 
     // Three writes in a burst, the way typing arrives.
     for (const text of ['fir', 'first draft', 'first draft, done']) {
-      applyBlockOps(doc, [{ id: 'b-1', markdown: text }])
+      const ops = [{ id: 'b-1', markdown: text }]
+      applyBlockOps(doc, ops, await parsed(ops))
     }
     await settled()
 
@@ -117,7 +146,9 @@ describe('session events', () => {
     const log = watch(doc)
     const cursor = changesSince(log, undefined, ALL).cursor
 
-    asAgent(doc, () => applyBlockOps(doc, [{ id: 'b-1', markdown: 'the agent wrote this' }]))
+    const ops = [{ id: 'b-1', markdown: 'the agent wrote this' }]
+    const blocks = await parsed(ops)
+    asAgent(doc, () => applyBlockOps(doc, ops, blocks))
     await settled()
 
     expect(seen(log, cursor)[0]).toMatchObject({ kind: 'blocks', by: { uid: 7, via: 'Claude' } })
@@ -207,7 +238,8 @@ describe('session events', () => {
     const cursor = changesSince(log, undefined, ALL).cursor
 
     applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Needs a source.' })
-    applyBlockOps(doc, [{ id: 'b-1', markdown: 'rewritten' }])
+    const ops = [{ id: 'b-1', markdown: 'rewritten' }]
+    applyBlockOps(doc, ops, await parsed(ops))
     await settled()
 
     expect(changesSince(log, cursor, ['comments']).events.map(event => event.kind)).toEqual(['comments'])
@@ -292,6 +324,79 @@ describe('session events', () => {
     ])
   })
 
+  it('keeps watching after a settle render fails, against the blocks it had', async () => {
+    const doc = documentWith([['b-1', 'first'], ['b-2', 'second']])
+    const log = watch(doc)
+    await settled()
+    const cursor = changesSince(log, undefined, ALL).cursor
+
+    render.failures = 1
+    let ops = [{ id: 'b-1', markdown: 'lost render' }]
+    applyBlockOps(doc, ops, await parsed(ops))
+    await settled()
+    ops = [{ id: 'b-2', markdown: 'second, again' }]
+    applyBlockOps(doc, ops, await parsed(ops))
+    await settled()
+
+    expect(seen(log, cursor).map(event => (event as { blockId: string }).blockId).sort()).toEqual(['b-1', 'b-2'])
+  })
+
+  it('credits nobody alone with a block whose settle render failed when another writer follows', async () => {
+    const doc = documentWith([['b-1', 'first'], ['b-2', 'second']])
+    const log = watch(doc)
+    await settled()
+    const cursor = changesSince(log, undefined, ALL).cursor
+
+    render.failures = 1
+    let ops = [{ id: 'b-1', markdown: 'the agent wrote this' }]
+    const agentBlocks = await parsed(ops)
+    asAgent(doc, () => applyBlockOps(doc, ops, agentBlocks))
+    await settled()
+    ops = [{ id: 'b-2', markdown: 'someone else wrote this' }]
+    const otherBlocks = await parsed(ops)
+    Y.transact(doc, () => applyBlockOps(doc, ops, otherBlocks), { agent: true, seat: { uid: 9, name: 'editor1', via: null } })
+    await settled()
+
+    const events = seen(log, cursor) as Array<{ blockId: string, by: unknown }>
+    expect(events.map(event => [event.blockId, event.by]).sort()).toEqual([['b-1', null], ['b-2', null]])
+  })
+
+  it('takes its baseline from the next settle when the first render fails', async () => {
+    render.failures = 1
+    const doc = documentWith([['b-1', 'first'], ['b-2', 'second']])
+    const log = watch(doc)
+    const cursor = changesSince(log, undefined, ALL).cursor
+
+    let ops = [{ id: 'b-1', markdown: 'unreported' }]
+    applyBlockOps(doc, ops, await parsed(ops))
+    await settled()
+    ops = [{ id: 'b-2', markdown: 'reported' }]
+    applyBlockOps(doc, ops, await parsed(ops))
+    await settled()
+
+    expect(seen(log, cursor)).toEqual([
+      expect.objectContaining({ kind: 'blocks', blockId: 'b-2', markdown: 'reported {#b-2}' }),
+    ])
+  })
+
+  it('settles again for an edit that landed while a settle rendered', async () => {
+    const doc = documentWith([['b-1', 'first'], ['b-2', 'second']])
+    const log = watch(doc)
+    await settled()
+    const cursor = changesSince(log, undefined, ALL).cursor
+
+    let ops = [{ id: 'b-1', markdown: 'one' }]
+    applyBlockOps(doc, ops, await parsed(ops))
+    // The window falls due and its render starts, not finished.
+    await vi.advanceTimersByTimeAsync(FAST.settleMs)
+    ops = [{ id: 'b-2', markdown: 'two' }]
+    applyBlockOps(doc, ops, await parsed(ops))
+    await settled()
+
+    expect(seen(log, cursor).map(event => (event as { markdown: string }).markdown).sort())
+      .toEqual(['one {#b-1}', 'two {#b-2}'])
+  })
+
   it('leaves out what the reader itself wrote and said', async () => {
     const doc = documentWith([['b-1', 'first']])
     const log = watch(doc)
@@ -299,7 +404,9 @@ describe('session events', () => {
     const self = { uid: 7, via: 'Claude' }
 
     asAgent(doc, () => applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Done — have a look.' }))
-    asAgent(doc, () => applyBlockOps(doc, [{ id: 'b-1', markdown: 'the agent wrote this' }]))
+    const ops = [{ id: 'b-1', markdown: 'the agent wrote this' }]
+    const blocks = await parsed(ops)
+    asAgent(doc, () => applyBlockOps(doc, ops, blocks))
     await settled()
 
     expect(changesSince(log, cursor, ALL, self).events).toEqual([])

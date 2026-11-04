@@ -58,3 +58,8 @@ if (php_sapi_name() == 'cli' && $drupal_base_url) {
 
 // State cache: see https://www.drupal.org/node/3177901.
 $settings['state_cache'] = TRUE;
+
+// The secret the key of the frontend's internal comark routes is derived from
+// (Drupal\comark\SidecarSecret): the collaboration client's, which both
+// containers hold.
+$settings['comark_sidecar_secret'] = getenv('OKB_COLLAB_CLIENT_SECRET') ?: '';

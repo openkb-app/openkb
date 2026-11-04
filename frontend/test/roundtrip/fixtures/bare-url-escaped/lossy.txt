@@ -1,0 +1,1 @@
+L10: text that reads as a link (a scheme URL, www., an email) is written bare and becomes a link on the next load

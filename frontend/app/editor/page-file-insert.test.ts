@@ -60,14 +60,14 @@ let editor: Editor
 let peer: Editor
 
 /** Two editors sharing `markdown` over Yjs: ours and the peer's. */
-function mountShared(markdown: string): void {
+async function mountShared(markdown: string): Promise<void> {
   const ours = new Y.Doc()
   const theirs = new Y.Doc()
   ours.on('update', (update: Uint8Array, origin: unknown) => origin !== theirs && Y.applyUpdate(theirs, update, ours))
   theirs.on('update', (update: Uint8Array, origin: unknown) => origin !== ours && Y.applyUpdate(ours, update, theirs))
   const extensions = (document: Y.Doc) => [...buildCommitSchemaExtensions(), Collaboration.configure({ document }), CollabHistory, BlockIdMinter]
   peer = new Editor({ extensions: extensions(theirs) })
-  peer.commands.setContent(parseMarkdownToJson(markdown))
+  peer.commands.setContent(await parseMarkdownToJson(markdown))
   editor = new Editor({ extensions: extensions(ours) })
 }
 
@@ -99,7 +99,7 @@ afterEach(() => {
 
 describe('uploadIntoEditor', () => {
   it('sends the session\'s CSRF token with the upload', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]!.headers['X-CSRF-Token']).toBe('csrf-1')
@@ -108,7 +108,7 @@ describe('uploadIntoEditor', () => {
   })
 
   it('inserts the image where it was asked for when the peer types before it and elsewhere', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.child(0).nodeSize)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     peer.commands.insertContentAt(1, 'Peer: ')
@@ -119,7 +119,7 @@ describe('uploadIntoEditor', () => {
   })
 
   it('puts the caret after the image only if the user did not move on, so typing on keeps it', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const at = editor.state.doc.child(0).nodeSize
     let done = uploadIntoEditor(editor, 'image', [shot()], at)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
@@ -139,7 +139,7 @@ describe('uploadIntoEditor', () => {
   })
 
   it('counts the user\'s own undo as moving on, so the next key keeps the image', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const at = editor.state.doc.child(0).nodeSize
     editor.commands.insertContentAt(editor.state.doc.content.size - 1, ' Typed.')
     const done = uploadIntoEditor(editor, 'image', [shot()], at)
@@ -153,7 +153,7 @@ describe('uploadIntoEditor', () => {
 
   it('inserts several files in the order given, whichever upload lands first', async () => {
     const second = '66666666-7777-4888-9999-000000000002'
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = uploadIntoEditor(editor, 'image', [shot(), shot()], editor.state.doc.child(0).nodeSize)
     await vi.waitFor(() => expect(sent).toHaveLength(2))
     sent[1]!.answer(second)
@@ -164,7 +164,7 @@ describe('uploadIntoEditor', () => {
 
   it('puts the caret after the last embed of a multi-file upload', async () => {
     const second = '66666666-7777-4888-9999-000000000002'
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = uploadIntoEditor(editor, 'image', [shot(), shot()], editor.state.doc.child(0).nodeSize)
     await vi.waitFor(() => expect(sent).toHaveLength(2))
     sent[0]!.answer()
@@ -175,7 +175,7 @@ describe('uploadIntoEditor', () => {
   })
 
   it('adds a paragraph for the caret after an embed at the end of the page', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const done = uploadIntoEditor(editor, 'file', [shot()], editor.state.doc.content.size)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     sent[0]!.answer()
@@ -185,7 +185,7 @@ describe('uploadIntoEditor', () => {
   })
 
   it('puts the caret after an embed that split a paragraph, at the start of its rest', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = uploadIntoEditor(editor, 'image', [shot()], 3)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     sent[0]!.answer()
@@ -196,7 +196,7 @@ describe('uploadIntoEditor', () => {
 
   for (const [next, text] of [['## Head', 'Head'], ['```\ncode\n```', 'code']] as const) {
     it(`adds a paragraph for the caret before "${text}", so typing on stays out of it`, async () => {
-      mountShared(`First.\n\n${next}\n\nLast.`)
+      await mountShared(`First.\n\n${next}\n\nLast.`)
       await settle(uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.child(0).nodeSize))
       editor.commands.insertContent('x')
       expect(blocks()).toEqual(['First.', `image:${FILE}`, 'x', text, 'Last.'])
@@ -205,7 +205,7 @@ describe('uploadIntoEditor', () => {
   }
 
   it('adds a paragraph for the caret after an embed that split a heading', async () => {
-    mountShared('First.\n\n## Head\n\nLast.')
+    await mountShared('First.\n\n## Head\n\nLast.')
     await settle(uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.child(0).nodeSize + 3))
     editor.commands.insertContent('x')
     expect(blocks()).toEqual(['First.', 'He', `image:${FILE}`, 'x', 'ad', 'Last.'])
@@ -214,7 +214,7 @@ describe('uploadIntoEditor', () => {
 
   it('keeps the order given when inserting inside a paragraph', async () => {
     const second = '66666666-7777-4888-9999-000000000002'
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = uploadIntoEditor(editor, 'file', [shot(), shot()], editor.state.doc.child(0).nodeSize - 1)
     await vi.waitFor(() => expect(sent).toHaveLength(2))
     sent[0]!.answer()
@@ -225,7 +225,7 @@ describe('uploadIntoEditor', () => {
 
   it('picks the kind per file, each into its own list, in the order given', async () => {
     const pdf = '66666666-7777-4888-9999-000000000003'
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const files = [shot(), new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' })]
     const done = uploadIntoEditor(editor, file => file.type === 'image/png' ? 'image' : 'file', files, editor.state.doc.child(0).nodeSize)
     await vi.waitFor(() => expect(sent).toHaveLength(2))
@@ -240,7 +240,7 @@ describe('uploadIntoEditor', () => {
 
 describe('upload toasts', () => {
   it('shows progress while uploading and drops it once the file landed', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     expect([...toasts.values()]).toEqual([expect.objectContaining({ title: 'Uploading shot.png', description: '0%' })])
@@ -253,14 +253,14 @@ describe('upload toasts', () => {
     vi.stubGlobal('$fetch', async (url: string) => url === '/api/openkb/schema'
       ? { files: { field_kb_images: { extensions: ['png'], maxBytes: 2 } } }
       : 'csrf-1')
-    mountShared('First.')
+    await mountShared('First.')
     await uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     expect(sent).toHaveLength(0)
     expect([...toasts.values()]).toEqual([expect.objectContaining({ title: 'shot.png was not uploaded', description: 'It is too large: the limit is 2 B.' })])
   })
 
   it('replaces the progress toast with an error toast on a refusal', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const done = uploadIntoEditor(editor, 'image', [shot()], editor.state.doc.content.size)
     await vi.waitFor(() => expect(sent).toHaveLength(1))
     sent[0]!.refuse()
@@ -307,7 +307,7 @@ describe('undoing an insert', () => {
 
   for (const { path, block, key, insert, page, hidden } of INSERTS) {
     it(`${path}: one undo step with its list entry, redo brings both back, the caret goes after it`, async () => {
-      mountShared(page ?? 'First.\n\nSecond.')
+      await mountShared(page ?? 'First.\n\nSecond.')
       const listed = page ? [OLD] : []
       fileArray(sessionYDoc(), key).push(listed)
       const before = blocks()
@@ -332,7 +332,7 @@ describe('undoing an insert', () => {
   }
 
   it('keeps a file listed before the insert listed after its undo', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     addPageFile(sessionYDoc(), 'attachments', FILE)
     await settle(insertPageFile(editor, 'file', mid()), { id: FILE, mime: 'application/pdf' })
     undo(editor.state)
@@ -341,7 +341,7 @@ describe('undoing an insert', () => {
   })
 
   it('takes an uploaded inline link\'s list entry back with the link', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const picked = pickPageAttachment(editor, (uuid) => {
       editor.commands.insertContentAt(editor.state.doc.content.size - 1, { type: 'attachmentInline', attrs: { file: uuid } })
       return true
@@ -356,7 +356,7 @@ describe('undoing an insert', () => {
 
 describe('insertPageFile', () => {
   it('inserts the picked file where it was asked for when the peer types before it and elsewhere', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = insertPageFile(editor, 'image', editor.state.doc.child(0).nodeSize)
     const token = useFilePickerRequest().value!.token
     peer.commands.insertContentAt(1, 'Peer: ')
@@ -367,7 +367,7 @@ describe('insertPageFile', () => {
   })
 
   it('uploads into the place it was asked for on the upload choice', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = insertPageFile(editor, 'image', editor.state.doc.child(0).nodeSize)
     peer.commands.insertContentAt(1, 'Peer: ')
     closeFilePicker(useFilePickerRequest().value!.token, { upload: [shot()] })
@@ -378,7 +378,7 @@ describe('insertPageFile', () => {
   })
 
   it('puts an image picked as a file on the page as a file card', async () => {
-    mountShared('First.\n\nSecond.')
+    await mountShared('First.\n\nSecond.')
     const done = insertPageFile(editor, 'file', editor.state.doc.child(0).nodeSize)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
     await done
@@ -388,7 +388,7 @@ describe('insertPageFile', () => {
   })
 
   it('hides a file inserted as an embed from the attachments list, and undo shows it again', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const done = insertPageFile(editor, 'html', editor.state.doc.content.size)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'text/html' })
     await done
@@ -401,7 +401,7 @@ describe('insertPageFile', () => {
   })
 
   it('leaves a file inserted as a card listed', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const done = insertPageFile(editor, 'file', editor.state.doc.content.size)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'text/html' })
     await done
@@ -409,7 +409,7 @@ describe('insertPageFile', () => {
   })
 
   it('puts the caret after a picked file and after an embed, so typing on keeps them', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     let done = insertPageFile(editor, 'file', editor.state.doc.content.size)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'application/pdf' })
     await done
@@ -422,7 +422,7 @@ describe('insertPageFile', () => {
   })
 
   it('leaves the page as it was on dismiss', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const done = insertPageFile(editor, 'file', editor.state.doc.content.size)
     closeFilePicker(useFilePickerRequest().value!.token, null)
     await done
@@ -432,7 +432,7 @@ describe('insertPageFile', () => {
 
 describe('pickPageAttachment', () => {
   it('opens the file picker for one file and lists the chosen file once linked', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const link = vi.fn(() => true)
     const picked = pickPageAttachment(editor, link)
     expect(useFilePickerRequest().value).toMatchObject({ kind: 'file', multiple: false })
@@ -443,7 +443,7 @@ describe('pickPageAttachment', () => {
   })
 
   it('leaves a chosen file off the list when the link fails', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const picked = pickPageAttachment(editor, () => false)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
     await picked
@@ -451,7 +451,7 @@ describe('pickPageAttachment', () => {
   })
 
   it('uploads the file the picker gives', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const link = vi.fn(() => true)
     const picked = pickPageAttachment(editor, link)
     closeFilePicker(useFilePickerRequest().value!.token, { upload: [shot()] })
@@ -463,7 +463,7 @@ describe('pickPageAttachment', () => {
   })
 
   it('links nothing on dismiss', async () => {
-    mountShared('First.')
+    await mountShared('First.')
     const link = vi.fn(() => true)
     const picked = pickPageAttachment(editor, link)
     closeFilePicker(useFilePickerRequest().value!.token, null)
@@ -475,23 +475,23 @@ describe('pickPageAttachment', () => {
 describe('removeFileEmbeds', () => {
   const OTHER = '11111111-2222-4333-8444-555555555555'
 
-  it('takes the file\'s cards out and leaves its inline link\'s words', () => {
-    mountShared(`Intro.\n\n::attachment{file="${FILE}"}\n::\n\nSee :attachment[the plan]{file="${FILE}"} now.\n\n::attachment{file="${OTHER}"}\n::\n\nEnd.`)
+  it('takes the file\'s cards out and leaves its inline link\'s words', async () => {
+    await mountShared(`Intro.\n\n::attachment{file="${FILE}"}\n::\n\nSee :attachment[the plan]{file="${FILE}"} now.\n\n::attachment{file="${OTHER}"}\n::\n\nEnd.`)
     removeFileEmbeds(editor, ['attachments'], FILE)
     expect(editor.state.doc.content.content.map(node => node.type.name === 'attachment' ? `attachment:${node.attrs.file}` : node.textContent))
       .toEqual(['Intro.', 'See the plan now.', `attachment:${OTHER}`, 'End.'])
   })
 
-  it('takes an image out only for the images list', () => {
-    mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\nText.`)
+  it('takes an image out only for the images list', async () => {
+    await mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\nText.`)
     removeFileEmbeds(editor, ['attachments'], FILE)
     expect(blocks()).toEqual([`image:${FILE}`, 'Text.'])
     removeFileEmbeds(editor, ['images'], FILE)
     expect(blocks()).toEqual(['Text.'])
   })
 
-  it('keeps the file\'s name as the words of a label-less inline link', () => {
-    mountShared(`See :attachment{file="${FILE}"} now.`)
+  it('keeps the file\'s name as the words of a label-less inline link', async () => {
+    await mountShared(`See :attachment{file="${FILE}"} now.`)
     removeFileEmbeds(editor, ['attachments'], FILE, 'plan.pdf')
     expect(blocks()).toEqual(['See plan.pdf now.'])
   })
@@ -499,8 +499,8 @@ describe('removeFileEmbeds', () => {
 
 describe('removeFileFromPage', () => {
   // The session's undo is the Y.js UndoManager's (the schema's StarterKit keeps ProseMirror's own).
-  it('is one undo step: undo brings back the embed and the list entry', () => {
-    mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\nText.`)
+  it('is one undo step: undo brings back the embed and the list entry', async () => {
+    await mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\nText.`)
     const doc = editor.extensionManager.extensions.find(extension => extension.name === 'collaboration')!.options.document as Y.Doc
     addPageFile(doc, 'images', FILE)
     removeFileFromPage(editor, ['images'], FILE)
@@ -513,8 +513,8 @@ describe('removeFileFromPage', () => {
     expect(blocks()).toEqual(['Text.'])
     expect(fileArray(doc, 'images').toArray()).toEqual([])
   })
-  it('is one undo step for a file in both lists', () => {
-    mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\n::attachment{file="${FILE}"}\n::\n\nText.`)
+  it('is one undo step for a file in both lists', async () => {
+    await mountShared(`::image{file="${FILE}" alt="Plan"}\n::\n\n::attachment{file="${FILE}"}\n::\n\nText.`)
     const doc = editor.extensionManager.extensions.find(extension => extension.name === 'collaboration')!.options.document as Y.Doc
     addPageFile(doc, 'images', FILE)
     addPageFile(doc, 'attachments', FILE)
@@ -528,7 +528,7 @@ describe('removeFileFromPage', () => {
   })
 
   it('drops the hidden flag with the file, and undo brings it back; the file attached anew is listed', async () => {
-    mountShared(`::embed{file="${FILE}"}\n::\n\nText.`)
+    await mountShared(`::embed{file="${FILE}"}\n::\n\nText.`)
     const doc = sessionYDoc()
     addPageFile(doc, 'attachments', FILE)
     setFileHidden(doc, FILE, true)
@@ -547,8 +547,8 @@ describe('removeFileFromPage', () => {
 })
 
 describe('undoableFileChange', () => {
-  it('makes a flag-only change one undo step and tells the editor at once', () => {
-    mountShared('Text.')
+  it('makes a flag-only change one undo step and tells the editor at once', async () => {
+    await mountShared('Text.')
     addPageFile(sessionYDoc(), 'attachments', FILE)
     let transactions = 0
     editor.on('transaction', () => transactions++)
@@ -566,7 +566,7 @@ describe('replacePageFile', () => {
   const sessionDoc = () => (editor.extensionManager.extensions.find(e => e.name === 'collaboration')!.options as { document: Y.Doc }).document
 
   it('swaps the image\'s file, keeps its alt text and drops the old file from the list', async () => {
-    mountShared(`Peer text.\n\n::image{file="${OLD}" alt="Plan"}\n::`)
+    await mountShared(`Peer text.\n\n::image{file="${OLD}" alt="Plan"}\n::`)
     fileArray(sessionDoc(), 'images').push([OLD])
     const pos = editor.state.doc.child(0).nodeSize
     const done = replacePageFile(editor, pos)
@@ -579,7 +579,7 @@ describe('replacePageFile', () => {
   })
 
   it('puts the caret after the selected block it swapped the file of', async () => {
-    mountShared(`::image{file="${OLD}" alt="Plan"}\n::\n\nNext.`)
+    await mountShared(`::image{file="${OLD}" alt="Plan"}\n::\n\nNext.`)
     editor.commands.setNodeSelection(0)
     const done = replacePageFile(editor, 0)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
@@ -589,7 +589,7 @@ describe('replacePageFile', () => {
   })
 
   it('leaves a caret the user moved elsewhere where it is', async () => {
-    mountShared(`::image{file="${OLD}" alt="Plan"}\n::\n\nNext.`)
+    await mountShared(`::image{file="${OLD}" alt="Plan"}\n::\n\nNext.`)
     const done = replacePageFile(editor, 0)
     editor.commands.setTextSelection(editor.state.doc.content.size - 1)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
@@ -599,7 +599,7 @@ describe('replacePageFile', () => {
   })
 
   it('keeps the old file listed while another embed still shows it', async () => {
-    mountShared(`::image{file="${OLD}" alt="A"}\n::\n\n::image{file="${OLD}" alt="B"}\n::`)
+    await mountShared(`::image{file="${OLD}" alt="A"}\n::\n\n::image{file="${OLD}" alt="B"}\n::`)
     fileArray(sessionDoc(), 'images').push([OLD])
     const done = replacePageFile(editor, 0)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
@@ -609,7 +609,7 @@ describe('replacePageFile', () => {
   })
 
   it('is one undo step: undo brings back the old file, in the image and in the list', async () => {
-    mountShared(`::image{file="${OLD}" alt="Plan"}\n::`)
+    await mountShared(`::image{file="${OLD}" alt="Plan"}\n::`)
     fileArray(sessionDoc(), 'images').push([OLD])
     const done = replacePageFile(editor, 0)
     closeFilePicker(useFilePickerRequest().value!.token, { id: FILE, mime: 'image/png' })
@@ -623,7 +623,7 @@ describe('replacePageFile', () => {
   })
 
   it('takes an uploaded replacement off the list on undo', async () => {
-    mountShared(`::image{file="${OLD}" alt="Plan"}\n::`)
+    await mountShared(`::image{file="${OLD}" alt="Plan"}\n::`)
     fileArray(sessionDoc(), 'images').push([OLD])
     const done = replacePageFile(editor, 0)
     closeFilePicker(useFilePickerRequest().value!.token, { upload: [shot()] })
@@ -646,8 +646,8 @@ describe('renamePageFile', () => {
     return found
   }
 
-  it('names the file on the page, a link labelled with the old name follows it label-less, and undoes as one step', () => {
-    mountShared(`See :attachment[report.pdf]{file="${FILE}"}, :attachment{file="${FILE}"} and :attachment[the plan]{file="${FILE}"}.`)
+  it('names the file on the page, a link labelled with the old name follows it label-less, and undoes as one step', async () => {
+    await mountShared(`See :attachment[report.pdf]{file="${FILE}"}, :attachment{file="${FILE}"} and :attachment[the plan]{file="${FILE}"}.`)
     addPageFile(sessionYDoc(), 'attachments', FILE)
     renamePageFile(editor, FILE, 'Annual report', 'report.pdf', 'report.pdf')
     expect(liveFileNames(sessionYDoc())).toEqual({ [FILE]: 'Annual report' })
@@ -658,8 +658,8 @@ describe('renamePageFile', () => {
     expect(labels()).toEqual(['report.pdf', '', 'the plan'])
   })
 
-  it('shows the file\'s own name again for an empty name; a link with the old name drops its label', () => {
-    mountShared(`See :attachment[Annual report]{file="${FILE}"}.`)
+  it('shows the file\'s own name again for an empty name; a link with the old name drops its label', async () => {
+    await mountShared(`See :attachment[Annual report]{file="${FILE}"}.`)
     addPageFile(sessionYDoc(), 'attachments', FILE)
     renamePageFile(editor, FILE, 'Annual report', 'report.pdf', 'report.pdf')
     renamePageFile(editor, FILE, '', 'Annual report', 'report.pdf')
@@ -667,12 +667,12 @@ describe('renamePageFile', () => {
     expect(labels()).toEqual([''])
   })
 
-  it('keeps brackets in the name: the link stores no label to escape and follows the next rename', () => {
-    mountShared(`See :attachment[report.pdf]{file="${FILE}"}.`)
+  it('keeps brackets in the name: the link stores no label to escape and follows the next rename', async () => {
+    await mountShared(`See :attachment[report.pdf]{file="${FILE}"}.`)
     addPageFile(sessionYDoc(), 'attachments', FILE)
     renamePageFile(editor, FILE, 'Q3 [draft]', 'report.pdf', 'report.pdf')
     expect(liveFileNames(sessionYDoc())).toEqual({ [FILE]: 'Q3 [draft]' })
-    expect(serializeDocToMarkdown(editor.state.doc)).not.toContain('(draft)')
+    expect(await serializeDocToMarkdown(editor.state.doc)).not.toContain('(draft)')
     expect(labels()).toEqual([''])
     renamePageFile(editor, FILE, 'Q3 final', 'Q3 [draft]', 'report.pdf')
     expect(liveFileNames(sessionYDoc())).toEqual({ [FILE]: 'Q3 final' })
@@ -681,9 +681,9 @@ describe('renamePageFile', () => {
 })
 
 describe('setFileDescription', () => {
-  it('writes the description into every card of the file, as one undo step', () => {
+  it('writes the description into every card of the file, as one undo step', async () => {
     const OTHER = '11111111-2222-4333-8444-555555555555'
-    mountShared(`::attachment{file="${FILE}"}\n::\n\n::attachment{file="${FILE}" description="Old"}\n::\n\n::attachment{file="${OTHER}"}\n::`)
+    await mountShared(`::attachment{file="${FILE}"}\n::\n\n::attachment{file="${FILE}" description="Old"}\n::\n\n::attachment{file="${OTHER}"}\n::`)
     const descriptions = () => editor.state.doc.content.content.filter(node => node.type.name === 'attachment').map(node => node.attrs.description ?? null)
     setFileDescription(editor, FILE, 'Q3 figures')
     expect(descriptions()).toEqual(['Q3 figures', 'Q3 figures', null])

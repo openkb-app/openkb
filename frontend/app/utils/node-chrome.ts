@@ -15,7 +15,8 @@ export interface SyncChipView {
  * The one state chip the edit navbar shows.
  *
  * A broken live session (not signed in, no access, offline, still connecting)
- * wins: nothing else is true until the socket is. Otherwise the chip reflects
+ * wins: nothing else is true until the socket is. Then a body that could not be
+ * loaded, which no commit clears. Otherwise the chip reflects
  * the commit lane — Saving…, Unsaved changes, a failed save — and falls back to
  * Synced (with the last-saved time when there is one) when the doc is settled.
  * This is the only status indicator in edit mode; the moderation badges live on
@@ -26,11 +27,13 @@ export function syncChipView(
   savedAgo: string | undefined,
   commitStatus?: CommitStatus,
   commitError?: string,
+  loadError?: string,
 ): SyncChipView {
   if (status === 'auth-error') return { label: 'Not signed in', color: 'error', icon: 'i-lucide-lock', spin: false }
   if (status === 'no-access') return { label: 'No edit access', color: 'error', icon: 'i-lucide-lock', spin: false }
   if (status === 'offline') return { label: 'Offline', color: 'warning', icon: 'i-lucide-wifi-off', spin: false }
   if (status === 'connecting') return { label: 'Connecting…', color: 'info', icon: 'i-lucide-loader-circle', spin: true }
+  if (loadError) return { label: loadError, color: 'error', icon: 'i-lucide-cloud-alert', spin: false }
   if (commitStatus === 'saving') return { label: 'Saving…', color: 'info', icon: 'i-lucide-loader-circle', spin: true }
   if (commitStatus === 'dirty') return { label: 'Unsaved changes', color: 'warning', icon: 'i-lucide-cloud-alert', spin: false }
   if (commitStatus === 'error') return { label: commitError ?? 'Save failed', color: 'error', icon: 'i-lucide-cloud-alert', spin: false }

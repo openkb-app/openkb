@@ -2,10 +2,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
+import Link from '@tiptap/extension-link'
+import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
 import { OkbCite } from './nodes/cite'
 import { OkbDocLink } from './nodes/doc-link'
-import { OkbLink, OkbParagraph } from './nodes/markdown-overrides'
 import { LinkOpen, linkOpenHint } from './link-open'
 
 describe('opening a link from the editor', () => {
@@ -19,7 +20,7 @@ describe('opening a link from the editor', () => {
     document.body.append(element)
     editor = new Editor({
       element,
-      extensions: [Document, OkbParagraph, Text, OkbLink.configure({ openOnClick: false }), OkbDocLink, OkbCite, LinkOpen],
+      extensions: [Document, Paragraph, Text, Link.configure({ openOnClick: false }), OkbDocLink, OkbCite, LinkOpen],
       content: '<p>See <a href="https://example.org/guide">the guide</a> and '
         + '<span data-type="doc-link" data-nid="42" data-block="b-4f2a">Rollback</span>.'
         + '<span data-type="citation" data-url="https://example.org/source"></span>'

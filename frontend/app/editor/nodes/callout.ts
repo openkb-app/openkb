@@ -1,5 +1,4 @@
 import { Node, mergeAttributes } from '@tiptap/core'
-import { mdcFenceTokenizer, parseMdcFence, renderMdcFence } from './mdc-markdown'
 
 export const CALLOUT_TYPES = ['info', 'warning', 'success', 'danger'] as const
 export type CalloutType = typeof CALLOUT_TYPES[number]
@@ -15,9 +14,8 @@ export type CalloutType = typeof CALLOUT_TYPES[number]
  * This module carries NO Vue / NodeView imports so it can be pulled into the
  * server-side commit schema (frontend/server/utils/editor-schema.ts) in a
  * plain Node context. The live preview NodeView is layered on top in
- * app/editor/extensions.ts via `Callout.extend({ addNodeView })`. The
- * markdown grammar (::callout{type="…"} fences, both directions) lives on
- * the node itself — see ./mdc-markdown.ts.
+ * app/editor/extensions.ts via `Callout.extend({ addNodeView })`. Its
+ * markdown form (`::callout{type="…"}`) is mapped in app/comark/pm-mapper.ts.
  */
 export const Callout = Node.create({
   name: 'callout',
@@ -55,14 +53,5 @@ export const Callout = Node.create({
   renderHTML({ HTMLAttributes }) {
     const type = (HTMLAttributes as { type?: string }).type ?? 'info'
     return ['custom-callout', mergeAttributes({ type }), 0]
-  },
-
-  markdownTokenName: 'callout',
-  markdownTokenizer: mdcFenceTokenizer('callout'),
-  parseMarkdown: parseMdcFence('callout', { type: 'info' }),
-  renderMarkdown(node, helpers) {
-    const attrs = node.attrs as { type?: string, id?: string | null } | undefined
-    const type = CALLOUT_TYPES.includes(attrs?.type as CalloutType) ? attrs!.type! : 'info'
-    return renderMdcFence('callout', node, helpers, attrs?.id ? { type, id: attrs.id } : { type })
   },
 })

@@ -69,8 +69,8 @@ function shorten(text: string): string {
  *
  * A block with no text of its own (a bare image) is offered under its id.
  */
-export function docBlocks(markdown: string): Array<{ id: string, label: string }> {
-  const doc = parseMarkdownToJson(markdown)
+export async function docBlocks(markdown: string): Promise<Array<{ id: string, label: string }>> {
+  const doc = await parseMarkdownToJson(markdown)
   const blocks: Array<{ id: string, label: string }> = []
   for (const node of doc.content ?? []) {
     const id = blockIdOf(node)
@@ -128,7 +128,7 @@ export function useDocLinkSearch() {
     return {
       title: titleByPath.value[page.path] ?? page.title,
       path: page.path,
-      blockLabel: block ? docBlocks(page.body).find(item => item.id === block)?.label ?? null : null,
+      blockLabel: block ? (await docBlocks(page.body)).find(item => item.id === block)?.label ?? null : null,
       versions: page.versions,
     }
   }
@@ -170,8 +170,9 @@ export function useDocLinkSearch() {
         const page = hits[0]
         if (!page) { docItems.value = []; return }
         const found = await fetchPage(page.nid, signal)
+        const blocks = await docBlocks(found?.body ?? '')
         if (signal.aborted) return
-        docItems.value = docBlocks(found?.body ?? '')
+        docItems.value = blocks
           .filter(block => block.label.toLowerCase().includes(blockQuery))
           .map(block => ({
             label: block.label,

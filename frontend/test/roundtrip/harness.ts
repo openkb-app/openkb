@@ -1,8 +1,8 @@
 /**
  * Round-trip harness: markdown → editor doc → markdown, through the real
- * production code paths — the shared @tiptap/markdown engine
+ * production code paths — the shared comark engine
  * (app/comark/markdown-engine.ts) used by editor hydration and the
- * headless commit service alike. Sync and DOM-free.
+ * headless commit service alike. DOM-free.
  *
  * The harness is generic over a `RoundTripImpl` so the same corpus can
  * A/B-gate an alternative conversion pipeline: pass another
@@ -15,13 +15,13 @@ import StarterKit from '@tiptap/starter-kit'
 import { mergeAttributes } from '@tiptap/core'
 import type { Node as ProseNode } from '@tiptap/pm/model'
 import type { AnyExtension } from '@tiptap/core'
-import { buildEditorExtensions, starterKitMarkdownOverrides } from '../../app/editor/extensions'
+import { buildEditorExtensions } from '../../app/editor/extensions'
 import { parseMarkdownToDoc, serializeDocToMarkdown } from '../../app/comark/markdown-engine'
 
 export interface RoundTripImpl {
   name: string
   load(markdown: string): Promise<ProseNode>
-  save(doc: ProseNode): string
+  save(doc: ProseNode): Promise<string>
 }
 
 /**
@@ -29,8 +29,9 @@ export interface RoundTripImpl {
  * UEditor assembles its core set internally (node_modules/@nuxt/ui/dist/
  * runtime/components/Editor.vue) and appends our `:extensions` prop; this
  * mirrors that assembly line by line, with the options the edit pages pass
- * (`:starter-kit="{ history: false, undoRedo: false,
- * ...starterKitMarkdownOverrides }"`, `:mention="false"`, no placeholder).
+ * (`:starter-kit="{ history: false, undoRedo: false, codeBlock: false,
+ * orderedList: false }"`,
+ * `:mention="false"`, no placeholder).
  * Collaboration / CollaborationCaret are omitted — they contribute no
  * schema nodes or marks, only Y.js plugins that need a live provider.
  */
@@ -41,7 +42,8 @@ export function editorExtensions(): AnyExtension[] {
       horizontalRule: false,
       link: { openOnClick: false },
       undoRedo: false,
-      ...starterKitMarkdownOverrides,
+      codeBlock: false,
+      orderedList: false,
     }),
     Code.extend({ excludes: 'code' }),
     HorizontalRule.extend({
@@ -60,12 +62,12 @@ export const productionImpl: RoundTripImpl = {
   async load(markdown: string): Promise<ProseNode> {
     return parseMarkdownToDoc(markdown)
   },
-  save(doc: ProseNode): string {
+  async save(doc: ProseNode): Promise<string> {
     return serializeDocToMarkdown(doc)
   },
 }
 
 /** One load→save pass. */
 export async function roundTrip(impl: RoundTripImpl, markdown: string): Promise<string> {
-  return impl.save(await impl.load(markdown))
+  return await impl.save(await impl.load(markdown))
 }

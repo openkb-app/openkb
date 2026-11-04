@@ -88,7 +88,7 @@ export default defineEventHandler(async (event) => {
 
   const doc = hp.documents.get(docName) as unknown as Y.Doc | undefined
   if (doc) {
-    resetDocumentToBody(doc, content.body, changed)
+    await resetDocumentToBody(doc, content.body, changed)
     // Same revision, every lane: the fields and the provenance sidecar the
     // revert wrote are the baselines the next commit diffs against, or a
     // peer's untouched form reads as an edit back to the draft's values and

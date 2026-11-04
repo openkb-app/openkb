@@ -101,5 +101,5 @@ export async function liveContent(nid: number, specs: FieldSpec[]): Promise<Live
   for (const spec of specs) {
     if (live.has(spec.key)) fields[spec.key] = live.get(spec.key) as FieldValues[string]
   }
-  return { body: serializeYDoc(doc, [], ctx), fields }
+  return { body: await serializeYDoc(doc, [], ctx), fields }
 }

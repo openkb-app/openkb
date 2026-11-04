@@ -1,8 +1,48 @@
 import { describe, it, expect } from 'vitest'
 import { blockSegments, blockSegmentsOfDoc, blockVersion, blockVersions } from './block-versions'
 import type { ProseMirrorJSON } from './commit'
+import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
 
 const BODY = 'Intro line. {#b-1}\n\n## A heading {#b-2}\n'
+
+/**
+ * Body → the id its one block carries, or null. The editor, this side and
+ * Drupal agree on each: `PageBlocksTest::testTrailingIdAgreesWithTheEditor()`
+ * holds the same cases.
+ */
+const TRAILING_IDS: [string, string | null][] = [
+  ['a {#x}', 'x'],
+  ['## C {#x}', 'x'],
+  ['{#x}', 'x'],
+  [' {#x}', 'x'],
+  ['**b** {#x}', 'x'],
+  ['**b**\\{#x}', null],
+  ['**b**{#x}', null],
+  ['end\\{#x}', null],
+  ['end{#x}', null],
+  ['## C #\\{#b-123}', null],
+  ['a\n\\{#x}', null],
+  ['a\\\n\\{#x}', null],
+  ['a *b {#x}*', null],
+  ['**b {#x}**', null],
+  ['see [a {#x}](u)', null],
+  ['see `a {#x}`', null],
+]
+
+/**
+ * Hand-written bodies the editor, reading as comark does, reads otherwise: an
+ * id alone is no block to it, and `{#x}` right after text is the block's id.
+ * The editor writes neither form: `text {#x}`, and no id on an empty block.
+ */
+const COMARK_READS: Record<string, string | null> = { '{#x}': null, ' {#x}': null, 'end{#x}': 'x' }
+
+describe('trailing block id', () => {
+  it.each(TRAILING_IDS)('reads the trailing id of %j as the editor does', async (body, id) => {
+    expect([...blockSegments(body).keys()]).toEqual(id === null ? [] : [id])
+    const editor = body in COMARK_READS ? COMARK_READS[body] : id
+    expect((await parseMarkdownToJson(body)).content?.[0]?.attrs?.id ?? null).toBe(editor)
+  })
+})
 
 /**
  * Every body here is canonical markdown, because that is what both entry
@@ -21,12 +61,22 @@ describe('block versions', () => {
     expect(edited['b-1']).not.toBe(versions['b-1'])
   })
 
+  it('splits as PageBlocksTest pins it for multibyte letters and Unicode whitespace', () => {
+    const block = 'Ångström ąż хор\nÅ. {#b-1}'
+    expect(Object.fromEntries(blockSegments(`${block}\n\nTwo. {#b-2}`))).toEqual({ 'b-1': block, 'b-2': 'Two. {#b-2}' })
+    expect([...blockSegments('\u00A0```\na\n\nb\n```\u00A0\n\nAfter. {#b-after}').keys()]).toEqual(['b-after'])
+    expect([...blockSegments('::\u00A0x {#b-1}\n\nTwo. {#b-2}').keys()]).toEqual(['b-1', 'b-2'])
+    for (const space of ['\u00A0', '\u3000']) {
+      expect([...blockSegments(`::callout{#b-1}${space}\nText\n::\n\nTwo. {#b-2}${space}`).keys()]).toEqual(['b-1', 'b-2'])
+    }
+  })
+
   it('versions only what an op can name', () => {
     // No id: unaddressable, so nothing can expect a version for it.
     expect(Object.keys(blockVersions('No id here.\n\nWith id. {#b-1}\n'))).toEqual(['b-1'])
   })
 
-  it('versions a leading heading the same on both sides', () => {
+  it('versions a leading heading the same on both sides', async () => {
     // The title heading is off the document and off the stored body, so a
     // leading `#` heading in either is a block like any other.
     const doc = { type: 'doc', content: [
@@ -34,11 +84,11 @@ describe('block versions', () => {
       { type: 'paragraph', attrs: { id: 'b-1' }, content: [{ type: 'text', text: 'Body.' }] },
     ] } as ProseMirrorJSON
 
-    expect([...blockSegmentsOfDoc(doc).keys()]).toEqual(['b-x', 'b-1'])
+    expect([...(await blockSegmentsOfDoc(doc)).keys()]).toEqual(['b-x', 'b-1'])
     expect(Object.keys(blockVersions('# Section {#b-x}\n\nBody. {#b-1}\n'))).toEqual(['b-x', 'b-1'])
   })
 
-  it('versions a block whose last span is marked', () => {
+  it('versions a block whose last span is marked', async () => {
     // The id is a marker, not content: it sits outside the mark on both sides,
     // or the block loses its version and an op can no longer expect one.
     const body = 'Ends in **bold**. {#b-1}\n\nEnds in *emphasis*. {#b-2}\n\n'
@@ -51,7 +101,7 @@ describe('block versions', () => {
         { type: 'text', text: 'bold', marks: [{ type: 'bold' }] },
       ] },
     ] } as ProseMirrorJSON
-    expect([...blockSegmentsOfDoc(doc).keys()]).toEqual(['b-1'])
+    expect([...(await blockSegmentsOfDoc(doc)).keys()]).toEqual(['b-1'])
   })
 
   it('keeps a fenced block whole', () => {
@@ -60,7 +110,12 @@ describe('block versions', () => {
     expect(segments.get('b-9')).toContain('Second para.')
   })
 
-  it('reads the same off a document as off the markdown it serves', () => {
+  it('keeps a tilde-fenced code block holding a backtick fence line whole', () => {
+    const segments = blockSegments('~~~\n```\n\nx\n~~~\n\nAfter. {#b-after}')
+    expect([...segments.keys()]).toEqual(['b-after'])
+  })
+
+  it('reads the same off a document as off the markdown it serves', async () => {
     // The whole point: getPageForEditing hashes the body it serves,
     // updateBlocks the live document. They must never disagree about an
     // untouched block.
@@ -68,7 +123,7 @@ describe('block versions', () => {
       { type: 'paragraph', attrs: { id: 'b-1' }, content: [{ type: 'text', text: 'Intro line.' }] },
       { type: 'heading', attrs: { id: 'b-2', level: 2 }, content: [{ type: 'text', text: 'A heading' }] },
     ] } as ProseMirrorJSON
-    expect(blockSegmentsOfDoc(json)).toEqual(blockSegments(BODY))
-    expect(blockVersion(blockSegmentsOfDoc(json).get('b-1')!)).toBe(blockVersions(BODY)['b-1'])
+    expect(await blockSegmentsOfDoc(json)).toEqual(blockSegments(BODY))
+    expect(blockVersion((await blockSegmentsOfDoc(json)).get('b-1')!)).toBe(blockVersions(BODY)['b-1'])
   })
 })

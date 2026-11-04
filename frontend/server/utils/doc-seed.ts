@@ -51,13 +51,13 @@ import { seedComments, type StoredConversations } from './collab-comments'
  * with unaccounted block changes. A body that cannot round-trip falls back
  * to its raw bytes — an over-eager check merely costs a redundant revision.
  */
-function storedBodyHash(documentName: string, body: string): string {
+async function storedBodyHash(documentName: string, body: string): Promise<string> {
   if (body.trim() === '') {
     return contentHash(body)
   }
   try {
-    const json = parseMarkdownToDoc(body).toJSON() as ProseMirrorJSON
-    return contentHash(serializeCommitJSON(json))
+    const json = (await parseMarkdownToDoc(body)).toJSON() as ProseMirrorJSON
+    return contentHash(await serializeCommitJSON(json))
   }
   catch (err) {
     console.warn(`[collab] ${documentName}: body does not round-trip, baselining its bytes`, err)
@@ -174,17 +174,17 @@ export function fieldsBaseline(document: Y.Doc): FieldValues | null {
  * service writes it last: peers drop their offline mirror the moment it
  * advances, so no lane may write to the document after it.
  */
-export function resetDocumentToBody(
+export async function resetDocumentToBody(
   document: Y.Doc,
   body: string,
   changed: number,
   now: () => number = () => Date.now(),
-): void {
+): Promise<void> {
+  const seeded = body ? await parseMarkdownToDoc(body) : null
   const fragment = document.getXmlFragment('default')
   const meta = document.getMap('_meta')
   const hash = contentHash(body)
   const at = now()
-  const seeded = body ? parseMarkdownToDoc(body) : null
   Y.transact(document, () => {
     if (seeded) {
       prosemirrorToYXmlFragment(seeded, fragment)
@@ -262,6 +262,16 @@ export async function seedFromDrupal(
   return outcome
 }
 
+/**
+ * Reconciles the document's Drupal stamp and body baseline with what Drupal
+ * holds for the page.
+ *
+ * - First load: sets `drupal_changed` and `last_commit_hash` in one
+ *   transaction.
+ * - Later loads: when Drupal moved since, by time or by body hash, adopts
+ *   Drupal's baseline if the document already holds it, else resets the
+ *   document to Drupal's body.
+ */
 async function seedBodyFromDrupal(
   documentName: string,
   document: Y.Doc,
@@ -296,15 +306,19 @@ async function seedBodyFromDrupal(
   // session serializes back to an equal hash and checkpoints write nothing.
   if (!lastSeen) {
     const body = await deps.fetchBody(nid)
-    meta.set('drupal_changed', drupalChanged)
-    if (body !== null) meta.set('last_commit_hash', storedBodyHash(documentName, body))
+    // Hashed before anything is set: the stamp and its baseline land together.
+    const hash = body !== null ? await storedBodyHash(documentName, body) : null
+    Y.transact(document, () => {
+      meta.set('drupal_changed', drupalChanged)
+      if (hash !== null) meta.set('last_commit_hash', hash)
+    })
     return 'seeded'
   }
 
   const lastHash = meta.get('last_commit_hash') as string | undefined
   const body = await deps.fetchBody(nid)
   if (body === null) return 'unavailable'
-  const bodyHash = storedBodyHash(documentName, body)
+  const bodyHash = await storedBodyHash(documentName, body)
 
   // Two independent tells that Drupal holds something this document has not
   // seen. The timestamp alone is not enough: Drupal's `changed` has one-second
@@ -332,7 +346,7 @@ async function seedBodyFromDrupal(
   // Both sides are what a commit would write — the doc through the serializer,
   // Drupal's body through {@link storedBodyHash} — so the question is whether
   // the content agrees, not whether it is spelled the same way.
-  if (fragment.length > 0 && contentHash(serializeYDoc(document)) === bodyHash) {
+  if (fragment.length > 0 && contentHash(await serializeYDoc(document)) === bodyHash) {
     Y.transact(document, () => {
       meta.set('drupal_changed', drupalChanged)
       meta.set('last_commit_hash', bodyHash)
@@ -354,7 +368,7 @@ async function seedBodyFromDrupal(
   // Parsing here uses the same comark engine the client hydrates with, so the
   // fragment is byte-identical to what the client would have produced — and
   // the client's hydration guard (fragment empty) then correctly skips.
-  const seeded = body ? parseMarkdownToDoc(body) : null
+  const seeded = body ? await parseMarkdownToDoc(body) : null
   Y.transact(document, () => {
     if (seeded) {
       prosemirrorToYXmlFragment(seeded, fragment)

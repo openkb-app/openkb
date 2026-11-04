@@ -24,11 +24,11 @@ describe('commit save-parity over the round-trip corpus', () => {
   for (const c of loadCorpus(fixturesDir)) {
     test(c.name, async () => {
       const doc = await productionImpl.load(c.input)
-      const clientSave = productionImpl.save(doc)
+      const clientSave = await productionImpl.save(doc)
 
       // The commit service only ever sees the JSON that synced into the Y.Doc.
       const ydoc = prosemirrorJSONToYDoc(commitSchema, doc.toJSON() as never, 'default')
-      expect(serializeYDoc(ydoc), 'commit path must be byte-identical to the client save').toBe(clientSave)
+      expect(await serializeYDoc(ydoc), 'commit path must be byte-identical to the client save').toBe(clientSave)
 
       // Same JSON must also rebuild under the commit schema directly — the
       // check that throws on a node the server does not know.

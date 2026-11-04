@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
+import { createApp, h, nextTick, reactive } from 'vue'
 import CommentThreads from './CommentThreads.vue'
 import type { CommentThreadView, ShownThreads } from '../comment-marks'
 import { assigneeCandidates } from '../comment-assignee'
@@ -403,6 +403,19 @@ describe('the comment the drawer opens on', () => {
     const selected = root.querySelector('[data-comment-thread="c-2"]')!
     expect(selected.className).toContain('border-primary')
     expect(root.querySelector('[data-comment-thread="c-1"]')!.className).not.toContain('border-primary')
+  })
+
+  it('brings the selected comment into view once the threads arrive', async () => {
+    const scrolled = watchScroll()
+    const threads = reactive<CommentThreadView[]>([])
+    mount(CANDIDATES, threads, { blockId: 'b-2', threadId: 'c-2', at: AT })
+    await nextTick()
+    expect(scrolled).toEqual([])
+
+    threads.push(FIRST, SECOND)
+    await nextTick()
+
+    expect(scrolled.map(el => el.getAttribute('data-comment-thread'))).toEqual(['c-2'])
   })
 
   it('brings the block into view when no single comment is selected', async () => {

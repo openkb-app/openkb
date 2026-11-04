@@ -21,7 +21,7 @@ const props = defineProps<{
    * the reader expects the document being edited: the published `.md` has no
    * address for it, so the link is left out and the copy reads this instead.
    */
-  workingCopy?: () => string
+  workingCopy?: () => Promise<string>
   /**
    * Whether the values shown here are editable — set in edit mode, where the
    * Details form owns them and the pill is the way into it.
@@ -51,8 +51,9 @@ const copyLabel = computed(() =>
   props.workingCopy ? 'Copy the working copy as Markdown' : 'Copy as Markdown',
 )
 
-function copyMarkdown() {
-  if (props.workingCopy) return copyPlain(props.workingCopy(), 'Working copy')
+/** Copies the working copy as markdown when there is one, else the published page. */
+async function copyMarkdown() {
+  if (props.workingCopy) return copyPlain(await props.workingCopy(), 'Working copy')
   return copyPublished()
 }
 </script>

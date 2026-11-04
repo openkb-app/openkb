@@ -53,7 +53,7 @@ describe('droppedKind', () => {
 
 describe('PageFileDropHandler', () => {
   it('uploads a dropped PDF and PNG once, at the drop point, kind per file by the image field', async () => {
-    editor.commands.setContent(parseMarkdownToJson('First.\n\nSecond.'))
+    editor.commands.setContent(await parseMarkdownToJson('First.\n\nSecond.'))
     const files = [file('plan.pdf', 'application/pdf'), file('shot.png', 'image/png'), file('scan.png', '')]
     expect(drop(files, 4)).toBe(true)
     await vi.waitFor(() => expect(uploadIntoEditor).toHaveBeenCalledOnce())
@@ -62,7 +62,7 @@ describe('PageFileDropHandler', () => {
   })
 
   it('focuses the editor with the caret at the drop point', async () => {
-    editor.commands.setContent(parseMarkdownToJson('First.\n\nSecond.'))
+    editor.commands.setContent(await parseMarkdownToJson('First.\n\nSecond.'))
     const focus = vi.spyOn(editor.view, 'focus')
     drop([file('plan.pdf', 'application/pdf')], 11)
     expect(focus).toHaveBeenCalledOnce()
@@ -72,14 +72,14 @@ describe('PageFileDropHandler', () => {
   })
 
   it('drops into a list after the list', async () => {
-    editor.commands.setContent(parseMarkdownToJson('- One\n- Two\n\nAfter.'))
+    editor.commands.setContent(await parseMarkdownToJson('- One\n- Two\n\nAfter.'))
     drop([file('plan.pdf', 'application/pdf')], 4)
     await vi.waitFor(() => expect(uploadIntoEditor).toHaveBeenCalledOnce())
     expect(uploadIntoEditor).toHaveBeenCalledWith(editor, expect.any(Function), expect.any(Array), editor.state.doc.firstChild!.nodeSize)
   })
 
   it('follows the drop point through edits made while the image field limits load', async () => {
-    editor.commands.setContent(parseMarkdownToJson('First.\n\nSecond.'))
+    editor.commands.setContent(await parseMarkdownToJson('First.\n\nSecond.'))
     let resolve!: (limits: { extensions: string[], maxBytes: number }) => void
     pageFileLimits.mockReturnValueOnce(new Promise(r => (resolve = r)))
     drop([file('plan.pdf', 'application/pdf')], 9)

@@ -8,15 +8,15 @@ import { CaretMemory, caretInBlock, reciteInBlock } from './cite-insert'
 
 describe('the caret a node selection replaced', () => {
   /** Two paragraphs, with the caret inside the second one. */
-  function twoBlocks() {
+  async function twoBlocks() {
     return new Editor({
       extensions: [...buildCommitSchemaExtensions(), CaretMemory],
-      content: parseMarkdownToJson('First block.\n\nSecond block.\n'),
+      content: await parseMarkdownToJson('First block.\n\nSecond block.\n'),
     })
   }
 
-  it('is where the author was typing, once the block menu selects the block', () => {
-    const editor = twoBlocks()
+  it('is where the author was typing, once the block menu selects the block', async () => {
+    const editor = await twoBlocks()
     const second = editor.state.doc.child(0).nodeSize
     editor.commands.setTextSelection(second + 4)
     editor.commands.setNodeSelection(second)
@@ -25,8 +25,8 @@ describe('the caret a node selection replaced', () => {
     editor.destroy()
   })
 
-  it('is not offered for a block the caret was not in', () => {
-    const editor = twoBlocks()
+  it('is not offered for a block the caret was not in', async () => {
+    const editor = await twoBlocks()
     const second = editor.state.doc.child(0).nodeSize
     editor.commands.setTextSelection(2)
     editor.commands.setNodeSelection(second)
@@ -37,10 +37,10 @@ describe('the caret a node selection replaced', () => {
 })
 
 describe('re-citing a source the block already names', () => {
-  it('advances that node rather than adding another', () => {
+  it('advances that node rather than adding another', async () => {
     const editor = new Editor({
       extensions: buildCommitSchemaExtensions(),
-      content: parseMarkdownToJson(
+      content: await parseMarkdownToJson(
         'Derived. :citation{nid="42" block="b-a" v="aaaaaaaaaaaa"} and more.',
       ),
     })
@@ -48,15 +48,15 @@ describe('re-citing a source the block already names', () => {
     const target = citeTarget({ nid: '42', block: 'b-a', v: 'bbbbbbbbbbbb' })!
 
     expect(reciteInBlock(editor, target, 'bbbbbbbbbbbb')).toBe(true)
-    expect(serializeDocToMarkdown(editor.getJSON()))
+    expect(await serializeDocToMarkdown(editor.getJSON()))
       .toBe('Derived. :citation{nid="42" block="b-a" v="bbbbbbbbbbbb"} and more.')
     editor.destroy()
   })
 
-  it('leaves a source the block does not name to the caller', () => {
+  it('leaves a source the block does not name to the caller', async () => {
     const editor = new Editor({
       extensions: buildCommitSchemaExtensions(),
-      content: parseMarkdownToJson('Derived. :citation{nid="42" block="b-a" v="aaaaaaaaaaaa"}'),
+      content: await parseMarkdownToJson('Derived. :citation{nid="42" block="b-a" v="aaaaaaaaaaaa"}'),
     })
     editor.commands.setTextSelection(2)
     expect(reciteInBlock(editor, citeTarget({ nid: '7', block: 'b-b' })!, null)).toBe(false)

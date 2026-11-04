@@ -4,7 +4,6 @@ import type { Editor } from '@tiptap/core'
 import { PluginKey } from '@tiptap/pm/state'
 import type { EditorState } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { starterKitMarkdownOverrides } from '~/editor/extensions'
 import { CollabTrailingNode } from '~/editor/collab-trailing-node'
 import { readUnreadSelection } from '~/editor/selection-sync'
 import { LINK_BUBBLE_KEY, bubbleTargetAt } from '~/editor/link-target'
@@ -238,8 +237,8 @@ const dragHandleOptions = {
          DOM focus in the surface and the keys bite again. -->
     <UEditor
       ref="editorRef"
-      content-type="markdown"
-      :starter-kit="{ history: false, undoRedo: false, trailingNode: false, ...starterKitMarkdownOverrides }"
+      content-type="json"
+      :starter-kit="{ history: false, undoRedo: false, trailingNode: false, codeBlock: false, orderedList: false }"
       :mention="false"
       :image="false"
       :extensions="editorExtensions"

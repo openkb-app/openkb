@@ -552,42 +552,29 @@ function sameValue(a: unknown, b: unknown): boolean {
 /**
  * Stable block ids (`{#b-…}`) as a structured ProseMirror attribute.
  *
- * comark's read/index path lifts a trailing `{#id}` into an `id` prop; the
- * editor's own markdown pipeline did not, so on native blocks the `{#b-…}`
- * survived the round-trip only as literal trailing *text*. These helpers close
- * that gap without changing the wire format:
- *
- *   - {@link liftBlockIds}  runs right after parse — moves a trailing `{#id}`
- *     off a top-level block's text and onto `attrs.id`.
- *   - {@link lowerBlockIds} runs right before serialize — puts it back as
- *     trailing text and clears the attribute, so the markdown bytes are
- *     identical to what comark emits (`## Title {#b-3f9a}`).
- *
- * The id therefore lives structurally in the ProseMirror / Y.js document —
- * where everything above can key on it — yet never leaks a new syntax into the
- * stored markdown, which is also what lets Drupal find the same boundaries
- * with a regex instead of a parser.
+ * comark reads a block's `{#id}` as that block's `id` prop, and the editor
+ * engine maps it onto `attrs.id` and back (app/comark/pm-mapper.ts), so the
+ * id lives structurally in the ProseMirror / Y.js document while the stored
+ * markdown keeps a form Drupal finds with a regex instead of a parser.
  *
  * ## Granularity: TOP-LEVEL blocks only
  *
- * An id is borne only by a **direct child of the document**, and only by a
- * type whose id comark 0.5 round-trips onto that same node:
+ * A review unit is a **direct child of the document**:
  *
- *   - `paragraph` / `heading` — trailing `{#id}` text, which comark parses
- *     into the block's own `id` prop (`Title {#b-1}` → `["h2",{"id":"b-1"}]`).
- *   - `callout` / `infobox` / `image` — component fences, which carry the id
- *     natively via the `#id` fence-prop shorthand, except a file-less
- *     image, which has no fence and trails `{#id}` after its `![…](…)`
- *     line (app/editor/nodes/image.ts).
+ *   - `paragraph` / `heading` — a trailing `{#id}` (`Title {#b-1}` →
+ *     `["h2",{"id":"b-1"}]`).
+ *   - `callout` / `infobox` / `image` / `attachment` / `embed` — component
+ *     fences, which carry the id via the `#id` fence-prop shorthand, except a
+ *     file-less image, which has no fence and trails `{#id}` after its
+ *     `![…](…)` line.
+ *   - the containers in {@link WRAPPED_BLOCK_TYPES} — a `::block{#id}` fence.
  *
- * Nested blocks never bear an id. A paragraph inside a table cell or a list
- * item is not a review unit: ids minted there leak `{#b-…}` into cell and item
- * text, which is both content noise and — for tables — unparseable back into
- * the same document.
+ * Nested blocks bear no id: a paragraph inside a table cell or a list item is
+ * not a review unit, and its id is not written.
  */
 
 /**
- * Top-level block types that carry their id as trailing `{#id}` text.
+ * Top-level block types that carry their id as a trailing `{#id}`.
  * These are the only native blocks comark parses a trailing attribute onto.
  */
 export const TEXT_BLOCK_TYPES = new Set(['paragraph', 'heading'])
@@ -595,10 +582,9 @@ export const TEXT_BLOCK_TYPES = new Set(['paragraph', 'heading'])
 /**
  * Container blocks comark has no attribute syntax for — a trailing `{#id}`
  * lands on the wrong node or corrupts the block. They carry their id by
- * riding inside a `::block{#id}` wrapper fence in the serialized markdown:
- * lowerBlockIds wraps them on the way out, liftBlockIds unwraps on the way
- * in, so the live document holds the plain node with `attrs.id` and the wire
- * format stays parseable by comark, which reads the fence as a component.
+ * riding inside a `::block{#id}` wrapper fence in the serialized markdown,
+ * which comark dissolves onto the block it wraps; the live document holds the
+ * plain node with `attrs.id`.
  */
 export const WRAPPED_BLOCK_TYPES = new Set([
   'table',
@@ -642,14 +628,6 @@ export function holdsNothing(node: { type: { name: string }, content: { size: nu
 
 /** The `b-` prefix every minted id uses, matching the corpus fixtures. */
 export const BLOCK_ID_PREFIX = 'b-'
-
-/**
- * A trailing block-id attribute: optional leading whitespace, then `{#id}` at
- * the very end of the text. `id` is `[\w-]+`, the same shape comark's `#id`
- * shorthand round-trips — anything outside it was never a shorthand id and
- * stays literal text. Drupal's segmentation mirrors this exact pattern.
- */
-const TRAILING_ID_RE = /[ \t]*\{#([\w-]+)\}$/
 
 /** A random-source seam so the minter is deterministic under test. */
 export type IdSource = () => string
@@ -853,116 +831,4 @@ export function dedupeBlockIds(
   source: IdSource = defaultIdSource,
 ): IdPassResult {
   return idPass(doc, source, false, keepers)
-}
-
-/**
- * Post-parse: strip a trailing `{#id}` off every top-level text block and
- * record it on `attrs.id`, and dissolve every `::block{#id}` wrapper fence
- * onto its content. Returns a new tree; the input is not mutated.
- * Blocks with no trailing id are returned unchanged (id stays its schema
- * default of null), and a `{#id}` inside a nested block (list item, table
- * cell, blockquote) stays literal text — it was never our id to claim.
- */
-export function liftBlockIds<T extends JSONContent>(doc: T): T {
-  const content = topLevel(doc).flatMap(unwrapBlockWrapper).map(liftTopLevelBlock)
-  return { ...doc, ...(doc.content ? { content } : {}) } as T
-}
-
-/**
- * A wrapper fence dissolves into its children; its id lands on the first
- * child that does not already carry one closer to the text. The canonical
- * wrapper (what lowerBlockIds writes) holds exactly one container, but the
- * fence is ordinary markdown anybody can author — extra children simply
- * become top-level blocks and id themselves through the coherence sweep.
- */
-function unwrapBlockWrapper(node: JSONContent): JSONContent[] {
-  if (node.type !== 'blockWrapper') return [node]
-  const children = node.content ?? []
-  const id = blockIdOf(node)
-  if (children.length === 0 || !id) return children
-  const [first, ...rest] = children as [JSONContent, ...JSONContent[]]
-  return blockIdOf(first) !== null || carriesTrailingId(first)
-    ? children
-    : [{ ...first, attrs: { ...(first.attrs ?? {}), id } }, ...rest]
-}
-
-/** Whether a text block ends in a `{#id}` of its own, about to be lifted. */
-function carriesTrailingId(node: JSONContent): boolean {
-  if (!node.type || !TEXT_BLOCK_TYPES.has(node.type)) return false
-  const tail = node.content?.[node.content.length - 1]
-  return tail?.type === 'text' && typeof tail.text === 'string' && TRAILING_ID_RE.test(tail.text)
-}
-
-function liftTopLevelBlock(node: JSONContent): JSONContent {
-  if (!node.type || !TEXT_BLOCK_TYPES.has(node.type)) return node
-  const content = node.content
-  if (!content || content.length === 0) return node
-
-  const tail = content[content.length - 1]
-  if (tail?.type !== 'text' || typeof tail.text !== 'string') return node
-
-  const match = TRAILING_ID_RE.exec(tail.text)
-  if (!match) return node
-
-  const stripped = tail.text.slice(0, match.index)
-  return {
-    ...node,
-    attrs: { ...(node.attrs ?? {}), id: match[1] },
-    content: stripped
-      ? [...content.slice(0, -1), { ...tail, text: stripped }]
-      : content.slice(0, -1),
-  }
-}
-
-/**
- * Pre-serialize: put each top-level text block's `attrs.id` back as trailing
- * `{#id}` text, and fold each id-carrying container into a `::block{#id}`
- * wrapper fence, clearing the attribute either way — so the markdown
- * serializer emits the id exactly where comark expects it and the bytes match
- * the read path. An id-less container serializes bare, exactly as before it
- * ever had an id. Returns a new tree; the input is not mutated.
- */
-export function lowerBlockIds<T extends JSONContent>(doc: T): T {
-  const content = topLevel(doc).map(lowerTopLevelBlock)
-  return { ...doc, ...(doc.content ? { content } : {}) } as T
-}
-
-function lowerTopLevelBlock(node: JSONContent): JSONContent {
-  if (node.type && WRAPPED_BLOCK_TYPES.has(node.type)) {
-    const id = blockIdOf(node)
-    if (!id) return node
-    const attrs = { ...(node.attrs as Record<string, unknown>) }
-    delete attrs.id
-    return {
-      type: 'blockWrapper',
-      attrs: { id },
-      content: [{ ...node, ...(Object.keys(attrs).length > 0 ? { attrs } : { attrs: undefined }) }],
-    }
-  }
-  if (!node.type || !TEXT_BLOCK_TYPES.has(node.type)) return node
-  const id = blockIdOf(node)
-  if (!id || !node.content) return node
-
-  const content = node.content
-  const tail = content[content.length - 1]
-  const suffix = `{#${id}}`
-  let withId: JSONContent[]
-  // Only an unmarked trailing text node may carry the id. Joining a marked one
-  // (bold, em, code, link) puts the id inside that mark's delimiters — `**ends
-  // bold {#b-1}**` — where it is no longer trailing, and the segmentation on
-  // either side stops seeing the block's id at all.
-  if (tail?.type === 'text' && typeof tail.text === 'string' && !tail.marks?.length) {
-    // A space only when the block already has text — an id-only block (empty
-    // content bar the id) would otherwise gain a leading space.
-    const sep = tail.text ? ' ' : ''
-    withId = [...content.slice(0, -1), { ...tail, text: `${tail.text}${sep}${suffix}` }]
-  }
-  else {
-    // Nothing to append to: the id becomes its own unmarked text node, spaced
-    // off whatever precedes it.
-    withId = [...content, { type: 'text', text: tail ? ` ${suffix}` : suffix }]
-  }
-  const attrs = { ...(node.attrs as Record<string, unknown>) }
-  delete attrs.id
-  return { ...node, attrs, content: withId }
 }

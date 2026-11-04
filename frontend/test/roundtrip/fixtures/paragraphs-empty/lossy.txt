@@ -1,0 +1,1 @@
+L19: an empty paragraph inside a list item is not written

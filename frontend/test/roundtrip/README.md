@@ -5,9 +5,10 @@ comark markdown — through the **production** code paths:
 
 - **Load** (`harness.ts` `productionImpl.load`): `parseMarkdownToDoc`
   (`app/comark/markdown-engine.ts`) — the same call the editor makes on
-  hydration — parsing straight to a ProseMirror document against the real
-  editor schema. Tests run under `@vitest-environment happy-dom`.
-- **Save**: `serializeDocToMarkdown` (`app/comark/markdown.ts`).
+  hydration — comark's parse mapped to a ProseMirror document against the
+  real editor schema.
+- **Save**: `serializeDocToMarkdown` (same module) — comark's renderer with
+  the exceptions in `app/comark/render-handlers.ts`.
 - **Schema**: `editorExtensions()` mirrors Nuxt UI UEditor's internal
   extension assembly plus the options `pages/node/[id]/edit.vue` passes,
   and appends the real `buildEditorExtensions()` set. Collaboration
@@ -40,6 +41,8 @@ fixtures/<name>/input.md      required — the authored markdown
 fixtures/<name>/expected.md   only when an accepted normalization changes bytes
 fixtures/<name>/lossy.txt     one-line reason when content is lost by contract;
                               S3 then compares output against expected.md
+fixtures/<name>/second.md     lossy fixtures only: the second pass, where the
+                              accepted loss changes the document again
 ```
 
 Fixture files end with a POSIX trailing newline; comparison strips it
@@ -52,14 +55,13 @@ and the difference is an acceptable normalization, commit it as
 ## Block-ID corpus (OKB-42)
 
 `fixtures-block-ids/` holds trailing-`{#b-…}` fixtures for every block
-type plus `::callout{type="…" #id}`. On native blocks (heading,
-paragraph, blockquote, list item) the marker rides through the editor
-as literal trailing text; comark parses it into an `id` prop on both
-sides of S3, so bytes and semantics both hold. On component fences the
-`#id` shorthand maps to the node's `id` attribute
-(app/editor/nodes/mdc-markdown.ts) and re-serializes last in the prop
-list — comark's canonical position. A file-less image has no fence, so
-its id trails the `![…](…)` line as on a native block.
+type plus `::callout{type="…" #id}`. comark reads the marker as the
+block's `id` prop, which the mapper (`app/comark/pm-mapper.ts`) carries as
+`attrs.id` and writes back for top-level blocks only: a trailing `{#id}` on a
+paragraph or heading, the `#id` shorthand last in a component fence's props,
+and a `::block{#id}` fence around a list, table, code block, quote or rule. A
+file-less image has no fence, so its id trails the `![…](…)` line as on a
+native block.
 
 ## A/B gating (OKB-7)
 

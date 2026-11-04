@@ -1,0 +1,1 @@
+L13: a table delimiter row after a soft break is written bare and makes a table on the next load

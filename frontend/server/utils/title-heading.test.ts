@@ -69,8 +69,8 @@ describe('storedBody', () => {
   })
 
   it('sets the gap under the heading to one blank line, however the serializer left it', () => {
-    // A document opening with an empty paragraph serializes with blank lines
-    // of its own; swallowed into the heading on the next read, they compound.
+    // Blank lines a body opens with, swallowed into the heading on the next
+    // read, would compound.
     expect(storedBody('# T {#b-1}\n\n', 'T', '\n\nOne. {#b-2}\n')).toBe('# T {#b-1}\n\nOne. {#b-2}\n')
     expect(storedBody('# T {#b-1}\n\n\n \n', 'T', 'One. {#b-2}\n')).toBe('# T {#b-1}\n\nOne. {#b-2}\n')
     expect(storedBody('# T {#b-1}\n', 'T', 'One. {#b-2}\n')).toBe('# T {#b-1}\n\nOne. {#b-2}\n')

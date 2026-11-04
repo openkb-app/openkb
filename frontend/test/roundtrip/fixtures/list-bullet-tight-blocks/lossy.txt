@@ -1,0 +1,1 @@
+L15: a heading after a list item's paragraph is written on the paragraph's line and joins its text

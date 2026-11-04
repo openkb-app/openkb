@@ -37,24 +37,40 @@ async function rendered(root: HTMLElement, text: string) {
 describe('ComarkAnswer', () => {
   const NESTED = 'Some **b***i* text.'
 
+  /** A finished `NESTED`: its marks as elements, no marker left as text. */
+  function expectFinished(root: HTMLElement) {
+    expect(root.querySelector('strong')?.textContent).toBe('b')
+    expect(root.querySelector('em')?.textContent).toBe('i')
+    expect(root.textContent).not.toContain('*')
+  }
+
   it('renders a finished answer without the streaming repair', async () => {
     const { root } = mount(NESTED, false)
-    expect(await rendered(root, 'text.')).not.toContain('****')
+    await rendered(root, 'text.')
+    expectFinished(root)
   })
 
   it('re-parses without the repair once the stream is done', async () => {
     const { root, props } = mount(NESTED, true)
     await rendered(root, 'text.')
     props.value = { text: `${NESTED} Done.`, streaming: false }
-    expect(await rendered(root, 'Done.')).not.toContain('****')
+    await rendered(root, 'Done.')
+    expectFinished(root)
   })
 
   it('re-parses when only the streaming flag flips', async () => {
+    const finished = mount(NESTED, false).root
+    await rendered(finished, 'text.')
     // The last chunk arrives before the status flips.
     const { root, props } = mount(NESTED, true)
-    await rendered(root, '****')
+    await rendered(root, 'text.')
     props.value = { text: NESTED, streaming: false }
-    await vi.waitFor(() => expect(root.textContent).not.toContain('****'))
-    expect(root.textContent).toContain('text.')
+    await vi.waitFor(() => expect(root.innerHTML).toBe(finished.innerHTML))
+    expectFinished(root)
+  })
+
+  it('shows no HTML comment', async () => {
+    const { root } = mount('<!-- block note -->\n\nShown <!-- inline note --> text.\n', false)
+    expect(await rendered(root, 'text.')).not.toContain('note')
   })
 })

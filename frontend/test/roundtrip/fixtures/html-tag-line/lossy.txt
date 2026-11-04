@@ -1,0 +1,1 @@
+raw phrasing HTML on lines of its own reads as a paragraph; a stray unclosed tag's block keeps its content as blocks

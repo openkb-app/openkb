@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createApp, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as Y from 'yjs'
-import { useLiveCollab } from './useLiveCollab'
+import { editorAcceptsInput, useLiveCollab } from './useLiveCollab'
 
 interface ProviderOptions {
   onSynced: () => void
@@ -131,5 +131,18 @@ describe('useLiveCollab live status', () => {
     provider.onSynced()
     expect(liveStatus.value).toBe('live')
     unmount()
+  })
+})
+
+describe('editorAcceptsInput', () => {
+  it('keeps the editor read-only until the body is seeded', () => {
+    expect(editorAcceptsInput(false, 'live')).toBe(false)
+    expect(editorAcceptsInput(true, 'live')).toBe(true)
+  })
+
+  it('keeps it read-only while the collab server rejects the session', () => {
+    expect(editorAcceptsInput(true, 'auth-error')).toBe(false)
+    expect(editorAcceptsInput(true, 'no-access')).toBe(false)
+    expect(editorAcceptsInput(true, 'offline')).toBe(true)
   })
 })

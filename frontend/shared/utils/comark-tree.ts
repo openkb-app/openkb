@@ -20,7 +20,8 @@
  *   here, never stored. {@link citationsByBlock} reads each block's own
  *   sources back off the result, and {@link referencesByBlock} reads the
  *   edges a block holds off the parsed tree, for the chunk index.
- * - Tags whose source is not prose are dropped, and everything else is held to
+ * - Tags whose source is not prose are dropped, as are HTML comments,
+ *   processing instructions and CDATA. Everything else is held to
  *   the text format's allowed list (`allowedHtml`, from `GET /openkb/schema`):
  *   an unlisted tag unwraps to its children, an unlisted attribute drops, and a
  *   value-restricted attribute keeps only the values the list carries. HTML
@@ -33,7 +34,12 @@
  *   component's fence a `fence` node (shared/utils/fences.ts).
  * - Read path only: every id-bearing top-level block gets a ¶ link.
  *
- * {@link dataImages} widens the parser's `data:` check.
+ * Three parser plugins, for every reader including the editor:
+ * - {@link dataImages} widens the parser's `data:` check.
+ * - {@link inlineComponents} reads an inline component glued to a word
+ *   (`see:doc[A]{nid="1"}`) as the component comark writes it.
+ * - {@link unterminatedComments} reads an unterminated `<!--` as text, so it
+ *   does not hide the rest of the body.
  */
 import { BLOCK_ID_PREFIX } from '#shared/page-blocks'
 import { isFileUuid, type ResolvedFile } from './files'
@@ -137,7 +143,7 @@ export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', 'attachmen
  * `<template>`, `<iframe>` as MDC components, and their source is not prose.
  * A raw `<embed>` is the `::embed` component: it shows a page file only.
  */
-const DROPPED_TAGS = new Set(['script', 'style', 'template', 'iframe', 'object'])
+export const DROPPED_TAGS = new Set(['script', 'style', 'template', 'iframe', 'object'])
 
 /**
  * Block tags the ¶ fragment link is emitted into. It is a phrasing-content
@@ -223,7 +229,9 @@ interface ImageRuleHost {
  */
 export const dataImages = {
   name: 'openkb-data-images',
-  markdownItPlugins: [(md: ImageRuleHost) => {
+  // markdown-it's types do not declare the rule lists the plugin reads.
+  markdownItPlugins: [(instance: unknown) => {
+    const md = instance as ImageRuleHost
     const image = md.inline.ruler.__rules__.find(rule => rule.name === 'image')?.fn
     if (!image) return
     let forImage = false
@@ -241,12 +249,128 @@ export const dataImages = {
   }],
 }
 
+/**
+ * The start of an inline component the editor writes, up to its `[` or `{`:
+ * mention, doc link, citation, attachment, image.
+ */
+const INLINE_COMPONENT_START = /:(?:(?:mention|doc|attachment)\[|(?:citation|image|attachment)\{(?!\{))/y
+
+/**
+ * Reads {@link INLINE_COMPONENT_START} components after any character, as the
+ * editor writes them; any other `:name` keeps comark's rule.
+ *
+ * comark's parser takes a component only after a space, tab, newline, `*`, `_`
+ * or `[`, so `(:doc[Page]{nid="1"})`, written by its own renderer, would lose
+ * the link on the next load.
+ */
+export const inlineComponents = {
+  name: 'openkb-inline-components',
+  // markdown-it's types do not declare the rule lists the plugin reads.
+  markdownItPlugins: [(instance: unknown) => {
+    const md = instance as ImageRuleHost
+    const component = md.inline.ruler.__rules__.find(rule => rule.name === 'comark_inline_component')?.fn
+    if (!component) throw new Error('comark inline component rule not found')
+    md.inline.ruler.at('comark_inline_component', (state, silent) => {
+      const inline = state as { src: string, pos: number }
+      const { src, pos } = inline
+      INLINE_COMPONENT_START.lastIndex = pos
+      if (!pos || !INLINE_COMPONENT_START.test(src)) return component(state, silent)
+      // comark's rule checks the character before the `:`: a space, for this call.
+      inline.src = `${src.slice(0, pos - 1)} ${src.slice(pos)}`
+      try {
+        return component(state, silent)
+      }
+      finally {
+        inline.src = src
+      }
+    })
+  }],
+}
+
+/** One markdown-it block rule, as its ruler holds it. */
+type BlockRule = (state: BlockState, startLine: number, endLine: number, silent: boolean) => boolean
+
+interface BlockState {
+  src: string
+  bMarks: number[]
+  eMarks: number[]
+  tShift: number[]
+  sCount: number[]
+  blkIndent: number
+}
+
+interface CoreToken {
+  type: string
+  content: string
+  map: [number, number] | null
+  children: CoreToken[] | null
+}
+
+/** What {@link unterminatedComments} touches on the markdown-it instance. */
+interface CommentRuleHost {
+  block: {
+    ruler: {
+      at: (name: string, fn: BlockRule, options: { alt: string[] }) => void
+      __rules__: { name: string, fn: BlockRule }[]
+    }
+  }
+  core: { ruler: { push: (name: string, fn: (state: { src: string, tokens: CoreToken[] }) => void) => void } }
+}
+
+/**
+ * Keeps a `<!--` with no end marker as text. comark reads one as a comment
+ * running to the end of the document: an HTML block starting with it, and any
+ * text starting with it, escaped (`\<!--`) or not.
+ * - Block: such a start, with no `-->` in its container, is a paragraph.
+ * - Text: a text run starting with `<!--` is split after its `<`, so comark's
+ *   tree builder does not open a comment on it, when it was escaped or no
+ *   `-->` follows in the document.
+ */
+export const unterminatedComments = {
+  name: 'openkb-unterminated-comments',
+  // markdown-it's types do not declare the rule lists the plugin reads.
+  markdownItPlugins: [(instance: unknown) => {
+    const md = instance as CommentRuleHost
+    /** markdown-it's block rule of this name. */
+    const findBlockRule = (name: string) => md.block.ruler.__rules__.find(rule => rule.name === name)?.fn
+    const paragraph = findBlockRule('paragraph')
+    const htmlBlock = findBlockRule('html_block')
+    if (!paragraph || !htmlBlock) throw new Error('markdown-it paragraph or html_block rule not found')
+    md.block.ruler.at('html_block', (state, startLine, endLine, silent) =>
+      unterminatedComment(state, startLine, endLine)
+        ? !silent && paragraph(state, startLine, endLine, false)
+        : htmlBlock(state, startLine, endLine, silent), { alt: ['paragraph', 'reference', 'blockquote'] })
+    md.core.ruler.push('openkb_comment_text', (state) => {
+      const lineStarts = [0, ...[...state.src.matchAll(/\n/g)].map(match => match.index + 1)]
+      for (const token of state.tokens) {
+        if (!token.children?.some(child => child.type === 'text' && child.content.startsWith('<!--'))) continue
+        const closed = state.src.includes('-->', lineStarts[token.map?.[0] ?? 0])
+        if (closed && !token.content.includes('\\<!--')) continue
+        token.children = token.children.flatMap(child => child.type === 'text' && child.content.startsWith('<!--')
+          ? [{ ...child, content: '<' }, { ...child, content: child.content.slice(1) }]
+          : [child])
+      }
+    })
+  }],
+}
+
+/** Whether a `<!--` block starts here with no `-->` in its container. */
+function unterminatedComment(state: BlockState, startLine: number, endLine: number): boolean {
+  /** Line `n`'s text after its indent. */
+  const lineText = (n: number) => state.src.slice(state.bMarks[n]! + state.tShift[n]!, state.eMarks[n])
+  if (state.sCount[startLine]! - state.blkIndent >= 4 || !lineText(startLine).startsWith('<!--')) return false
+  for (let n = startLine; n < endLine && (n === startLine || state.sCount[n]! >= state.blkIndent); n++) {
+    if (lineText(n).includes('-->')) return false
+  }
+  return true
+}
+
 /** The page body, or one chat answer, as the page renders it. */
 export async function markdownToTree(
   markdown: string,
   options: TreeOptions = {},
 ): Promise<ComarkNode[]> {
-  return cleanTree(await parseComark(markdown, options.streaming), options)
+  return cleanTree(await parseComark(markdown, { streaming: options.streaming }), options)
 }
 
 /**
@@ -256,12 +380,17 @@ export async function markdownToTree(
  * reads the reference nodes off: {@link cleanTree} renders a citation as a
  * chip and, with nothing to resolve it against, as nothing at all.
  */
-export async function parseComark(markdown: string, streaming = false): Promise<ComarkNode[]> {
+export async function parseComark(
+  markdown: string,
+  { streaming = false, headingIds = true }: { streaming?: boolean, headingIds?: boolean } = {},
+): Promise<ComarkNode[]> {
   if (!markdown || !markdown.trim()) return []
   // Dynamic so the parser is its own chunk: the read page is handed a tree
-  // the server already built, and only the chat surfaces parse in the browser.
+  // the server already built, and only the chat surfaces and the editor parse
+  // in the browser.
   const { parseMarkdown } = await import('comark')
-  return dissolveBlockFences((await parseMarkdown(markdown, { plugins: [dataImages], autoClose: streaming })).nodes as ComarkNode[])
+  const parsed = await parseMarkdown(markdown, { plugins: [dataImages, inlineComponents, unterminatedComments], autoClose: streaming, headingIds })
+  return dissolveBlockFences(parsed.nodes as ComarkNode[])
 }
 
 /** The passes {@link markdownToTree} runs, over a tree already parsed. */
@@ -320,7 +449,8 @@ function cleanChildren(nodes: ComarkNode[], ctx: PassContext, inline: boolean): 
 function cleanNode(node: ComarkNode, ctx: PassContext, inline: boolean): ComarkNode[] {
   if (typeof node === 'string') return ctx.citationChips ? citedText(node, ctx.citationChips) : [node]
   const [tag, rawProps, ...children] = node
-  if (DROPPED_TAGS.has(tag)) return []
+  // No tag: an HTML comment, processing instruction or CDATA.
+  if (!tag || DROPPED_TAGS.has(tag)) return []
   if (ctx.citationChips && isCitationRef(node)) return chipsFor(`[${node[2]}]`, ctx.citationChips)
   // A tag the format does not list is not the author's to write: the words
   // below it stay, the element itself does not. A void tag has no children,

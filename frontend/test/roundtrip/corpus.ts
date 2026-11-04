@@ -9,10 +9,16 @@
  *                                   AST normalizer cannot bridge. S3 then
  *                                   compares output vs expected instead
  *                                   of output vs input.
+ *   fixtures/<name>/second.md     — optional, lossy fixtures only; the
+ *                                   second pass, where an accepted gap
+ *                                   changes the document again on the
+ *                                   next save.
  *
  * Assertions per fixture:
+ *   valid: the loaded doc passes the schema check (`doc.check()`)
  *   bytes: save(load(input)) === expected ?? input   (S1 when no expected.md)
- *   S2:    a second pass over the output is byte-identical (convergence)
+ *   S2:    a second pass over the output is byte-identical (convergence),
+ *          or equals second.md
  *   S3:    normalizedAst(output) equals normalizedAst(input)  (or expected
  *          for lossy fixtures)
  */
@@ -28,6 +34,7 @@ export interface CorpusCase {
   input: string
   expected?: string
   lossyReason?: string
+  second?: string
 }
 
 export function loadCorpus(dir: string): CorpusCase[] {
@@ -37,6 +44,7 @@ export function loadCorpus(dir: string): CorpusCase[] {
       const base = join(dir, entry.name)
       const expectedPath = join(base, 'expected.md')
       const lossyPath = join(base, 'lossy.txt')
+      const secondPath = join(base, 'second.md')
       // Fixture files end with a POSIX trailing newline; the serializer
       // never emits one, so the corpus compares without it.
       const md = (p: string) => readFileSync(p, 'utf8').replace(/\n$/, '')
@@ -45,6 +53,7 @@ export function loadCorpus(dir: string): CorpusCase[] {
         input: md(join(base, 'input.md')),
         expected: existsSync(expectedPath) ? md(expectedPath) : undefined,
         lossyReason: existsSync(lossyPath) ? readFileSync(lossyPath, 'utf8').trim() : undefined,
+        second: existsSync(secondPath) ? md(secondPath) : undefined,
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -62,11 +71,13 @@ export function runCorpus(impl: RoundTripImpl, fixturesDir: string): void {
     for (const c of cases) {
       test(c.name, async () => {
         const target = c.expected ?? c.input
-        const output = await roundTrip(impl, c.input)
+        const loaded = await impl.load(c.input)
+        expect(() => loaded.check(), 'valid: doc.check()').not.toThrow()
+        const output = await impl.save(loaded)
         expect(output, 'bytes: serialize(load(input))').toBe(target)
 
         const second = await roundTrip(impl, output)
-        expect(second, 'S2: second pass must be byte-identical').toBe(output)
+        expect(second, 'S2: second pass must be byte-identical').toBe(c.second ?? output)
 
         const reference = c.lossyReason ? target : c.input
         expect(

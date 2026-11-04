@@ -8,9 +8,9 @@ import { Node as ProseNode } from '@tiptap/pm/model'
 import type { JSONContent } from '@tiptap/core'
 import type { Hocuspocus } from '@hocuspocus/server'
 import { editorSchema } from './editor-schema'
-import { parseMarkdownToDoc, parseMarkdownToJson } from '../../app/comark/markdown-engine'
+import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
 import { mintAuthoredIds } from './agent-block-ids'
-import { blockIdOf } from '#shared/page-blocks'
+import { blockIdOf, collectBlockIds } from '#shared/page-blocks'
 import { actorLabel } from '#shared/utils/attribution'
 import { TITLE_KEY, type FieldSpec, type FieldValues } from './entity-fields'
 import {
@@ -152,9 +152,9 @@ export function applyFieldValues(doc: Y.Doc, values: FieldValues): string[] {
  * and touches only what differs, so untouched blocks keep their identity and
  * the peers anchored in them keep their positions.
  *
- * The markdown goes through the same parser and schema the browser editor and
- * the commit serializer use, so an agent cannot express anything a human
- * could not have typed.
+ * The body comes parsed (`parseMarkdownToJson`), through the same parser and
+ * schema the browser editor and the commit serializer use, so an agent cannot
+ * express anything a human could not have typed.
  *
  * `authored` says whether this write is authorship. It is, for an agent's own
  * edit: the blocks it created are minted stable ids, exactly as a browser
@@ -166,16 +166,12 @@ export function applyFieldValues(doc: Y.Doc, values: FieldValues): string[] {
  */
 export function applyBodyMarkdown(
   doc: Y.Doc,
-  markdown: string,
+  body: JSONContent,
   authored = false,
 ): void {
   const fragment = doc.getXmlFragment('default')
   const { doc: before, meta } = initProseMirrorDoc(fragment, editorSchema)
-  if (!authored) {
-    updateYFragment(doc, fragment, parseMarkdownToDoc(markdown), meta)
-    return
-  }
-  const { json } = mintAuthoredIds(before, parseMarkdownToJson(markdown))
+  const json = authored ? mintAuthoredIds(before, body).json : body
   updateYFragment(doc, fragment, ProseNode.fromJSON(editorSchema, json), meta)
 }
 
@@ -213,12 +209,13 @@ function keepId(replacement: JSONContent[], id: string): JSONContent[] {
  * needs no anchor and appends — the page a human created empty is filled the
  * same way as any other.
  *
+ * `parsed` holds each op's markdown, parsed (`parseMarkdownToJson`).
+ *
  * @returns
- *   Every block the ops wrote → the version it holds now, read off the written
- *   document by the one canonical helper (./block-versions). A replacement is
- *   keyed by the id it kept; an insertion by the id minted for it here, which
- *   is the caller's only way to learn it. Both are what the next op on that
- *   block sends as `expect`, so editing what you just wrote needs no read.
+ *   The document written, and the ids of the blocks the ops wrote: a
+ *   replacement's kept id, an insertion's id minted here, which is the
+ *   caller's only way to learn it. {@link placedVersions} turns them into the
+ *   versions the next op on those blocks sends as `expect`.
  *
  * @throws {UnknownBlockError}
  *   When an op names a block the document does not hold. Nothing is written —
@@ -233,8 +230,9 @@ function keepId(replacement: JSONContent[], id: string): JSONContent[] {
 export function applyBlockOps(
   doc: Y.Doc,
   ops: BlockOp[],
+  parsed: JSONContent[],
   authored = false,
-): Record<string, string> {
+): { written: ProseNode, placed: string[] } {
   const fragment = doc.getXmlFragment('default')
   const { doc: before, meta } = initProseMirrorDoc(fragment, editorSchema)
   const json = before.toJSON() as JSONContent
@@ -267,8 +265,8 @@ export function applyBlockOps(
       throw new DuplicatedBlockError(anchor)
     }
 
-    const parsed = parseMarkdownToJson(op.markdown).content ?? []
-    const replacement = 'id' in op ? keepId(parsed, op.id) : parsed
+    const blocks = parsed[index]?.content ?? []
+    const replacement = 'id' in op ? keepId(blocks, op.id) : blocks
     // An anchorless op lands where `after` would, on the block it chains from.
     const insertAt = 'before' in op ? at : at + 1
     content = 'id' in op
@@ -284,25 +282,31 @@ export function applyBlockOps(
   const written = ProseNode.fromJSON(editorSchema, minted)
   updateYFragment(doc, fragment, written, meta)
 
-  // Versions off the node just written, not off a re-read: it is the tree the
-  // fragment now holds, and segmenting it is the same derivation the read side
-  // and refuseStaleBlocks run.
-  const segments = blockSegmentsOfDoc(written.toJSON() as ProseMirrorJSON)
   // The mint maps the top level one-to-one, so a node's position carries over.
+  // A block a later op replaced is no longer there; that op reports what
+  // stands in its place.
   const mintedContent = minted.content ?? []
   const position = new Map(content.map((node, index) => [node, index]))
-
-  const versions: Record<string, string> = {}
-  for (const node of placed) {
+  const ids = placed.flatMap((node) => {
     const index = position.get(node)
-    // A block a later op replaced is no longer there; that op reports what
-    // stands in its place.
-    if (index === undefined) continue
-    const id = blockIdOf(mintedContent[index] ?? {})
-    const markdown = id === null ? undefined : segments.get(id)
-    // A block the body exposes no version for is one no op can `expect` — the
-    // map answers only what a retry can use.
-    if (id !== null && markdown !== undefined) versions[id] = blockVersion(markdown)
+    const id = index === undefined ? null : blockIdOf(mintedContent[index] ?? {})
+    return id === null ? [] : [id]
+  })
+  return { written, placed: ids }
+}
+
+/**
+ * Block id → version for the blocks `placed` names, off the document just
+ * written: the tree the fragment holds, segmented as the read side and
+ * {@link refuseStaleBlocks} segment it. A block the body exposes no version for
+ * is one no op can `expect`; the map answers only what a retry can use.
+ */
+export async function placedVersions(written: ProseNode, placed: string[]): Promise<Record<string, string>> {
+  const segments = await blockSegmentsOfDoc(written.toJSON() as ProseMirrorJSON)
+  const versions: Record<string, string> = {}
+  for (const id of placed) {
+    const markdown = segments.get(id)
+    if (markdown !== undefined) versions[id] = blockVersion(markdown)
   }
   return versions
 }
@@ -444,9 +448,9 @@ export class StaleBlockError extends Error {
  * Refuses the whole call when any op expects a version its block no longer
  * holds — compare-and-swap over block content.
  *
- * Runs inside the document's transaction, against the document as it stands at
- * that moment. Nothing can move between the check and the write: a Y.Doc has
- * one writer at a time in this process, and the caller holds it for both.
+ * `segments` is the document's block segmentation as the write will find it:
+ * the caller snapshots it before the transaction and writes only if the
+ * document has not moved since.
  *
  * All-or-nothing, like {@link applyBlockOps}: a half-applied set of block edits
  * is worse than a refused one. Which ops were stale is still reported per
@@ -464,11 +468,7 @@ export class StaleBlockError extends Error {
  *   index an op addresses through — so nothing the caller read can match, and
  *   passing it through would be a write nobody checked.
  */
-export function refuseStaleBlocks(doc: Y.Doc, ops: BlockOp[]): void {
-  if (!ops.some(op => op.expect)) return
-  const { doc: current } = initProseMirrorDoc(doc.getXmlFragment('default'), editorSchema)
-  const segments = blockSegmentsOfDoc(current.toJSON() as ProseMirrorJSON)
-
+export function refuseStaleBlocks(segments: Map<string, string>, ops: BlockOp[]): void {
   const conflicts: BlockConflict[] = []
   ops.forEach((op, index) => {
     const expected = op.expect
@@ -483,6 +483,46 @@ export function refuseStaleBlocks(doc: Y.Doc, ops: BlockOp[]): void {
   })
 
   if (conflicts.length > 0) throw new StaleBlockError(conflicts)
+}
+
+const DOCUMENT_MOVED = 'The page kept changing while this write was checked against it. Send it again.'
+
+/** Snapshots the stale check takes before it gives up on a busy document. */
+const SNAPSHOT_TRIES = 3
+
+/**
+ * Runs `write` with the block segments {@link refuseStaleBlocks} checks
+ * against, or with `null` when no op expects a version.
+ *
+ * Rendering them is awaited, so a peer's edit may land meanwhile. `write` runs
+ * in the same synchronous continuation as the check that the body fragment did
+ * not change during the render — nothing can land between check and write.
+ * A changed fragment means a fresh snapshot.
+ *
+ * @throws a 409 when the fragment changed on every try.
+ */
+async function writeOnUnmoved<T>(
+  doc: Y.Doc,
+  ops: BlockOp[],
+  write: (segments: Map<string, string> | null) => T,
+): Promise<T> {
+  if (!ops.some(op => op.expect)) return write(null)
+  const fragment = doc.getXmlFragment('default')
+  for (let attempt = 0; attempt < SNAPSHOT_TRIES; attempt++) {
+    let fragmentChanged = false
+    /** Notes that the body fragment changed while the snapshot was rendering. */
+    const noteFragmentChanged = () => { fragmentChanged = true }
+    fragment.observeDeep(noteFragmentChanged)
+    try {
+      const { doc: current } = initProseMirrorDoc(fragment, editorSchema)
+      const segments = await blockSegmentsOfDoc(current.toJSON() as ProseMirrorJSON)
+      if (!fragmentChanged) return write(segments)
+    }
+    finally {
+      fragment.unobserveDeep(noteFragmentChanged)
+    }
+  }
+  throw createError({ statusCode: 409, statusMessage: DOCUMENT_MOVED })
 }
 
 /**
@@ -514,7 +554,7 @@ export interface CommentOp {
  */
 export function applyComment(doc: Y.Doc, actor: AgentActor, op: CommentOp): { threadId: string, msgId: string } {
   const { doc: current } = initProseMirrorDoc(doc.getXmlFragment('default'), editorSchema)
-  if (!blockSegmentsOfDoc(current.toJSON() as ProseMirrorJSON).has(op.blockId)) {
+  if (!collectBlockIds(current.toJSON() as JSONContent).has(op.blockId)) {
     throw new UnknownBlockError(op.blockId)
   }
   if (op.threadId !== undefined && !readThreads(doc)
@@ -657,7 +697,7 @@ export interface AgentSession {
   /** Browser peers currently connected (the agent itself is not one). */
   humanPeers: () => number
   /** Apply ops in one tagged transaction; a 409 once the session has left. */
-  apply: (ops: AgentOps) => AgentOpsResult
+  apply: (ops: AgentOps) => Promise<AgentOpsResult>
   /** Drop the "editing" claim on the blocks last written; presence stays. */
   releaseClaim: () => void
   /** Withdraw presence and close the direct connection. */
@@ -745,34 +785,42 @@ export async function openAgentSession(
     // on the document directly is the same write (a hocuspocus Document is a
     // Y.Doc; its update handler broadcasts to peers and fires `onChange`
     // either way) with the origin we need.
-    apply(ops: AgentOps): AgentOpsResult {
-      // A session that left is detached from the document: its ops would reach
-      // nothing while the caller is told the write landed.
-      if (left) throw createError({ statusCode: 409, statusMessage: SESSION_CLOSED })
+    async apply(ops: AgentOps): Promise<AgentOpsResult> {
+      const body = ops.body !== undefined ? await parseMarkdownToJson(ops.body) : undefined
+      const parsed = await Promise.all((ops.blocks ?? []).map(op => parseMarkdownToJson(op.markdown)))
       const result: AgentOpsResult = { fields: [], body: false, blocks: {} }
-      Y.transact(document, () => {
-        // Before anything in this transaction is written: a stale write must
-        // leave the document exactly as it found it, fields included.
-        if (ops.blocks?.length) refuseStaleBlocks(document, ops.blocks)
-        if (ops.files) refuseUnlistedFileNames(document, ops.files)
-        const embedded = embeddedFiles(document)
-        if (ops.fields) result.fields = applyFieldValues(document, ops.fields)
-        for (const [key, change] of Object.entries(ops.files ?? {}) as Array<[PageFileKey, PageFileChange]>) {
-          if (changePageFiles(document, key, change)) result.fields.push(key)
-        }
-        if (ops.body !== undefined) {
-          applyBodyMarkdown(document, ops.body, true)
-          result.body = true
-        }
-        if (ops.blocks?.length) {
-          result.blocks = applyBlockOps(document, ops.blocks, true)
-        }
-        // A file the write newly shows as `::embed` leaves the read page's list, as in the editor.
-        for (const uuid of embeddedFiles(document)) {
-          if (!embedded.has(uuid)) setFileHidden(document, uuid, true)
-        }
-        if (ops.comment) result.comment = applyComment(document, actor, ops.comment)
-      }, origin)
+      const written = await writeOnUnmoved(document, ops.blocks ?? [], (segments) => {
+        // A session that left is detached from the document: its ops would reach
+        // nothing while the caller is told the write landed.
+        if (left) throw createError({ statusCode: 409, statusMessage: SESSION_CLOSED })
+        let written: { written: ProseNode, placed: string[] } | undefined
+        Y.transact(document, () => {
+          // Before anything in this transaction is written: a stale write must
+          // leave the document exactly as it found it, fields included.
+          if (segments) refuseStaleBlocks(segments, ops.blocks ?? [])
+          if (ops.files) refuseUnlistedFileNames(document, ops.files)
+          const embedded = embeddedFiles(document)
+          if (ops.fields) result.fields = applyFieldValues(document, ops.fields)
+          for (const [key, change] of Object.entries(ops.files ?? {}) as Array<[PageFileKey, PageFileChange]>) {
+            if (changePageFiles(document, key, change)) result.fields.push(key)
+          }
+          if (body) {
+            applyBodyMarkdown(document, body, true)
+            result.body = true
+          }
+          if (ops.blocks?.length) {
+            written = applyBlockOps(document, ops.blocks, parsed, true)
+          }
+          // A file the write newly shows as `::embed` leaves the read page's list, as in the editor.
+          for (const uuid of embeddedFiles(document)) {
+            if (!embedded.has(uuid)) setFileHidden(document, uuid, true)
+          }
+          if (ops.comment) result.comment = applyComment(document, actor, ops.comment)
+        }, origin)
+        return written
+      })
+      if (written) result.blocks = await placedVersions(written.written, written.placed)
+      if (left) return result
       // The blocks this write touched, republished as part of the peer's own
       // state: "somebody is working here", for {@link CLAIM_HOLD_MS}. A write
       // that named no block clears what the previous one said.

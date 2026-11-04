@@ -53,6 +53,7 @@ function mounted(refresh = async () => {}) {
 function editorSession(synced: boolean) {
   return {
     synced: ref(synced),
+    hydrated: ref(synced),
     editorRef: ref({ editor: {} }),
     deletedRemotely: ref(false),
   } as unknown as EditorSession
@@ -92,6 +93,10 @@ describe('useKbNodeEditSession', () => {
     await vi.advanceTimersByTimeAsync(10_000)
 
     s.synced.value = true
+    await nextTick()
+    // The seed parses asynchronously after the sync: no swap before it lands.
+    expect(session.mode.value).toBe('preparing')
+    s.hydrated.value = true
     await vi.waitFor(() => expect(session.mode.value).toBe('edit'))
     await nextTick()
 

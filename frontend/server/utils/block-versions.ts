@@ -33,11 +33,14 @@ import { serializeCommitJSON, type ProseMirrorJSON } from './commit'
 /** Hex characters of the sha256 a version carries. */
 const VERSION_LENGTH = 12
 
-/** A trailing `{#id}` on a text block. */
-const TRAILING_ID = /\{#([\w-]+)\}\s*$/
+/** A trailing `{#id}` on a text block, after a space or tab or as its whole text. */
+const TRAILING_ID = /(?:^|[ \t])\{#([\w-]+)\}\s*$/
 
 /** The `#id` shorthand closing a component fence's prop list. */
 const FENCE_ID = /#([\w-]+)\}\s*$/
+
+/** A code fence's opening or closing run: three or more backticks or tildes. */
+const CODE_FENCE = /^\s*(`{3,}|~{3,})/
 
 /**
  * The body's top-level chunks, blank-line separated.
@@ -49,13 +52,17 @@ function chunks(markdown: string): string[] {
   const out: string[] = []
   let current: string[] = []
   const fences: number[] = []
-  let code = false
+  let code: string | null = null
 
   for (const line of markdown.split(/\r\n|[\r\n]/)) {
-    if (/^\s*```/.test(line)) {
-      code = !code
+    const codeFence = CODE_FENCE.exec(line)?.[1]
+    if (code === null && codeFence) {
+      code = codeFence
     }
-    else if (!code) {
+    else if (code !== null) {
+      if (codeFence && codeFence[0] === code[0] && codeFence.length >= code.length && line.trim() === codeFence) code = null
+    }
+    else {
       // A colon run with a name opens a fence; a bare one closes the innermost
       // fence opened with the same run length.
       const fence = /^(:{2,})(\S+)?/.exec(line)
@@ -63,7 +70,7 @@ function chunks(markdown: string): string[] {
       else if (fence && fences.at(-1) === fence[1]!.length) fences.pop()
     }
 
-    if (line.trim() === '' && !code && fences.length === 0) {
+    if (line.trim() === '' && code === null && fences.length === 0) {
       out.push(current.join('\n'))
       current = []
       continue
@@ -105,8 +112,8 @@ export function blockSegments(canonical: string): Map<string, string> {
  * Serialized the way a checkpoint would, so what comes out is the body a read
  * of this document serves, spelled canonically.
  */
-export function blockSegmentsOfDoc(json: ProseMirrorJSON): Map<string, string> {
-  return blockSegments(serializeCommitJSON(json))
+export async function blockSegmentsOfDoc(json: ProseMirrorJSON): Promise<Map<string, string>> {
+  return blockSegments(await serializeCommitJSON(json))
 }
 
 /** A block's version — the short content hash of its canonical markdown. */

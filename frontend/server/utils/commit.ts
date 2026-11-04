@@ -313,12 +313,13 @@ export function contentHash(markdown: string): string {
 /**
  * Y.Doc `default` fragment → comark markdown, through the shared schema and
  * serializer. Pure and DOM-free; unit-tested directly over seeded Y.Docs.
+ * The document is read when called; only rendering the snapshot is awaited.
  */
 export function serializeYDoc(
   doc: Y.Doc,
   preSerialize: PreSerializeTransform[] = [],
   ctx?: CommitContext,
-): string {
+): Promise<string> {
   return serializeCommitJSON(yDocToProsemirrorJSON(doc, 'default') as ProseMirrorJSON, preSerialize, ctx)
 }
 
@@ -340,7 +341,7 @@ export function serializeCommitJSON(
   json: ProseMirrorJSON,
   preSerialize: PreSerializeTransform[] = [],
   ctx?: CommitContext,
-): string {
+): Promise<string> {
   for (const transform of preSerialize) json = transform(json, ctx as CommitContext)
   return serializeDocToMarkdown(PMNode.fromJSON(editorSchema, json))
 }
@@ -435,12 +436,12 @@ export async function commitDocument(
     ...(options.sessionWrite ? { sessionWrite: options.sessionWrite } : {}),
   }
 
-  // One instant, one revision. Each lane's read here, the body just below, and
-  // nothing awaited between them. Ops landing while the commit is in flight
-  // belong to the next revision, under their own writer's name; a lane reading
-  // the document after an await would mix them into this one.
+  // One instant, one revision. Each lane's read here and the body's snapshot
+  // just below, nothing awaited between them; only rendering the snapshot is.
+  // Ops landing while the commit is in flight belong to the next revision,
+  // under their own writer's name.
   for (const capture of hooks.captures) capture(ctx)
-  const markdown = serializeYDoc(doc, hooks.preSerialize, ctx)
+  const markdown = await serializeYDoc(doc, hooks.preSerialize, ctx)
   const hash = contentHash(markdown)
 
   const meta = doc.getMap('_meta')

@@ -3,8 +3,8 @@ import { decodePageEntities, encodePageEntities } from './comark-entities'
 import { parseMarkdownToDoc, serializeDocToMarkdown } from '../../app/comark/markdown-engine'
 
 /** What a write of this content through the editor would store. */
-const stored = (markdown: string): string =>
-  serializeDocToMarkdown(parseMarkdownToDoc(markdown))
+const stored = async (markdown: string): Promise<string> =>
+  await serializeDocToMarkdown(await parseMarkdownToDoc(markdown))
 
 describe('decodePageEntities', () => {
   it('spells the serializer\'s entities as the characters they stand for', () => {
@@ -34,6 +34,10 @@ describe('decodePageEntities', () => {
   it('reads an unclosed backtick run as text', () => {
     expect(decodePageEntities('a ` b &amp; c')).toBe('a ` b & c')
   })
+
+  it('leaves a backslash-escaped entity as written', () => {
+    expect(decodePageEntities('\\&amp; \\&lt;x \\\\&amp; \\\\\\&amp;')).toBe('\\&amp; \\&lt;x \\\\& \\\\\\&amp;')
+  })
 })
 
 describe('encodePageEntities', () => {
@@ -46,6 +50,16 @@ describe('encodePageEntities', () => {
     expect(encodePageEntities('<span class="x">y</span>'))
       .toBe('&lt;span class="x">y&lt;/span>')
     expect(encodePageEntities('<!-- note --> <br/>')).toBe('&lt;!-- note --> &lt;br/>')
+    expect(encodePageEntities('<u class="x">y</u> <strong >z</strong> <ul>')).toBe('&lt;u class="x">y</u> &lt;strong >z</strong> &lt;ul>')
+  })
+
+  it('leaves the mark tags the editor stores as tags', () => {
+    expect(encodePageEntities('<u>a</u> <strong>b</strong> <em>c</em> <del>d</del>'))
+      .toBe('<u>a</u> <strong>b</strong> <em>c</em> <del>d</del>')
+  })
+
+  it('leaves a backslash-escaped ampersand or angle bracket alone', () => {
+    expect(encodePageEntities('\\<span> \\&copy; \\\\<b> \\\\&copy;')).toBe('\\<span> \\&copy; \\\\&lt;b> \\\\&amp;copy;')
   })
 
   it('leaves what the parser reads as text alone', () => {
@@ -78,25 +92,46 @@ describe('the tool boundary round trip', () => {
     '[x](https://example.com/a?y=1&z=2) {#b-6}',
   ]
 
-  it.each(bodies)('a model rewriting what it read changes nothing: %j', (body) => {
-    expect(stored(encodePageEntities(decodePageEntities(body)))).toBe(stored(body))
+  it.each(bodies)('a model rewriting what it read changes nothing: %j', async (body) => {
+    expect(await stored(encodePageEntities(decodePageEntities(body)))).toBe(await stored(body))
   })
 
-  const written = [
-    'Wiki & AI, 5 < 6, 7 > 6',
-    '<span>x</span>',
-    '&copy; 2026 AT&T, R&D;',
-    '> a blockquote with AT&T',
-    'auto <https://example.com> link',
-    'code `a & b <c>` here',
-    '```\na & b <c>\n```',
-    '| a & b | c < d |\n| --- | --- |\n| 1 | 2 |',
-    '::callout{type="info"}\nAT&T <x>\n::',
-    '[x](https://example.com/a?y=1&z=2)',
+  /** What a model writes, and how it reads that back once stored. */
+  const written: [string, string][] = [
+    ['Wiki & AI, 5 < 6, 7 > 6', 'Wiki & AI, 5 < 6, 7 > 6'],
+    ['<span>x</span>', '\\<span>x\\</span>'],
+    ['&copy; 2026 AT&T, R&D;', '\\&copy; 2026 AT&T, R\\&D;'],
+    ['> a blockquote with AT&T', '> a blockquote with AT&T'],
+    ['auto <https://example.com> link', 'auto <https://example.com> link'],
+    ['code `a & b <c>` here', 'code `a & b <c>` here'],
+    ['```\na & b <c>\n```', '```\na & b <c>\n```'],
+    ['| a & b | c < d |\n| --- | --- |\n| 1 | 2 |', '| a & b | c < d |\n| ----- | ----- |\n| 1     | 2     |'],
+    ['::callout{type="info"}\nAT&T <x>\n::', '::callout{type="info"}\nAT&T \\<x>\n::'],
+    ['[x](https://example.com/a?y=1&z=2)', '[x](https://example.com/a?y=1&z=2)'],
   ]
 
-  it.each(written)('a model reads back the characters it wrote: %j', (text) => {
-    expect(decodePageEntities(stored(encodePageEntities(text)))).toBe(text)
+  it.each(written)('a model reads back what it wrote: %j', async (text, readBack) => {
+    expect(decodePageEntities(await stored(encodePageEntities(text)))).toBe(readBack)
+  })
+
+  /** Stored as the editor writes these marks: `<u>` always, the others where delimiters cannot flank. */
+  it.each([
+    'alpha <u>gamma</u> beta {#b-1}',
+    '<u>**both**</u> marks {#b-2}',
+    'a<strong>.x</strong>b a<em>.x</em>b a<del>.x</del>b {#b-3}',
+  ])('a served mark tag written back stores the same bytes: %j', async (body) => {
+    expect(await stored(body)).toBe(body)
+    expect(await stored(encodePageEntities(decodePageEntities(body)))).toBe(body)
+  })
+
+  /** Literal text a human typed, stored backslash-escaped. */
+  it.each([
+    'typed \\<span>x\\</span> here {#b-1}',
+    'typed \\&copy; and R\\&D; {#b-2}',
+    'typed \\&amp; literally {#b-3}',
+  ])('a served escape written back stores the same bytes: %j', async (body) => {
+    expect(await stored(body)).toBe(body)
+    expect(await stored(encodePageEntities(decodePageEntities(body)))).toBe(body)
   })
 
   it('hands the model a body with no entity left in its prose', () => {
@@ -106,8 +141,8 @@ describe('the tool boundary round trip', () => {
   })
 
   /** Markdown a model writes is markdown: a line opened with `>` is a quote. */
-  it('reads a re-written literal marker as the syntax it spells', () => {
-    expect(stored(encodePageEntities(decodePageEntities('&gt; not a quote'))))
+  it('reads a re-written literal marker as the syntax it spells', async () => {
+    expect(await stored(encodePageEntities(decodePageEntities('&gt; not a quote'))))
       .toBe('> not a quote')
   })
 })

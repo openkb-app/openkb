@@ -1,0 +1,1 @@
+L16: a list nested under a marker wider than three characters (10.) is indented by three and leaves the item

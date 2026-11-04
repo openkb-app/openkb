@@ -2,15 +2,15 @@
 import { describe, it, expect } from 'vitest'
 import { Editor } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
+import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
 import { Callout } from './callout'
 import { Infobox } from './infobox'
-import { OkbParagraph } from './markdown-overrides'
 
 function parse(html: string) {
   const editor = new Editor({
     element: document.createElement('div'),
-    extensions: [Document, OkbParagraph, Text, Callout, Infobox],
+    extensions: [Document, Paragraph, Text, Callout, Infobox],
     content: html,
   })
   const json = editor.getJSON()

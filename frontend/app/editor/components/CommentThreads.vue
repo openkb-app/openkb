@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Explicit, not auto-imported: the component is rendered by its own vitest
 // suite outside a Nuxt app.
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import {
   assignedCounts,
@@ -117,22 +117,32 @@ watch(() => props.draft, () => {
 const list = ref<HTMLElement | null>(null)
 /** The comment the editor selected, so the list can outline it. */
 const selectedThreadId = ref<string | null>(null)
+/** The selector of the comment or block still to be brought into view. */
+const pendingScrollTarget = ref<string | null>(null)
 watch(() => props.shownFor, (shown) => {
   if (!shown) return
   filter.value = 'all'
   selectedThreadId.value = shown.threadId ?? null
-  const selector = shown.threadId
+  pendingScrollTarget.value = shown.threadId
     ? `[data-comment-thread="${CSS.escape(shown.threadId)}"]`
     : `[data-comment-block="${CSS.escape(shown.blockId)}"]`
-  nextTick(() => {
-    // Centred, not nearest: a comment parked at the edge is easy to miss.
-    list.value?.querySelector(selector)?.scrollIntoView({ block: 'center' })
-  })
 }, {
   // The drawer unmounts this list while closed, so a click with it closed
   // must apply on mount.
   immediate: true,
 })
+// The threads can arrive after the click that selected one of them.
+watch([pendingScrollTarget, shown], scrollPendingTargetIntoView, { flush: 'post' })
+onMounted(scrollPendingTargetIntoView)
+
+/** Scrolls the selected comment or block into view once the list shows it. */
+function scrollPendingTargetIntoView(): void {
+  const target = pendingScrollTarget.value ? list.value?.querySelector(pendingScrollTarget.value) : null
+  if (!target) return
+  pendingScrollTarget.value = null
+  // Centred, not nearest: a comment parked at the edge is easy to miss.
+  target.scrollIntoView({ block: 'center' })
+}
 
 // --- the composer's mention ------------------------------------------------
 

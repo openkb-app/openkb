@@ -163,7 +163,8 @@ export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOpti
   watchEffect(() => {
     if (mode.value !== 'preparing') return
     const s = session.value
-    if (!s || !s.synced.value || !s.editorRef.value?.editor) return
+    // Hydrated: the seed parses asynchronously, after the sync.
+    if (!s || !s.synced.value || !s.hydrated.value || !s.editorRef.value?.editor) return
     nextTick(() => swap('edit'))
   })
 

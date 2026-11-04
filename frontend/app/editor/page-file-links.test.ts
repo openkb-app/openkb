@@ -12,33 +12,33 @@ let editor: Editor
 
 afterEach(() => editor?.destroy())
 
-function mount(markdown: string): Editor {
+async function mount(markdown: string): Promise<Editor> {
   editor = new Editor({
     extensions: [...buildCommitSchemaExtensions(), PageFileLinks.configure({ files: () => files })],
-    content: parseMarkdownToJson(markdown),
+    content: await parseMarkdownToJson(markdown),
   })
   return editor
 }
 
-const markdown = () => serializeDocToMarkdown(editor.getJSON()).trim()
+const markdown = async () => (await serializeDocToMarkdown(editor.getJSON())).trim()
 
 describe('PageFileLinks', () => {
-  it('turns a pasted link to a page file into the file link, keeping its words', () => {
-    mount('See here.')
+  it('turns a pasted link to a page file into the file link, keeping its words', async () => {
+    await mount('See here.')
     editor.commands.insertContentAt(5, '<a href="/system/files/attachments/plan v2.pdf">the plan</a> ')
-    expect(markdown()).toBe(`See :attachment[the plan]{file="${FILE}"} here.`)
+    expect(await markdown()).toBe(`See :attachment[the plan]{file="${FILE}"} here.`)
   })
 
-  it('names a bare URL link by the file', () => {
-    mount('See here.')
+  it('names a bare URL link by the file', async () => {
+    await mount('See here.')
     const url = 'http://node1.test/system/files/attachments/plan%20v2.pdf'
     editor.commands.insertContentAt(5, `<a href="${url}">${url}</a> `)
-    expect(markdown()).toBe(`See :attachment{file="${FILE}"} here.`)
+    expect(await markdown()).toBe(`See :attachment{file="${FILE}"} here.`)
   })
 
-  it('leaves other links alone', () => {
-    mount('See here.')
+  it('leaves other links alone', async () => {
+    await mount('See here.')
     editor.commands.insertContentAt(5, '<a href="/system/files/attachments/other.pdf">other</a> ')
-    expect(markdown()).toBe('See [other](/system/files/attachments/other.pdf) here.')
+    expect(await markdown()).toBe('See [other](/system/files/attachments/other.pdf) here.')
   })
 })

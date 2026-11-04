@@ -3,18 +3,18 @@
  *
  * Every surface that serves page content — the tools, the `.md` lanes —
  * hands over plain characters and takes plain characters back; the stored body
- * keeps the serializer's spelling.
- * See docs/adr/0014-wire-format-keeps-html-entities.md.
+ * keeps comark's spelling.
+ * See docs/adr/0014-stored-comark-is-spelled-as-comark-writes-it.md.
  */
 import { decodeHtmlEntities, encodeHtmlEntities } from '@tiptap/core'
 
 /**
  * Stored comark → what a reader of the source sees.
  *
- * The codec is the serializer's own, so a decode undoes what a write encoded.
+ * A stored body may carry entities; comark reads them as these characters.
  */
 export function decodePageEntities(markdown: string): string {
-  return mapOutsideCode(markdown, decodeHtmlEntities)
+  return mapOutsideCode(markdown, text => text.split(ESCAPED_AMP_RE).map(decodeHtmlEntities).join('&'))
 }
 
 /**
@@ -22,22 +22,38 @@ export function decodePageEntities(markdown: string): string {
  *
  * Only the two spellings the parser would read as markup need it; every other
  * `&`, `<` and `>` is text to the parser already, and the next editor save
- * spells it the serializer's way.
+ * spells it comark's way. The mark tags the editor stores stay markup, so a
+ * block written back as it was read stores the same bytes.
  */
 export function encodePageEntities(markdown: string): string {
   return mapOutsideCode(markdown, encodeMarkupStarts)
 }
 
-/** An `&` opening an entity reference, a `<` opening a tag. */
-const MARKUP_START_RE
-  = /&(?=#[0-9]{1,7};|#[xX][0-9a-fA-F]{1,6};|[A-Za-z][A-Za-z0-9]{1,31};)|<(?=[!/?]|[A-Za-z][A-Za-z0-9-]*[\s/>])/g
+/**
+ * The tags comark's renderer writes for marks: underline always, the others
+ * where their delimiters cannot open or close.
+ */
+const STORED_MARK_TAGS = ['u', 'strong', 'em', 'del']
+
+/** Not preceded by an odd run of backslashes: a backslash-escaped `&` or `<` is text. */
+const NOT_ESCAPED = '(?<!(?:^|[^\\\\])(?:\\\\\\\\)*\\\\)'
+
+/** A backslash-escaped `&`: the tiptap decoder runs only between them. */
+const ESCAPED_AMP_RE = /(?<=(?:^|[^\\])(?:\\\\)*\\)&/g
+
+/** An unescaped `&` opening an entity reference or `<` opening a tag other than a stored mark tag. */
+const MARKUP_START_RE = new RegExp(
+  `${NOT_ESCAPED}&(?=#[0-9]{1,7};|#[xX][0-9a-fA-F]{1,6};|[A-Za-z][A-Za-z0-9]{1,31};)`
+  + `|${NOT_ESCAPED}<(?!/?(?:${STORED_MARK_TAGS.join('|')})>)(?=[!/?]|[A-Za-z][A-Za-z0-9-]*[\\s/>])`,
+  'g',
+)
 
 function encodeMarkupStarts(text: string): string {
   return text.replace(MARKUP_START_RE, char => encodeHtmlEntities(char))
 }
 
 /** Opens or closes a fenced code block. */
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/
+export const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/
 
 /** Applies `map` to everything outside fenced code blocks and code spans. */
 export function mapOutsideCode(markdown: string, map: (text: string) => string): string {

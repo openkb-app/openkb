@@ -95,13 +95,13 @@ for (const [ending, listed, block] of ENDINGS) {
           expect(undoManager(editor).undoStack).toHaveLength(0)
         })
 
-        it('leaves the markdown a save writes unchanged', () => {
+        it('leaves the markdown a save writes unchanged', async () => {
           const saved = new Y.Doc()
           Y.applyUpdate(saved, savedPage(block))
           const ydoc = new Y.Doc()
           load(ydoc, CollabTrailingNode)
 
-          expect(markdown(ydoc)).toBe(markdown(saved))
+          expect(await markdown(ydoc)).toBe(await markdown(saved))
         })
 
         it('leaves redo working after an undo', () => {

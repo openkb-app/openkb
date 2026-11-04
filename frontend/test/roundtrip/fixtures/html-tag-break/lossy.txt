@@ -1,0 +1,1 @@
+inline raw HTML tags outside the editor schema are stripped to their text content; a tag alone on its line takes its line break with it

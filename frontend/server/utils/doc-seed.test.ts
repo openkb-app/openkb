@@ -20,13 +20,13 @@ function docWithText(text: string): Y.Doc {
 }
 
 /** The markdown Drupal would hold for a document seeded via {@link docWithText}. */
-function markdownFor(doc: Y.Doc): string {
+function markdownFor(doc: Y.Doc): Promise<string> {
   return serializeYDoc(doc)
 }
 
 /** The first peer filling an empty fragment from Drupal's markdown. */
-function hydrateFrom(doc: Y.Doc, body: string): void {
-  prosemirrorToYXmlFragment(parseMarkdownToDoc(body), doc.getXmlFragment('default'))
+async function hydrateFrom(doc: Y.Doc, body: string): Promise<void> {
+  prosemirrorToYXmlFragment(await parseMarkdownToDoc(body), doc.getXmlFragment('default'))
 }
 
 function deps(changed: number | null, body: string | null): SeedDeps {
@@ -53,11 +53,21 @@ describe('seedFromDrupal', () => {
     expect(fragmentText(doc)).toContain('hello')
   })
 
+  it('first load: sets the stamp and its baseline in one transaction', async () => {
+    const doc = docWithText('hello')
+    const metaUpdates: Array<Set<string>> = []
+    doc.getMap('_meta').observe(event => metaUpdates.push(new Set(event.keysChanged)))
+
+    await seedFromDrupal('node:1', doc, deps(100, 'hello\n'))
+
+    expect(metaUpdates).toEqual([new Set(['drupal_changed', 'last_commit_hash'])])
+  })
+
   it('Drupal moved while nobody edited: rewrites the fragment from Drupal', async () => {
     const doc = docWithText('stale from the previous session')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
 
     const outcome = await seedFromDrupal('node:1', doc, deps(200, 'fresh from Drupal\n'))
 
@@ -81,19 +91,19 @@ describe('seedFromDrupal', () => {
     const doc = docWithText('stale from the previous session')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
     // What Drupal holds is what a commit wrote, i.e. serializer output.
-    const drupalBody = markdownFor(docWithText('fresh from Drupal'))
+    const drupalBody = await markdownFor(docWithText('fresh from Drupal'))
 
     const outcome = await seedFromDrupal('node:1', doc, deps(200, drupalBody))
 
     expect(outcome).toBe('reset')
     // Nobody hydrated this document — the reset itself put Drupal's content in.
     expect(doc.getXmlFragment('default').length).toBeGreaterThan(0)
-    expect(serializeYDoc(doc)).toBe(drupalBody)
+    expect(await serializeYDoc(doc)).toBe(drupalBody)
     // And what it serializes to is exactly the hash baseline the reset wrote,
     // so a checkpoint firing right now is a clean no-op rather than a write.
-    expect(contentHash(serializeYDoc(doc))).toBe(meta.get('last_commit_hash'))
+    expect(contentHash(await serializeYDoc(doc))).toBe(meta.get('last_commit_hash'))
   })
 
   // The snapshot store is keyed by node id and outlives the node, so a
@@ -127,7 +137,7 @@ describe('seedFromDrupal', () => {
     const doc = docWithText('stale')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
 
     const outcome = await seedFromDrupal('node:1', doc, deps(200, ''))
 
@@ -139,7 +149,7 @@ describe('seedFromDrupal', () => {
     const doc = docWithText('stale')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
     meta.set('external_change_detected', { actual: 150, at: 1 })
 
     await seedFromDrupal('node:1', doc, deps(200, 'fresh\n'))
@@ -168,12 +178,12 @@ describe('seedFromDrupal', () => {
     meta.set('drupal_changed', 100)
     meta.set('last_commit_hash', contentHash('an older revision\n'))
 
-    const outcome = await seedFromDrupal('node:1', doc, deps(200, markdownFor(doc)))
+    const outcome = await seedFromDrupal('node:1', doc, deps(200, await markdownFor(doc)))
 
     expect(outcome).toBe('adopted')
     expect(fragmentText(doc)).toContain('the very same text')
     expect(meta.get('drupal_changed')).toBe(200)
-    expect(meta.get('last_commit_hash')).toBe(contentHash(markdownFor(doc)))
+    expect(meta.get('last_commit_hash')).toBe(contentHash(await markdownFor(doc)))
     expect(meta.get('external_change_detected')).toBeUndefined()
   })
 
@@ -181,9 +191,9 @@ describe('seedFromDrupal', () => {
     const doc = docWithText('same')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
 
-    const outcome = await seedFromDrupal('node:1', doc, deps(100, markdownFor(doc)))
+    const outcome = await seedFromDrupal('node:1', doc, deps(100, await markdownFor(doc)))
 
     expect(outcome).toBe('in-sync')
     expect(meta.get('reset_at')).toBeUndefined()
@@ -194,10 +204,10 @@ describe('seedFromDrupal', () => {
     const doc = docWithText('legacy snapshot')
     doc.getMap('_meta').set('drupal_changed', 100)
 
-    const outcome = await seedFromDrupal('node:1', doc, deps(100, markdownFor(doc)))
+    const outcome = await seedFromDrupal('node:1', doc, deps(100, await markdownFor(doc)))
 
     expect(outcome).toBe('backfilled')
-    expect(doc.getMap('_meta').get('last_commit_hash')).toBe(contentHash(markdownFor(doc)))
+    expect(doc.getMap('_meta').get('last_commit_hash')).toBe(contentHash(await markdownFor(doc)))
     expect(fragmentText(doc)).toContain('legacy snapshot')
   })
 
@@ -207,7 +217,7 @@ describe('seedFromDrupal', () => {
     const doc = docWithText('what the last session committed')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
 
     const outcome = await seedFromDrupal('node:1', doc, deps(100, 'an external agent wrote this\n'))
 
@@ -251,11 +261,11 @@ describe('seedFromDrupal', () => {
 
     // The first peer hydrates the fragment from that same body — the state a
     // read-only visit leaves the document in.
-    hydrateFrom(doc, legacy)
+    await hydrateFrom(doc, legacy)
 
     // Through the transforms a checkpoint runs, which is what its dirty check
     // compares — so what this asserts is that the checkpoint is a clean no-op.
-    const wouldWrite = serializeYDoc(doc)
+    const wouldWrite = await serializeYDoc(doc)
     expect(wouldWrite).not.toBe(legacy)
     expect(doc.getMap('_meta').get('last_commit_hash')).toBe(contentHash(wouldWrite))
   })
@@ -320,10 +330,10 @@ describe('seedFromDrupal — fields lane', () => {
     const doc = docWithText('same')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
     doc.getMap('fields').set('summary', 'what the previous session left')
 
-    await seedFromDrupal('node:1', doc, fieldDeps(100, markdownFor(doc), drupalFields))
+    await seedFromDrupal('node:1', doc, fieldDeps(100, await markdownFor(doc), drupalFields))
 
     expect(doc.getMap('fields').get('summary')).toBe('One paragraph.')
     expect(fieldsBaseline(doc)).toEqual(drupalFields)
@@ -360,7 +370,7 @@ describe('seedFromDrupal — fields lane', () => {
     const doc = docWithText('stale')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
     seedFields(doc, drupalFields)
 
     const outcome = await seedFromDrupal('node:1', doc, fieldDeps(200, 'fresh\n', null))
@@ -380,15 +390,15 @@ describe('seedFromDrupal — fields lane', () => {
 })
 
 describe('resetDocumentToBody', () => {
-  it('replaces the body and moves the baseline onto the written revision', () => {
+  it('replaces the body and moves the baseline onto the written revision', async () => {
     const doc = docWithText('the draft nobody wants')
     const meta = doc.getMap('_meta')
     meta.set('drupal_changed', 100)
-    meta.set('last_commit_hash', contentHash(markdownFor(doc)))
+    meta.set('last_commit_hash', contentHash(await markdownFor(doc)))
     meta.set('external_change_detected', { actual: 150, at: 1 })
     meta.set('commit_error', { at: 1, kind: 'validation', message: 'nope' })
 
-    resetDocumentToBody(doc, 'back to the live text\n', 200, () => 4242)
+    await resetDocumentToBody(doc, 'back to the live text\n', 200, () => 4242)
 
     expect(fragmentText(doc)).toContain('back to the live text')
     expect(fragmentText(doc)).not.toContain('the draft nobody wants')
@@ -401,24 +411,24 @@ describe('resetDocumentToBody', () => {
     expect(meta.get('commit_error')).toBeUndefined()
   })
 
-  it('leaves the reverted document clean — the next checkpoint writes nothing', () => {
+  it('leaves the reverted document clean — the next checkpoint writes nothing', async () => {
     // The published body a revert reads back was itself written by a commit,
     // so it is already in canonical serialized form. That is what makes the
     // recorded hash and the re-seeded fragment's own serialization agree.
-    const published = markdownFor(docWithText('back to the live text'))
+    const published = await markdownFor(docWithText('back to the live text'))
     const doc = docWithText('the draft nobody wants')
     doc.getMap('_meta').set('drupal_changed', 100)
 
-    resetDocumentToBody(doc, published, 200)
+    await resetDocumentToBody(doc, published, 200)
 
     // Serializing the re-seeded fragment must reproduce the hash the reset
     // recorded, or every session after a revert commits a phantom revision.
-    expect(contentHash(markdownFor(doc))).toBe(doc.getMap('_meta').get('last_commit_hash'))
+    expect(contentHash(await markdownFor(doc))).toBe(doc.getMap('_meta').get('last_commit_hash'))
   })
 
-  it('signals the checkpoint last, so peers drop their mirror on settled state', () => {
+  it('signals the checkpoint last, so peers drop their mirror on settled state', async () => {
     const doc = docWithText('draft')
-    resetDocumentToBody(doc, 'published\n', 200, () => 4242)
+    await resetDocumentToBody(doc, 'published\n', 200, () => 4242)
 
     expect(doc.getMap('_meta').get('last_commit')).toEqual({
       at: 4242,
@@ -430,10 +440,10 @@ describe('resetDocumentToBody', () => {
 })
 
 describe('advanceDocumentChanged', () => {
-  it('moves the concurrency token without touching the body or its hash', () => {
+  it('moves the concurrency token without touching the body or its hash', async () => {
     const doc = docWithText('unchanged by a publish')
     const meta = doc.getMap('_meta')
-    const hash = contentHash(markdownFor(doc))
+    const hash = contentHash(await markdownFor(doc))
     meta.set('drupal_changed', 100)
     meta.set('last_commit_hash', hash)
     meta.set('external_change_detected', { actual: 150, at: 1 })

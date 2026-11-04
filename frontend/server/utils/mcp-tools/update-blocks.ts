@@ -59,7 +59,10 @@ export function updateBlocksTool(): KbTool {
               // a list must name a block, unless the page holds none.
               markdown: {
                 type: 'string',
-                description: 'The comark markdown to write. Write comark markdown only: raw HTML is not part of the format and is not preserved; use `::callout`, `::infobox`, `::image` and `:doc` for anything beyond CommonMark'
+                description: 'The comark markdown to write. It is markdown text: raw HTML and entities (`<span>`, `&nbsp;`) '
+                  + 'are kept as the characters you typed, not as markup. Only the mark tags a read serves (`<u>`, '
+                  + '`<strong>`, `<em>`, `<del>`) stay marks, so a block written back as it was read is unchanged. '
+                  + 'Use `::callout`, `::infobox`, `::image` and `:doc` for anything beyond CommonMark'
                   + FENCES.map(fence => `, a \`\`\`${fence.language} fence for ${fence.agentHint}`).join('')
                   + '. A fence of those that does not parse is refused with its line and column.',
               },

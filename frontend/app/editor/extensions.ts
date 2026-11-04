@@ -1,8 +1,8 @@
 import { TaskItem, TaskList } from '@tiptap/extension-list'
-import { TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
+import { OkbCodeBlock } from './nodes/code-block'
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import { BlockId } from './nodes/block-id'
-import { BlockWrapper } from './nodes/block-wrapper'
 import { Callout } from './nodes/callout'
 import { OkbCite } from './nodes/cite'
 import { OkbDocLink } from './nodes/doc-link'
@@ -11,17 +11,7 @@ import { OkbAttachment, OkbAttachmentInline } from './nodes/attachment'
 import { OkbEmbed } from './nodes/embed'
 import { Infobox } from './nodes/infobox'
 import { OkbMention } from './nodes/mention'
-import {
-  OkbCodeBlock,
-  OkbHardBreak,
-  OkbHeading,
-  OkbLink,
-  OkbListItem,
-  OkbParagraph,
-  OkbTable,
-  OkbUnderline,
-  markdownOverrideExtensions,
-} from './nodes/markdown-overrides'
+import { OkbOrderedList } from './nodes/ordered-list'
 import CalloutNodeView from '../components/CalloutNodeView.vue'
 import CodeBlockNodeView from '../components/CodeBlockNodeView.vue'
 import ImageNodeView from '../components/ImageNodeView.vue'
@@ -42,25 +32,6 @@ import { PageImageFileHandler } from './paste-image'
 import { SelectionKeydownSync } from './selection-sync'
 
 /**
- * StarterKit sub-extensions the pages must disable (`:starter-kit` prop)
- * because buildEditorExtensions ships a comark-canonical markdown
- * replacement — same schema, different markdown grammar (see
- * ./nodes/markdown-overrides.ts). UEditor's own Mention and Image copies
- * are disabled the same way (`:mention="false"`, `:image="false"`) in
- * favor of ./nodes/mention.ts (round-trips the Drupal uid) and
- * ./nodes/image.ts (carries the page file UUID + ::image grammar).
- */
-export const starterKitMarkdownOverrides = {
-  codeBlock: false,
-  hardBreak: false,
-  heading: false,
-  link: false,
-  listItem: false,
-  paragraph: false,
-  underline: false,
-} as const
-
-/**
  * Comark nodes layered on top of what Nuxt UI's UEditor already loads
  * (StarterKit + image + horizontal-rule + code):
  *
@@ -70,10 +41,8 @@ export const starterKitMarkdownOverrides = {
  * - GFM tables + task lists — comark parses both, so the schema must
  *   carry them or an edit+save destroys the content (round-trip corpus
  *   in test/roundtrip/ enforces this).
- * - The comark-canonical markdown override set (Okb*), replacing the
- *   StarterKit copies disabled via starterKitMarkdownOverrides, so the
- *   editor's own markdown surface (content-type="markdown") shares the
- *   engine's grammar.
+ * - The code block and the ordered list replace StarterKit's copies, which
+ *   the pages disable (`codeBlock: false, orderedList: false` in `:starter-kit`).
  *
  * The node SCHEMA (name / attrs / parse+render HTML) lives in the Vue-free
  * ./nodes/ modules, which the server-side commit schema
@@ -97,7 +66,6 @@ export function buildEditorExtensions() {
     PageFileDropHandler,
     CiteNumbers,
     BlockId,
-    BlockWrapper,
     Callout.extend({
       addNodeView() {
         return VueNodeViewRenderer(CalloutNodeView)
@@ -155,14 +123,8 @@ export function buildEditorExtensions() {
         return [...(this.parent?.() ?? []), codeHighlightPlugin(this.name), fenceErrorPlugin(), fenceCaretPlugin(this.name)]
       },
     }),
-    OkbHardBreak,
-    OkbHeading,
-    OkbLink.configure({ openOnClick: false }),
-    OkbListItem,
-    OkbParagraph,
-    OkbUnderline,
-    ...markdownOverrideExtensions(),
-    OkbTable,
+    OkbOrderedList,
+    Table,
     TableRow,
     TableHeader,
     TableCell,

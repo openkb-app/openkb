@@ -206,7 +206,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
 
   it('a field-only change commits — body hash alone no longer decides clean', async () => {
     const doc = sessionDoc({ title: 'T', type: 'article' })
-    doc.getMap('_meta').set('last_commit_hash', contentHash(serializeYDoc(doc)))
+    doc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(doc)))
     doc.getMap('fields').set('type', 'adr')
 
     const res = await commitDocument(hp('node:1', doc), 'node:1', {
@@ -240,7 +240,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     // revision at all.
     const doc = sessionDoc({ title: 'T', summary: 'stored.' })
     doc.getMap('fields').set('summary', 'A wrote this.')
-    const bodyAtCheckpoint = `${serializeYDoc(doc)}\n`
+    const bodyAtCheckpoint = `${await serializeYDoc(doc)}\n`
 
     let release!: () => void
     const inFlight = new Promise<void>((resolve) => { release = resolve })
@@ -270,7 +270,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
 
   it('unchanged doc + fields stays clean — zero requests', async () => {
     const doc = sessionDoc({ title: 'T', type: 'article' })
-    doc.getMap('_meta').set('last_commit_hash', contentHash(serializeYDoc(doc)))
+    doc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(doc)))
 
     const res = await commitDocument(hp('node:1', doc), 'node:1', {
       trigger: 'quiet',

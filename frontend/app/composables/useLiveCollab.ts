@@ -17,6 +17,14 @@ export function isAuthFailedStatus(status: LiveStatus): boolean {
   return status === 'auth-error' || status === 'no-access'
 }
 
+/**
+ * Whether the editor takes keystrokes: once the body is seeded, and while the
+ * collab server accepts the session.
+ */
+export function editorAcceptsInput(hydrated: boolean, status: LiveStatus): boolean {
+  return hydrated && !isAuthFailedStatus(status)
+}
+
 export interface LiveCollabOptions {
   /** Y.Doc that backs the editor. Created by the caller so the same
    *  instance can be passed to TipTap's Collaboration extension; destroyed

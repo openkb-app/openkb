@@ -3,9 +3,10 @@ import { globSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 /**
- * What the browser pays for comark. The parser (~250 KB) is a chat cost: a read
- * page is handed the tree the server built, so it stays out of every static chunk
- * only while its one import is dynamic. `@comark/vue`'s `Markdown` parses, and so
+ * What the browser pays for comark. The parser (~250 KB) is a chat and editor
+ * cost: a read page is handed the tree the server built, so it stays out of every
+ * static chunk only while its one import is dynamic. The editor's markdown
+ * renderer is loaded the same way. `@comark/vue`'s `Markdown` parses, and so
  * carries the parser; `MarkdownDocument` renders an already-parsed tree.
  */
 
@@ -25,9 +26,14 @@ function read(file: string): string {
 }
 
 describe('the comark client bundle', () => {
-  it('names comark in the one shared tree module and nowhere else', () => {
+  it('names comark in the shared tree module, and the renderer only in the editor engine', () => {
     const importers = clientSources().filter(file => COMARK_MODULE.test(read(file)))
-    expect(importers).toEqual(['shared/utils/comark-tree.ts'])
+    expect(importers).toEqual(['app/comark/markdown-engine.ts', 'app/comark/render-handlers.ts', 'shared/utils/comark-tree.ts'])
+    expect(read('app/comark/markdown-engine.ts')).toMatch(/await import\('comark\/render'\)/)
+    for (const file of ['app/comark/markdown-engine.ts', 'app/comark/render-handlers.ts']) {
+      const statics = [...read(file).matchAll(/^import (?!type ).*from ['"](comark[^'"]*)['"]/gm)]
+      expect(statics, file).toEqual([])
+    }
   })
 
   it('reaches the parser only through a dynamic import, and pulls no renderer with it', () => {

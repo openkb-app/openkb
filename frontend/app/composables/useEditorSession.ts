@@ -8,6 +8,7 @@ import { PageFileLinks } from '~/editor/page-file-links'
 import type { PageFileSource } from '~/editor/link-target'
 import { pickPageAttachment, replacePageFile, selectedEmbed } from '~/editor/page-file-insert'
 import { BlockIdMinter } from '~/editor/block-id-minter'
+import { seedEmptyFragment } from '~/editor/seed-fragment'
 import { CollabHistory } from '~/editor/collab-history'
 import { ReviewMarks, refreshReviewMarks, sidecarLookup, topLevelBlockPos } from '~/editor/review-marks'
 import { CommentMarks, refreshCommentMarks, type CommentDraft, type ShownThreads } from '~/editor/comment-marks'
@@ -32,7 +33,7 @@ import {
 } from '#shared/page-blocks'
 import { mapEditorItems } from '@nuxt/ui/utils/editor'
 import { approvalStanding, blockMenuItems, NO_BLOCK_MENU, type BlockMenuNode } from '~/editor/block-menu'
-import { parseMarkdownToJson, serializeDocToMarkdown } from '~/comark/markdown-engine'
+import { parseMarkdownToJson, preloadMarkdownRenderer, serializeDocToMarkdown } from '~/comark/markdown-engine'
 import { comarkHandlers, imageSizeItem, insertToolbarItem, slashItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
 import { useDocLinkSearch } from '~/composables/useDocLinkSearch'
 import { caretInBlock } from '~/editor/cite-insert'
@@ -476,6 +477,8 @@ export async function useEditorSession(
    * `_meta.last_commit_hash` already records that fragment and Drupal agree.
    */
   async function save(): Promise<boolean> {
+    // Before the body is in the editor, the doc holds nothing of the page.
+    if (!hydrated.value) return false
     await saveToHistory()
     if (commitStatus.value !== 'saved') return false
     // Saving writes a revision and nothing else: the live page moves when
@@ -562,11 +565,16 @@ export async function useEditorSession(
   // an unguarded call here marks a freshly-opened, untouched doc as having
   // unsaved changes and re-dirties the state mid-save, aborting saveAndExit's
   // post-commit toast/navigation.
+  // Also locked until hydrated: a keystroke before the seed lands would make
+  // the fragment non-empty, so the seed is skipped and the page saves as only
+  // the typed text.
+  const hydrated = ref(false)
+  /** Whether the editor takes keystrokes: `editor.isEditable` is not reactive (ueberdosis/tiptap#5591). */
+  const acceptsInput = computed(() => editorAcceptsInput(hydrated.value, liveStatus.value))
   watchEffect(() => {
     const editor = editorRef.value?.editor
     if (!editor) return
-    const editable = !isAuthFailedStatus(liveStatus.value)
-    if (editor.isEditable !== editable) editor.setEditable(editable, false)
+    if (editor.isEditable !== acceptsInput.value) editor.setEditable(acceptsInput.value, false)
   })
 
   /**
@@ -581,23 +589,28 @@ export async function useEditorSession(
   /** The selected image or file card: its position and file. */
   const embedSelection = ref<ReturnType<typeof selectedEmbed>>(null)
 
-  // Hydration: y-prosemirror owns the doc, so seed the Y.Doc directly
-  // by applying a binary update from a temporary Y.Doc holding the
-  // initial markdown, parsed sync + DOM-free by the shared engine — the
-  // live editor observes the update and renders.
-  let hydrated = false
+  let hydrating = false
   watchEffect(() => {
-    if (hydrated) return
+    if (hydrating) return
     const editor = editorRef.value?.editor
     if (!synced.value || !editor || !page.value) return
-    hydrated = true
-    const initialBody = page.value.body ?? ''
-    const fragment = ydoc.getXmlFragment('default')
-    if (fragment.length === 0 && initialBody) {
-      const json = parseMarkdownToJson(initialBody)
-      const seedDoc = prosemirrorJSONToYDoc(editor.schema, json, 'default')
-      Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(seedDoc))
-    }
+    hydrating = true
+    hydrate(editor, page.value.body ?? '').catch(showLoadError)
+  })
+
+  /** Why the body is not in the editor; the chip shows it over any commit state. */
+  const loadError = ref<string | null>(null)
+
+  /** Reports a body that could not be loaded; the editor stays read-only. */
+  function showLoadError(error: unknown) {
+    console.error('Loading the page body into the editor failed', error)
+    loadError.value = 'The page could not be loaded. Reload to try again.'
+  }
+
+  /** Seeds an empty fragment, then listens: the seed itself is no edit. */
+  async function hydrate(editor: Editor, initialBody: string) {
+    await seedEmptyFragment(ydoc, editor.schema, initialBody, () => editor.isDestroyed)
+    if (editor.isDestroyed) return
     editor.on('update', markDirty)
     // The file lists are their own lane: their edits fire no editor update.
     for (const key of PAGE_FILE_KEYS) fileArray(ydoc, key).observe(markDirty)
@@ -614,22 +627,26 @@ export async function useEditorSession(
     // did not have.
     editor.on('update', trackCaret)
     trackCaret()
-  })
+    hydrated.value = true
+    // Block copy and "Copy as Markdown" write the clipboard after a render.
+    preloadMarkdownRenderer()
+  }
 
   /**
    * Drop the Y.Doc fragment and re-seed from Drupal's last committed
    * markdown via the same path as initial hydration. Commit lane returns
    * to 'saved' (or 'never-saved' if there's no commit yet).
    */
-  function revert() {
-    const editor = editorRef.value?.editor
-    if (!editor || !page.value) return
+  async function revert() {
+    if (!page.value) return
     const initialBody = page.value.body ?? ''
+    const json = initialBody ? await parseMarkdownToJson(initialBody) : null
+    const editor = editorRef.value?.editor
+    if (!editor) return
     const fragment = ydoc.getXmlFragment('default')
     Y.transact(ydoc, () => {
       if (fragment.length > 0) fragment.delete(0, fragment.length)
-      if (initialBody) {
-        const json = parseMarkdownToJson(initialBody)
+      if (json) {
         const seedDoc = prosemirrorJSONToYDoc(editor.schema, json, 'default')
         Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(seedDoc))
       }
@@ -796,7 +813,7 @@ export async function useEditorSession(
    * The document as it stands in the editor, in the `.md` body form — the
    * working copy, which no address serves until a commit lands.
    */
-  function markdown(): string {
+  async function markdown(): Promise<string> {
     const doc = editorRef.value?.editor?.state.doc
     return doc ? serializeDocToMarkdown(doc) : ''
   }
@@ -823,7 +840,7 @@ export async function useEditorSession(
   async function takeBlock(): Promise<'none' | 'buffer' | 'clipboard'> {
     const node = selectedBlock()?.node
     if (!node) return 'none'
-    const markdown = serializeDocToMarkdown({ type: 'doc', content: [node.toJSON()] })
+    const markdown = await serializeDocToMarkdown({ type: 'doc', content: [node.toJSON()] })
     blockBuffer.value = markdown
     try {
       await navigator.clipboard.writeText(markdown)
@@ -885,11 +902,11 @@ export async function useEditorSession(
       toast.add({ title: 'Nothing to paste', icon: 'i-lucide-info' })
       return
     }
+    const content = (await parseMarkdownToJson(markdown)).content
+    if (!content?.length) return
     const editor = editorRef.value?.editor
     const block = selectedBlock()
     if (!editor || !block) return
-    const content = parseMarkdownToJson(markdown).content
-    if (!content?.length) return
     editor.chain().focus().insertContentAt(block.pos + block.node.nodeSize, content).run()
   }
 
@@ -1189,7 +1206,9 @@ export async function useEditorSession(
   // Bubble toolbar: selection ops from toolbarItems, plus Comment on the
   // passage — and, with the caret in a table, that table's row and column
   // controls. A selected image or file card gets embedBubbleItems instead.
-  const bubbleItems = computed(() => [
+  // None while locked, where the bubble does not show: Nuxt UI's toolbar reads
+  // no editor state on a locked editor, so only new items redraw it on the unlock.
+  const bubbleItems = computed(() => !acceptsInput.value ? [] : [
     [
       { kind: 'mark', mark: 'bold', icon: 'i-lucide-bold', 'aria-label': 'Bold', tooltip: { text: 'Bold' } },
       { kind: 'mark', mark: 'italic', icon: 'i-lucide-italic', 'aria-label': 'Italic', tooltip: { text: 'Italic' } },
@@ -1214,6 +1233,7 @@ export async function useEditorSession(
 
   /** The bubble on a selected image, file card or HTML/PDF embed: download, rename (the toolbar's `rename` slot), replace, size, delete, comment. */
   const embedBubbleItems = computed(() => {
+    if (!acceptsInput.value) return []
     const embed = embedSelection.value
     const url = embed?.file ? editorPageFiles.resolved.value[embed.file]?.url : undefined
     const editor = () => editorRef.value?.editor
@@ -1260,6 +1280,7 @@ export async function useEditorSession(
     deletedRemotely,
     commitStatus,
     commitError,
+    loadError,
     lastSavedAt,
     savedAgo,
     externalChange,
@@ -1271,6 +1292,7 @@ export async function useEditorSession(
     focusEntityField,
     frontmatter,
     editorRef,
+    hydrated,
     blockMeta,
     reviewer,
     me,

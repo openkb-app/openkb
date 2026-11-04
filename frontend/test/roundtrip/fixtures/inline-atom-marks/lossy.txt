@@ -1,1 +1,1 @@
-marks around an inline file or page link split around it — @tiptap/markdown applies marks to text nodes only
+L6, L11: marks around an inline file or page link split around it, and the mark drops the space at its edge

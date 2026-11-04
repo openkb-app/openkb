@@ -21,9 +21,9 @@ const png = (name = 'image.png') => new File(['png'], name, { type: 'image/png' 
 
 let editor: Editor
 
-beforeEach(() => {
+beforeEach(async () => {
   editor = new Editor({ extensions: [...buildCommitSchemaExtensions(), PageImageFileHandler] })
-  editor.commands.setContent(parseMarkdownToJson('First.\n\nSecond.'))
+  editor.commands.setContent(await parseMarkdownToJson('First.\n\nSecond.'))
 })
 
 afterEach(() => {

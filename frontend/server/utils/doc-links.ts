@@ -42,7 +42,7 @@ async function resolvePages<T>(
   auth: Record<string, string>,
   nids: number[],
   fields: string[],
-  build: (page: { title: string, path: string, body: string }) => T,
+  build: (page: { title: string, path: string, body: string }) => T | Promise<T>,
 ): Promise<Record<number, T>> {
   if (nids.length === 0) return {}
 
@@ -60,13 +60,13 @@ async function resolvePages<T>(
 
   try {
     while (path && pagesLeft-- > 0) {
-      const page = await drupalFetchWithAuth<KbPageCollection>(auth, path)
+      const page: KbPageCollection = await drupalFetchWithAuth<KbPageCollection>(auth, path)
       for (const node of page.data ?? []) {
         const nid = node.attributes?.drupal_internal__nid
         const title = node.attributes?.title
         const alias = node.attributes?.path?.alias
         if (typeof nid !== 'number' || !title || !alias) continue
-        resolved[nid] = build({ title, path: alias, body: node.attributes?.field_kb_body?.value ?? '' })
+        resolved[nid] = await build({ title, path: alias, body: node.attributes?.field_kb_body?.value ?? '' })
       }
       path = page.data?.length ? jsonApiNextPath(page) : null
     }
@@ -101,9 +101,9 @@ export function resolveCiteNids(
   auth: Record<string, string>,
   nids: number[],
 ): Promise<Record<number, ResolvedCite>> {
-  return resolvePages(auth, nids, ['field_kb_body'], ({ title, path, body }) => ({
+  return resolvePages(auth, nids, ['field_kb_body'], async ({ title, path, body }) => ({
     title,
     path,
-    versions: blockVersions(bodyForms(splitTitleHeading(body).body).canonical),
+    versions: blockVersions((await bodyForms(splitTitleHeading(body).body)).canonical),
   }))
 }

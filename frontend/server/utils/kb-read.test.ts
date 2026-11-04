@@ -587,17 +587,17 @@ describe('getKbPage body projection', () => {
     expect(setext.versions).toEqual(atx.versions)
   })
 
-  it('serves the body as characters, and versions the stored spelling', async () => {
+  it('serves the body as characters, and versions the canonical spelling', async () => {
     // Whoever reads here reads source — a model over MCP, a person on the
-    // `.md` address — so no entity reaches them (ADR 0014). Code keeps the
-    // serializer's spelling, and so does the hash: the `expect` contract is
-    // about the stored block, not about how it is served.
+    // `.md` address — so no entity reaches them. Code keeps the stored
+    // spelling. The hash is over the block as a commit would write it, not
+    // over how it is served.
     const stored = 'Wiki &amp; AI, 5 &lt; 6, &lt;span&gt;x&lt;/span&gt; {#b-1}\n\n```\ncode &amp; fence\n```\n'
     const page = await read(stored)
 
     expect(page.markdown).toContain('Wiki & AI, 5 < 6, <span>x</span> {#b-1}')
     expect(page.markdown).toContain('code &amp; fence')
-    expect(page.versions['b-1']).toBe(blockVersion('Wiki &amp; AI, 5 &lt; 6, &lt;span&gt;x&lt;/span&gt; {#b-1}'))
+    expect(page.versions['b-1']).toBe(blockVersion('Wiki & AI, 5 < 6, \\<span>x\\</span> {#b-1}'))
   })
 
   it('serves and versions a body nothing can parse as its own bytes', async () => {

@@ -83,8 +83,8 @@ describe('GET /api/kb/<space>/<slug>(.md|/draft.md)', () => {
 
   it('serves the body as characters — the `.md` address is read as source', async () => {
     // A person opening the raw view and a model over MCP read the same page,
-    // so neither is handed the serializer's entities (ADR 0014). The
-    // projection is kb-read's; what this pins is that the route serves it.
+    // so neither is handed the entities a stored body may carry (ADR 0014).
+    // The projection is kb-read's; what this pins is that the route serves it.
     fetchCePage.mockResolvedValue(cePage({
       nid: 7,
       path: '/team-wiki/getting-started',

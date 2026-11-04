@@ -32,7 +32,7 @@ let app: App | undefined
  * `resolved`. For `link`, the caret goes inside the first link.
  */
 async function mount(markdown: string, type: string, resolved: ResolvedTarget | null): Promise<HTMLElement> {
-  editor = new Editor({ extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: parseMarkdownToJson(markdown) })
+  editor = new Editor({ extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: await parseMarkdownToJson(markdown) })
   let at = -1
   editor.state.doc.descendants((node, pos) => {
     if (at < 0 && (node.type.name === type || node.marks.some(mark => mark.type.name === type))) at = pos
@@ -63,7 +63,7 @@ async function mountShared(markdown: string, select: (doc: Editor['state']['doc'
   theirs.on('update', (update: Uint8Array, origin: unknown) => origin !== ours && Y.applyUpdate(ours, update, theirs))
   const extensions = (document: Y.Doc) => [...buildCommitSchemaExtensions(), LinkTargetKeys, Collaboration.configure({ document })]
   peer = new Editor({ extensions: extensions(theirs) })
-  peer.commands.setContent(parseMarkdownToJson(markdown))
+  peer.commands.setContent(await parseMarkdownToJson(markdown))
   editor = new Editor({ extensions: extensions(ours) })
   editor.view.dispatch(editor.state.tr.setSelection(select(editor.state.doc)))
   root = document.createElement('div')
@@ -221,7 +221,7 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
   const files = [{ uuid: FILE, name: 'plan.pdf', size: 2048, url: 'http://drupal.test/system/files/attachments/plan.pdf' }]
 
   async function mountFiles(markdown: string, select: (doc: Editor['state']['doc']) => Selection, source: PageFileSource): Promise<void> {
-    editor = new Editor({ extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: parseMarkdownToJson(markdown) })
+    editor = new Editor({ extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: await parseMarkdownToJson(markdown) })
     editor.view.dispatch(editor.state.tr.setSelection(select(editor.state.doc)))
     root = document.createElement('div')
     document.body.appendChild(root)
@@ -240,13 +240,13 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
       if (uuid) link(uuid)
     },
   })
-  const markdown = () => serializeDocToMarkdown(editor.getJSON()).trim()
+  const markdown = async () => (await serializeDocToMarkdown(editor.getJSON())).trim()
 
   it('links the selected words to the file the picker gives', async () => {
     const pick = vi.fn(async () => FILE)
     await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), source(pick))
     requestLinkBubble(editor, 'files')
-    await vi.waitFor(() => expect(markdown()).toBe(`See :attachment[here]{file="${FILE}"}.`))
+    await vi.waitFor(async () => expect(await markdown()).toBe(`See :attachment[here]{file="${FILE}"}.`))
     expect(pick).toHaveBeenCalledOnce()
   })
 
@@ -255,14 +255,14 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
     requestLinkBubble(editor, 'url')
     await vi.waitFor(() => expect(root.querySelector('[data-testid="link-target-choose-file"]')).not.toBeNull())
     root.querySelector<HTMLButtonElement>('[data-testid="link-target-choose-file"]')!.click()
-    await vi.waitFor(() => expect(markdown()).toBe(`See :attachment[the plan]{file="${NEW}"} here.`))
+    await vi.waitFor(async () => expect(await markdown()).toBe(`See :attachment[the plan]{file="${NEW}"} here.`))
   })
 
   it('leaves the words as they were when the picker is dismissed', async () => {
     await mountFiles('See here.', doc => TextSelection.create(doc, 5, 9), source(async () => null))
     requestLinkBubble(editor, 'files')
     await new Promise(resolve => setTimeout(resolve))
-    expect(markdown()).toBe('See here.')
+    expect(await markdown()).toBe('See here.')
   })
 
   it('links the same words when text moves while the picker is open', async () => {
@@ -273,7 +273,7 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
     await vi.waitFor(() => expect(pick).toHaveBeenCalledOnce())
     editor.view.dispatch(editor.state.tr.insertText('Bob wrote this. ', 1))
     finish(NEW)
-    await vi.waitFor(() => expect(markdown()).toBe(`Bob wrote this. See :attachment[the plan]{file="${NEW}"} here.`))
+    await vi.waitFor(async () => expect(await markdown()).toBe(`Bob wrote this. See :attachment[the plan]{file="${NEW}"} here.`))
   })
 
   it('links nothing when the words are deleted while the picker is open', async () => {
@@ -285,7 +285,7 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
     editor.view.dispatch(editor.state.tr.delete(5, 14))
     finish(NEW)
     await new Promise(resolve => setTimeout(resolve))
-    expect(markdown()).toBe('See here.')
+    expect(await markdown()).toBe('See here.')
   })
 
   describe('with a co-editor typing while the picker is open', () => {
@@ -310,14 +310,14 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
       const them = await start()
       them.commands.insertContentAt(plan(them.state.doc).from - 4, 'Bob: ')
       finish(NEW)
-      await vi.waitFor(() => expect(markdown()).toBe(`Intro.\n\nBob: See :attachment[the plan]{file="${NEW}"} here.`))
+      await vi.waitFor(async () => expect(await markdown()).toBe(`Intro.\n\nBob: See :attachment[the plan]{file="${NEW}"} here.`))
     })
 
     it('links the same words when the peer types in another paragraph', async () => {
       const them = await start()
       them.commands.insertContentAt(1, 'Short ')
       finish(NEW)
-      await vi.waitFor(() => expect(markdown()).toBe(`Short Intro.\n\nSee :attachment[the plan]{file="${NEW}"} here.`))
+      await vi.waitFor(async () => expect(await markdown()).toBe(`Short Intro.\n\nSee :attachment[the plan]{file="${NEW}"} here.`))
     })
 
     it('links nothing when the peer deletes the words', async () => {
@@ -326,7 +326,7 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
       them.commands.deleteRange({ from, to: to + 1 })
       finish(NEW)
       await new Promise(resolve => setTimeout(resolve))
-      expect(markdown()).toBe('Intro.\n\nSee here.')
+      expect(await markdown()).toBe('Intro.\n\nSee here.')
     })
   })
 
@@ -337,7 +337,7 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
     expect(text('link-target')).toBe('plan.pdf')
     expect(root.querySelector('[aria-label="Open in a new tab"]')?.getAttribute('href')).toBe(files[0]!.url)
     root.querySelector<HTMLButtonElement>('[aria-label="Remove file link"]')!.click()
-    expect(markdown()).toBe('See the plan here.')
+    expect(await markdown()).toBe('See the plan here.')
   })
 })
 

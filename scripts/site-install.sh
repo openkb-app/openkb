@@ -171,8 +171,13 @@ esac
 # sidecar, then reset the tracker so every item is queued again and re-enriched.
 if $DRUSH search-api:list 2>/dev/null | grep -q kb_chunks; then
   echo "Waiting for the Nuxt sidecar at $FRONTEND_URL..."
+  # The key goes in a file, so it never shows in a process list.
+  SIDECAR_HEADERS=$(mktemp)
+  trap 'rm -f "$SIDECAR_HEADERS"' EXIT
+  $DRUSH php:eval 'foreach (\Drupal\comark\SidecarSecret::headers() as $name => $value) { echo "$name: $value\n"; }' > "$SIDECAR_HEADERS"
   for i in $(seq 1 120); do
     if curl -sf -m 5 -o /dev/null -X POST -H 'Content-Type: application/json' \
+        -H @"$SIDECAR_HEADERS" \
         -d '{"markdown":"# ping"}' "$FRONTEND_URL/api/comark/indexable"; then
       echo "  sidecar ready (after ${i}s)"
       break
@@ -183,7 +188,9 @@ if $DRUSH search-api:list 2>/dev/null | grep -q kb_chunks; then
       echo "  The page bodies cannot be indexed. Check that the frontend is" >&2
       echo "  running and that DRUPAL_FRONTEND_BASE_URL (which becomes" >&2
       echo "  lupus_decoupled_ce_api.settings frontend_base_url) is reachable" >&2
-      echo "  from this container." >&2
+      echo "  from this container, and that OKB_COLLAB_CLIENT_SECRET is set," >&2
+      echo "  the same, on drupal and frontend: the route answers 401 to a" >&2
+      echo "  wrong key and 503 when the frontend has none." >&2
       exit 1
     }
     sleep 1

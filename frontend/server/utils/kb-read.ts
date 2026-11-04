@@ -332,11 +332,11 @@ function pendingItem(id: string, block: PageBlock | undefined, step: ReviewStep)
  * Block versions hash the `canonical` half rather than parsing again
  * (server/utils/block-versions.ts).
  */
-export function bodyForms(body: string): { body: string, canonical: string } {
+export async function bodyForms(body: string): Promise<{ body: string, canonical: string }> {
   if (body.trim() === '') return { body, canonical: body }
   try {
-    const json = parseMarkdownToDoc(body).toJSON() as ProseMirrorJSON
-    return { body, canonical: serializeCommitJSON(json) }
+    const json = (await parseMarkdownToDoc(body)).toJSON() as ProseMirrorJSON
+    return { body, canonical: await serializeCommitJSON(json) }
   }
   catch {
     return { body, canonical: body }
@@ -344,7 +344,7 @@ export function bodyForms(body: string): { body: string, canonical: string } {
 }
 
 /** Projects one revision into a {@link KbPage}. */
-function project(
+async function project(
   specs: FieldSpec[],
   path: string,
   title: string,
@@ -353,15 +353,15 @@ function project(
   status?: PageStatus,
   comments?: CommentThread[],
   parent?: PageRef,
-): KbPage {
-  const { body, canonical } = bodyForms(storedBody)
+): Promise<KbPage> {
+  const { body, canonical } = await bodyForms(storedBody)
   return {
     path,
     title,
     frontmatter: projectFields(specs, values),
     // Whoever reads here reads source — a model over MCP, a person on the
-    // `.md` address — so the body carries characters, not the serializer's
-    // entities (ADR 0014). Frontmatter values never met the serializer.
+    // `.md` address — so the body carries characters, not entities a stored
+    // body may hold (ADR 0014). Frontmatter values are never markdown.
     markdown: projectMarkdown(specs, values, decodePageEntities(body)),
     versions: blockVersions(canonical),
     ...(status ? { status } : {}),

@@ -1,0 +1,1 @@
+L12: a table cell opening on { or a :name is written bare; the next load reads attributes or a component and the cell empties

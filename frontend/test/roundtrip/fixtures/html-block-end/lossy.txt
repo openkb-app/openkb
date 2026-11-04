@@ -1,0 +1,1 @@
+block-level raw HTML is dropped; types 1–5 end at their end marker

@@ -8,7 +8,8 @@ const chip = computed(() => syncChipView(
   props.session.liveStatus.value,
   props.session.savedAgo.value,
   props.session.commitStatus.value,
-  props.session.commitError.value,
+  props.session.commitError.value ?? undefined,
+  props.session.loadError.value ?? undefined,
 ))
 </script>
 
