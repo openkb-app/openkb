@@ -77,7 +77,7 @@ default:
         1. Click "Ask OpenKnowledgebase" in the bottom right corner, or press Ctrl+J (⌘J on a Mac). On a wide screen the chat opens in the pane on the right.
         2. Pick the scope with the pill above the box: "All spaces I can see", or one space.
         3. Type the question and send it.
-        4. Read the answer. Numbers like [1] are citations. Hover one to see the page; click it to open the page on the cited block. The "Sources" list under the answer holds every cited section.
+        4. Read the answer. Numbers like \[1\] are citations. Hover one to see the page; click it to open the page on the cited block. The "Sources" list under the answer holds every cited section.
         5. Ask a follow-up. The conversation keeps its context while you move between pages. "Clear conversation" in the ⋯ menu starts over. Closing the chat with the X does too.
         ::
 

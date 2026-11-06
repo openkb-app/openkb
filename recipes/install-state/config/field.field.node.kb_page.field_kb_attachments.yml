@@ -22,5 +22,5 @@ settings:
   file_directory: 'attachments/[date:custom:Y]-[date:custom:m]'
   file_extensions: 'pdf txt md csv zip png jpg jpeg gif webp docx xlsx pptx html'
   max_filesize: '50 MB'
-  description_field: false
+  description_field: true
 field_type: file

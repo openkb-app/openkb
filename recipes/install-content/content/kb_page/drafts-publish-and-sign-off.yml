@@ -68,11 +68,11 @@ default:
         Three things can happen to a change, and none of them happens on its own. {#b-df8f4f51}
 
         ::block{#b-99e71fd0}
-        | Action | Who | What it does |
-        |---|---|---|
-        | Save | anyone who may edit the page | Writes a draft revision to the page's history. Never publishes. |
-        | Publish | anyone who may publish in the space | Puts the current draft on the live page. Refused while a change still waits for a review the space requires. |
-        | Sign off | a second pair of eyes | Marks one changed block as reviewed. Does not publish. |
+        | Action   | Who                                 | What it does                                                                                                 |
+        | -------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+        | Save     | anyone who may edit the page        | Writes a draft revision to the page's history. Never publishes.                                              |
+        | Publish  | anyone who may publish in the space | Puts the current draft on the live page. Refused while a change still waits for a review the space requires. |
+        | Sign off | a second pair of eyes               | Marks one changed block as reviewed. Does not publish.                                                       |
         ::
 
         ## What a draft is {#b-08ae1d37}

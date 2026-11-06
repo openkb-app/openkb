@@ -56,13 +56,13 @@ content:
       include_label: true
       include_uuid: true
   images:
-    formatter: entity_reference
+    formatter: page_file
     field_name: field_kb_images
     is_slot: false
     weight: 3
     configuration:
-      include_label: true
       include_uuid: true
+      include_label: true
   moderation_state:
     formatter: auto
     field_name: moderation_state
