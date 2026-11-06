@@ -77,8 +77,8 @@ default:
         1. Open the account menu at the bottom of the sidebar and choose "Agents & API clients".
         2. Under "Connect an agent (MCP)", copy the URL. It ends in `/api/mcp`.
         3. In the client, add the URL as a custom connector. For Claude Code, the page shows the command to run.
-        4. The client registers itself and sends you to the consent screen. It is headed "Allow <client> to use OpenKnowledgebase" and lists what the client will be allowed to do.
-        5. Give the agent a name under "Name of this agent". Everything it writes is recorded as "you via <name>".
+        4. The client registers itself and sends you to the consent screen. It is headed "Allow \<client> to use OpenKnowledgebase" and lists what the client will be allowed to do.
+        5. Give the agent a name under "Name of this agent". Everything it writes is recorded as "you via \<name>".
         6. Click "Allow". You are sent back to the client.
         ::
 

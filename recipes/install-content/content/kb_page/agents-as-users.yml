@@ -65,7 +65,7 @@ default:
 
         ## What an agent is {#b-34c76c18}
 
-        An agent is a program that reads and writes the knowledge base through the MCP endpoint. It is not a user account of its own. An agent always acts as one person: the account that connected it. What it writes is recorded as "you via <agent name>", in the revision log and on every block. {#b-9bf45112}
+        An agent is a program that reads and writes the knowledge base through the MCP endpoint. It is not a user account of its own. An agent always acts as one person: the account that connected it. What it writes is recorded as "you via \<agent name>", in the revision log and on every block. {#b-9bf45112}
 
         ## What an agent can do {#b-b4c224f9}
 

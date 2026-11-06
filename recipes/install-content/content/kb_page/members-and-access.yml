@@ -72,11 +72,11 @@ default:
         A space has three rosters. A person is on one of them. {#b-cf0a523e}
 
         ::block{#b-525cb9f3}
-        | Role | May do |
-        |---|---|
+        | Role    | May do                                                                                     |
+        | ------- | ------------------------------------------------------------------------------------------ |
         | Manager | Read, write and publish, and manage the space: its settings, its roster and its page tree. |
-        | Member | Read, write and publish. |
-        | Viewer | Read only. |
+        | Member  | Read, write and publish.                                                                   |
+        | Viewer  | Read only.                                                                                 |
         ::
 
         Plus "Read access": {#b-e72d3733}

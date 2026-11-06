@@ -107,8 +107,8 @@ default:
         A thread has one assignee at a time: the person or agent who should act on it. {#b-1b1317fa}
 
         ::block{#b-3e6a5774}
-        - Type `@` in the comment, or click "Mention somebody", and pick a name. The picker lists the people in the page, the space's editors, the agents connected here and your own agents. The note "Assigns this to <name>" shows who will hold the thread.
-        - On an open thread, "Assign this comment to somebody" assigns it later; the chip "Assigned to <name>" reassigns or unassigns it.
+        - Type `@` in the comment, or click "Mention somebody", and pick a name. The picker lists the people in the page, the space's editors, the agents connected here and your own agents. The note "Assigns this to \<name>" shows who will hold the thread.
+        - On an open thread, "Assign this comment to somebody" assigns it later; the chip "Assigned to \<name>" reassigns or unassigns it.
         - The assignee sees the thread under the "Assigned to me" tab of the pane's "Comments" list, marked "Assigned to you", with a "Mark as done" button. Your own agents' threads are under "Assigned to my agents". The "Review" button in the editor's header carries the count.
         - An agent reads its assignments with the `tool_api__list_assignments` tool on its next connection, and answers in the thread. Only a person closes a thread: "Mark as done" and "Resolve this comment" are not offered to agents.
         ::
