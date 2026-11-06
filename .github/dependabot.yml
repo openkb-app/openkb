@@ -47,6 +47,9 @@ updates:
       - /docker/frontend
     schedule:
       interval: daily
+    # Base-image releases are security releases; the default 3-day cooldown delays them.
+    cooldown:
+      default-days: 0
     open-pull-requests-limit: 2
     ignore:
       - dependency-name: "*"

@@ -1,10 +1,14 @@
-# Scans the published images daily for fixed HIGH and CRITICAL
-# vulnerabilities and for secrets: `openkb-drupal` and `openkb-frontend`, each
-# at `1.x` and at the newest release.
+# Daily checks of the images, each a job that fails on findings:
+# - `scan`: the published `openkb-drupal` and `openkb-frontend`, each at `1.x`
+#   and at the newest release, for fixed HIGH and CRITICAL vulnerabilities and
+#   for secrets. Findings: a table per image in the run summary, and SARIF in
+#   code scanning.
+# - `base images`: the FrankenPHP and Node pins of `1.x` against upstream
+#   security releases, which Trivy does not see. Findings: a table in the run
+#   summary; dependabot brings the bump.
 #
-# - Findings: a table per image in the run summary, and SARIF in code scanning.
-# - A job with findings fails. The red run is the alert, posted to Slack by
-#   the GitHub app's subscription to this workflow.
+# The red run is the alert, posted to Slack by the GitHub app's subscription to
+# this workflow.
 
 name: Image scan
 
@@ -95,3 +99,59 @@ jobs:
         run: |
           count=$(jq '[.Results[]? | (.Vulnerabilities // []) + (.Secrets // []) | .[]] | length' trivy.json)
           [ "$count" = 0 ] || { echo "$IMAGE: $count findings, listed in the run summary." >&2; exit 1; }
+
+  # - FrankenPHP: its advisories are repository advisories on php/frankenphp,
+  #   and the binary carries no `github.com/dunglas/frankenphp` version.
+  # - Node: the newest security release of the pinned major line.
+  base-images:
+    name: base images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the pins against upstream security releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # newer A B: A is a later version than B.
+          newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]; }
+
+          frankenphp=$(sed -n 's#^FROM dunglas/frankenphp:\([0-9][0-9.]*\)-.*#\1#p' docker/drupal/Dockerfile)
+          node=$(sed -n 's#^FROM node:\([0-9][0-9.]*\)-.*#\1#p' docker/frontend/Dockerfile)
+          [ -n "$frankenphp" ] || { echo "docker/drupal/Dockerfile pins no frankenphp version" >&2; exit 1; }
+          [ -n "$node" ] || { echo "docker/frontend/Dockerfile pins no node version" >&2; exit 1; }
+
+          rows=()
+          # One line per advisory: id, severity, its patched versions.
+          while IFS=$'\t' read -r id severity patched; do
+            first=$(tr ' ' '\n' <<< "$patched" | sort -V | head -n 1)
+            newer "$first" "$frankenphp" || continue
+            rows+=("| openkb-drupal: FrankenPHP | $frankenphp | $first | [$id](https://github.com/php/frankenphp/security/advisories/$id) ($severity) |")
+          done < <(gh api --paginate "repos/php/frankenphp/security-advisories?state=published&per_page=100" \
+            --jq '.[] | [.ghsa_id, .severity, ([.vulnerabilities[].patched_versions // empty | split(",")[] | ltrimstr(" ") | ltrimstr(">=") | ltrimstr(" ") | ltrimstr("v")] | join(" "))] | @tsv')
+
+          release=""
+          while IFS=$'\t' read -r tag url; do
+            newer "${tag#v}" "$node" || continue
+            if [ -z "$release" ] || newer "${tag#v}" "${release%%$'\t'*}"; then release="${tag#v}"$'\t'"$url"; fi
+          done < <(gh api "repos/nodejs/node/releases?per_page=50" \
+            --jq ".[] | select(.tag_name | startswith(\"v${node%%.*}.\")) | select(.body // \"\" | ascii_downcase | contains(\"security release\")) | [.tag_name, .html_url] | @tsv")
+          if [ -n "$release" ]; then
+            rows+=("| openkb-frontend: Node | $node | ${release%%$'\t'*} | [security release](${release#*$'\t'}) |")
+          fi
+
+          {
+            echo "## Base images"
+            if [ "${#rows[@]}" = 0 ]; then
+              echo "No security release newer than FrankenPHP $frankenphp and Node $node."
+            else
+              echo "| Image | Pinned | Newer | Advisory |"
+              echo "| --- | --- | --- | --- |"
+              printf '%s\n' "${rows[@]}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "${#rows[@]}" = 0 ] || { echo "Base images: ${#rows[@]} upstream security fixes newer than the pins, listed in the run summary." >&2; exit 1; }

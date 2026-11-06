@@ -57,6 +57,17 @@ A base-image patch (FrankenPHP, Node) reaches a released version as an image
 revision: the same version, rebuilt on the base images `1.x` pins. The app, both
 images and the drupal.org module keep their version.
 
+What calls for one: the daily `Image scan` workflow on openkb-app/openkb. Its
+Trivy jobs scan the published images for fixed HIGH and CRITICAL
+vulnerabilities in OS packages and app dependencies; each build runs
+`apk upgrade`, so a rebuild picks up Alpine's fixes. Trivy never sees
+FrankenPHP's own advisories: they are repository advisories on php/frankenphp,
+and the binary carries no FrankenPHP module version to match. Its
+`base images` job covers them: it fails when php/frankenphp has an advisory
+patched after the FrankenPHP pin, or Node has a security release of the
+pinned major newer than the Node pin. Dependabot opens the bump PR, with no
+cooldown for base images.
+
 1. Merge the base-image bump into `1.x` and sync it.
 2. Actions → `revision` → **Run workflow**, `version` = `1.2.3`.
 
