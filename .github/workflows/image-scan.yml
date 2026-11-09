@@ -125,21 +125,24 @@ jobs:
           [ -n "$frankenphp" ] || { echo "docker/drupal/Dockerfile pins no frankenphp version" >&2; exit 1; }
           [ -n "$node" ] || { echo "docker/frontend/Dockerfile pins no node version" >&2; exit 1; }
 
+          advisories=$(gh api --paginate "repos/php/frankenphp/security-advisories?state=published&per_page=100" \
+            --jq '.[] | [.ghsa_id, .severity, ([.vulnerabilities[].patched_versions // empty | split(",")[] | ltrimstr(" ") | ltrimstr(">=") | ltrimstr(" ") | ltrimstr("v")] | join(" "))] | @tsv')
+          node_releases=$(gh api "repos/nodejs/node/releases?per_page=50" \
+            --jq ".[] | select(.tag_name | startswith(\"v${node%%.*}.\")) | select(.body // \"\" | ascii_downcase | contains(\"security release\")) | [.tag_name, .html_url] | @tsv")
+
           rows=()
           # One line per advisory: id, severity, its patched versions.
           while IFS=$'\t' read -r id severity patched; do
             first=$(tr ' ' '\n' <<< "$patched" | sort -V | head -n 1)
             newer "$first" "$frankenphp" || continue
             rows+=("| openkb-drupal: FrankenPHP | $frankenphp | $first | [$id](https://github.com/php/frankenphp/security/advisories/$id) ($severity) |")
-          done < <(gh api --paginate "repos/php/frankenphp/security-advisories?state=published&per_page=100" \
-            --jq '.[] | [.ghsa_id, .severity, ([.vulnerabilities[].patched_versions // empty | split(",")[] | ltrimstr(" ") | ltrimstr(">=") | ltrimstr(" ") | ltrimstr("v")] | join(" "))] | @tsv')
+          done <<< "$advisories"
 
           release=""
           while IFS=$'\t' read -r tag url; do
             newer "${tag#v}" "$node" || continue
             if [ -z "$release" ] || newer "${tag#v}" "${release%%$'\t'*}"; then release="${tag#v}"$'\t'"$url"; fi
-          done < <(gh api "repos/nodejs/node/releases?per_page=50" \
-            --jq ".[] | select(.tag_name | startswith(\"v${node%%.*}.\")) | select(.body // \"\" | ascii_downcase | contains(\"security release\")) | [.tag_name, .html_url] | @tsv")
+          done <<< "$node_releases"
           if [ -n "$release" ]; then
             rows+=("| openkb-frontend: Node | $node | ${release%%$'\t'*} | [security release](${release#*$'\t'}) |")
           fi

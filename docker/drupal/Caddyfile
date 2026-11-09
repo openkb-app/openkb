@@ -42,7 +42,7 @@
 
 	# The webserver's own cap on page file upload bodies. Drupal's field limits
 	# (`max_filesize`) decide the size; this must stay above the largest one.
-	# A longer body is refused with 413 before PHP runs.
+	# A longer body is refused with 413.
 	@pageFileUpload path /jsonapi/node/kb_page/field_kb_attachments /jsonapi/node/kb_page/field_kb_images
 	request_body @pageFileUpload {
 		max_size {$WEBSERVER_UPLOAD_MAX_SIZE:100MB}

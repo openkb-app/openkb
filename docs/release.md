@@ -60,7 +60,8 @@ images and the drupal.org module keep their version.
 What calls for one: the daily `Image scan` workflow on openkb-app/openkb. Its
 Trivy jobs scan the published images for fixed HIGH and CRITICAL
 vulnerabilities in OS packages and app dependencies; each build runs
-`apk upgrade`, so a rebuild picks up Alpine's fixes. Trivy never sees
+`apk upgrade`, so a rebuild on a moved base pin picks up Alpine's current
+fixes. Trivy never sees
 FrankenPHP's own advisories: they are repository advisories on php/frankenphp,
 and the binary carries no FrankenPHP module version to match. Its
 `base images` job covers them: it fails when php/frankenphp has an advisory
