@@ -163,6 +163,19 @@ export function presenceFromStates(
 }
 
 /**
+ * Whether two presence lists name the same peers the same way. Awareness
+ * changes on every caret move of every peer; a list that reads the same must
+ * keep its identity, or everything rendered from it re-renders per keystroke.
+ */
+export function samePresence(a: readonly PresencePeer[], b: readonly PresencePeer[]): boolean {
+  return a.length === b.length && a.every((peer, i) => {
+    const other = b[i]!
+    return peer.clientId === other.clientId && peer.name === other.name && peer.color === other.color
+      && peer.isSelf === other.isSelf && peer.uid === other.uid && peer.via === other.via
+  })
+}
+
+/**
  * Awareness states → block id → the peers claiming that block.
  *
  * The projection behind the editor's "working here" marks. Self is left out:

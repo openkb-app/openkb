@@ -10,6 +10,7 @@ import {
   peerProfilePath,
   presenceFromStates,
   readableInkOn,
+  samePresence,
 } from './presence'
 
 describe('initialsOf', () => {
@@ -105,6 +106,22 @@ describe('peerProfilePath', () => {
   it('gives a peer with no account none either', () => {
     expect(peerProfilePath({ ...peer, uid: undefined })).toBeUndefined()
     expect(peerProfilePath({ ...peer, uid: 0 })).toBeUndefined()
+  })
+})
+
+describe('samePresence', () => {
+  const states = [{ clientId: 3, user: { name: 'Me', color: '#def', uid: 1 } }, { clientId: 5, user: { name: 'Alf', color: '#123' } }]
+
+  it('reads a caret move as no change', () => {
+    const moved = states.map(state => ({ ...state, cursor: { anchor: 1, head: 1 } }))
+    expect(samePresence(presenceFromStates(states, 3), presenceFromStates(moved, 3))).toBe(true)
+  })
+
+  it('tells a joined, renamed or recoloured peer apart', () => {
+    const before = presenceFromStates(states, 3)
+    expect(samePresence(before, presenceFromStates([...states, { clientId: 9, user: { name: 'Bea' } }], 3))).toBe(false)
+    expect(samePresence(before, presenceFromStates([states[0]!, { clientId: 5, user: { name: 'Alfred', color: '#123' } }], 3))).toBe(false)
+    expect(samePresence(before, presenceFromStates([states[0]!, { clientId: 5, user: { name: 'Alf', color: '#456' } }], 3))).toBe(false)
   })
 })
 

@@ -40,7 +40,7 @@ import { caretInBlock } from '~/editor/cite-insert'
 import type { WritableComputedRef } from 'vue'
 import type { FieldValidationApi } from '~/composables/useFieldValidation'
 import { TITLE_KEY, type FieldValue } from '~~/server/utils/entity-fields'
-import { FALLBACK_COLOR, FALLBACK_NAME, claimsByBlock, collabColor, presenceFromStates, readableInkOn, type AwarenessUser } from '#shared/utils/presence'
+import { FALLBACK_COLOR, FALLBACK_NAME, claimsByBlock, collabColor, presenceFromStates, readableInkOn, samePresence, type AwarenessUser, type PresencePeer } from '#shared/utils/presence'
 import { PAGE_FILE_KEYS, fileArray, fileNameMap, hiddenFileMap } from '#shared/utils/page-files'
 
 export interface Page {
@@ -403,8 +403,12 @@ export async function useEditorSession(
 
   // Render-ready peer list for the presence strip: same awareness states
   // that feed the peer count, mapped + self-flagged (self sorts first).
-  const presence = computed(() =>
-    presenceFromStates(awarenessStates.value, provider.value?.awareness?.clientID ?? null))
+  // Kept as is while it reads the same, so a peer's caret move re-renders
+  // nothing built from it — the review pane among them.
+  const presence = computed<PresencePeer[]>((previous) => {
+    const next = presenceFromStates(awarenessStates.value, provider.value?.awareness?.clientID ?? null)
+    return previous && samePresence(previous, next) ? previous : next
+  })
 
   // Which blocks peers say they are working on (OKB-164). A claim moves no
   // document content, so the marks are re-projected from here rather than by a
