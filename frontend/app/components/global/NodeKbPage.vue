@@ -13,6 +13,7 @@
  * edit chrome that frame it.
  */
 import { MarkdownDocument } from '@comark/vue'
+import { useElementSize, useMediaQuery } from '@vueuse/core'
 import { comarkComponents } from '~/comark/components'
 import { liftTitleBlockId, type CitationSource, type ComarkNode } from '#shared/utils/comark-tree'
 import { absoluteDateTime, referenceLabels, type CeEntityReference } from '#shared/utils/kb-meta'
@@ -297,6 +298,20 @@ watch(mode, (to) => { if (to !== 'read') cardBlockId.value = null })
 const trailingToolbarItems = computed(() => session.value?.toolbarTrailingItems.value ?? [])
 
 /**
+ * Which toolbar set is mounted. Every mounted toolbar re-renders on every
+ * transaction, a peer's keystroke included, so the set that does not fit is
+ * left out rather than hidden.
+ * - Below `sm` the phone row, else the navbar strip.
+ * - The strip's groups go by the width of the navbar it sits in. That width
+ *   is 0 until the strip's first measurement, and no group set mounts before
+ *   it.
+ */
+const smUp = useMediaQuery('(min-width: 640px)')
+const phoneToolbar = computed(() => !smUp.value)
+const strip = useTemplateRef<HTMLElement>('strip')
+const { width: navbarWidth } = useElementSize(() => strip.value?.closest('header'))
+
+/**
  * The steps this space enforces, as the read surfaces answer it.
  *
  * The moderation status is Drupal's own answer, but it sits behind node.update
@@ -337,19 +352,19 @@ const { wide } = useSidePane()
       <!-- One clipping strip: toolbar and block tools scroll together in the
            `min-w-0` leading zone, so no control spills over the action
            chrome. -->
-      <div v-if="mode === 'edit' && editorInstance && session" class="hidden min-w-0 items-center gap-1 overflow-x-auto sm:flex">
+      <div v-if="mode === 'edit' && editorInstance && session && !phoneToolbar" ref="strip" class="flex min-w-0 items-center gap-1 overflow-x-auto">
         <!-- Two zones: left of the rule writes at the caret, right of it acts
-             on the block. Each `@min-[…]` is the measured row width that group
+             on the block. Each width is the measured row width that group
              needs; the extended set folds into one menu rather than going
              away — a shorter row must not cost the editor a tool. -->
         <UEditorToolbar :editor="editorInstance" :items="session.historyItems" class="shrink-0 border-0 bg-transparent" />
         <UEditorToolbar :editor="editorInstance" :items="session.toolbarItems" class="border-0 bg-transparent" />
-        <UEditorToolbar :editor="editorInstance" :items="session.toolbarExtendedItems" class="hidden border-0 bg-transparent @min-[1020px]/editnav:flex" />
-        <UEditorToolbar :editor="editorInstance" :items="session.toolbarOverflowItems" class="shrink-0 border-0 bg-transparent @min-[1020px]/editnav:hidden" />
+        <UEditorToolbar v-if="navbarWidth >= 1020" :editor="editorInstance" :items="session.toolbarExtendedItems" class="border-0 bg-transparent" />
+        <UEditorToolbar v-else-if="navbarWidth > 0" :editor="editorInstance" :items="session.toolbarOverflowItems" class="shrink-0 border-0 bg-transparent" />
         <USeparator orientation="vertical" class="h-5 shrink-0" />
         <div class="flex shrink-0 items-center gap-1" role="group" aria-label="This block">
           <span class="hidden text-xs text-muted @min-[900px]/editnav:inline">Block</span>
-          <UEditorToolbar :editor="editorInstance" :items="trailingToolbarItems" class="hidden shrink-0 border-0 bg-transparent @min-[672px]/editnav:flex" />
+          <UEditorToolbar v-if="navbarWidth >= 672" :editor="editorInstance" :items="trailingToolbarItems" class="shrink-0 border-0 bg-transparent" />
           <EditorBlockMenuButton :session="session" class="shrink-0" />
         </div>
         <!-- The way back. Everything the block tools do lands on the block the
@@ -426,8 +441,8 @@ const { wide } = useSidePane()
        screen: a phone has no hover and Nuxt UI hides the drag handle below
        `sm`, so this is the only way to reach a block's actions at all. -->
   <div
-    v-if="mode === 'edit' && editorInstance && session"
-    class="sticky top-(--ui-header-height) z-20 flex shrink-0 items-center gap-1 border-b border-default bg-default/95 px-2 py-1 backdrop-blur sm:hidden"
+    v-if="mode === 'edit' && editorInstance && session && phoneToolbar"
+    class="sticky top-(--ui-header-height) z-20 flex shrink-0 items-center gap-1 border-b border-default bg-default/95 px-2 py-1 backdrop-blur"
   >
     <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       <UEditorToolbar :editor="editorInstance" :items="session.historyItems" class="shrink-0 border-0 bg-transparent" />
