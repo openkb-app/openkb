@@ -383,15 +383,17 @@ jobs:
           The `drupal` container installs the site on a first boot. On an existing site whose database updates this version brings, it holds the site until an administrator has run `<drupal url>/update.php`.
           NOTE
             case $version in
-              *-*) printf '\nA pre-release: run it on a throwaway site, not on data you keep.\n' ;;
+              *-alpha*) printf '\nA pre-release: run it on a throwaway site, not on data you keep.\n' ;;
             esac
           } >> notes.md
           cat notes.md
 
+      # Alphas are pre-releases; betas, release candidates and stable versions
+      # are regular releases, their image revisions included.
       - name: Create or update the release
         run: |
           case $TAG in
-            *-*) prerelease=true ;;
+            *-alpha*) prerelease=true ;;
             *) prerelease=false ;;
           esac
           if gh release view "$TAG" > /dev/null 2>&1; then

@@ -29,13 +29,16 @@ answers, then verifies the FrankenPHP base image's SLSA provenance against
 `php/frankenphp` and pushes `ghcr.io/openkb-app/openkb-drupal` and
 `ghcr.io/openkb-app/openkb-frontend` for `linux/amd64` and `linux/arm64` as
 `1.2.3`, `1.2`, `1` and `latest`, each with a build-provenance attestation in
-the registry. A pre-release tag (`v1.2.3-beta.1`) publishes that exact tag
+the registry. A version with a `-` (`v1.2.3-beta1`) publishes that exact tag
 only — no `1.2`, `1` or `latest`.
 
 It then opens the GitHub release: the version's `CHANGELOG.md` section as the
-notes, followed by how to run that version, marked pre-release when the
-version carries a `-`. A tag whose version has no section in `CHANGELOG.md`
-fails the job — the images are published, the release entry is not.
+notes, followed by how to run that version. An alpha (`v1.2.3-alpha1`) is
+marked pre-release; a beta, a release candidate and a stable version are
+regular releases, so the newest of them is GitHub's "Latest". An image
+revision keeps its version's flag. A tag whose version has no section in
+`CHANGELOG.md` fails the job — the images are published, the release entry is
+not.
 
 Check what arrived:
 
@@ -89,7 +92,7 @@ release entry. A site on `OPENKB_TAG=1.2.3` gets the patch with
 `docker compose pull`; `OPENKB_TAG=1.2.3-rN` pins that build.
 
 A stable version gets revisions only while it is the newest stable one,
-because its floating tags move; any pre-release can get one. The
+because its floating tags move; any version with a `-` can get one. The
 revision note lives on `release/1.2.3` and in the release entry, not in the
 `CHANGELOG.md` of `1.x`.
 
