@@ -53,7 +53,7 @@ emit('session', session)
 const emojis = emoji.emojiPresentationItems(emoji.withShortcodeAliases(emoji.emojis))
 
 const {
-  editorRef, extensions, comarkHandlers,
+  editorRef, extensions, editorHandlers,
   slashItems, bubbleItems, embedBubbleItems,
   mentionQuery, mentionItems,
   docItems, searchDocs, docLabel, resolveTarget, pageFiles, editorPageFiles,
@@ -259,7 +259,7 @@ const dragHandleOptions = {
       :mention="false"
       :image="false"
       :extensions="editorExtensions"
-      :handlers="comarkHandlers"
+      :handlers="editorHandlers"
       :editor-props="editorProps"
       class="inplace-editor"
     >

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
 import Paragraph from '@tiptap/extension-paragraph'
@@ -125,9 +125,17 @@ function drawnPills(doc: PMNode, lookup: ReviewLookup): Array<Array<[string, str
 }
 
 describe('addressableBlocks', () => {
-  it('lists the top-level id-bearing blocks with their text', () => {
+  it('lists the top-level id-bearing blocks with their nodes', () => {
     const d = doc(para('first', 'b-1'), para('second', 'b-2'))
-    expect(addressableBlocks(d).map(b => [b.id, b.text])).toEqual([['b-1', 'first'], ['b-2', 'second']])
+    expect(addressableBlocks(d).map(b => [b.id, b.node.textContent])).toEqual([['b-1', 'first'], ['b-2', 'second']])
+  })
+
+  it('lists the blocks without reading their text, which every keystroke would pay for', () => {
+    const d = doc(para('first', 'b-1'), bullets('x', 'y'))
+    const textRead = vi.spyOn(Object.getPrototypeOf(d), 'textContent', 'get')
+    addressableBlocks(d)
+    expect(textRead).not.toHaveBeenCalled()
+    textRead.mockRestore()
   })
 
   it('reports an id-less block with a null id rather than skipping it', () => {
@@ -144,7 +152,7 @@ describe('addressableBlocks', () => {
 describe('unidentifiedBlocks', () => {
   it('names the id-less blocks that carry something', () => {
     const d = doc(para('has one', 'b-1'), para('has none', null), bullets('x'))
-    expect(unidentifiedBlocks(d).map(b => b.text)).toEqual(['has none', 'x'])
+    expect(unidentifiedBlocks(d).map(b => b.node.textContent)).toEqual(['has none', 'x'])
   })
 
   it('ignores an empty paragraph — it serializes to nothing, so it holds nothing', () => {
@@ -171,7 +179,7 @@ describe('blockAtSelection', () => {
 
   it('finds the id-bearing block holding the cursor', () => {
     const state = stateWithCursorIn([para('first', 'b-1'), para('second', 'b-2')], 1)
-    expect(blockAtSelection(state)).toMatchObject({ id: 'b-2', text: 'second' })
+    expect(blockAtSelection(state)).toMatchObject({ id: 'b-2', pos: 7 })
   })
 
   it('resolves the container block itself for a cursor inside it', () => {
@@ -188,7 +196,7 @@ describe('blockAtSelection', () => {
       doc: d,
       selection: NodeSelection.create(d, d.child(0).nodeSize),
     })
-    expect(blockAtSelection(state)).toMatchObject({ id: 'b-2', text: 'second' })
+    expect(blockAtSelection(state)).toMatchObject({ id: 'b-2', pos: 7 })
   })
 
   // Select-all names the document, not a block — what the block menu falls
@@ -786,6 +794,32 @@ describe('the checkmark, mounted', () => {
     expect(button!.title).toBe('')
     button!.click()
     expect(asked).toEqual([['b-1', 'peer']])
+  })
+
+  /**
+   * The browser's own typing reaches ProseMirror as a DOM change beside the
+   * widget, which is when it redraws one.
+   */
+  it('keeps the pills\u2019 DOM through a typed character, and the click still finds its block', () => {
+    const { editor, asked, controls } = mount({ 'b-1': awaiting([3]) }, [paraNode('b-1')], OTHER)
+    document.body.append(editor.view.dom.parentElement!)
+    const pills = editor.view.dom.querySelector('.okb-review-pills')
+    const written: MutationRecord[] = []
+    const writes = new MutationObserver(records => written.push(...records))
+    writes.observe(editor.view.dom, { subtree: true, childList: true })
+
+    const text = [...editor.view.dom.querySelector('p')!.childNodes].find(node => node.nodeType === Node.TEXT_NODE)!
+    text.nodeValue += '!'
+    document.getSelection()!.collapse(text, text.nodeValue!.length)
+    ;(editor.view as unknown as { domObserver: { flush(): void } }).domObserver.flush()
+
+    expect(editor.state.doc.textContent).toBe('b-1!')
+    expect(editor.view.dom.querySelector('.okb-review-pills')).toBe(pills)
+    expect(written.concat(writes.takeRecords()), 'the keystroke adds and removes no node').toEqual([])
+    controls()[0]!.click()
+    expect(asked).toEqual([['b-1', 'peer']])
+    writes.disconnect()
+    editor.view.dom.parentElement!.remove()
   })
 
   it('marks a sign-off the rule allows as available', () => {

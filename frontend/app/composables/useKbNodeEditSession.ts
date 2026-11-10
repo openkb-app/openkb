@@ -1,6 +1,5 @@
-import { createHandlers } from '@nuxt/ui/utils/editor'
 import type { EditorSession } from '~/components/PageInlineEditor.vue'
-import { comarkHandlers } from '~/editor/menu-items'
+import { editorHandlers } from '~/editor/menu-items'
 import { addressableBlocks } from '~/editor/review-marks'
 import type { KbCePageContext } from '~/composables/useKbCePage'
 
@@ -51,7 +50,7 @@ export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOpti
   // they cannot inject the handler map UEditor provides to its own subtree.
   // Provide the same merged map here: without it, every custom handler kind
   // (table ops, callout, infobox, image) silently no-ops from the navbar.
-  provide('editorHandlers', computed(() => ({ ...createHandlers(), ...comarkHandlers })))
+  provide('editorHandlers', computed(() => editorHandlers))
 
   /** Atomic mode swap; uses the View Transitions API when present (progressive
    * enhancement — the instant swap is the universal path). */

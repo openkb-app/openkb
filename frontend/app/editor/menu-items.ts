@@ -1,6 +1,8 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
 import { TextSelection } from '@tiptap/pm/state'
 import type { ResolvedPos } from '@tiptap/pm/model'
+import { createHandlers } from '@nuxt/ui/utils/editor'
+import { handlersAnsweringThroughComputeds } from '~/editor/toolbar-answers'
 import { insertPageFile, selectedEmbed } from '~/editor/page-file-insert'
 import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
@@ -251,6 +253,12 @@ export const comarkHandlers: Record<string, EditorHandler> = {
     isActive: editor => editor.isActive('embed'),
   },
 }
+
+/**
+ * The handler map of every toolbar and menu: Nuxt UI's own handlers plus
+ * comarkHandlers, their state questions answered through computeds.
+ */
+export const editorHandlers = handlersAnsweringThroughComputeds({ ...createHandlers(), ...comarkHandlers })
 
 /**
  * Every block the editor inserts, in one list — the slash menu renders it and

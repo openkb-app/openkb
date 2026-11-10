@@ -6,6 +6,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { AssignedCounts } from './comment-assignee'
 import { usedBlockIds } from './block-id-minter'
+import { widgetDrawnOncePerDecoration } from './widget-drawn-once'
 import {
   blockIdOf,
   contributorsSince,
@@ -229,7 +230,6 @@ export interface AddressableBlock {
   id: string | null
   pos: number
   node: PMNode
-  text: string
 }
 
 /**
@@ -241,7 +241,7 @@ export function addressableBlocks(doc: PMNode): AddressableBlock[] {
   const out: AddressableBlock[] = []
   doc.forEach((node, offset) => {
     if (!ID_BEARING_TYPES.has(node.type.name)) return
-    out.push({ id: blockIdOf(node), pos: offset, node, text: node.textContent })
+    out.push({ id: blockIdOf(node), pos: offset, node })
   })
   return out
 }
@@ -313,7 +313,7 @@ export function ensureBlockId(state: EditorState, tr: Transaction, block: Addres
 export function blockAt(state: EditorState, pos: number): AddressableBlock | null {
   const node = state.doc.nodeAt(pos)
   if (!node || !ID_BEARING_TYPES.has(node.type.name)) return null
-  return { id: blockIdOf(node), pos, node, text: node.textContent }
+  return { id: blockIdOf(node), pos, node }
 }
 
 /**
@@ -699,7 +699,7 @@ export function reviewDecorations(
     const inHand = activePos === pos
     decorations.push(Decoration.widget(
       inside ? pos + 1 : pos + node.nodeSize,
-      (view, getPos) => pillsDom(pills, {
+      widgetDrawnOncePerDecoration((view, getPos) => pillsDom(pills, {
         blockId: id,
         inside,
         inHand,
@@ -710,7 +710,7 @@ export function reviewDecorations(
           const block = at === undefined ? null : widgetBlockPos(view.state.doc, at)
           if (block !== null) approve?.(block, step)
         },
-      }),
+      })),
       {
         side: -1,
         // Firefox puts a Home caret inside the control; PM reads it as the block start.

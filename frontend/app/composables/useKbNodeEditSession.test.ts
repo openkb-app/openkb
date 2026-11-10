@@ -5,8 +5,7 @@ import type { KbCePageContext } from '~/composables/useKbCePage'
 import type { EditorSession } from '~/components/PageInlineEditor.vue'
 import { useKbNodeEditSession } from './useKbNodeEditSession'
 
-vi.mock('@nuxt/ui/utils/editor', () => ({ createHandlers: () => ({}) }))
-vi.mock('~/editor/menu-items', () => ({ comarkHandlers: {} }))
+vi.mock('~/editor/menu-items', () => ({ editorHandlers: {} }))
 vi.mock('~/editor/review-marks', () => ({ addressableBlocks: () => [] }))
 
 /**

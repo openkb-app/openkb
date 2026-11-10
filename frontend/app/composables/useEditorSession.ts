@@ -36,7 +36,7 @@ import {
 import { mapEditorItems } from '@nuxt/ui/utils/editor'
 import { approvalStanding, blockMenuItems, NO_BLOCK_MENU, type BlockMenuNode } from '~/editor/block-menu'
 import { parseMarkdownToJson, preloadMarkdownRenderer, serializeDocToMarkdown } from '~/comark/markdown-engine'
-import { comarkHandlers, imageSizeItem, insertToolbarItem, slashItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
+import { comarkHandlers, editorHandlers, imageSizeItem, insertToolbarItem, slashItems, tableBubbleItems, tableToolbarItem } from '~/editor/menu-items'
 import { useDocLinkSearch } from '~/composables/useDocLinkSearch'
 import { caretInBlock } from '~/editor/cite-insert'
 import type { WritableComputedRef } from 'vue'
@@ -1318,7 +1318,7 @@ export async function useEditorSession(
     goToBlock,
     extensions,
     slashItems,
-    comarkHandlers,
+    editorHandlers,
     historyItems,
     blockMenu,
     hoveredBlock,

@@ -258,6 +258,43 @@ describe('the margin badge, mounted', () => {
     expect(editor.state.doc.toJSON()).toEqual(before)
   })
 
+  /**
+   * The browser's own typing reaches ProseMirror as a DOM change beside the
+   * widget, which is when it redraws one.
+   */
+  it('keeps the control\u2019s DOM through a typed character, and the click still finds its block', () => {
+    const started: number[] = []
+    const element = document.createElement('div')
+    document.body.append(element)
+    const editor = new Editor({
+      element,
+      extensions: [Document, IdParagraph, Text, CommentMarks.configure({ threads: () => [], startThread: pos => started.push(pos) })],
+      content: {
+        type: 'doc',
+        content: ['b-1', 'b-2'].map(id => ({ type: 'paragraph', attrs: { id }, content: [{ type: 'text', text: 'Paragraph' }] })),
+      },
+    })
+    editors.push(editor)
+    const offer = editor.view.dom.querySelectorAll<HTMLButtonElement>('.okb-comment-start')[1]!
+    const written: MutationRecord[] = []
+    const writes = new MutationObserver(records => written.push(...records))
+    writes.observe(editor.view.dom, { subtree: true, childList: true })
+
+    const text = [...editor.view.dom.querySelectorAll('p')[1]!.childNodes].find(node => node.nodeType === Node.TEXT_NODE)!
+    text.nodeValue += '!'
+    document.getSelection()!.collapse(text, text.nodeValue!.length)
+    ;(editor.view as unknown as { domObserver: { flush(): void } }).domObserver.flush()
+
+    expect(editor.state.doc.lastChild!.textContent).toBe('Paragraph!')
+    expect(editor.view.dom.querySelectorAll('.okb-comment-start')[1]).toBe(offer)
+    expect(written.concat(writes.takeRecords()), 'the keystroke adds and removes no node').toEqual([])
+    // 0 <p> 1 … 10 </p> 11 <p>: the second block starts at 11.
+    offer.click()
+    expect(started).toEqual([11])
+    writes.disconnect()
+    element.remove()
+  })
+
   // Firefox's Home puts the caret inside a non-editable element at the line start.
   it('reads a caret placed inside the control as the block start', () => {
     for (const threads of [[], [thread('b-2', null)]]) {

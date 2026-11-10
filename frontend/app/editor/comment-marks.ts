@@ -4,6 +4,7 @@ import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/p
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, editsInsideBlocks, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
+import { widgetDrawnOncePerDecoration } from './widget-drawn-once'
 import { openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
 
 /**
@@ -280,13 +281,13 @@ export function marginDecorations(
     decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: 'okb-margin-host' }))
     decorations.push(Decoration.widget(
       pos + offset,
-      (_view, getPos) => {
+      widgetDrawnOncePerDecoration((_view, getPos) => {
         const control = marginControl(id, count, () => {
           const at = getPos()
           return at === undefined ? undefined : at - offset
         }, actions)
         return inside ? control : marginGap(control)
-      },
+      }),
       {
         side: -1,
         // One key for every block that carries no id: they all draw the same
@@ -320,10 +321,11 @@ function marginGap(control: HTMLElement): HTMLElement {
  */
 export function commentDecorations(doc: PMNode, threads: CommentThread[]): DecorationSet {
   const decorations: Decoration[] = []
-  for (const { id, pos, node, text } of addressableBlocks(doc)) {
+  for (const { id, pos, node } of addressableBlocks(doc)) {
     if (!id) continue
     const open = openThreads(threads, id)
     if (open.length === 0) continue
+    const text = node.textContent
     decorations.push(Decoration.node(pos, pos + node.nodeSize, {
       'class': 'okb-comment-block',
       'data-comment-count': String(open.length),
@@ -500,7 +502,7 @@ declare module '@tiptap/core' {
 function threadAnchor(state: EditorState, block: AddressableBlock): CommentAnchor | null {
   return markedPassage(state, block.pos)
     ?? rememberedAnchor(state, block.pos)
-    ?? blockAnchor(block)
+    ?? blockAnchor({ text: block.node.textContent })
 }
 
 export const CommentMarks = Extension.create<CommentMarksOptions>({
