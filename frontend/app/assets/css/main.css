@@ -330,14 +330,8 @@ body {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter;
 }
 
-/* Mention chips (TipTap @-mention in the editor, and the read page's
-   <custom-mention> element comark emits for :mention[label]{uid="…"} —
-   an undefined custom element, styled here since DrupalMarkup renders it
-   as raw HTML outside Vue). */
-custom-mention::before {
-  content: '@';
-}
-custom-mention,
+/* Mention chips: the editor's mention node, the read page's CustomMention
+   and comment bodies. */
 .mention {
   display: inline-block;
   padding: 0 0.25rem;
@@ -347,7 +341,6 @@ custom-mention,
   font-weight: 500;
   text-decoration: none;
 }
-.dark custom-mention,
 .dark .mention {
   background-color: color-mix(in oklab, var(--color-primary-900) 40%, transparent);
   color: var(--color-primary-200);

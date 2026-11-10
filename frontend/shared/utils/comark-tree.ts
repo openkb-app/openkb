@@ -136,7 +136,7 @@ export const HTML_ELEMENTS = new Set([
 ])
 
 /** The component tags the page has a renderer for. */
-export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', 'attachment', 'embed', DOC_LINK_TAG])
+export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', 'attachment', 'embed', 'mention', DOC_LINK_TAG])
 
 /**
  * Tags dropped with their content. comark parses raw `<script>`, `<style>`,
@@ -477,12 +477,20 @@ function cleanNode(node: ComarkNode, ctx: PassContext, inline: boolean): ComarkN
   // gone, so it cannot make a block component render as phrasing or back.
   // Children carry the component's own flag: what sits inside an inline
   // component is phrasing content too.
+  // A mention carries its words as `label` too: a renderer cannot read them
+  // back from its slot.
   const known = COMPONENT_TAGS.has(tag)
   const own = FILE_TAGS.has(tag) ? fileProps(tag, props, ctx) : props
+  const inner = cleanChildren(children, ctx, inline)
   return [[
     known ? tag : UNKNOWN_TAG,
-    { ...own, ...(known ? {} : { name: tag }), ...(inline ? { inline: true } : {}) },
-    ...cleanChildren(children, ctx, inline),
+    {
+      ...own,
+      ...(known ? {} : { name: tag }),
+      ...(tag === 'mention' ? { label: collectText(inner) } : {}),
+      ...(inline ? { inline: true } : {}),
+    },
+    ...inner,
   ]]
 }
 
