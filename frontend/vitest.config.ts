@@ -25,7 +25,8 @@ export default defineConfig({
     // Both projects inherit this. On CI the suites share an executor with the
     // deploy and the other stages, and the 5s default flakes under that
     // contention.
-    ...(process.env.CI ? { testTimeout: 15_000 } : {}),
+    // maxWorkers: the stage shares a 16-core CI host with other builds.
+    ...(process.env.CI ? { testTimeout: 15_000, maxWorkers: 4 } : {}),
     // The round-trip suites need DOM globals (happy-dom) but read their
     // fixtures from disk. Vite's client resolver replaces `node:*` builtins
     // with a browser stub, so transform them as SSR modules instead.
