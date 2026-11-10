@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { isTextSelection } from '@tiptap/core'
+import { isActive, isTextSelection } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 import { PluginKey } from '@tiptap/pm/state'
 import type { EditorState } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import { CollabTrailingNode } from '~/editor/collab-trailing-node'
+import { ignoreMenuMouseEnterWithoutPointerMove } from '~/editor/stationary-pointer'
 import { readUnreadSelection } from '~/editor/selection-sync'
 import { LINK_BUBBLE_KEY, bubbleTargetAt } from '~/editor/link-target'
 import { useEditorSession } from '~/composables/useEditorSession'
@@ -15,8 +16,8 @@ import type { ReviewStep } from '#shared/page-blocks'
  * The collab editor surface for the in-place edit mode of the read page.
  *
  * Renders ONLY the TipTap surface plus its overlay UI (bubble toolbar, link
- * bubble, drag handle, slash menu, mentions, the `[[` document-link picker) —
- * no chrome.
+ * bubble, drag handle, slash menu, mentions, the `:` emoji menu, the `[[`
+ * document-link picker) — no chrome.
  * The page owns the chrome: it receives the whole editor session via the
  * `session` emit and renders the formatting toolbar + save/sync chips in the
  * app navbar, so entering edit mode adds zero layout height above the page
@@ -39,12 +40,17 @@ const emit = defineEmits<{ (e: 'session', session: EditorSession): void }>()
 const filePickerRequest = useFilePickerRequest()
 const filePickerStatus = useFilePickerStatus()
 
-const session = await useEditorSession(
-  computed(() => props.nid),
-  computed(() => props.steps),
-  computed(() => props.mayModerate),
-)
+// The emoji module loads with the editor, so readers never download it.
+const [session, emoji] = await Promise.all([
+  useEditorSession(
+    computed(() => props.nid),
+    computed(() => props.steps),
+    computed(() => props.mayModerate),
+  ),
+  import('~/editor/emoji-shortcodes'),
+])
 emit('session', session)
+const emojis = emoji.emojiPresentationItems(emoji.withShortcodeAliases(emoji.emojis))
 
 const {
   editorRef, extensions, comarkHandlers,
@@ -55,8 +61,19 @@ const {
   selectBlockAt,
 } = session
 
+const emojiShortcodeInput = emoji.emojiShortcodeInputRule(emojis)
 // Stands in for the starter kit's trailing node, which breaks the collab redo.
-const editorExtensions = computed(() => [...extensions.value, CollabTrailingNode])
+const editorExtensions = computed(() => [...extensions.value, CollabTrailingNode, emojiShortcodeInput])
+
+const emojiSuggestion = {
+  /** Keeps the emoji menu out of code. */
+  allow: ({ state, range }: { state: EditorState, range: { from: number, to: number } }) =>
+    !isActive(state, 'codeBlock') && !state.doc.rangeHasMark(range.from, range.to, state.schema.marks.code!),
+  /** Opens the emoji menu only for an emoji query. */
+  shouldShow: ({ query }: { query: string }) => emoji.isEmojiQuery(query, emojis),
+}
+
+ignoreMenuMouseEnterWithoutPointerMove('.inplace-editor [role="option"], .doc-link-menu [role="option"]')
 
 /**
  * The block the handle is floating over. `hover` carries the node as JSON,
@@ -332,6 +349,15 @@ const dragHandleOptions = {
           </div>
         </UEditorDragHandle>
         <UEditorSuggestionMenu :editor="editor" :items="slashItems" />
+        <!-- - Matches shortcodes, not tags, as GitHub and Slack do.
+             - Opens after two characters or a one-character shortcode (`:x`), so Enter after `:` or `:D` still splits the block.
+             - Never opens in code. -->
+        <UEditorEmojiMenu
+          :editor="editor"
+          :items="emojis"
+          :filter-fields="['name', 'shortcodes']"
+          :suggestion="emojiSuggestion"
+        />
         <UEditorMentionMenu
           v-model:search-term="mentionQuery"
           :editor="editor"

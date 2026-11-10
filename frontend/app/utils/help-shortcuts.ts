@@ -79,6 +79,7 @@ export const typedTriggers: TypedRow[] = [
   { code: '[[', what: 'Link to another page. Typing a title offers pages; adding # offers that page’s blocks' },
   { code: '[^', what: 'Cite the source this text comes from: a page, one of its blocks, or a pasted https:// address' },
   { code: '@', what: 'Mention a person' },
+  { code: ':', what: 'Insert an emoji: a colon and the start of its name, e.g. :chec for ✅, or its whole name, e.g. :x: for ❌; short names like :warn, :done, :info, :tip work too' },
 ]
 
 /** Markdown the editor turns into a block or a mark while it is typed. */

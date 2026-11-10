@@ -47,14 +47,6 @@ const props = defineProps<{
 const TRIGGER = { link: '[[', cite: '[^' } as const
 
 /**
- * Rows answer the pointer only once it has moved. The popover opens at the
- * caret, where the pointer often already rests, and a row appearing under it
- * would take the highlight Enter then picks.
- */
-const pointerLive = ref(false)
-function armPointer() { pointerLive.value = true }
-
-/**
  * Searches on every set, not on change: a bare trigger re-announces the empty
  * query, which must still list pages.
  */
@@ -64,7 +56,6 @@ const searchTerm = customRef<string>((track, trigger) => {
     get: () => { track(); return value },
     set: (next) => {
       value = next
-      pointerLive.value = false
       trigger()
       props.search(next)
     },
@@ -72,11 +63,7 @@ const searchTerm = customRef<string>((track, trigger) => {
 })
 
 const appConfig = useAppConfig()
-const slots = computed(() => tv({ extend: theme, ...(appConfig.ui as { editorSuggestionMenu?: object })?.editorSuggestionMenu || {} })({}))
-const ui = computed(() => ({
-  ...slots.value,
-  content: (...args: unknown[]) => `${slots.value.content!(...args)}${pointerLive.value ? '' : ' pointer-events-none'}`,
-}))
+const ui = computed(() => tv({ extend: theme, ...(appConfig.ui as { editorSuggestionMenu?: object })?.editorSuggestionMenu || {} })({}))
 
 /** Whether the caret sits tight after a word, where comark needs a space. */
 function spaceNeededAt(editor: Editor): boolean {
@@ -170,9 +157,9 @@ function dismissOnEscape(event: KeyboardEvent) {
 
 onMounted(async () => {
   document.addEventListener('keydown', dismissOnEscape, true)
-  document.addEventListener('pointermove', armPointer, { passive: true })
   // The popover's own container, so the observer sees only its mutations.
   container = document.createElement('div')
+  container.className = 'doc-link-menu'
   container.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0'
   document.body.appendChild(container)
   observer = new MutationObserver(syncAria)
@@ -250,7 +237,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', dismissOnEscape, true)
-  document.removeEventListener('pointermove', armPointer)
   observer?.disconnect()
   observer = null
   menu?.destroy()
