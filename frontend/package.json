@@ -18,7 +18,7 @@
     "@hocuspocus/provider": "^4.7.0",
     "@hocuspocus/server": "^4.7.0",
     "@modelcontextprotocol/sdk": "^1.32.0",
-    "@nuxt/ui": "^4.11.3",
+    "@nuxt/ui": "^4.12.0",
     "@tiptap/core": "3.32.2",
     "@tiptap/extension-code": "3.32.2",
     "@tiptap/extension-code-block": "3.32.2",

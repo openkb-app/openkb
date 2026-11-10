@@ -256,8 +256,10 @@
   @apply text-base leading-7 [&_p]:leading-[inherit]!;
   /* Block rhythm, and flush with the content's top and bottom edge. */
   @apply *:my-5 *:first:mt-0 *:last:mb-0;
+  /* Links as Nuxt UI's editor theme states them; its focus outline is left out
+     for the app's one `:focus-visible` ring. */
   @apply [&_a]:text-primary [&_a]:border-b [&_a]:border-transparent [&_a]:hover:border-primary [&_a]:font-medium [&_a]:transition-colors;
-  @apply [&_a>code]:border-dashed [&_a:hover>code]:border-primary [&_a:hover>code]:text-primary [&_a>code]:transition-colors;
+  @apply [&_a:has(>code)]:border-b-0 [&_a>code]:border-dashed [&_a:hover>code]:border-primary [&_a:hover>code]:text-primary [&_a>code]:transition-colors;
   @apply [&_:is(h1,h2,h3,h4,h5,h6)]:text-highlighted [&_:is(h1,h2,h3,h4,h5,h6)]:font-bold;
   @apply [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-base;
   @apply [&_h2]:mt-12 [&_h2]:mb-6 [&_h3]:mt-8 [&_h3]:mb-3 [&_h4]:mt-6 [&_h4]:mb-2;
@@ -265,7 +267,7 @@
   @apply [&_h2>code]:text-xl/6 [&_h3>code]:text-lg/5;
   @apply [&_blockquote]:border-s-4 [&_blockquote]:border-accented [&_blockquote]:ps-4 [&_blockquote]:italic;
   @apply [&_hr]:my-12 [&_hr]:border-t [&_hr]:border-default;
-  @apply [&_pre]:text-sm/6 [&_pre]:font-mono [&_pre]:border [&_pre]:border-muted [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:px-4 [&_pre]:py-3 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:overflow-x-auto;
+  @apply [&_pre]:text-sm/6 [&_pre]:font-mono [&_pre]:border [&_pre]:border-muted [&_pre]:bg-muted [&_pre]:rounded-md [&_pre]:px-4 [&_pre]:py-3 [&_pre]:whitespace-pre-wrap [&_pre]:wrap-break-word [&_pre]:overflow-x-auto;
   @apply [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_pre_code]:rounded-none [&_pre_code]:inline [&_pre_code]:border-0 [&_pre_code]:bg-transparent;
   /* `anywhere`, not `break-word`: an identifier longer than a narrow column or
      a fixed table cell has to shrink the inline box's min-content width too,
