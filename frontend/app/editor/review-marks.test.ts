@@ -887,22 +887,75 @@ describe('the plugin', () => {
     expect(reviewMarksKey.getState(stateWith('original'))!.find()).toHaveLength(2)
   })
 
-  it('re-projects on a document change, so a flag Drupal set shows at once', () => {
-    const local: BlockMetaMap = { 'b-1': signedOff('fago') }
-    const state = EditorState.create({
-      schema: editorSchema,
-      doc: doc(para('original', 'b-1')),
-      plugins: [createReviewMarksPlugin(sidecarLookup(local, undefined, OTHER))],
-    })
-    expect((reviewMarksKey.getState(state)!.find()[0] as unknown as
-      { type: { attrs: Record<string, string> } }).type.attrs.class).toContain('reviewed')
+  describe('across a local edit', () => {
+    const marks: BlockMetaMap = { 'b-1': awaiting(), 'b-2': awaiting(), 'b-3': signedOff('fago') }
+    const lookup = sidecarLookup(marks, undefined, OTHER)
 
-    // The write that changed the block is what re-stamped the flag; the
-    // editor only has to re-read the sidecar, never to work staleness out.
-    local['b-1'] = awaiting()
-    const next = state.apply(state.tr.insertText('!', 9))
-    expect((reviewMarksKey.getState(next)!.find()[0] as unknown as
-      { type: { attrs: Record<string, string> } }).type.attrs.class).toContain('reviewable')
+    function caretIn(block: number, ...blocks: PMNode[]): EditorState {
+      const d = doc(...blocks)
+      let at = 1
+      for (let i = 0; i < block; i++) at += d.child(i).nodeSize
+      return EditorState.create({
+        schema: editorSchema,
+        doc: d,
+        selection: TextSelection.create(d, at),
+        plugins: [createReviewMarksPlugin(lookup)],
+      })
+    }
+
+    const marked = (state: EditorState) => reviewMarksKey.getState(state)!.find()
+    /** What each decoration draws, and where. */
+    const drawn = (decorations: ReturnType<typeof marked>) => decorations.map(d => [
+      d.from,
+      d.to,
+      (d.spec as { key?: string }).key ?? (d as unknown as { type: { attrs: object } }).type.attrs,
+    ])
+    const rebuilt = (state: EditorState) =>
+      reviewDecorations(state.doc, lookup, { activePos: topLevelBlockPos(state) }).find()
+
+    it('maps to what a rebuild draws when typing inside a marked block', () => {
+      let state = caretIn(1, para('one', 'b-1'), para('two', 'b-2'), para('three', 'b-3'))
+      const before = marked(state)
+      for (let i = 0; i < 3; i++) state = state.apply(state.tr.insertText('x'))
+
+      expect(drawn(marked(state))).toEqual(drawn(rebuilt(state)))
+      // Mapped: the widgets are the ones drawn before the edit.
+      expect(marked(state).map(d => (d as unknown as { type: object }).type))
+        .toEqual(before.map(d => (d as unknown as { type: object }).type))
+    })
+
+    // What toggleHeading({ level: 2 }) dispatches: same type and id, new attrs.
+    it('rebuilds when a marked block changes its markup', () => {
+      const heading = editorSchema.node('heading', { id: 'b-2', level: 1 }, [editorSchema.text('two')])
+      let state = caretIn(1, para('one', 'b-1'), heading, para('three', 'b-3'))
+      const at = state.doc.child(0).nodeSize
+      state = state.apply(state.tr.setNodeMarkup(at, undefined, { ...heading.attrs, level: 2 }))
+      expect(drawn(marked(state))).toEqual(drawn(rebuilt(state)))
+    })
+
+    // What a drag dropped back at its own place dispatches.
+    it('rebuilds when a marked block is deleted and re-inserted at its place', () => {
+      let state = caretIn(0, para('one', 'b-1'), para('two', 'b-2'), para('three', 'b-3'))
+      const at = state.doc.child(0).nodeSize
+      const block = state.doc.child(1)
+      state = state.apply(state.tr.delete(at, at + block.nodeSize).insert(at, block))
+      expect(drawn(marked(state))).toEqual(drawn(rebuilt(state)))
+    })
+
+    it('rebuilds on a block split', () => {
+      let state = caretIn(1, para('one', 'b-1'), para('two', 'b-2'), para('three', 'b-3'))
+      state = state.apply(state.tr.split(state.selection.from + 1))
+      expect(state.doc.childCount).toBe(4)
+      expect(drawn(marked(state))).toEqual(drawn(rebuilt(state)))
+    })
+
+    it('rebuilds when the caret leaves its block', () => {
+      let state = caretIn(1, para('one', 'b-1'), para('two', 'b-2'), para('three', 'b-3'))
+      const at = state.doc.child(0).nodeSize + state.doc.child(1).nodeSize + 1
+      const tr = state.tr.insertText('x', at)
+      state = state.apply(tr.setSelection(TextSelection.create(tr.doc, 1)))
+      expect(drawn(marked(state))).toEqual(drawn(rebuilt(state)))
+    })
   })
 
   it('keeps the same decoration set across a transaction that changed nothing', () => {

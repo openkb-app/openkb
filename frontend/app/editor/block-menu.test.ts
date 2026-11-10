@@ -1,4 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
+// @vitest-environment happy-dom
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import * as Y from 'yjs'
+import { Editor } from '@tiptap/vue-3'
+import Collaboration from '@tiptap/extension-collaboration'
+import { mapEditorItems } from '@nuxt/ui/utils/editor'
+import { buildCommitSchemaExtensions } from '~~/server/utils/editor-schema'
 import type { PageBlock, ReviewStep } from '#shared/page-blocks'
 import {
   approvalStanding,
@@ -12,6 +18,7 @@ import {
   type BlockSubmenuItem,
 } from './block-menu'
 import { tableOpItems } from './menu-items'
+import { topLevelBlockPos } from './review-marks'
 
 const BOTH_STEPS: readonly ReviewStep[] = ['agent', 'peer']
 
@@ -357,5 +364,46 @@ describe('blockMenuItems', () => {
   it('keeps Delete on its own at the end', () => {
     const groups = blockMenuItems(state, actions)
     expect(labels(groups.at(-1)!)).toEqual(['Delete'])
+  })
+})
+
+describe('the block menu over a collab session', () => {
+  const editors: Editor[] = []
+  afterEach(() => { editors.splice(0).forEach(editor => editor.destroy()) })
+
+  /** Two editors on two synced Y.Docs, the second one the peer. */
+  function pair(): [Editor, Editor] {
+    const ours = new Y.Doc()
+    const theirs = new Y.Doc()
+    ours.on('update', (update: Uint8Array, origin: unknown) => origin !== theirs && Y.applyUpdate(theirs, update, ours))
+    theirs.on('update', (update: Uint8Array, origin: unknown) => origin !== ours && Y.applyUpdate(ours, update, theirs))
+    const mount = (document: Y.Doc) => new Editor({ extensions: [...buildCommitSchemaExtensions(), Collaboration.configure({ document })] })
+    editors.push(mount(ours), mount(theirs))
+    return [editors[0]!, editors[1]!]
+  }
+
+  const texts = (editor: Editor) => editor.state.doc.children.map(node => node.textContent)
+
+  it('deletes the block it opened on after a peer inserted one above it', () => {
+    const [editor, peer] = pair()
+    peer.commands.setContent('<p>one</p><p>two</p><p>three</p>')
+    const pos = editor.state.doc.child(0).nodeSize
+    const anchor = { pos, type: 'paragraph' }
+    editor.commands.setNodeSelection(pos)
+
+    peer.commands.insertContentAt(0, '<p>peer</p>')
+
+    const groups = mapEditorItems(editor, blockMenuItems({
+      block: { ...anchor, pos: topLevelBlockPos(editor.state) ?? anchor.pos },
+      meta: undefined,
+      steps: BOTH_STEPS,
+      reviewer: { uid: 3, isAdmin: false },
+      openThreads: 0,
+    }, {
+      cut: vi.fn(), copy: vi.fn(), paste: vi.fn(),
+      insertBelow: vi.fn(), cite: vi.fn(), review: vi.fn(), comment: vi.fn(),
+    })) as BlockMenuItem[][]
+    ;(itemNamed(groups, 'Delete') as BlockActionItem).onSelect()
+    expect(texts(editor)).toEqual(['peer', 'one', 'three'])
   })
 })

@@ -17,6 +17,8 @@ import {
   blockAnchor,
   CommentMarks,
   commentDecorations,
+  commentMarginKey,
+  createCommentMarginPlugin,
   commentMarksKey,
   commentRows,
   createCommentMarksPlugin,
@@ -365,6 +367,63 @@ describe('the tints across a change', () => {
     expect(passages(state)).toEqual([[5, 10]])
     // A character typed inside the passage, whose quote no longer reads back.
     expect(passages(state.apply(state.tr.insertText('!', 7)))).toEqual([[5, 11]])
+  })
+})
+
+describe('the margin across a local edit', () => {
+  const threads = [thread('b-2', 'quick', 4, 9)]
+
+  function withPlugin(...blocks: PMNode[]): EditorState {
+    return EditorState.create({
+      doc: doc(...blocks),
+      schema: editorSchema,
+      plugins: [createCommentMarginPlugin(() => threads, NO_ACTIONS)],
+    })
+  }
+
+  const margin = (state: EditorState) => commentMarginKey.getState(state)!.decorations.find()
+  /** What each decoration draws, and where. */
+  const drawn = (decorations: ReturnType<typeof margin>) => decorations.map(d => [
+    d.from,
+    d.to,
+    (d.spec as { key?: string }).key ?? (d as unknown as { type: { attrs: object } }).type.attrs,
+  ])
+
+  it('maps to what a rebuild draws when typing inside a block with a passage comment', () => {
+    let state = withPlugin(para('one', 'b-1'), para('The quick brown fox', 'b-2'), para('three', 'b-3'))
+    const before = margin(state)
+    const start = state.doc.child(0).nodeSize + 1
+    for (const at of [start, start + 6, start + 20]) state = state.apply(state.tr.insertText('x', at))
+
+    expect(drawn(margin(state))).toEqual(drawn(marginDecorations(state.doc, threadCounts(threads), NO_ACTIONS).find()))
+    // Mapped: the widgets are the ones drawn before the edit.
+    expect(margin(state).map(d => (d as unknown as { type: object }).type))
+      .toEqual(before.map(d => (d as unknown as { type: object }).type))
+  })
+
+  // What toggleHeading({ level: 2 }) dispatches: same type and id, new attrs.
+  it('rebuilds when the commented block changes its markup', () => {
+    const heading = editorSchema.node('heading', { id: 'b-2', level: 1 }, [editorSchema.text('The quick brown fox')])
+    let state = withPlugin(para('one', 'b-1'), heading)
+    state = state.apply(state.tr.setNodeMarkup(state.doc.child(0).nodeSize, undefined, { ...heading.attrs, level: 2 }))
+    expect(drawn(margin(state))).toEqual(drawn(marginDecorations(state.doc, threadCounts(threads), NO_ACTIONS).find()))
+  })
+
+  // What a drag dropped back at its own place dispatches.
+  it('rebuilds when the commented block is deleted and re-inserted at its place', () => {
+    let state = withPlugin(para('one', 'b-1'), para('The quick brown fox', 'b-2'))
+    const at = state.doc.child(0).nodeSize
+    const block = state.doc.child(1)
+    state = state.apply(state.tr.delete(at, at + block.nodeSize).insert(at, block))
+    expect(drawn(margin(state))).toEqual(drawn(marginDecorations(state.doc, threadCounts(threads), NO_ACTIONS).find()))
+  })
+
+  it('rebuilds on a block split, so the new block gets a control of its own', () => {
+    let state = withPlugin(para('one', 'b-1'), para('The quick brown fox', 'b-2'))
+    state = state.apply(state.tr.split(state.doc.child(0).nodeSize + 5))
+    expect(state.doc.childCount).toBe(3)
+    expect(drawn(margin(state))).toEqual(drawn(marginDecorations(state.doc, threadCounts(threads), NO_ACTIONS).find()))
+    expect(margin(state).filter(d => (d.spec as { key?: string }).key)).toHaveLength(3)
   })
 })
 

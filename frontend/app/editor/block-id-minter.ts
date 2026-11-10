@@ -86,10 +86,15 @@ export function blocksNeedingIds(
     const id = isIdBearing(node) ? blockIdOf(node) : null
     if (id !== null) was.set(id, [...(was.get(id) ?? []), pos])
   })
+  const wearers = new Map<string, number[]>()
+  for (const { id, pos } of blocks) if (id !== null) wearers.set(id, [...(wearers.get(id) ?? []), pos])
+  // Only an id two blocks share has a keeper to find.
   const keepers = new Map<string, number>()
-  for (const [id, [pos, ...others]] of was) {
+  for (const [id, now] of wearers) {
+    if (now.length < 2) continue
+    const [pos, ...others] = was.get(id) ?? []
     if (pos === undefined || others.length > 0) continue
-    const at = blocks.filter(b => b.id === id).findIndex(b => b.pos === before!.map(pos))
+    const at = now.indexOf(before!.map(pos))
     if (at > 0) keepers.set(id, at)
   }
   const resolved = resolveSharedIds(blocks.map(b => b.id), keepers)

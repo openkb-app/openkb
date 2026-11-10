@@ -1,5 +1,7 @@
 import { Extension } from '@tiptap/core'
+import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { NodeSelection, Plugin, PluginKey, Selection, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { ReplaceStep } from '@tiptap/pm/transform'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { AssignedCounts } from './comment-assignee'
@@ -781,6 +783,23 @@ export function refreshReviewMarks(view: { state: EditorState, dispatch: (tr: Tr
 }
 
 /**
+ * Whether every step of a transaction edits inside one top-level block's
+ * content and keeps the block count. Such an edit leaves every block
+ * decoration where mapping puts it, so the marks map instead of rebuilding.
+ * Anything else rebuilds: a markup change, a split or join, a block deleted
+ * and re-inserted (a drag dropped back in place).
+ */
+export function editsInsideBlocks(tr: Transaction): boolean {
+  return tr.steps.every((step, i) => {
+    if (!(step instanceof ReplaceStep)) return false
+    const before = tr.docs[i]!
+    if (before.childCount !== (tr.docs[i + 1] ?? tr.doc).childCount) return false
+    const $from = before.resolve(step.from)
+    return $from.depth > 0 && step.to <= $from.end(1)
+  })
+}
+
+/**
  * `approve` is what turns a checkmark into a request; without one the pills
  * are drawn and the clicks go nowhere, which is what the projection tests
  * exercise.
@@ -798,10 +817,17 @@ export function createReviewMarksPlugin(
       }),
       // Which block is in hand is a selection fact, not a document one, so the
       // marks rebuild when the caret crosses a block boundary and at no other
-      // selection change.
+      // selection change. A local edit inside the blocks maps the set.
       apply(tr, value, oldState, newState) {
         const activePos = topLevelBlockPos(newState)
-        if (!tr.docChanged && !tr.getMeta(REFRESH) && activePos === topLevelBlockPos(oldState)) return value
+        const wasActive = topLevelBlockPos(oldState)
+        if (!tr.getMeta(REFRESH)) {
+          if (!tr.docChanged && activePos === wasActive) return value
+          if (tr.docChanged && !isChangeOrigin(tr) && editsInsideBlocks(tr)
+            && activePos === (wasActive === null ? null : tr.mapping.map(wasActive))) {
+            return value.map(tr.mapping, tr.doc)
+          }
+        }
         return reviewDecorations(newState.doc, lookup, { activePos, approve })
       },
     },

@@ -3,7 +3,7 @@ import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
+import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, editsInsideBlocks, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
 import { openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
 
 /**
@@ -430,10 +430,10 @@ interface MarginState {
 export const commentMarginKey = new PluginKey<MarginState>('commentMargin')
 
 /**
- * The margin controls, rebuilt on every change rather than mapped: a block
- * pasted in, split off or newly synced needs a control of its own, and mapping
- * only moves the controls a set already holds. The counts are re-read only
- * when the sidecar changes, so a keystroke costs no read of the comment store.
+ * The margin controls. A local edit inside the blocks maps them; a change to
+ * the list of blocks rebuilds them, since a block pasted in, split off or
+ * newly synced needs a control of its own. The counts are re-read only when
+ * the sidecar changes, so a keystroke costs no read of the comment store.
  */
 export function createCommentMarginPlugin(
   threads: ThreadLookup,
@@ -449,7 +449,11 @@ export function createCommentMarginPlugin(
       init: (_config, state) => build(state.doc, threadCounts(threads())),
       apply(tr, value, _oldState, newState) {
         if (tr.getMeta(REFRESH)) return build(newState.doc, threadCounts(threads()))
-        return tr.docChanged ? build(newState.doc, value.counts) : value
+        if (!tr.docChanged) return value
+        if (!isChangeOrigin(tr) && editsInsideBlocks(tr)) {
+          return { counts: value.counts, decorations: value.decorations.map(tr.mapping, tr.doc) }
+        }
+        return build(newState.doc, value.counts)
       },
     },
     props: {

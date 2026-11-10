@@ -803,6 +803,7 @@ export async function useEditorSession(
    */
   const hoveredBlock = ref<BlockMenuNode | null>(null)
   const blockMenuAnchor = ref<BlockMenuNode | null>(null)
+  const blockMenuOpen = ref(false)
 
   /**
    * The block the menu acts on, read off the live selection.
@@ -983,16 +984,22 @@ export async function useEditorSession(
    * `mapEditorItems` is what turns each `kind` into an executable entry and
    * reads its enabled state off `editor.can()`, so the schema — not this
    * module — decides which "Turn into" target is reachable and where Move
-   * up/down stop.
+   * up/down stop. Those `editor.can()` dry runs re-run on every transaction,
+   * so a closed menu builds nothing.
+   *
+   * Items act on the block's live position: the selection the menu set is
+   * remapped over a peer's edit, the anchor's integer is not.
    */
-  const blockMenu = computed(() => {
+  const blockMenu = computed<ReturnType<typeof mapEditorItems>>((previous) => {
+    // Closed: keep the last items for the dropdown's close animation.
+    if (!blockMenuOpen.value) return previous ?? NO_BLOCK_MENU
     const editor = editorRef.value?.editor
     const anchor = blockMenuAnchor.value
     if (!editor || !anchor) return NO_BLOCK_MENU
-    const node = selectedBlock()?.node
-    const id = node ? blockIdOf(node) : null
+    const block = selectedBlock()
+    const id = block ? blockIdOf(block.node) : null
     return mapEditorItems(editor, blockMenuItems({
-      block: anchor,
+      block: { ...anchor, pos: block?.pos ?? anchor.pos },
       meta: id ? blockMeta.value[id] : undefined,
       steps: enforced.value,
       reviewer: reviewer.value,
@@ -1033,8 +1040,9 @@ export async function useEditorSession(
   function openBlockMenu() {
     const block = hoveredBlock.value
     afterMenuClose = null
-    if (!block) return
     blockMenuAnchor.value = block
+    blockMenuOpen.value = true
+    if (!block) return
     editorRef.value?.editor?.commands.setNodeSelection(block.pos)
     lockDragHandle(true)
   }
@@ -1052,6 +1060,7 @@ export async function useEditorSession(
     const editor = editorRef.value?.editor
     const block = selectedBlock()
     afterMenuClose = null
+    blockMenuOpen.value = true
     if (!editor || !block) {
       blockMenuAnchor.value = null
       return
@@ -1091,9 +1100,8 @@ export async function useEditorSession(
     action()
   }
 
-  // The anchor deliberately outlives the close: the items are still rendered
-  // while the menu fades out, and it is replaced on the next open anyway.
   function closeBlockMenu() {
+    blockMenuOpen.value = false
     lockDragHandle(false)
   }
 
