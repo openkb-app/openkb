@@ -2,7 +2,9 @@
 # - one site per hostname, certificates obtained automatically,
 # - X-Forwarded-For, -Proto and -Host reach both upstreams (Caddy sets them),
 # - the frontend's X-Forwarded-For is kept: Drupal's login flood keys on it,
-# - WebSockets on /collaboration pass through, idle connections are not cut.
+# - WebSockets on /collaboration pass through, idle connections are not cut,
+# - the frontend's responses are compressed with zstd or gzip; precompressed
+#   assets (br/gz from Nitro) pass through. Drupal compresses its own.
 
 {
 	# E.g. `acme_ca <url>` for a staging CA.
@@ -14,6 +16,7 @@
 }
 
 {$FRONTEND_HOST} {
+	encode zstd gzip
 	reverse_proxy frontend:3000
 }
 

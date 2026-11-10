@@ -94,6 +94,7 @@ Both services call each other under their public URLs, so the two names must als
 }
 
 kb.example.com {
+	encode zstd gzip
 	reverse_proxy 127.0.0.1:3000
 }
 
@@ -101,6 +102,8 @@ admin.kb.example.com {
 	reverse_proxy 127.0.0.1:8080
 }
 ```
+
+`encode` compresses the frontend's HTML and API answers on the fly; its static assets come precompressed (br/gz) from Nitro and pass through. Drupal compresses its own responses.
 
 **Traefik** (labels on a `docker-compose.override.yml`; `websecure` and `le` are your entrypoint and resolver):
 

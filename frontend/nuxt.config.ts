@@ -121,6 +121,9 @@ export default defineNuxtConfig({
     experimental: {
       websocket: true,
     },
+    // .br/.gz next to each public asset, served by Accept-Encoding. A proxy in
+    // front may compress on the fly, but often without brotli.
+    compressPublicAssets: { gzip: true, brotli: true },
     // Drupal's CSRF token per session (server/utils/csrf.ts). Bounded, in
     // memory only, also in dev.
     storage: {
