@@ -10,6 +10,8 @@ import { pickPageAttachment, replacePageFile, selectedEmbed } from '~/editor/pag
 import { BlockIdMinter } from '~/editor/block-id-minter'
 import { seedEmptyFragment } from '~/editor/seed-fragment'
 import { CollabHistory } from '~/editor/collab-history'
+import { NodeSelectionOverTextToCaret } from '~/editor/node-selection-over-text'
+import { runAfterTransactionsThatChange } from '~/editor/run-after-transaction'
 import { ReviewMarks, refreshReviewMarks, sidecarLookup, topLevelBlockPos } from '~/editor/review-marks'
 import { CommentMarks, refreshCommentMarks, type CommentDraft, type ShownThreads } from '~/editor/comment-marks'
 import { AgentMarks, refreshAgentMarks } from '~/editor/agent-marks'
@@ -335,17 +337,19 @@ export async function useEditorSession(
   const editorRef = ref<{ editor: import('@tiptap/core').Editor } | null>(null)
 
   // A sign-off changes the sidecar and not the document, so no transaction
-  // reaches the editor when a PEER reviews a block — observe the Y.Map and
-  // re-project. (The local action refreshes itself from inside the command.)
+  // reaches the editor when a PEER reviews a block — refresh after each
+  // transaction that changes the Y.Map. (The local action refreshes itself
+  // from inside the command.)
   // Registered here, before this composable's awaits: `onBeforeUnmount` after
   // an await would find no currentInstance and silently never run.
+  /** Re-reads the sidecar and redraws the review marks. */
   const refreshMarks = () => {
     blockMeta.value = readBlockMeta(ydoc)
     const view = editorRef.value?.editor?.view
     if (view) refreshReviewMarks(view)
   }
-  blockMetaMap.observe(refreshMarks)
-  onBeforeUnmount(() => blockMetaMap.unobserve(refreshMarks))
+  const stopRefreshingMarks = runAfterTransactionsThatChange(ydoc, blockMetaMap, refreshMarks)
+  onBeforeUnmount(stopRefreshingMarks)
 
   // The page fetches the policy, so it can land after the editor is open. The
   // lookup reads it live, but nothing else would rebuild on it — and a stale
@@ -355,13 +359,14 @@ export async function useEditorSession(
 
   // Same shape for the conversation: a comment a peer writes moves no document
   // content either, so its marks have nothing else to redraw them.
+  /** Re-reads the threads and redraws the comment marks. */
   const refreshComments = () => {
     threads.value = readThreads(ydoc)
     const view = editorRef.value?.editor?.view
     if (view) refreshCommentMarks(view)
   }
-  commentsMap.observe(refreshComments)
-  onBeforeUnmount(() => commentsMap.unobserve(refreshComments))
+  const stopRefreshingComments = runAfterTransactionsThatChange(ydoc, commentsMap, refreshComments)
+  onBeforeUnmount(stopRefreshingComments)
 
   const {
     status: commitStatus,
@@ -530,6 +535,8 @@ export async function useEditorSession(
     // Keeps undo redoable across the plugin-view teardowns Tiptap's own menus
     // cause. Mounted beside Collaboration, whose UndoManager it re-asserts.
     CollabHistory,
+    // A co-editor deleting the selected node leaves the caret, not a node selection over text.
+    NodeSelectionOverTextToCaret,
     // Keeps every touched block on a stable id. Ids are content; nothing else
     // about a block is this side's to write.
     BlockIdMinter,

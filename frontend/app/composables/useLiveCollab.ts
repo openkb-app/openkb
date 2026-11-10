@@ -1,9 +1,10 @@
 import { HocuspocusProvider } from '@hocuspocus/provider'
-import { IndexeddbPersistence } from 'y-indexeddb'
+import { IndexeddbPersistence, clearDocument } from 'y-indexeddb'
 import type * as Y from 'yjs'
 import type { AwarenessPeerState } from '#shared/utils/presence'
 import { isNoEditAccessReason } from '#shared/utils/collab-auth'
 import { deletedAtOf } from '#shared/utils/collab-meta'
+import { batchRemoteUpdates } from '~/editor/collab-batching'
 
 // 'live': the socket is open and this connection has synced, so the editor
 // holds the server's document.
@@ -86,25 +87,40 @@ export function useLiveCollab(options: LiveCollabOptions) {
     // historical last_commit that the synced doc arrives carrying.
     let checkpointBaseline = -1
 
+    /**
+     * Arms the mirror's re-creation for the next local edit.
+     *
+     * Right after a checkpoint the store is empty and the mirror protects only
+     * this tab's unsaved writing, so a server write or a peer's edit must not
+     * bring it back.
+     */
+    function recreateMirrorOnNextLocalEdit(): void {
+      if (disposed || recreate) return
+      /** Opens the mirror on the first local edit, then stops listening. */
+      recreate = (_update, _origin, _doc, tr) => {
+        if (!tr.local) return
+        options.ydoc.off('update', recreate!)
+        recreate = null
+        if (!persistence.value) persistence.value = new IndexeddbPersistence(options.localKey, options.ydoc)
+      }
+      options.ydoc.on('update', recreate)
+    }
+
+    /**
+     * Destroys the mirror, deletes its database, then arms the re-creation.
+     *
+     * The delete is requested before any later open of this key (the
+     * re-creation, a remount of the page), as IndexedDB runs them in order: a
+     * delete after an open closes that connection under y-indexeddb, whose doc
+     * listener then throws on every update.
+     */
     function clearMirror(): void {
-      const p = persistence.value
+      if (!persistence.value) return
+      persistence.value.destroy()
       persistence.value = null
-      Promise.resolve(p?.clearData()).catch(() => { /* best-effort */ }).finally(() => {
-        if (disposed) return
-        // Re-mirror lazily on the next LOCAL edit: right after a checkpoint
-        // the store is genuinely empty (the committed edits live in Drupal
-        // now), and the mirror protects this tab's unsaved writing — a
-        // server write (the checkpoint's own attribution snapshot, the
-        // sidecar mirror) or a peer's edit must not resurrect it.
-        if (recreate) return
-        recreate = (_update, _origin, _doc, tr) => {
-          if (!tr.local) return
-          options.ydoc.off('update', recreate!)
-          recreate = null
-          if (!persistence.value) persistence.value = new IndexeddbPersistence(options.localKey, options.ydoc)
-        }
-        options.ydoc.on('update', recreate)
-      })
+      clearDocument(options.localKey).catch(() => { /* best-effort */ })
+      // After the checkpoint's transaction: its own update must not count.
+      queueMicrotask(recreateMirrorOnNextLocalEdit)
     }
 
     metaObserver = () => {
@@ -128,7 +144,7 @@ export function useLiveCollab(options: LiveCollabOptions) {
     const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const url = `${wsProto}//${location.host}/collaboration`
 
-    provider.value = new HocuspocusProvider({
+    const live = new HocuspocusProvider({
       url,
       name: options.name,
       document: options.ydoc,
@@ -167,6 +183,10 @@ export function useLiveCollab(options: LiveCollabOptions) {
         if (!isAuthFailedStatus(liveStatus.value)) liveStatus.value = 'offline'
       },
     })
+    // Raw instance: updates must carry the provider itself as origin, or it
+    // sends them back.
+    batchRemoteUpdates(live)
+    provider.value = live
   })
 
   onBeforeUnmount(() => {

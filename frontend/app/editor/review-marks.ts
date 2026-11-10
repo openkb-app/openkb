@@ -76,7 +76,8 @@ import {
  * Decorations are rebuilt when the document changes AND when the sidecar
  * changes underneath an unchanged document (a peer reviewing a block sends no
  * doc update at all). The latter has no transaction of its own, so the session
- * observing the Y.Map dispatches {@link refreshReviewMarks}.
+ * dispatches {@link refreshReviewMarks} after each Y transaction that changes
+ * the Y.Map.
  */
 
 /**

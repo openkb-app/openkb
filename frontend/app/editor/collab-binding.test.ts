@@ -7,6 +7,7 @@ import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
 import Collaboration from '@tiptap/extension-collaboration'
 import { refreshReviewMarks } from './review-marks'
+import { runAfterTransactionsThatChange } from './run-after-transaction'
 
 /**
  * What a mounted collaborative editor does to the Y fragment it is bound to.
@@ -79,5 +80,26 @@ describe('the collab editor over its Y fragment', () => {
 
     expect(fragment.toString()).toBe('<paragraph></paragraph>')
     expect(fragment.length, 'no seeding path reads this as "not hydrated"').toBe(1)
+  })
+
+  it('keeps a paragraph that arrives in one transaction with a side-map change the view refreshes on', () => {
+    const ydoc = new Y.Doc()
+    const editor = mount(ydoc)
+    arrive(ydoc, 'the page')
+    const marks = ydoc.getMap('marks')
+    runAfterTransactionsThatChange(ydoc, marks, () => refreshReviewMarks(editor.view))
+
+    // A peer's new paragraph and the server's mark for it, applied as one
+    // remote transaction, as a batch of peer updates is.
+    const remote = new Y.Doc()
+    Y.applyUpdate(remote, Y.encodeStateAsUpdate(ydoc))
+    const paragraph = new Y.XmlElement('paragraph')
+    paragraph.insert(0, [new Y.XmlText('new')])
+    fragmentOf(remote).insert(1, [paragraph])
+    remote.getMap('marks').set('new', 'pending')
+    Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(remote, Y.encodeStateVector(ydoc)))
+
+    expect(fragmentOf(ydoc).toString()).toBe('<paragraph>the page</paragraph><paragraph>new</paragraph>')
+    expect(editor.getText()).toBe('the page\n\nnew')
   })
 })

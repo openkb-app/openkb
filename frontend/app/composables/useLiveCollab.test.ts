@@ -16,14 +16,16 @@ const providers: Array<{ options: ProviderOptions, destroy: ReturnType<typeof vi
 vi.mock('@hocuspocus/provider', () => ({
   HocuspocusProvider: class {
     destroy = vi.fn()
+    onMessage = vi.fn()
+    on = vi.fn()
     constructor(public options: ProviderOptions) { providers.push(this) }
   },
 }))
 vi.mock('y-indexeddb', () => ({
   IndexeddbPersistence: class {
-    destroy = vi.fn()
-    clearData = vi.fn(async () => {})
+    destroy = vi.fn(async () => {})
   },
+  clearDocument: vi.fn(async () => {}),
 }))
 
 /** Runs the composable inside a mounted component, as the editor does. */
