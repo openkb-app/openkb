@@ -84,6 +84,7 @@ export const SelectionKeydownSync = Extension.create({
         // selection from what it records when the Y transaction starts.
         view(view) {
           const binding = ySyncPluginKey.getState(view.state)?.binding
+          if (!binding) return {}
           const recordUnread = (transaction: YTransaction) => {
             if (transaction.origin === ySyncPluginKey) return
             const before = view.state.selection
@@ -92,8 +93,8 @@ export const SelectionKeydownSync = Extension.create({
               binding.beforeTransactionSelection = getRelativeSelection(binding, view.state)
             }
           }
-          binding?.doc.on('beforeTransaction', recordUnread)
-          return { destroy: () => binding?.doc.off('beforeTransaction', recordUnread) }
+          binding.doc.on('beforeTransaction', recordUnread)
+          return { destroy: () => binding.doc.off('beforeTransaction', recordUnread) }
         },
 
         props: {
