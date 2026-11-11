@@ -79,6 +79,7 @@ default:
         - In the editor, type `/` to open the block menu.
         - In the editor, type `[[` to link to another page.
         - In the editor, type `@` to mention a person.
+        - In the editor, type `:` and the start of an emoji's name to insert it, e.g. `:chec` for ✅, or type its whole name between colons, e.g. `:x:` for ❌. Short names work too: `:warn` ⚠️, `:done` ✅, `:info` ℹ️, `:tip` 💡.
         - Escape leaves a picker and keeps what you typed as text.
         ::
 
