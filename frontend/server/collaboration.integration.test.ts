@@ -45,7 +45,7 @@ const NUXT_URL = (process.env.OKB_NUXT_URL ?? `http://127.0.0.1:${PORT}`).replac
 async function drupalAdminCookie(): Promise<string> {
   const body = new URLSearchParams({
     name: 'admin',
-    pass: process.env.OKB_ADMIN_PASS ?? 'lupus123',
+    pass: process.env.OKB_ADMIN_PASS ?? 'yKCE5gSqOk2z7WmLO7__gAqv',
     form_id: 'user_login_form',
     op: 'Log in',
   })

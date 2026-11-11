@@ -16,7 +16,7 @@ async function adminCookie(): Promise<string> {
     method: 'POST',
     body: new URLSearchParams({
       name: 'admin',
-      pass: process.env.OKB_ADMIN_PASS ?? 'lupus123',
+      pass: process.env.OKB_ADMIN_PASS ?? 'yKCE5gSqOk2z7WmLO7__gAqv',
       form_id: 'user_login_form',
       op: 'Log in',
     }),

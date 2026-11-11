@@ -156,7 +156,7 @@ $DRUSH en services_env_parameter -y
 # development stack already has in `dotenv/app.env`.
 case "$RECIPE" in
   *openkb_recipe_dev*|*openkb_recipe_ci*)
-    TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-${APP_SECRET:-lupus123}}
+    TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-${APP_SECRET:-yKCE5gSqOk2z7WmLO7__gAqv}}
     for account in editor1 editor2 siteadmin; do
       echo "Setting $account password..."
       $DRUSH user:password "$account" "$TEST_USER_PASSWORD"
