@@ -7,9 +7,9 @@ import { drupalBaseUrl } from '../utils/drupal'
  * The page a browser gets while Drupal cannot serve the site yet.
  *
  * Two states answer this way, and Drupal names which in `X-OpenKB-Hold`:
- * `install` is the first boot, where the container is still installing the
- * site, and `update` is a container that booted on a newer image whose
- * database updates have not run.
+ * `install` is an install in progress, on a first boot or from
+ * `openkb-install`, and `update` is a container that booted on a newer image
+ * whose database updates have not run.
  *
  * Middleware rather than the error boundary: the route guard sends a visitor
  * without a session to the sign-in page before any backend call is made, so a

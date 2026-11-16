@@ -54,13 +54,19 @@
 	}
 	header @static Cache-Control "max-age=31536000,public,immutable"
 
-	# The marker `openkb-entrypoint` puts up for as long as the site cannot
-	# answer — the install on a first boot. Both this directory and the one the
-	# page is served from hold that one file and nothing else, so no root here
-	# reaches the site's data.
+	# A `.openkb-holding` marker holds the site while it cannot answer:
+	#  - /run/openkb: `openkb-entrypoint` puts it up for the install on a first
+	#    boot,
+	#  - the files volume: site-install.sh puts it up while Drupal installs, from
+	#    whichever container runs it. A request served meanwhile would build its
+	#    container from a half-installed module list and write that hook list
+	#    over the installer's.
+	# The matcher only tests that a marker exists; the page is served from a
+	# directory that holds that one file, so no root here reaches the site's data.
+	# The files directory is resolved against /app, as site-install.sh does.
 	@holding file {
-		root /run/openkb
-		try_files /.openkb-holding
+		root /
+		try_files /run/openkb/.openkb-holding /app/{$PERSISTENT_FILES_DIR:files}/.openkb-holding
 	}
 	route @holding {
 		root * /usr/local/share/openkb

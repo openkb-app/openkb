@@ -24,7 +24,8 @@
 #  - wait for the sidecar, then re-feed the search indexes (the cron service
 #    pauses until this is done, so it cannot hold the index lock),
 #  - the install markers the cron service and the boot read: `.openkb-installing`
-#    while the site is being rebuilt, `.openkb-installed` once it is done,
+#    while the site is being rebuilt, `.openkb-installed` once it is done; and
+#    `.openkb-holding`, on which Caddy holds the site while Drupal installs,
 #
 # The recipes are read from OPENKB_RECIPES_DIR (default: recipes/), next to the
 # composer-installed lupus_decoupled_recipe they build on.
@@ -91,7 +92,12 @@ chmod a-w web/sites/default/settings.php 2>/dev/null || true
 #  - no `.openkb-installed`: the cron service stays quiet instead of reporting
 #    the install window as broken,
 #  - `.openkb-installing`: a boot after a failed install installs over what it
-#    left in the database.
+#    left in the database,
+#  - `.openkb-holding`, until Drupal is installed and its caches are rebuilt:
+#    Caddy answers every request with the setup page. A request Drupal served
+#    meanwhile would write the hook list of a half-installed module list over
+#    the installer's, which then misses hooks of the modules it just installed.
+touch "${PERSISTENT_FILES_DIR:-files}/.openkb-holding"
 touch "${PERSISTENT_FILES_DIR:-files}/.openkb-installing"
 rm -f "${PERSISTENT_FILES_DIR:-files}/.openkb-installed"
 $DRUSH sql-create -y
@@ -104,11 +110,10 @@ if [ -z "${ADMIN_PASSWORD:-}" ]; then
 fi
 $DRUSH si -y --site-name='OpenKB' --account-pass="$ADMIN_PASSWORD" "$RECIPE"
 
-# The installer swaps every cache backend for an in-memory one, so nothing the
-# install writes reaches the DB-backed caches. Web traffic (frontend schema fetches,
-# health checks) racing it reads config that does not exist yet, and CachedStorage
-# keeps serving that miss. This drops what the install window cached.
+# Rebuilds the container and caches from the installed module list before the
+# hold lifts.
 $DRUSH cache:rebuild
+rm -f "${PERSISTENT_FILES_DIR:-files}/.openkb-holding"
 
 # The cron service skips its runs while this is set: cron indexes kb_chunks,
 # which would hold the index lock against the re-index in step 6.

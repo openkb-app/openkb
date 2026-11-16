@@ -6,12 +6,15 @@
 #  - an image update that left database updates pending: holds the site until
 #    an administrator has run update.php. Updates never run from here.
 #
-# Caddy answers every request with the setup page while `.openkb-holding`
-# exists. That marker is this container's own — only Caddy and this script read
-# it — so it lives in /run and not on the shared files volume, which carries the
-# site's private data. The lock does have to be shared: it makes one boot at a
-# time run across the containers on that volume. site-install.sh writes the
-# install markers on that volume:
+# Caddy answers every request with the setup page while a `.openkb-holding`
+# marker exists:
+#  - /run/openkb: this script's, for this container's boot. It is not on the
+#    shared files volume, which carries the site's private data,
+#  - the files volume: site-install.sh's, while Drupal installs, whichever
+#    container runs it.
+# The lock does have to be shared: it makes one boot at a time run across the
+# containers on that volume. site-install.sh writes the install markers on that
+# volume:
 #  - `.openkb-installed`: the install finished,
 #  - `.openkb-installing`: an install started and did not finish, so the next
 #    boot installs over what it left in the database.

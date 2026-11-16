@@ -27,6 +27,8 @@ The `drupal` container installs the site on its first boot: the install state th
 
 `docker compose exec drupal openkb-install` is the manual re-install; it destroys the site it finds.
 
+An `openkb-install` that fails while Drupal installs leaves the setup page up. After any failed install, a restart of the `drupal` service installs again; in a development checkout, rerun `phapp init`.
+
 ## Updating
 
 ```sh
@@ -164,7 +166,7 @@ ingress:
 | Volume | Holds |
 |---|---|
 | `mariadb-data` | the database |
-| `drupal-files` | `/app/files`: public and private files, the config sync directory, the OAuth keys, the `.openkb-installed` and `.openkb-installing` markers |
+| `drupal-files` | `/app/files`: public and private files, the config sync directory, the OAuth keys, the `.openkb-installed`, `.openkb-installing` and `.openkb-holding` markers |
 | `collab-store` | the collaboration server's snapshot store: edits not yet saved to Drupal |
 | `opensearch-data` | the search index — rebuildable: `drush search-api:reset-tracker kb_chunks && drush search-api:index kb_chunks` |
 
