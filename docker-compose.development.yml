@@ -133,7 +133,7 @@ services:
 
   # Catches outgoing mail: SMTP on 1025, web UI and API on 8025.
   mailpit:
-    image: axllent/mailpit:v1.33.0
+    image: axllent/mailpit:v1.33.1
     labels:
       - "lupus-ci.job_name=${LUPUS_CI_JOB_NAME:-}"
 
