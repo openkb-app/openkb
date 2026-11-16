@@ -92,7 +92,7 @@ default:
 
         ## What the assistant can do for you {#b-65905a96}
 
-        The assistant can also act: search, list your spaces, find drafts, create a page, edit the blocks of a draft and leave a comment. Its actions are listed under the answer as "tool calls". A page it writes is a draft, its blocks are marked for review, and nothing is published. It writes as you, through the client "OpenKB AI". An administrator account cannot hold that token, so use an editor account for the chat, see [Initial setup](/openkb-user-guide/initial-setup). {#b-e69ec73b}
+        The assistant can also act: search, list your spaces, find drafts, create a page, edit the blocks of a draft and leave a comment. Its actions are listed under the answer as "tool calls". A page it writes is a draft, its blocks are marked for review, and nothing is published. It writes as you, through the client "AI chat", so its edits read "you via AI chat". With the chat open in the editor, a review comment can be handed to it, and new comments are by default: it revises the passage and answers in the thread. An administrator account cannot hold that token, so use an editor account for the chat, see [Initial setup](/openkb-user-guide/initial-setup). {#b-e69ec73b}
 
         ## Related topics {#b-d994dd22}
 
