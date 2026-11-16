@@ -83,15 +83,26 @@ describe('the citation opener', () => {
 
 describe('the callout insert', () => {
   it('is one row; the type is switched inside the editor', () => {
-    const callouts = slashItems.flat().filter(item => 'kind' in item && item.kind === 'callout')
+    const callouts = slashItems.flat().filter(item => 'component' in item && item.component === 'callout')
     expect(callouts).toHaveLength(1)
-    expect(callouts[0]).toMatchObject({ label: 'Callout', type: 'info' })
+    expect(callouts[0]).toMatchObject({ kind: 'comarkComponent', label: 'Callout', icon: 'i-lucide-info' })
+  })
+
+  it('inserts an info callout with its starting words', () => {
+    const inserted: unknown[] = []
+    const chain = { focus: () => chain, insertContent: (content: unknown) => (inserted.push(content), chain) }
+    comarkHandlers.comarkComponent!.execute({ chain: () => chain } as unknown as Editor, { component: 'callout' })
+    expect(inserted).toEqual([{
+      type: 'callout',
+      attrs: { type: 'info' },
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New callout — type here.' }] }],
+    }])
   })
 })
 
-/** A row as both menus dispatch it: its `kind`, or the group label it heads. */
+/** A row as both menus dispatch it: its `kind` (a component row's component), or the group label it heads. */
 function rowKinds(groups: ReadonlyArray<ReadonlyArray<Record<string, unknown>>>) {
-  return groups.flat().map(row => ('kind' in row ? row.kind : `— ${row.label}`))
+  return groups.flat().map(row => ('kind' in row ? (row.kind === 'comarkComponent' ? row.component : row.kind) : `— ${row.label}`))
 }
 
 describe('the block inserts', () => {

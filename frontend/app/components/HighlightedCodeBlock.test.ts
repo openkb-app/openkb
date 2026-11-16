@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createApp, defineComponent, h, nextTick } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import CustomCodeBlock from './CustomCodeBlock.vue'
-import source from './CustomCodeBlock.vue?raw'
+import HighlightedCodeBlock from './HighlightedCodeBlock.vue'
+import source from './HighlightedCodeBlock.vue?raw'
 import type { CodeLine } from '#shared/utils/code-highlight'
 
 const UIcon = defineComponent({ props: { name: String }, setup: props => () => h('span', { 'data-icon': props.name }) })
@@ -17,7 +17,7 @@ const LINES: CodeLine[] = [
 function mount(props: Record<string, unknown>): HTMLElement {
   const root = document.createElement('div')
   document.body.appendChild(root)
-  const app = createApp({ render: () => h(CustomCodeBlock, props) })
+  const app = createApp({ render: () => h(HighlightedCodeBlock, props) })
   app.component('UIcon', UIcon)
   app.mount(root)
   return root
@@ -28,7 +28,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('CustomCodeBlock', () => {
+describe('HighlightedCodeBlock', () => {
   it('renders the tokens as spans carrying the theme variables, the text escaped', () => {
     const root = mount({ id: 'b-1a2b', language: 'typescript', lines: LINES })
     const pre = root.querySelector('pre')!
@@ -66,7 +66,7 @@ describe('CustomCodeBlock', () => {
   })
 
   it('server-renders the code with no whitespace of its own', async () => {
-    const app = createApp({ render: () => h(CustomCodeBlock, { lines: [[{ content: 'x' }], [{ content: 'y' }]] }) })
+    const app = createApp({ render: () => h(HighlightedCodeBlock, { lines: [[{ content: 'x' }], [{ content: 'y' }]] }) })
     app.component('UIcon', UIcon)
     const html = (await renderToString(app)).replace(/<!--.*?-->/g, '')
     expect(html).toMatch(/<code><span>x<\/span>\n<span>y<\/span><\/code><\/pre>$/)

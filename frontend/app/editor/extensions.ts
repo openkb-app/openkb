@@ -1,23 +1,16 @@
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { OkbCodeBlock } from './nodes/code-block'
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
+import type { AnyExtension, Node } from '@tiptap/core'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
+import { comarkEditorParts } from '#okb-comark-editor-parts'
+import { comarkComponentDeclarations } from '#shared/utils/comark-components'
 import { BlockId } from './nodes/block-id'
-import { Callout } from './nodes/callout'
-import { OkbCite } from './nodes/cite'
-import { OkbDocLink } from './nodes/doc-link'
-import { OkbImage } from './nodes/image'
-import { OkbAttachment, OkbAttachmentInline } from './nodes/attachment'
-import { OkbEmbed } from './nodes/embed'
-import { Infobox } from './nodes/infobox'
+import { buildComarkComponentNodes } from './nodes/comark-component-nodes'
 import { OkbMention } from './nodes/mention'
 import { OkbOrderedList } from './nodes/ordered-list'
-import CalloutNodeView from '../components/CalloutNodeView.vue'
 import CodeBlockNodeView from '../components/CodeBlockNodeView.vue'
-import ImageNodeView from '../components/ImageNodeView.vue'
-import AttachmentNodeView from '../components/AttachmentNodeView.vue'
-import EmbedNodeView from '../components/EmbedNodeView.vue'
-import InfoboxNodeView from '../components/InfoboxNodeView.vue'
+import ComponentNodeView from '../components/ComponentNodeView.vue'
 import { CaretMemory } from './cite-insert'
 import { CiteNumbers } from './cite-numbers'
 import { codeHighlightPlugin } from './code-highlight'
@@ -31,11 +24,30 @@ import { LinkTargetKeys } from './link-target'
 import { PageImageFileHandler } from './paste-image'
 import { SelectionKeydownSync } from './selection-sync'
 
+/** The editor nodes of the comark components with their node views, and the extensions their editor parts add. */
+function buildComarkComponentEditorExtensions(): AnyExtension[] {
+  return buildComarkComponentNodes().flatMap(([tag, nodes]) => {
+    const part = comarkEditorParts[tag]
+    if (comarkComponentDeclarations[tag]?.inline) return [...nodes, ...(part?.extensions ?? [])]
+    const nodeView = part?.nodeView ?? ComponentNodeView
+    return [
+      ...nodes.map(node => (node as Node).extend({
+        addNodeView() {
+          return VueNodeViewRenderer(nodeView)
+        },
+      })),
+      ...(part?.extensions ?? []),
+    ]
+  })
+}
+
 /**
  * Comark nodes layered on top of what Nuxt UI's UEditor already loads
  * (StarterKit + image + horizontal-rule + code):
  *
- * - Callout / Infobox NodeViews for the ::fence components.
+ * - The comark components' nodes, each block with its node view: the
+ *   component's own editor part, or the generic `ComponentNodeView`. Chips
+ *   stay native DOM (ADR 0026).
  * - The code block's NodeView (language picker, a fence component's
  *   preview) and its highlighting.
  * - GFM tables + task lists — comark parses both, so the schema must
@@ -66,38 +78,7 @@ export function buildEditorExtensions() {
     PageFileDropHandler,
     CiteNumbers,
     BlockId,
-    Callout.extend({
-      addNodeView() {
-        return VueNodeViewRenderer(CalloutNodeView)
-      },
-    }),
-    Infobox.extend({
-      addNodeView() {
-        return VueNodeViewRenderer(InfoboxNodeView)
-      },
-    }),
-    OkbImage.extend({
-      addNodeView() {
-        return VueNodeViewRenderer(ImageNodeView)
-      },
-    }),
-    OkbAttachment.extend({
-      addNodeView() {
-        return VueNodeViewRenderer(AttachmentNodeView)
-      },
-    }),
-    OkbAttachmentInline.extend({
-      addNodeView() {
-        return VueNodeViewRenderer(AttachmentNodeView)
-      },
-    }),
-    OkbEmbed.extend({
-      addNodeView() {
-        return VueNodeViewRenderer(EmbedNodeView)
-      },
-    }),
-    OkbCite,
-    OkbDocLink,
+    ...buildComarkComponentEditorExtensions(),
     OkbMention,
     OkbCodeBlock.extend({
       addStorage() {

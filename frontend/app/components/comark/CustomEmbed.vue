@@ -8,9 +8,13 @@ import type { ResolvedFile } from '#shared/utils/files'
 
 const props = defineProps<{
   file?: string
+  /** @render */
   url?: string
+  /** @render */
   name?: string
+  /** @render */
   size?: number
+  /** @render */
   mime?: string
   title?: string
 }>()

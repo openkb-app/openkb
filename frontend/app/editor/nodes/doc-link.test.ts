@@ -5,7 +5,10 @@ import Document from '@tiptap/extension-document'
 import Link from '@tiptap/extension-link'
 import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
-import { OkbDocLink } from './doc-link'
+import { comarkComponentDeclarations } from '#shared/utils/comark-components'
+import { createChipNode } from './component-node'
+
+const OkbDocLink = createChipNode(comarkComponentDeclarations.doc!)
 
 describe('pasting a rendered document link', () => {
   function parse(html: string) {

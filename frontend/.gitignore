@@ -7,3 +7,4 @@ node_modules
 dist
 # Hocuspocus SQLite snapshot store — local-only, regenerated at runtime.
 var/
+test/.generated/

@@ -5,7 +5,13 @@
  * included, so a chip pasted into the editor keeps its label. The tree pass
  * sets `label` from the mention's words.
  */
-defineProps<{ uid?: string, label?: string, inline?: boolean }>()
+defineProps<{
+  uid?: string
+  /** @render */
+  label?: string
+  /** @render */
+  inline?: boolean
+}>()
 </script>
 
 <template>

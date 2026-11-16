@@ -15,10 +15,24 @@
 import { CITE_STATE_GLYPH, CITE_STATE_NOTE, type CiteState } from '#shared/utils/citations'
 
 const props = defineProps<{
+  /** The cited page. The tree passes render the chip from `n`, `path` and `title`. */
+  nid?: number
+  /** The cited block on that page. */
+  block?: string
+  /** The cited block's version. */
+  v?: string
+  /** The cited address outside the knowledge base. */
+  url?: string
+  /** @render */
   n: string
-  /** Absent where the cited page did not resolve: the chip is then no link. */
+  /**
+   * Absent where the cited page did not resolve: the chip is then no link.
+   * @render
+   */
   path?: string
+  /** @render */
   title?: string
+  /** @render */
   state?: Exclude<CiteState, 'ok'>
 }>()
 

@@ -15,7 +15,7 @@ export const codeHighlightKey = new PluginKey<HighlightState>('okbCodeHighlight'
 
 /**
  * Colours the code blocks of a document with inline decorations, the token
- * classes and theme variables the read view's `CustomCodeBlock` renders.
+ * classes and theme variables the read view's `HighlightedCodeBlock` renders.
  *
  * - A block whose language is not loaded yet stays plain; the plugin loads it
  *   and redraws once it is in.

@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createSSRApp, createApp, defineComponent, h, nextTick } from 'vue'
 import { renderToString } from 'vue/server-renderer'
-import CustomFence from './CustomFence.vue'
-import CustomCodeBlock from './CustomCodeBlock.vue'
+import FenceComponentFrame from './FenceComponentFrame.vue'
+import HighlightedCodeBlock from './HighlightedCodeBlock.vue'
 
 const UIcon = defineComponent({ props: { name: String }, setup: props => () => h('span', { 'data-icon': props.name }) })
 
@@ -15,7 +15,7 @@ const apps: Array<ReturnType<typeof createApp>> = []
 function withStubs<T extends ReturnType<typeof createApp>>(app: T): T {
   apps.push(app)
   app.component('UIcon', UIcon)
-  app.component('CustomCodeBlock', CustomCodeBlock)
+  app.component('HighlightedCodeBlock', HighlightedCodeBlock)
   return app
 }
 
@@ -26,7 +26,7 @@ function mount(props: Record<string, unknown>): { root: HTMLElement, vm: Record<
   const vm = withStubs(createApp({
     data: () => ({ fence: 'stub', ...props }),
     render() {
-      return h(CustomFence, { ...this.$data })
+      return h(FenceComponentFrame, { ...this.$data })
     },
   })).mount(root) as unknown as Record<string, unknown>
   return { root, vm }
@@ -41,9 +41,9 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('CustomFence', () => {
+describe('FenceComponentFrame', () => {
   it('server-renders the HTML it is handed, with the block id on the figure', async () => {
-    const html = await renderToString(withStubs(createSSRApp({ render: () => h(CustomFence, { id: 'b-d1', fence: 'stub', source: SOURCE, html: SVG }) })))
+    const html = await renderToString(withStubs(createSSRApp({ render: () => h(FenceComponentFrame, { id: 'b-d1', fence: 'stub', source: SOURCE, html: SVG }) })))
     expect(html).toMatch(/^<figure class="okb-fence" data-fence="stub" data-state="ok" id="b-d1">/)
     expect(html).toContain(SVG)
     expect(html).toMatch(/<button type="button" class="okb-fence-toggle" aria-expanded="false"/)
@@ -101,7 +101,7 @@ describe('CustomFence', () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
     withStubs(createApp({
-      render: () => h(CustomFence, { fence: 'stub', source: SOURCE, preview: true, wrapper: 'section' }, {
+      render: () => h(FenceComponentFrame, { fence: 'stub', source: SOURCE, preview: true, wrapper: 'section' }, {
         source: () => h('pre', { class: 'editable' }, SOURCE),
       }),
     })).mount(root)

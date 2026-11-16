@@ -353,7 +353,7 @@ describe('inline components', () => {
 
   it('does not let an inline attribute decide how a component renders', async () => {
     const nodes = await markdownToTree('::callout{inline="true" type="info"}\ninside\n::\n')
-    expect(at(nodes)[1]).toEqual({ type: 'info', inline: 'true' })
+    expect(at(nodes)[1]).toEqual({ type: 'info' })
   })
 
   it('parses a doc link right after a quote, as the editor does', async () => {
@@ -697,15 +697,32 @@ describe('the text format’s allowed list', () => {
     'code': { class: { 'language-*': true } },
     'input': { type: { checkbox: true }, class: { 'task-list-item-checkbox': true }, checked: true, disabled: true },
     'a': { href: true, 'data-*': true },
-    'callout': { type: true },
     '*': { lang: true },
   } as const satisfies AllowedHtml
 
-  it('applies one list to an HTML element and to a component alike', async () => {
-    const md = '<span title="t" lang="de">words</span> and :callout[words]{title="t" lang="de"}\n'
-    const nodes = await markdownToTree(md, { allowedHtml })
+  it('holds an HTML element to the list', async () => {
+    const nodes = await markdownToTree('<span title="t" lang="de">words</span>\n', { allowedHtml })
     expect(find(nodes, 'span')?.[1]).toEqual({ lang: 'de' })
-    expect(find(nodes, 'callout')?.[1]).toEqual({ lang: 'de', inline: true })
+  })
+
+  it('lets a component carry exactly its declared props, unlisted', async () => {
+    const md = '::callout{#b-71c2 type="warning" title="t" lang="de"}\nwords\n::\n'
+    const nodes = await markdownToTree(md, { allowedHtml })
+    expect(find(nodes, 'callout')?.[1]).toEqual({ id: 'b-71c2', type: 'warning' })
+  })
+
+  it('drops a component\'s id outside the block-id prefix, and any id of a chip', async () => {
+    const md = '::callout{#nav type="info"}\nwords\n::\n\nAsk :mention[Ann]{#b-71c2 uid="2"}.\n'
+    const nodes = await markdownToTree(md, { allowedHtml })
+    expect(find(nodes, 'callout')?.[1]).toEqual({ type: 'info' })
+    expect(find(nodes, 'mention')?.[1]).toEqual({ uid: '2', label: 'Ann', inline: true })
+  })
+
+  it('unwraps a component nobody built that the list does not carry', async () => {
+    const nodes = await markdownToTree('::poll{question="q"}\nwords\n::\n', { allowedHtml })
+    expect(find(nodes, 'poll')).toBeUndefined()
+    expect(find(nodes, 'unknown')).toBeUndefined()
+    expect(collect(nodes)).toBe('words')
   })
 
   it('drops the style and class raw HTML would overlay the app with', async () => {
@@ -811,18 +828,16 @@ describe('the text format’s allowed list', () => {
 describe('the shipped format', () => {
   const listed = shippedAllowedHtml()
 
-  it('lists every tag the passes render', () => {
-    for (const tag of [...HTML_ELEMENTS, ...COMPONENT_TAGS]) {
+  it('lists every HTML element the passes render', () => {
+    for (const tag of HTML_ELEMENTS) {
       expect(Object.keys(listed)).toContain(tag)
     }
   })
 
-  it('lists the attributes a document link needs to address a block', () => {
-    expect(listed.doc).toEqual({ nid: true, block: true })
-  })
-
-  it('lists the attributes a citation needs to name a source and its version', () => {
-    expect(listed.citation).toEqual({ nid: true, block: true, v: true, url: true })
+  it('lists no component: a component is allowed by its declaration', () => {
+    for (const tag of COMPONENT_TAGS) {
+      expect(Object.keys(listed)).not.toContain(tag)
+    }
   })
 
   it('keeps an attachment\'s description', async () => {

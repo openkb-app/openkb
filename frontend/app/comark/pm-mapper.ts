@@ -13,6 +13,9 @@ import { CITATION_TAG, citeTarget } from '#shared/utils/citations'
 import { DOC_LINK_TAG, docLinkTarget } from '#shared/utils/doc-links'
 import { parseImageWidth } from '#shared/utils/image-width'
 import { WRAPPED_BLOCK_TYPES } from '#shared/page-blocks'
+import { comarkComponentDeclarations, listBlockComponentDeclarations, listChipComponentDeclarations, readNodeAttributesFromProps, writePropsFromNodeAttributes } from '#shared/utils/comark-components'
+import { chipFormOf } from '../editor/nodes/component-node'
+import type { ComarkComponentDeclaration } from '#shared/utils/comark-components'
 
 export type ComarkElement = [tag: string, props: ComarkProps, ...children: ComarkNode[]]
 
@@ -20,8 +23,6 @@ interface Mark {
   type: string
   attrs?: Record<string, unknown>
 }
-
-const CALLOUT_TYPES = new Set(['info', 'warning', 'success', 'danger'])
 
 /** A wrapper fence carrying the id of a block comark has no attribute syntax for. */
 export const BLOCK_WRAPPER_TAG = 'block'
@@ -40,10 +41,13 @@ const MARK_TAGS: Record<string, string> = {
   a: 'link',
 }
 
-/** Tags that are blocks wherever they appear. */
+/** Components that are blocks unless they stand in running text. */
+const FILE_COMPONENTS = new Set(['image', 'attachment'])
+
+/** Tags that are blocks wherever they appear: the block components among them. */
 const BLOCK_TAGS = new Set([
-  'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'blockquote', 'pre', 'hr', 'table',
-  'callout', 'infobox', 'embed', BLOCK_WRAPPER_TAG,
+  'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'blockquote', 'pre', 'hr', 'table', BLOCK_WRAPPER_TAG,
+  ...listBlockComponentDeclarations().map(declaration => declaration.tag).filter(tag => !FILE_COMPONENTS.has(tag)),
 ])
 
 /** Raw HTML that reads as running text even on lines of its own. */
@@ -51,9 +55,6 @@ const PHRASING_HTML = new Set([
   'a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'del', 'dfn', 'em', 'i', 'ins', 'kbd',
   'mark', 'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var',
 ])
-
-/** Components that are blocks unless they stand in running text. */
-const FILE_COMPONENTS = new Set(['image', 'attachment'])
 
 // ---------------------------------------------------------------------------
 // comark → ProseMirror
@@ -65,9 +66,13 @@ export function comarkToPm(nodes: ComarkNode[]): JSONContent {
 }
 
 /** Components whose props are MDC attributes. */
-const COMPONENT_TAGS = new Set([
-  'callout', 'infobox', 'image', 'attachment', 'embed', 'mention', DOC_LINK_TAG, CITATION_TAG, BLOCK_WRAPPER_TAG,
-])
+const COMPONENT_TAGS = new Set([...Object.keys(comarkComponentDeclarations), BLOCK_WRAPPER_TAG])
+
+/** The declaration of a block component mapped by its props alone; image and attachment have forms of their own. */
+function genericBlockDeclarationOf(tag: string | undefined): ComarkComponentDeclaration | undefined {
+  const declaration = tag ? comarkComponentDeclarations[tag] : undefined
+  return declaration && !declaration.inline && !FILE_COMPONENTS.has(declaration.tag) ? declaration : undefined
+}
 
 /** Drops the backslash comark keeps before a quote in a component's prop values. */
 function unescapeComponentProps(node: ComarkNode): ComarkNode {
@@ -169,22 +174,20 @@ function mapComarkBlock([tag, props, ...children]: ComarkElement): JSONContent[]
       return [{ type: 'horizontalRule', attrs: id }]
     case 'table':
       return [{ type: 'table', attrs: id, content: mapTableRows(children) }]
-    case 'callout': {
-      const type = CALLOUT_TYPES.has(String(props.type)) ? String(props.type) : 'info'
-      return [{ type: 'callout', attrs: { type, ...id }, content: withAtLeastOneParagraph(mapComarkBlocks(children)) }]
-    }
-    case 'infobox':
-      return [{ type: 'infobox', attrs: { title: stringPropOrUndefined(props.title) ?? '', ...id }, content: withAtLeastOneParagraph(mapComarkBlocks(children)) }]
     case 'image':
       return mapImageNodes(props, id)
     case 'attachment':
       return [{ type: 'attachment', attrs: { file: stringPropOrUndefined(props.file) ?? null, description: stringPropOrUndefined(props.description) || null, ...id } }]
-    case 'embed':
-      return [{ type: 'embed', attrs: { file: stringPropOrUndefined(props.file) ?? null, title: stringPropOrUndefined(props.title) || null, ...id } }]
-    default:
+    default: {
+      const declaration = genericBlockDeclarationOf(tag)
+      if (declaration) {
+        const node: JSONContent = { type: tag, attrs: { ...readNodeAttributesFromProps(declaration, props), ...id } }
+        return [declaration.slot ? { ...node, content: withAtLeastOneParagraph(mapComarkBlocks(children)) } : node]
+      }
       // A `::block` wrapper, whose id comark has already moved onto its
       // content, or an unknown fence, whose content is kept.
       return mapComarkBlocks(children)
+    }
   }
 }
 
@@ -342,9 +345,15 @@ function mapInlineNode(node: ComarkNode, marks: Mark[]): JSONContent[] {
       // comark reads `[1]` in prose as a span with no attributes: the brackets are the writer's words.
       if (Object.keys(props).length === 0) return mapInlineNodes(['[', ...children, ']'], marks)
       return mapInlineNodes(children, marks)
-    default:
+    default: {
+      const chip = comarkComponentDeclarations[tag]
+      if (chip?.inline) {
+        const attrs = { ...readNodeAttributesFromProps(chip, props), ...(chip.slot ? { label: textContentOf(children) } : {}) }
+        return [{ type: chipFormOf(tag).node, attrs }]
+      }
       // Inline HTML and unknown components: their words stay, the tag goes.
       return mapInlineNodes(children, marks)
+    }
   }
 }
 
@@ -456,18 +465,18 @@ function mapPmBlock(node: JSONContent): ComarkElement {
     case 'table':
       return ['table', {}, ...(node.content ?? []).map(row => ['tr', {}, ...(row.content ?? []).map(cell =>
         [cell.type === 'tableHeader' ? 'th' : 'td', {}, ...mapCellToOneLine(cell)] as ComarkElement)] as ComarkElement)]
-    case 'callout':
-      return ['callout', { type: CALLOUT_TYPES.has(String(attrs.type)) ? attrs.type : 'info' }, ...mapPmBlocks(node.content)]
-    case 'infobox':
-      return ['infobox', attrs.title ? { title: attrs.title } : {}, ...mapPmBlocks(node.content)]
     case 'image':
       return attrs.file ? ['image', fileImageComponentProps(attrs)] : ['p', {}, plainImageElement(attrs)]
     case 'attachment':
       return ['attachment', dropUnsetProps({ file: attrs.file, description: attrs.description })]
-    case 'embed':
-      return ['embed', dropUnsetProps({ file: attrs.file, title: attrs.title })]
-    default:
+    default: {
+      const declaration = genericBlockDeclarationOf(node.type)
+      if (declaration) {
+        const props = writePropsFromNodeAttributes(declaration, attrs)
+        return declaration.slot ? [declaration.tag, props, ...mapPmBlocks(node.content)] : [declaration.tag, props]
+      }
       return ['p', {}, ...mapPmInlineContent(node.content)]
+    }
   }
 }
 
@@ -595,7 +604,11 @@ function mapPmInlineNode(node: JSONContent): ComarkNode[] {
     }
     case 'image':
       return [attrs.file ? ['image', { ...fileImageComponentProps(attrs), ...INLINE }] : plainImageElement(attrs)]
-    default:
-      return []
+    default: {
+      const chip = listChipComponentDeclarations().find(declaration => chipFormOf(declaration.tag).node === node.type)
+      if (!chip) return []
+      const label = String(attrs.label ?? '')
+      return [[chip.tag, writePropsFromNodeAttributes(chip, attrs), ...(chip.slot && label ? [label] : [])]]
+    }
   }
 }

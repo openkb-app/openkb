@@ -87,7 +87,7 @@ watch(empty, (now) => {
     :data-state="pending ? 'pending' : failure ? 'error' : 'ok'"
     :data-drawn="drawn || undefined"
   >
-    <CustomCodeBlock
+    <HighlightedCodeBlock
       v-if="pending"
       :language="fence"
       :lines="sourceLines"
@@ -145,7 +145,7 @@ watch(empty, (now) => {
         :id="sourceId"
       >
         <slot name="source">
-          <CustomCodeBlock
+          <HighlightedCodeBlock
             :language="fence"
             :lines="sourceLines"
           />

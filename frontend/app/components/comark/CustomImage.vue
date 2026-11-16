@@ -18,14 +18,17 @@ import { loadPhotoSwipe, openLightbox } from '~/utils/image-lightbox'
  */
 const props = defineProps<{
   file?: string
+  /** @render */
   src?: string
   alt?: string
   width?: string
+  /** @render */
   inline?: boolean
 }>()
 
 const percent = computed(() => parseImageWidth(props.width))
 
+/** Opens the image in the lightbox on a plain left click; a modified click follows the link. */
 function open(event: MouseEvent) {
   if (event.button || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
   event.preventDefault()

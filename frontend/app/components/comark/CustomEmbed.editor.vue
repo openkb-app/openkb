@@ -3,8 +3,8 @@ import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { sessionDoc } from '~/editor/page-file-insert'
 
 /**
- * Editor NodeView for `::embed{file title}` (app/editor/nodes/embed.ts): the
- * frame the read page shows, resolved through /api/files/resolve. The title is
+ * The embed's editor part (`CustomEmbed.editor.ts`): the node view of
+ * `::embed{file title}`, the frame the read page shows, resolved through /api/files/resolve. The title is
  * edited below it while the embed is selected or has one.
  */
 const props = defineProps(nodeViewProps)
@@ -26,6 +26,7 @@ function keepClick(event: MouseEvent): void {
   if (props.editor.isEditable && !event.ctrlKey && !event.metaKey && (event.target as Element).closest('a[href]:not([download])')) event.preventDefault()
 }
 
+/** Stores the typed title on the node; an empty one is unset. */
 function saveTitle(): void {
   props.updateAttributes({ title: title.value || null })
 }

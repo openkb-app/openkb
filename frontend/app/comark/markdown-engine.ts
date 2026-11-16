@@ -10,6 +10,7 @@ import { Node as ProseNode } from '@tiptap/pm/model'
 import type { JSONContent } from '@tiptap/core'
 import { editorSchema } from '../../server/utils/editor-schema'
 import { parseComark, type ComarkNode } from '#shared/utils/comark-tree'
+import { listBlockComponentDeclarations } from '#shared/utils/comark-components'
 import { comarkToPm, pmToComark } from './pm-mapper'
 import { escapeBareBraces, renderHandlers } from './render-handlers'
 
@@ -120,7 +121,8 @@ function trimInlineEdge(content: JSONContent[], edge: 'start' | 'end' | 'none'):
   return content
 }
 
-const COMPONENT_NODES = new Set(['callout', 'infobox', 'image', 'attachment', 'embed'])
+/** The block components' nodes. */
+const COMPONENT_NODES = new Set(listBlockComponentDeclarations().map(declaration => declaration.tag))
 
 /**
  * Rewrites parsed JSON into the shape the editor schema can represent —

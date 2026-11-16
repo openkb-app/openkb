@@ -6,12 +6,13 @@ import { handlersAnsweringThroughComputeds } from '~/editor/toolbar-answers'
 import { insertPageFile, selectedEmbed } from '~/editor/page-file-insert'
 import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
+import { comarkEditorParts } from '#okb-comark-editor-parts'
 import { CITATION_TAG } from '#shared/utils/citations'
+import { defaultAttributeOfProp, labelOfComarkName, listBlockComponentDeclarations } from '#shared/utils/comark-components'
+import type { ComarkComponentDeclaration, ComarkMenuEntry } from '#shared/utils/comark-components'
 import { FENCES, fenceFor } from '#shared/utils/fences'
 
-type CalloutKind = 'info' | 'warning' | 'success' | 'danger'
-
-interface CalloutCmd { type?: CalloutKind }
+interface ComponentCmd { component?: string }
 
 interface FenceCmd { fence?: string }
 
@@ -144,23 +145,14 @@ export const comarkHandlers: Record<string, EditorHandler> = {
     execute: (editor, cmd) => tableBlockChain(editor.chain().focus(), editor, cmd as TableBlockCmd) ?? editor.chain(),
     isActive: () => false,
   },
-  callout: {
+  // A block component, inserted with its menu entry's attributes and body.
+  comarkComponent: {
     canExecute: editor => editor.can().insertContent(''),
-    execute: (editor, cmd) => editor.chain().focus().insertContent({
-      type: 'callout',
-      attrs: { type: (cmd as CalloutCmd)?.type ?? 'info' },
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New callout — type here.' }] }],
-    }),
-    isActive: (editor, cmd) => editor.isActive('callout', { type: (cmd as CalloutCmd)?.type }),
-  },
-  infobox: {
-    canExecute: editor => editor.can().insertContent(''),
-    execute: editor => editor.chain().focus().insertContent({
-      type: 'infobox',
-      attrs: { title: 'Info' },
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New infobox — set a title above and edit text here.' }] }],
-    }),
-    isActive: editor => editor.isActive('infobox'),
+    execute: (editor, cmd) => {
+      const declaration = listBlockComponentDeclarations().find(d => d.tag === (cmd as ComponentCmd)?.component)
+      return declaration ? editor.chain().focus().insertContent(insertedComponentNode(declaration)) : editor.chain()
+    },
+    isActive: (editor, cmd) => editor.isActive((cmd as ComponentCmd)?.component ?? ''),
   },
   // A fence component's block, started from its template so the preview has
   // something to draw.
@@ -254,6 +246,38 @@ export const comarkHandlers: Record<string, EditorHandler> = {
   },
 }
 
+/** The menu entry of a block component: its editor part's, or one named after the component. */
+function menuEntryOfComponent(declaration: ComarkComponentDeclaration): ComarkMenuEntry | null {
+  const menu = comarkEditorParts[declaration.tag]?.menu
+  return menu === false ? null : menu ?? {}
+}
+
+/** The node a block component is inserted as: the props' defaults, the entry's attributes and body. */
+function insertedComponentNode(declaration: ComarkComponentDeclaration) {
+  const entry = menuEntryOfComponent(declaration) ?? {}
+  const defaults = Object.fromEntries(Object.entries(declaration.props).map(([name, prop]) => [name, defaultAttributeOfProp(prop)]))
+  return {
+    type: declaration.tag,
+    attrs: { ...defaults, ...entry.attrs },
+    ...(declaration.slot ? { content: entry.content ?? [{ type: 'paragraph' }] } : {}),
+  }
+}
+
+/** The slash-menu rows of the block components, in tag order. */
+function componentMenuItems() {
+  return listBlockComponentDeclarations().flatMap((declaration) => {
+    const entry = menuEntryOfComponent(declaration)
+    if (!entry) return []
+    return [{
+      kind: 'comarkComponent',
+      component: declaration.tag,
+      label: entry.label ?? labelOfComarkName(declaration.tag),
+      icon: entry.icon ?? 'i-lucide-box',
+      description: entry.description ?? '',
+    }]
+  })
+}
+
 /**
  * The handler map of every toolbar and menu: Nuxt UI's own handlers plus
  * comarkHandlers, their state questions answered through computeds.
@@ -281,8 +305,7 @@ export const slashItems = [[
   { kind: 'docLink', label: 'Link to a page', icon: 'i-lucide-file-symlink', description: 'Link to another page or one of its blocks' },
   { kind: 'cite', label: 'Cite a source', icon: 'i-lucide-quote', description: 'Cite the page or block this text comes from' },
   { type: 'label', label: 'Comark' },
-  { kind: 'callout', type: 'info', label: 'Callout', icon: 'i-lucide-info', description: 'Info box — switch the type inside' },
-  { kind: 'infobox', label: 'Infobox', icon: 'i-lucide-square', description: 'Titled bordered box' },
+  ...componentMenuItems(),
   ...FENCES.map(fence => ({ kind: 'fence', fence: fence.language, label: fence.label, icon: fence.icon, description: fence.description })),
   { type: 'label', label: 'Embed' },
   { kind: 'htmlEmbed', label: 'HTML embed', icon: 'i-lucide-file-code', description: 'Show an HTML file in the page, sandboxed' },

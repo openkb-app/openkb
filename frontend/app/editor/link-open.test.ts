@@ -5,8 +5,11 @@ import Document from '@tiptap/extension-document'
 import Link from '@tiptap/extension-link'
 import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
-import { OkbCite } from './nodes/cite'
-import { OkbDocLink } from './nodes/doc-link'
+import { comarkComponentDeclarations } from '#shared/utils/comark-components'
+import { createChipNode } from './nodes/component-node'
+
+const OkbCite = createChipNode(comarkComponentDeclarations.citation!)
+const OkbDocLink = createChipNode(comarkComponentDeclarations.doc!)
 import { LinkOpen, linkOpenHint } from './link-open'
 
 describe('opening a link from the editor', () => {

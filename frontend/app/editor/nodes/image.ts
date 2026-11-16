@@ -24,8 +24,8 @@ export interface ImageAttrs {
  *   value resolved at render time and never stored.
  * - `file` unset → `![alt](src "title")` for plain/external URLs.
  *
- * Vue-free — the live preview NodeView is layered on in
- * app/editor/extensions.ts, exactly like Callout / Infobox.
+ * Vue-free — the image's editor part (`CustomImage.editor.ts`) adds the node
+ * view in app/editor/extensions.ts.
  */
 export const OkbImage = Image.extend({
   addAttributes() {
@@ -38,8 +38,8 @@ export const OkbImage = Image.extend({
         parseHTML: (element: HTMLElement) => parseImageWidth(element.dataset.width),
         renderHTML: (attrs: ImageAttrs) => attrs.width ? { 'data-width': `${attrs.width}%` } : {},
       },
-      // Block id carried through the fence round-trip (OKB-137), as callout
-      // and infobox carry theirs — the review gate needs every producible
+      // Block id carried through the fence round-trip, as every block
+      // component carries its own: the review gate needs every producible
       // block identified.
       id: { default: null },
     }

@@ -6,9 +6,9 @@
  * gets. The tree passes (`#shared/utils/comark-tree`) have already rewritten
  * every component tag to one this map has, `unknown` included.
  */
-import { CustomAttachment, CustomCallout, CustomCitation, CustomCodeBlock, CustomDefault, CustomDoc, CustomEmbed, CustomFence, CustomImage, CustomInfobox, CustomMention } from '#components'
+import { FenceComponentFrame, HighlightedCodeBlock, UnknownComponentFallback } from '#components'
+import { comarkVueComponents } from '#okb-comark-vue-components'
 import { CODE_BLOCK_TAG, HTML_ELEMENTS, UNKNOWN_TAG } from '#shared/utils/comark-tree'
-import { CITATION_TAG } from '#shared/utils/citations'
 import { FENCE_TAG } from '#shared/utils/fences'
 
 /**
@@ -26,15 +26,8 @@ const nativeHtml = Object.fromEntries(
 
 export const comarkComponents = {
   ...nativeHtml,
-  callout: CustomCallout,
-  infobox: CustomInfobox,
-  image: CustomImage,
-  attachment: CustomAttachment,
-  embed: CustomEmbed,
-  mention: CustomMention,
-  doc: CustomDoc,
-  [CITATION_TAG]: CustomCitation,
-  [CODE_BLOCK_TAG]: CustomCodeBlock,
-  [FENCE_TAG]: CustomFence,
-  [UNKNOWN_TAG]: CustomDefault,
+  ...comarkVueComponents,
+  [CODE_BLOCK_TAG]: HighlightedCodeBlock,
+  [FENCE_TAG]: FenceComponentFrame,
+  [UNKNOWN_TAG]: UnknownComponentFallback,
 }

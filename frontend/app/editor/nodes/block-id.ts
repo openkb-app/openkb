@@ -4,9 +4,9 @@ import { TEXT_BLOCK_TYPES, WRAPPED_BLOCK_TYPES } from '#shared/page-blocks'
 /**
  * Adds the stable block-id attribute (`id`) to the blocks whose markdown form
  * cannot declare one itself: the native text blocks (trailing `{#b-…}`) and
- * the wrapped containers (their id rides a `::block{#id}` fence). The
- * component fences (callout / infobox / image / attachment / embed) declare their own `id`
- * attribute, so they are left out of this global set.
+ * the wrapped containers (their id rides a `::block{#id}` fence). The block
+ * components (component-node.ts) declare their own `id` attribute, so they
+ * are left out of this global set.
  *
  * ProseMirror attributes are declared per node *type*, not per position, so a
  * nested paragraph (list item, table cell) also gains the slot. Only top-level

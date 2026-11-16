@@ -21,12 +21,13 @@
  *   sources back off the result, and {@link referencesByBlock} reads the
  *   edges a block holds off the parsed tree, for the chunk index.
  * - Tags whose source is not prose are dropped, as are HTML comments,
- *   processing instructions and CDATA. Everything else is held to
- *   the text format's allowed list (`allowedHtml`, from `GET /openkb/schema`):
- *   an unlisted tag unwraps to its children, an unlisted attribute drops, and a
- *   value-restricted attribute keeps only the values the list carries. HTML
- *   elements and component nodes go through the one filter — the renderer hands
- *   what it is given straight to the DOM.
+ *   processing instructions and CDATA. An HTML element is held to the text
+ *   format's allowed list (`allowedHtml`, from `GET /openkb/schema`): an
+ *   unlisted tag unwraps to its children, an unlisted attribute drops, and a
+ *   value-restricted attribute keeps only the values the list carries. A built
+ *   component is held to its declaration instead: its stored props, and a
+ *   block component's `b-*` id. The renderer hands what it is given straight
+ *   to the DOM.
  * - A component nobody has built becomes `unknown`, so a fence can never name
  *   an app component into the page.
  * - With a highlighter, a `pre > code` fence becomes a `code-block` node
@@ -42,6 +43,7 @@
  *   does not hide the rest of the body.
  */
 import { BLOCK_ID_PREFIX } from '#shared/page-blocks'
+import { comarkComponentDeclarations, listChipComponentDeclarations } from '#shared/utils/comark-components'
 import { isFileUuid, type ResolvedFile } from './files'
 import { DOC_LINK_TAG, docLinkHref, docLinkTarget, type ResolvedDoc } from '#shared/utils/doc-links'
 import {
@@ -109,12 +111,12 @@ export interface BlockReferences {
   links: string[]
 }
 
-/** The tag a highlighted code fence renders under. See `CustomCodeBlock`. */
+/** The tag a highlighted code fence renders under. See `HighlightedCodeBlock`. */
 export const CODE_BLOCK_TAG = 'code-block'
 
 export type CodeHighlighter = (code: string, info: string) => Promise<CodeLine[]>
 
-/** The tag an unbuilt component renders under. See `CustomDefault`. */
+/** The tag an unbuilt component renders under. See `UnknownComponentFallback`. */
 export const UNKNOWN_TAG = 'unknown'
 
 /**
@@ -136,7 +138,14 @@ export const HTML_ELEMENTS = new Set([
 ])
 
 /** The component tags the page has a renderer for. */
-export const COMPONENT_TAGS = new Set(['callout', 'infobox', 'image', 'attachment', 'embed', 'mention', DOC_LINK_TAG])
+export const COMPONENT_TAGS = new Set(Object.keys(comarkComponentDeclarations))
+
+/** The attributes each built component may carry: its stored props, and a block component's `b-*` id. */
+const COMPONENT_ATTRIBUTE_RULES = new Map(Object.values(comarkComponentDeclarations).map((declaration) => {
+  const rules: Record<string, AttrRule> = Object.fromEntries(Object.keys(declaration.props).map(name => [name, true]))
+  if (!declaration.inline) rules.id = { [`${BLOCK_ID_PREFIX}*`]: true }
+  return [declaration.tag, rules]
+}))
 
 /**
  * Tags dropped with their content. comark parses raw `<script>`, `<style>`,
@@ -249,11 +258,19 @@ export const dataImages = {
   }],
 }
 
+/** The file components' inline form: `:attachment[label]{…}`, `:attachment{…}`, `:image{…}`. */
+const INLINE_FILE_COMPONENTS = { withLabel: ['attachment'], withoutLabel: ['image', 'attachment'] }
+
 /**
  * The start of an inline component the editor writes, up to its `[` or `{`:
- * mention, doc link, citation, attachment, image.
+ * every chip (`[` with a slot, `{` without) and the inline file components.
  */
-const INLINE_COMPONENT_START = /:(?:(?:mention|doc|attachment)\[|(?:citation|image|attachment)\{(?!\{))/y
+const INLINE_COMPONENT_START = (() => {
+  const chips = listChipComponentDeclarations()
+  const withLabel = [...chips.filter(chip => chip.slot).map(chip => chip.tag), ...INLINE_FILE_COMPONENTS.withLabel]
+  const withoutLabel = [...chips.filter(chip => !chip.slot).map(chip => chip.tag), ...INLINE_FILE_COMPONENTS.withoutLabel]
+  return new RegExp(`:(?:(?:${withLabel.join('|')})\\[|(?:${withoutLabel.join('|')})\\{(?!\\{))`, 'y')
+})()
 
 /**
  * Reads {@link INLINE_COMPONENT_START} components after any character, as the
@@ -452,11 +469,12 @@ function cleanNode(node: ComarkNode, ctx: PassContext, inline: boolean): ComarkN
   // No tag: an HTML comment, processing instruction or CDATA.
   if (!tag || DROPPED_TAGS.has(tag)) return []
   if (ctx.citationChips && isCitationRef(node)) return chipsFor(`[${node[2]}]`, ctx.citationChips)
-  // A tag the format does not list is not the author's to write: the words
-  // below it stay, the element itself does not. A void tag has no children,
-  // so the same rule drops it.
-  if (ctx.allowed && !Object.hasOwn(ctx.allowed, tag)) return cleanChildren(children, ctx, inline)
-  const props = allowedProps(tag, plainBindings(tag, rawProps ?? {}), ctx.allowed)
+  // A tag that is neither a built component nor on the format's list is not
+  // the author's to write: the words below it stay, the element itself does
+  // not. A void tag has no children, so the same rule drops it.
+  const componentRules = COMPONENT_ATTRIBUTE_RULES.get(tag)
+  if (!componentRules && ctx.allowed && !Object.hasOwn(ctx.allowed, tag)) return cleanChildren(children, ctx, inline)
+  const props = allowedProps(plainBindings(tag, rawProps ?? {}), componentRules ?? tagRules(tag, ctx.allowed))
 
   if (tag === DOC_LINK_TAG) return [docLinkNode(props, children, ctx)]
   // A citation naming no source is not this component: it unwraps to the words
@@ -1045,11 +1063,11 @@ function tagRules(tag: string, allowed?: AllowedHtml): Record<string, AttrRule> 
 
 /**
  * The attributes that may reach the DOM, held to the built-in checks either
- * way. A value-restricted attribute keeps the whitespace-separated values the
- * list carries and drops when none are left, as `filter_html` reads it.
+ * way; no rules let every safe attribute through. A value-restricted attribute
+ * keeps the whitespace-separated values the rules carry and drops when none
+ * are left, as `filter_html` reads it.
  */
-function allowedProps(tag: string, props: ComarkProps, allowed?: AllowedHtml): ComarkProps {
-  const rules = tagRules(tag, allowed)
+function allowedProps(props: ComarkProps, rules: Record<string, AttrRule> | undefined): ComarkProps {
   const out: ComarkProps = {}
   for (const [key, value] of Object.entries(props)) {
     if (!isSafeAttr(key, value)) continue

@@ -3,8 +3,9 @@ import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { sessionDoc } from '~/editor/page-file-insert'
 
 /**
- * Editor NodeView for `::attachment{file}` and the inline `:attachment[Label]{file}`
- * (app/editor/nodes/attachment.ts): the same file card the read page shows,
+ * The attachment's editor part (`CustomAttachment.editor.ts`): the node view
+ * of `::attachment{file}` and the inline `:attachment[Label]{file}`
+ * (app/editor/nodes/attachment.ts), the same file card the read page shows,
  * resolved through /api/files/resolve. Only the UUID and the optional
  * description are in the document; the description is edited in the card.
  */
@@ -30,6 +31,7 @@ function keepClick(event: MouseEvent): void {
   if (props.editor.isEditable && !event.ctrlKey && !event.metaKey && (event.target as Element).closest('a[href]:not([download])')) event.preventDefault()
 }
 
+/** Stores the typed description on the node; an empty one is unset. */
 function saveDescription(): void {
   props.updateAttributes({ description: description.value || null })
 }

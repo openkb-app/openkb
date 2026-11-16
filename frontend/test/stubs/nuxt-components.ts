@@ -5,7 +5,7 @@
  */
 import { defineComponent, h } from 'vue'
 
-export { default as CustomMention } from '~/components/global/CustomMention.vue'
+export { default as CustomMention } from '~/components/comark/inline/CustomMention.vue'
 
 export const NuxtLink = defineComponent({
   name: 'NuxtLink',

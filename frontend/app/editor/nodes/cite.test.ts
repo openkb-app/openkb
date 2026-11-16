@@ -5,7 +5,8 @@ import type { JSONContent } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
 import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
-import { OkbCite } from './cite'
+import { comarkComponentDeclarations } from '#shared/utils/comark-components'
+import { createChipNode } from './component-node'
 import { parseMarkdownToDoc, parseMarkdownToJson, serializeDocToMarkdown } from '~/comark/markdown-engine'
 
 /** The node one citation parses to, from the whole editor engine, with the schema's defaults filled in. */
@@ -42,6 +43,8 @@ describe('a citation in markdown', () => {
     expect(await serializeDocToMarkdown(page)).toBe('A :citation{nid="42"}')
   })
 })
+
+const OkbCite = createChipNode(comarkComponentDeclarations.citation!)
 
 describe('pasting a rendered citation', () => {
   it('keeps its target', () => {

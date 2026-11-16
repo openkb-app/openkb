@@ -6,13 +6,7 @@ import type { Schema } from '@tiptap/pm/model'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
 import { BlockId } from '../../app/editor/nodes/block-id'
-import { Callout } from '../../app/editor/nodes/callout'
-import { OkbCite } from '../../app/editor/nodes/cite'
-import { OkbDocLink } from '../../app/editor/nodes/doc-link'
-import { OkbImage } from '../../app/editor/nodes/image'
-import { OkbAttachment, OkbAttachmentInline } from '../../app/editor/nodes/attachment'
-import { OkbEmbed } from '../../app/editor/nodes/embed'
-import { Infobox } from '../../app/editor/nodes/infobox'
+import { buildComarkComponentNodes } from '../../app/editor/nodes/comark-component-nodes'
 import { OkbMention } from '../../app/editor/nodes/mention'
 import { OkbOrderedList } from '../../app/editor/nodes/ordered-list'
 import { OkbCodeBlock } from '../../app/editor/nodes/code-block'
@@ -38,10 +32,9 @@ import { OkbCodeBlock } from '../../app/editor/nodes/code-block'
  * are disabled the same way, for our own (the client's NodeView; a digit
  * list only, app/editor/nodes/ordered-list.ts).
  *
- * plus the GFM Table family + TaskList/TaskItem and our own Callout / Infobox
- * nodes — the latter imported from the exact Vue-free modules
- * app/editor/extensions.ts wraps with NodeViews, so there is one schema
- * definition, not a hand-copied duplicate. editor-schema.test.ts is the drift
+ * plus the GFM Table family + TaskList/TaskItem and the comark components'
+ * nodes — built by the same Vue-free call app/editor/extensions.ts wraps with
+ * node views, so there is one schema definition, not a hand-copied duplicate. editor-schema.test.ts is the drift
  * tripwire: it diffs this schema against the live editor's own schema (the
  * UEditor base exported here + buildEditorExtensions()), so any
  * schema-contributing extension added on one side and not the other fails.
@@ -69,18 +62,12 @@ export function buildUEditorBaseExtensions() {
   ]
 }
 
+/** The commit schema's extensions: the UEditor base plus the app's own nodes. */
 export function buildCommitSchemaExtensions() {
   return [
     ...buildUEditorBaseExtensions(),
     BlockId,
-    Callout,
-    OkbCite,
-    OkbDocLink,
-    Infobox,
-    OkbImage,
-    OkbAttachment,
-    OkbAttachmentInline,
-    OkbEmbed,
+    ...buildComarkComponentNodes().flatMap(([, nodes]) => nodes),
     Table,
     TableRow,
     TableHeader,

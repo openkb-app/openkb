@@ -2,8 +2,8 @@
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 
 /**
- * Live-preview NodeView for the editor's image node (app/editor/nodes/
- * image.ts). Page-file images (`file`, ADR 0020) carry only the file UUID in
+ * The image's editor part (`CustomImage.editor.ts`): the node view of the
+ * image node (app/editor/nodes/image.ts). Page-file images (`file`, ADR 0020) carry only the file UUID in
  * the document; the display URL is resolved through /api/files/resolve and
  * kept local — it must never enter the collab doc or the stored markdown.
  * Plain-URL images (`![alt](src)`) render their src directly.
@@ -25,14 +25,15 @@ const { file, state: fileState } = usePageFile(fileUuid)
 const src = computed(() => (props.node.attrs.src as string | null) ?? file.value?.url)
 const alt = computed(() => props.node.attrs.alt as string | null)
 
-const wrapper = ref<InstanceType<typeof NodeViewWrapper>>()
 const frame = ref<HTMLElement>()
 /** The width while a handle is dragged, before it is committed. */
 const dragWidth = ref<number | null>(null)
 const width = computed(() => dragWidth.value ?? (props.node.attrs.width as number | null))
 
+/** Resizes the image by dragging the handle on `side`; the width in percent of the column is stored when the drag ends. */
 function startResize(event: PointerEvent, side: -1 | 1): void {
-  const column = (wrapper.value?.$el as HTMLElement | undefined)?.clientWidth
+  const pos = props.getPos()
+  const column = pos === undefined ? undefined : (props.editor.view.nodeDOM(pos) as HTMLElement | null)?.clientWidth
   const start = frame.value?.offsetWidth
   if (!column || !start) return
   const handle = event.currentTarget as HTMLElement
@@ -61,7 +62,6 @@ function startResize(event: PointerEvent, side: -1 | 1): void {
 
 <template>
   <NodeViewWrapper
-    ref="wrapper"
     :id="(props.node.attrs.id as string | null) || undefined"
     data-type="image"
   >

@@ -1,5 +1,6 @@
 import * as Y from 'yjs'
 import type { JSONContent } from '@tiptap/core'
+import { listBlockComponentDeclarations } from '#shared/utils/comark-components'
 
 /**
  * The page seen as the blocks it is made of — one model, both sides.
@@ -563,7 +564,7 @@ function sameValue(a: unknown, b: unknown): boolean {
  *
  *   - `paragraph` / `heading` — a trailing `{#id}` (`Title {#b-1}` →
  *     `["h2",{"id":"b-1"}]`).
- *   - `callout` / `infobox` / `image` / `attachment` / `embed` — component
+ *   - the block components (`#shared/utils/comark-components`) — component
  *     fences, which carry the id via the `#id` fence-prop shorthand, except a
  *     file-less image, which has no fence and trails `{#id}` after its
  *     `![…](…)` line.
@@ -607,11 +608,7 @@ export const WRAPPED_BLOCK_TYPES = new Set([
 export const ID_BEARING_TYPES = new Set([
   ...TEXT_BLOCK_TYPES,
   ...WRAPPED_BLOCK_TYPES,
-  'callout',
-  'infobox',
-  'image',
-  'attachment',
-  'embed',
+  ...listBlockComponentDeclarations().map(declaration => declaration.tag),
 ])
 
 /**

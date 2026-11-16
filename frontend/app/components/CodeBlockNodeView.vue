@@ -115,7 +115,7 @@ function markLine(error: FenceError | null): void {
 </script>
 
 <template>
-  <CustomFence
+  <FenceComponentFrame
     v-if="fence"
     :id="props.HTMLAttributes.id"
     v-model:open="open"
@@ -148,7 +148,7 @@ function markLine(error: FenceError | null): void {
         :class="`language-${value}`"
       /></pre>
     </template>
-  </CustomFence>
+  </FenceComponentFrame>
   <NodeViewWrapper
     v-else
     as="pre"

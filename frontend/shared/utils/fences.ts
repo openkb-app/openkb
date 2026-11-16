@@ -63,7 +63,7 @@ export interface FenceProps {
   preview?: boolean
 }
 
-/** The tag a fence component's node renders under (`CustomFence`). */
+/** The tag a fence component's node renders under (`FenceComponentFrame`). */
 export const FENCE_TAG = 'fence'
 
 /** Every fence component, by language. */

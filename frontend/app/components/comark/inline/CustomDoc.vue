@@ -7,13 +7,15 @@
  * copy of the rendered link keeps its target.
  */
 defineProps<{
+  /** @render */
   href: string
   nid: number
   block?: string
+  /** @render */
   title?: string
 }>()
 </script>
 
 <template>
-  <NuxtLink :to="href" class="okb-doc-link" :data-nid="nid" :data-block="block" :title="title"><slot /></NuxtLink>
+  <NuxtLink :to="href" class="okb-doc-link" data-type="doc-link" :data-nid="nid" :data-block="block" :title="title"><slot /></NuxtLink>
 </template>

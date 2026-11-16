@@ -505,15 +505,22 @@ body {
   }
 }
 
-/* A whole block, selected — what a click in the gutter beside it sets, and
-   what clicking the ⠿ sets on its way to opening the menu. Copy, cut and
-   paste act on this selection, so it has to be visible; a component block (a
-   callout, a table) has no other way to read as selected. */
-.inplace-editor .ProseMirror-selectednode {
+/* A whole block, selected (gutter click, or the ⠿ on its way to the menu).
+   Copy, cut and paste act on it, so it has to be visible. On the generic node
+   view (ComponentNodeView.vue) the component inside draws it, over its own
+   background. */
+.inplace-editor .ProseMirror-selectednode:not(.okb-component-node-view),
+.inplace-editor .ProseMirror-selectednode.okb-component-node-view > :first-child {
   outline: 2px solid var(--ui-primary);
   outline-offset: 3px;
   border-radius: 1px;
   background: color-mix(in oklab, var(--ui-primary) 8%, transparent);
+}
+
+/* On the generic node view the component's box, border included, places the
+   block's margin controls and review pills, as a block's own box does. */
+.inplace-editor .ProseMirror > .okb-component-node-view > :first-child {
+  position: relative;
 }
 
 /* Agent tile — the surface an agent-authored answer sits on (the search page's
@@ -1036,6 +1043,15 @@ body {
 .page-body [id^='b-']:target {
   --okb-board: transparent;
   --okb-board-wash: color-mix(in oklab, var(--okb-board) 22%, transparent);
+}
+/* The generic node view (ComponentNodeView.vue) is a bare wrapper: the
+   component inside draws the board, so the wash lands over the component's
+   own background and the edge follows its corners. */
+.inplace-editor .ProseMirror > :not(.ProseMirror-selectednode, .okb-margin-gap, .okb-component-node-view),
+.inplace-editor .ProseMirror > .okb-component-node-view:not(.ProseMirror-selectednode) > :first-child,
+.okb-block-board,
+.okb-page-title:target,
+.page-body [id^='b-']:target {
   outline: 2px dashed var(--okb-board);
   outline-offset: 0.6rem;
   background-image: linear-gradient(var(--okb-board-wash), var(--okb-board-wash));
@@ -1359,7 +1375,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Code fences: the read view's `CustomCodeBlock` and the editor's code block.
+/* Code fences: the read view's `HighlightedCodeBlock` and the editor's code block.
    Token colours are the Shiki theme variables each token carries
    (shared/utils/code-highlight.ts), one pair per colour mode. */
 .okb-code-token {
@@ -1403,7 +1419,7 @@ body {
   background: var(--ui-bg-accented);
 }
 
-/* Fence components: `CustomFence`. Each fence styles its own drawing.
+/* Fence components: `FenceComponentFrame`. Each fence styles its own drawing.
    More space than a paragraph's, so a drawing stands apart from the text. */
 .okb-fence {
   margin: 2rem 0;

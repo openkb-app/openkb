@@ -4,8 +4,11 @@ import { Editor } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
 import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
-import { Callout } from './callout'
-import { Infobox } from './infobox'
+import { comarkComponentDeclarations } from '#shared/utils/comark-components'
+import { createComponentNode } from './component-node'
+
+const Callout = createComponentNode(comarkComponentDeclarations.callout!)
+const Infobox = createComponentNode(comarkComponentDeclarations.infobox!)
 
 function parse(html: string) {
   const editor = new Editor({
