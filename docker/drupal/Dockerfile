@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # openkb-drupal: FrankenPHP serving Drupal on :8080, plus drush and composer.
 
-FROM dunglas/frankenphp:1.13.5-php8.3-alpine@sha256:8a84f4e33f207cc63a1b829a828bfdc1f0d665d503597d038e56118ffa4e364f AS base
+FROM dunglas/frankenphp:1.13.5-php8.3-alpine@sha256:c7362b955772ba5e02a0caee2afba29d42b494f0db4fc626dcdce7e08985ed8e AS base
 
 RUN install-php-extensions apcu gd intl opcache pdo_mysql zip \
  && apk --no-cache upgrade \
