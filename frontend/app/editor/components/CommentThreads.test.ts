@@ -110,6 +110,7 @@ const THREAD: CommentThreadView = {
   assignee: null,
   assignedTo: [],
   assignedBy: null,
+  handling: null,
   openedAt: AT,
   lastAt: AT,
   blockText: 'The quick brown fox',
@@ -329,6 +330,17 @@ describe('a message, read', () => {
     const { root } = mount(others, [moved], null, { uid: 3, name: 'Bob' })
 
     expect(body(root).textContent).toBe('over to @Ada via Claude now')
+  })
+
+  it('names an agent\'s message by its owner, except to the owner', () => {
+    const answered: CommentThreadView = {
+      ...THREAD,
+      messages: [{ id: 'm-a', uid: 7, name: 'Ada', via: 'Claude', at: AT, text: 'done' }],
+    }
+    const author = (root: HTMLElement) => body(root).previousElementSibling!.querySelector('span')!.textContent
+
+    expect(author(mount(CANDIDATES, [answered], null, { uid: 7, name: 'Ada' }).root)).toBe('Claude')
+    expect(author(mount(CANDIDATES, [answered], null, { uid: 3, name: 'Bob' }).root)).toBe('Ada via Claude')
   })
 
   it('sets the mention off as one, in the agent colour', () => {

@@ -1,6 +1,7 @@
 import type { CommentAssignee, CommentThread } from '#shared/block-comments'
 import type { PresencePeer } from '#shared/utils/presence'
 import { actorLabel, ownedLabel } from '#shared/utils/attribution'
+import { CHAT_AGENT_LABEL } from '#shared/utils/chat-agent'
 
 /**
  * Who a comment thread can be handed to, and which threads are mine.
@@ -72,6 +73,8 @@ export function assigneeCandidates(
     !who.via && own != null && who.uid === own.uid
   for (const peer of peers) {
     if (peer.uid == null || isReader({ uid: peer.uid, name: peer.name, via: peer.via ?? null })) continue
+    // An account starts its own AI chat only.
+    if (peer.via === CHAT_AGENT_LABEL) continue
     const candidate: AssigneeCandidate = {
       uid: peer.uid,
       name: peer.name,

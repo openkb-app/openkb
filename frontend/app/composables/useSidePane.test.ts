@@ -106,18 +106,16 @@ describe('the side pane', () => {
   })
 
   /**
-   * The one request the chat does not cover: editing needs the text and what it
-   * owes side by side, so the review surface keeps the pane until the editor
-   * closes, with the chat waiting behind it.
+   * Editing shows Review and the chat as two sections of one pane, so a chat
+   * open when the editor opens stays open below Review.
    */
-  it('parks an open chat while a page asks for the review surface', () => {
+  it('keeps an open chat open beside the review surface', () => {
     const pane = useSidePane()
     pane.request('outline')
     pane.openChat()
 
     pane.request('comments')
     expect(pane.content.value).toBe('comments')
-    // Parked, not closed: nothing has ended the conversation.
     expect(pane.chatOpen.value).toBe(true)
 
     pane.request('outline')
@@ -144,19 +142,28 @@ describe('the side pane', () => {
     expect(pane.content.value).toBe('outline')
   })
 
-  it('gives the pane to a chat asked for again while editing, and takes it back', () => {
+  it('toggles the chat section open and shut while editing', () => {
     const pane = useSidePane()
-    pane.request('outline')
-    pane.openChat()
     pane.request('comments')
 
     pane.toggleChat()
-    expect(pane.content.value).toBe('chat')
-
-    // What the Review button does — again without ending the conversation.
-    pane.parkChat()
-    expect(pane.content.value).toBe('comments')
     expect(pane.chatOpen.value).toBe(true)
+    pane.toggleChat()
+    expect(pane.chatOpen.value).toBe(false)
+  })
+
+  it('enlarges the chat until minimized, and closing it minimizes it too', () => {
+    const pane = useSidePane()
+    pane.openChat()
+
+    pane.toggleChatEnlarged()
+    expect(pane.chatEnlarged.value).toBe(true)
+    pane.toggleChatEnlarged()
+    expect(pane.chatEnlarged.value).toBe(false)
+
+    pane.toggleChatEnlarged()
+    pane.closeChat()
+    expect(pane.chatEnlarged.value).toBe(false)
   })
 
   it('toggles the chat shut, and brings a put-away pane back with it', () => {

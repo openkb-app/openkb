@@ -27,6 +27,7 @@ function thread(threadId: string, over: Partial<CommentThread> = {}): CommentThr
     assignee: null,
     assignedTo: [],
     assignedBy: null,
+    handling: null,
     openedAt: 1,
     lastAt: 1,
     ...over,
@@ -60,6 +61,16 @@ describe('who can be assigned', () => {
 
     expect(candidates.map(candidate => [candidate.name, candidate.via]))
       .toEqual([['Bob', null], ['Cleo', null], ['Ada', 'Claude'], ['Ada', 'Codex']])
+  })
+
+  it('offers no AI chat in the page but the reader\'s own open one', () => {
+    const candidates = assigneeCandidates(
+      [peer(1, 'Bob', 9, 'AI chat'), peer(2, 'Ada', 7, 'AI chat'), peer(3, 'Bob', 9, 'Claude')],
+      [],
+      { uid: 7, name: 'Ada', agents: [{ label: 'AI chat' }] },
+    )
+    expect(candidates.map(candidate => [candidate.name, candidate.via]))
+      .toEqual([['Bob', 'Claude'], ['Ada', 'AI chat']])
   })
 })
 

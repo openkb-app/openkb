@@ -16,6 +16,7 @@ import {
 } from '../comment-assignee'
 import EditorMentionTextarea from './MentionTextarea.vue'
 import type { CommentAssignee } from '#shared/block-comments'
+import { handlingLive } from '#shared/utils/chat-agent'
 import { ownedLabel } from '#shared/utils/attribution'
 
 /**
@@ -46,6 +47,8 @@ const props = defineProps<{
   candidates: AssigneeCandidate[]
   /** This session's own identity — what "assigned to you" is measured against. */
   me: CommentAssignee | null
+  /** Who a new thread goes to when it mentions nobody: the reader's open AI chat. */
+  defaultAssignee?: CommentAssignee | null
 }>()
 
 const emit = defineEmits<{
@@ -91,6 +94,8 @@ const open = computed(() => shown.value.filter(t => !t.resolved))
 const resolved = computed(() => shown.value.filter(t => t.resolved))
 
 const draftText = ref('')
+/** Whether a draft that mentions nobody goes to {@link defaultAssignee}. */
+const toDefault = ref(true)
 /** The thread the reply box is open on — one at a time, like a focused field. */
 const replyingTo = ref<string | null>(null)
 const replyText = ref('')
@@ -106,6 +111,7 @@ const replyBox = computed<HTMLElement | null>(() =>
 // how a note ends up on the wrong passage.
 watch(() => props.draft, () => {
   draftText.value = ''
+  toDefault.value = true
   mentionAt.value = null
 })
 
@@ -214,7 +220,7 @@ function submitOn(event: KeyboardEvent, submit: () => void): void {
 
 function post() {
   if (!draftText.value.trim()) return
-  const to = mentioned.value
+  const to = mentioned.value ?? (toDefault.value ? props.defaultAssignee ?? null : null)
   emit('post', {
     text: draftText.value,
     assignee: to ? { uid: to.uid, name: to.name, via: to.via ?? null } : null,
@@ -281,6 +287,11 @@ function myAgentLine(thread: CommentThreadView): string | null {
   return readerStanding(thread.assignee, props.me) === 'my-agent'
     ? `Assigned to your agent ${thread.assignee!.via}`
     : null
+}
+
+/** Whether a chat tab is working the thread now; a release re-renders the list. */
+function beingHandled(thread: CommentThreadView): boolean {
+  return handlingLive(thread.handling, Date.now())
 }
 
 /** The thread's assignment as a line of its log. */
@@ -370,6 +381,13 @@ function when(at: number): string {
         <span v-if="mentioned" class="text-xs text-muted" data-testid="comment-assign-note">
           Assigns this to {{ ownedLabel(mentioned, me?.uid) }}
         </span>
+        <UCheckbox
+          v-else-if="defaultAssignee"
+          v-model="toDefault"
+          size="sm"
+          data-testid="comment-assign-chat"
+          :label="`Let ${ownedLabel(defaultAssignee, me?.uid)} handle this`"
+        />
         <UButton class="ml-auto" color="neutral" variant="ghost" size="sm" @click="emit('discard')">
           Cancel
         </UButton>
@@ -451,6 +469,15 @@ function when(at: number): string {
             class="text-xs font-medium text-(--okb-agent-text)"
             :data-testid="`comment-assigned-to-my-agent-${thread.threadId}`"
           >{{ myAgentLine(thread) }}</span>
+          <span
+            v-if="beingHandled(thread)"
+            role="status"
+            class="inline-flex items-center gap-1 text-xs font-medium text-(--okb-agent-text)"
+            :data-testid="`comment-handling-${thread.threadId}`"
+          >
+            <UIcon name="i-lucide-loader-circle" class="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            {{ ownedLabel(thread.assignee!, me?.uid) }} is working on this
+          </span>
           <template v-if="isMine(thread)">
             <span
               class="text-xs font-medium text-primary"

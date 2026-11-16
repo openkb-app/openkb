@@ -45,6 +45,13 @@ import * as Y from 'yjs'
  * of text, latest wins, `null` unassigns. It rides the same opaque `data` map,
  * so Drupal, revisions and the checkpoint mirror need nothing for it.
  *
+ * ## Handling by the AI chat
+ *
+ * A thread assigned to a reader's AI chat is worked by one open chat at a
+ * time. The chat takes it with a message carrying `handling` (the tab), and
+ * gives it back by deleting that message; latest take wins. The collab server
+ * refuses a take while another tab's take is live (`stampCommentAuthors`).
+ *
  * ## Reach
  *
  * Threads reach the editors of a document and nobody else. They ride the
@@ -123,6 +130,8 @@ export interface CommentMessage {
   resolved?: boolean
   /** A state-bearing message: whose thread it is from here on, `null` for nobody's. */
   assignee?: CommentAssignee | null
+  /** A state-bearing message: the chat tab working the thread, until the take is deleted. */
+  handling?: { tab: string }
 }
 
 /** One message with the id it is stored under. */
@@ -148,7 +157,9 @@ export interface CommentThread {
    */
   assignedTo: CommentAssignee[]
   /** Who made that assignment, and when — what the thread's log line names. */
-  assignedBy: { name: string | null, via: string | null, at: number } | null
+  assignedBy: { uid: number | null, name: string | null, via: string | null, at: number } | null
+  /** The chat tab working the thread and since when, per the latest take; null for none. */
+  handling: { tab: string, at: number } | null
   /** When the thread was opened — its order among the block's threads. */
   openedAt: number
   /** The latest activity of any kind, including resolving. */
@@ -160,10 +171,14 @@ export function messageKey(blockId: string, threadId: string, msgId: string): st
   return `${blockId}${BLOCK_SEPARATOR}${threadId}:${msgId}`
 }
 
+/** What a block, thread or message id may be: Drupal's `InlineComment::ID_PATTERN`. */
+const COMMENT_ID = /^[A-Za-z0-9_-]{1,64}$/
+
 /**
  * The block, thread and message a key names, or null when the key is not a
- * message. A malformed key is not one either — ids are minted by
- * {@link mintCommentId} and carry no colon.
+ * message. A key with an id outside {@link COMMENT_ID} is not one either:
+ * - Drupal refuses to store it;
+ * - the ids reach the AI chat's system prompt, so they must not carry text.
  */
 export function parseMessageKey(
   key: string,
@@ -173,6 +188,7 @@ export function parseMessageKey(
   const blockId = key.slice(0, at)
   const [threadId, msgId, ...rest] = key.slice(at + BLOCK_SEPARATOR.length).split(':')
   if (!threadId || !msgId || rest.length > 0) return null
+  if (![blockId, threadId, msgId].every(id => COMMENT_ID.test(id))) return null
   return { blockId, threadId, msgId }
 }
 
@@ -201,7 +217,7 @@ export function recordCommentMessage(
 }
 
 /** Messages in the order they were written; the key breaks a tie in the clock. */
-function chronological(a: StoredMessage, b: StoredMessage): number {
+export function chronological(a: StoredMessage, b: StoredMessage): number {
   return a.at - b.at || (a.id < b.id ? -1 : 1)
 }
 
@@ -232,6 +248,7 @@ export function readThreads(doc: Y.Doc): CommentThread[] {
     const stated = ordered.filter(m => typeof m.resolved === 'boolean')
     const assignments = ordered.filter(m => m.assignee !== undefined)
     const assigned = assignments.at(-1) ?? null
+    const took = ordered.filter(m => m.handling !== undefined).at(-1)
     threads.push({
       blockId,
       threadId,
@@ -241,8 +258,9 @@ export function readThreads(doc: Y.Doc): CommentThread[] {
       assignee: assigned?.assignee ?? null,
       assignedTo: assignments.flatMap(m => m.assignee ?? []),
       assignedBy: assigned
-        ? { name: assigned.name ?? null, via: assigned.via ?? null, at: assigned.at }
+        ? { uid: assigned.uid ?? null, name: assigned.name ?? null, via: assigned.via ?? null, at: assigned.at }
         : null,
+      handling: took?.handling ? { tab: took.handling.tab, at: took.at } : null,
       openedAt: ordered[0]!.at,
       lastAt: ordered[ordered.length - 1]!.at,
     })

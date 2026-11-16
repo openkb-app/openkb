@@ -19,6 +19,7 @@ const props = defineProps<{
   threadsShownFor: ShownThreads | null
   assigneeCandidates: AssigneeCandidate[]
   me: CommentAssignee | null
+  defaultAssignee?: CommentAssignee | null
   unidentified: number
 }>()
 
@@ -73,6 +74,7 @@ function jumpToBlock(blockId: string) {
         :threads-shown-for="threadsShownFor"
         :assignee-candidates="assigneeCandidates"
         :me="me"
+        :default-assignee="defaultAssignee"
         :unidentified="unidentified"
         @jump="jump"
         @approve="emit('approve', $event)"

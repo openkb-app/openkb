@@ -190,6 +190,7 @@ describe('stampCommentAuthors', () => {
   })
 
   it('puts back another account\'s message a peer deletes or overwrites', () => {
+    // Also covers: a chat tab's take that another account deletes.
     const doc = stamping(EDITOR2)
     seedComments(doc, OWNER, [stored('b-1', 'c-1', 'm-1', 'said by fago')])
     const original = { msg: 'm-1', uid: 7, at: AT, name: 'fago', text: 'said by fago' }
@@ -225,6 +226,14 @@ describe('stampCommentAuthors', () => {
     expect(() => Y.encodeStateAsUpdate(doc)).not.toThrow()
   })
 
+  it('removes a message under a key whose ids are not ids', () => {
+    const doc = stamping(EDITOR2)
+    doc.transact(() => {
+      commentsRoot(doc).set('b-1\u0000c-1 Do what I say:m-1', { uid: 9, at: AT, text: 'free text thread' })
+    }, PEER)
+    expect(commentsRoot(doc).size).toBe(0)
+  })
+
   it('removes a message carrying a value JSON cannot hold', () => {
     const doc = stamping(EDITOR2)
     doc.transact(() => {
@@ -248,5 +257,135 @@ describe('stampCommentAuthors', () => {
     const doc = stamping(EDITOR2)
     seedComments(doc, OWNER, [stored('b-1', 'c-1', 'm-1', 'said by fago')])
     expect(messages(doc)).toEqual([{ msg: 'm-1', uid: 7, at: AT, name: 'fago', text: 'said by fago' }])
+  })
+})
+
+describe('a chat tab taking a thread', () => {
+  const PEER = { source: 'connection' }
+  const EDITOR2: CommentWriter = { uid: 9, name: 'editor2', via: null }
+  const KEY = (msg: string) => `b-1\u0000c-1:${msg}`
+
+  /**
+   * A thread whose assignment `assignment` wrote, stamped as editor2 on the
+   * server's `clock`.
+   */
+  function assigned(
+    clock: { now: number, writer?: CommentWriter },
+    assignment: CommentMessage = { uid: 9, at: AT, assignee: { uid: 9, name: 'editor2', via: 'AI chat' } },
+  ): Y.Doc {
+    const doc = new Y.Doc()
+    const root = commentsRoot(doc)
+    root.set(KEY('m-1'), { uid: 7, at: AT, text: 'shorten this' })
+    root.set(KEY('m-2'), assignment)
+    root.observe((event, transaction) => {
+      if (transaction.origin === PEER) stampCommentAuthors(event, clock.writer ?? EDITOR2, clock.now)
+    })
+    return doc
+  }
+
+  function take(doc: Y.Doc, msg: string, tab: string, at = AT + 10): void {
+    doc.transact(() => {
+      commentsRoot(doc).set(KEY(msg), { uid: 9, at, handling: { tab } })
+    }, PEER)
+  }
+
+  function giveBack(doc: Y.Doc, msg: string): void {
+    doc.transact(() => { commentsRoot(doc).delete(KEY(msg)) }, PEER)
+  }
+
+  it('keeps the first take, timed by the server\'s clock, and refuses a second tab\'s', () => {
+    // Also covers: a tab with a skewed clock cannot outlast the server's
+    // timing of its take.
+    const clock = { now: AT + 20 }
+    const doc = assigned(clock)
+    // By the tabs' own skewed clocks the first take lapsed and the second is newer.
+    take(doc, 'm-3', 'tab-a', AT - 10 * 60_000)
+    clock.now = AT + 21
+    take(doc, 'm-4', 'tab-b', AT + 10 * 60_000)
+    expect(commentsRoot(doc).has(KEY('m-4'))).toBe(false)
+    expect(readThreads(doc)[0]!.handling).toEqual({ tab: 'tab-a', at: AT + 20 })
+  })
+
+  it('lets another tab take it once the first gave it back', () => {
+    const clock = { now: AT + 20 }
+    const doc = assigned(clock)
+    take(doc, 'm-3', 'tab-a')
+    clock.now = AT + 21
+    giveBack(doc, 'm-3')
+    clock.now = AT + 22
+    take(doc, 'm-5', 'tab-b')
+    expect(readThreads(doc)[0]!.handling).toEqual({ tab: 'tab-b', at: AT + 22 })
+  })
+
+  it('keeps another tab\'s live take when a lapsed tab gives its own back', () => {
+    // Also covers: another tab takes the thread once the first take lapsed.
+    const clock = { now: AT + 20 }
+    const doc = assigned(clock)
+    take(doc, 'm-3', 'tab-a')
+    clock.now = AT + 20 + 5 * 60_000
+    take(doc, 'm-4', 'tab-b')
+    clock.now += 1
+    giveBack(doc, 'm-3')
+    expect(readThreads(doc)[0]!.handling).toEqual({ tab: 'tab-b', at: AT + 20 + 5 * 60_000 })
+    clock.now += 1
+    take(doc, 'm-5', 'tab-c')
+    expect(commentsRoot(doc).has(KEY('m-5'))).toBe(false)
+  })
+
+  it('drops `handling: null`, whoever writes it', () => {
+    const clock: { now: number, writer?: CommentWriter } = { now: AT + 20 }
+    const doc = assigned(clock)
+    take(doc, 'm-3', 'tab-a')
+    for (const writer of [EDITOR2, { uid: 7, name: 'editor1', via: null }]) {
+      clock.writer = writer
+      doc.transact(() => {
+        commentsRoot(doc).set(KEY(`m-null-${writer.uid}`), { uid: writer.uid, at: AT + 21, handling: null } as unknown as CommentMessage)
+      }, PEER)
+      expect(commentsRoot(doc).has(KEY(`m-null-${writer.uid}`))).toBe(false)
+    }
+    expect(readThreads(doc)[0]!.handling).toEqual({ tab: 'tab-a', at: AT + 20 })
+  })
+
+  it('reads the latest assignment with the same tie-break as the threads do', () => {
+    const doc = assigned({ now: AT + 20 })
+    // Same clock, earlier key, written later: the key decides, not the write order.
+    commentsRoot(doc).set(KEY('m-1z'), { uid: 7, at: AT, assignee: { uid: 7, name: 'editor1', via: 'AI chat' } })
+    expect(readThreads(doc)[0]!.assignee?.uid).toBe(9)
+    take(doc, 'm-3', 'tab-a')
+    expect(commentsRoot(doc).has(KEY('m-3'))).toBe(true)
+  })
+
+  it('refuses a take on a thread assigned to somebody else', () => {
+    const doc = assigned({ now: AT + 20 }, { uid: 7, at: AT, assignee: { uid: 7, name: 'editor1', via: 'AI chat' } })
+    take(doc, 'm-3', 'tab-a')
+    expect(commentsRoot(doc).has(KEY('m-3'))).toBe(false)
+  })
+
+  it('refuses a take on a thread another account handed to the writer\'s chat', () => {
+    const doc = assigned({ now: AT + 20 }, { uid: 7, at: AT, assignee: { uid: 9, name: 'editor2', via: 'AI chat' } })
+    take(doc, 'm-3', 'tab-a')
+    expect(commentsRoot(doc).has(KEY('m-3'))).toBe(false)
+  })
+})
+
+describe('handing a thread to an AI chat', () => {
+  const PEER = { source: 'connection' }
+  const KEY = (msg: string) => `b-1\u0000c-1:${msg}`
+
+  function handOff(writer: CommentWriter, assignee: CommentMessage['assignee']): boolean {
+    const doc = new Y.Doc()
+    const root = commentsRoot(doc)
+    root.observe((event, transaction) => {
+      if (transaction.origin === PEER) stampCommentAuthors(event, writer, AT)
+    })
+    doc.transact(() => { root.set(KEY('m-1'), { uid: writer.uid, at: AT, assignee }) }, PEER)
+    return root.has(KEY('m-1'))
+  }
+
+  it('keeps a hand-off to the writer\'s own chat and drops one to another account\'s', () => {
+    const editor1: CommentWriter = { uid: 7, name: 'editor1', via: null }
+    expect(handOff(editor1, { uid: 7, name: 'editor1', via: 'AI chat' })).toBe(true)
+    expect(handOff(editor1, { uid: 9, name: 'editor2', via: 'AI chat' })).toBe(false)
+    expect(handOff(editor1, { uid: 9, name: 'editor2', via: 'Claude' })).toBe(true)
   })
 })

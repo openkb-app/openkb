@@ -30,11 +30,10 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
   const reviewParked = ref(false)
 
   /** Whether the review surface is on screen — one flag over two frames. From
-   *  `lg` that is the pane showing what this page asked for, so asking for it
-   *  also parks a chat the reader opened over it. */
+   *  `lg` that is the pane's Review section, open. */
   const reviewOpen = computed({
     get: () => (pane.wide.value
-      ? pane.content.value === 'comments' && !pane.hidden.value
+      ? pane.content.value === 'comments' && !pane.hidden.value && !pane.reviewCollapsed.value
       : drawerOpen.value),
     set: (value) => {
       if (!pane.wide.value) {
@@ -43,14 +42,18 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
       }
       reviewParked.value = !value
       if (!value) return
-      pane.parkChat()
+      pane.reviewCollapsed.value = false
       pane.show()
     },
   })
 
   // Closing Review is this edit session's decision, so leaving edit forgets it:
   // the next one opens on the review surface again.
-  watch(mode, (now) => { if (now !== 'edit') reviewParked.value = false })
+  watch(mode, (now) => {
+    if (now === 'edit') return
+    reviewParked.value = false
+    pane.reviewCollapsed.value = false
+  })
 
   /** Block id → the steps it owes: Drupal's list, narrowed by the sidecar. */
   const sidecarBlocks = computed(() =>

@@ -17,6 +17,7 @@ import { CommentMarks, refreshCommentMarks, type CommentDraft, type ShownThreads
 import { AgentMarks, refreshAgentMarks } from '~/editor/agent-marks'
 import {
   commentsRoot,
+  messageKey,
   mintCommentId,
   openThreads,
   readThreads,
@@ -53,6 +54,14 @@ export interface Page {
   body: string
   changed: number
 }
+
+/**
+ * How long a take waits after the server's acknowledgement for a refusal. The
+ * refusal trails it by the server's deferred broadcast and REMOTE_BATCH_MS.
+ */
+const TAKE_SETTLE_MS = 1000
+/** How long a take waits for the server to acknowledge it before giving up. */
+const TAKE_SYNC_TIMEOUT_MS = 10_000
 
 /**
  * The collab editor session backing the read page's in-place edit mode:
@@ -680,14 +689,16 @@ export async function useEditorSession(
   function writeMessage(
     blockId: string,
     threadId: string,
-    said: Pick<CommentMessage, 'text' | 'anchor' | 'resolved' | 'assignee'>,
-  ): void {
-    recordCommentMessage(ydoc, blockId, threadId, mintCommentId('m'), {
+    said: Pick<CommentMessage, 'text' | 'anchor' | 'resolved' | 'assignee' | 'handling'>,
+  ): string {
+    const msgId = mintCommentId('m')
+    recordCommentMessage(ydoc, blockId, threadId, msgId, {
       uid: reviewer.value.uid,
       name: collabUser.name,
       at: Date.now(),
       ...said,
     })
+    return msgId
   }
 
   /**
@@ -731,6 +742,53 @@ export async function useEditorSession(
     assignee: CommentAssignee | null,
   ): void {
     writeMessage(blockId, threadId, { assignee })
+  }
+
+  /**
+   * Takes a thread for this tab's AI chat; returns the take's message id, or
+   * null when the take did not hold. The collab server refuses a take while
+   * another tab holds the thread; the refusal follows its acknowledgement of
+   * the write within a moment.
+   */
+  async function takeForChat(blockId: string, threadId: string, tab: string): Promise<string | null> {
+    const live = provider.value
+    if (!live || liveStatus.value !== 'live') return null
+    const msgId = writeMessage(blockId, threadId, { handling: { tab } })
+    const synced = await new Promise<boolean>((resolve) => {
+      if (!live.hasUnsyncedChanges) return resolve(true)
+      const done = (ok: boolean) => {
+        clearTimeout(timer)
+        live.off('unsyncedChanges', settled)
+        resolve(ok)
+      }
+      const settled = ({ number }: { number: number }) => {
+        if (number === 0) done(true)
+      }
+      const timer = setTimeout(() => done(false), TAKE_SYNC_TIMEOUT_MS)
+      live.on('unsyncedChanges', settled)
+    })
+    if (!synced) {
+      // The take may still land later; withdraw it so it holds nothing.
+      giveBackFromChat(blockId, threadId, msgId)
+      return null
+    }
+    await new Promise(resolve => setTimeout(resolve, TAKE_SETTLE_MS))
+    return commentsRoot(ydoc).has(messageKey(blockId, threadId, msgId)) ? msgId : null
+  }
+
+  /**
+   * Gives back a thread the AI chat took, whether or not it was answered, by
+   * deleting this tab's own take — another tab's take stays live.
+   */
+  function giveBackFromChat(blockId: string, threadId: string, msgId: string): void {
+    ydoc.transact(() => {
+      commentsRoot(ydoc).delete(messageKey(blockId, threadId, msgId))
+    })
+  }
+
+  /** Hands a thread the AI chat left unanswered back to the reader, saying so in it. */
+  function handBackFromChat(blockId: string, threadId: string, text: string): void {
+    writeMessage(blockId, threadId, { text, assignee: { uid: reviewer.value.uid, name: collabUser.name } })
   }
 
   /**
@@ -1355,5 +1413,8 @@ export async function useEditorSession(
     replyToComment,
     setCommentResolved,
     setCommentAssignee,
+    takeForChat,
+    giveBackFromChat,
+    handBackFromChat,
   }
 }

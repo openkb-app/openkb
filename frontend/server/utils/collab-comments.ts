@@ -1,7 +1,9 @@
 import * as Y from 'yjs'
 import {
+  chronological,
   clearComments,
   commentsRoot,
+  parseMessageKey,
   readMessages,
   readThreads,
   recordOf,
@@ -10,6 +12,7 @@ import {
   type CommentThread,
   type InlineCommentRecord,
 } from '#shared/block-comments'
+import { CHAT_AGENT_LABEL, handlingLive } from '#shared/utils/chat-agent'
 
 /**
  * The seam between a session's live conversations and Drupal's (ADR 0006).
@@ -74,12 +77,23 @@ function isMessage(value: unknown): value is CommentMessage {
  * authenticated. For every key the write touched:
  * - another account's message it deleted or overwrote is put back, with or
  *   without a timestamp;
- * - a value that is not a plain JSON message is removed;
+ * - a value that is not a plain JSON message, or under a key that is not a
+ *   message's ({@link parseMessageKey}), is removed;
  * - a message naming another account, or with no writer to file it under, is
  *   removed — a peer speaks for itself only;
- * - otherwise the message gets the writer's uid, name and via.
+ * - a hand-off to another account's AI chat is removed — an account starts
+ *   its own chat only;
+ * - a take on a thread ({@link refusesTake}) that is not the writer's to take
+ *   is removed, and so is `handling: null` — a tab gives a take back by
+ *   deleting its own;
+ * - otherwise the message gets the writer's uid, name and via, and a take this
+ *   server's clock.
  */
-export function stampCommentAuthors(event: Y.YMapEvent<unknown>, writer: CommentWriter | null): void {
+export function stampCommentAuthors(
+  event: Y.YMapEvent<unknown>,
+  writer: CommentWriter | null,
+  now: number = Date.now(),
+): void {
   const root = event.target
   const stamped = new Map<string, CommentMessage | null>()
   for (const [key, change] of event.changes.keys) {
@@ -90,13 +104,22 @@ export function stampCommentAuthors(event: Y.YMapEvent<unknown>, writer: Comment
     }
     if (change.action === 'delete') continue
     const value = root.get(key)
-    if (!isMessage(value) || !writer || (value.uid && value.uid !== writer.uid)) {
+    if (
+      !isMessage(value) || !writer || !parseMessageKey(key) || (value.uid && value.uid !== writer.uid)
+      || (value.assignee?.via === CHAT_AGENT_LABEL && value.assignee.uid !== writer.uid)
+      || value.handling === null
+      || (value.handling && refusesTake(root, key, value.handling.tab, writer.uid, now))
+    ) {
       stamped.set(key, null)
       continue
     }
-    if (value.uid === writer.uid && (value.name ?? null) === writer.name && (value.via ?? null) === writer.via) continue
+    const at = value.handling === undefined ? value.at : now
+    if (
+      value.uid === writer.uid && (value.name ?? null) === writer.name
+      && (value.via ?? null) === writer.via && value.at === at
+    ) continue
     const { via: _via, ...message } = value
-    stamped.set(key, { ...message, uid: writer.uid, name: writer.name, ...(writer.via ? { via: writer.via } : {}) })
+    stamped.set(key, { ...message, at, uid: writer.uid, name: writer.name, ...(writer.via ? { via: writer.via } : {}) })
   }
   if (stamped.size === 0) return
   root.doc!.transact(() => {
@@ -105,6 +128,32 @@ export function stampCommentAuthors(event: Y.YMapEvent<unknown>, writer: Comment
       else root.delete(key)
     }
   })
+}
+
+/**
+ * Whether a chat tab's take on a thread is refused: the thread is not assigned
+ * to the writer's account by that account, or another tab holds a live take
+ * on it. This server applies writes one at a time, so of two tabs taking at
+ * once only the first keeps its take.
+ */
+export function refusesTake(
+  root: Y.Map<unknown>,
+  key: string,
+  tab: string,
+  uid: number,
+  now: number,
+): boolean {
+  const at = parseMessageKey(key)
+  if (!at) return true
+  const prefix = key.slice(0, key.length - at.msgId.length)
+  const others = [...root.entries()]
+    .filter(([other, value]) => other !== key && other.startsWith(prefix) && isMessage(value))
+    .map(([other, value]) => ({ ...(value as CommentMessage), id: other.slice(prefix.length) }))
+    .sort(chronological)
+  const assigned = others.filter(m => m.assignee !== undefined).at(-1)
+  if (assigned?.assignee?.uid !== uid || assigned.uid !== uid) return true
+  const took = others.filter(m => m.handling !== undefined).at(-1)
+  return !!took?.handling && took.handling.tab !== tab && handlingLive(took, now)
 }
 
 /** The whole live map, as the API names it, oldest first. */

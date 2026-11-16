@@ -21,6 +21,8 @@ import { spaceReviewSteps, spaceSlug, type KbSpaceCeProp } from '#shared/utils/k
 import { enforcedSteps, mayModerate } from '#shared/utils/moderation'
 import { BLOCK_ID_PREFIX, TITLE_REVIEW_KEY, type BlockByline, type ReviewStep } from '#shared/page-blocks'
 import { assigneeCandidates } from '~/editor/comment-assignee'
+import { chatAssignee } from '~/editor/chat-comments'
+import { CHAT_AGENT_LABEL } from '#shared/utils/chat-agent'
 import { readFences, readFencesKey } from '~/editor/fence-renders'
 import { itemName, reviewMarkOf } from '~/editor/review-marks'
 import type { CommentAssignee } from '#shared/block-comments'
@@ -129,6 +131,9 @@ const {
   publishPage,
 } = useKbReviewGate(editSession, moderation)
 
+const { uid: myUid, name: myName } = useCurrentUser()
+const { chatOpen } = useSidePane()
+
 // What the review surface is given, and what it reports back. One block, so
 // the pane's frame and the phone's slideover can never drift apart.
 const reviewSurface = computed(() => ({
@@ -138,6 +143,9 @@ const reviewSurface = computed(() => ({
   threadsShownFor: session.value?.threadsShownFor.value ?? null,
   assigneeCandidates: commentAssignees.value,
   me: session.value?.me.value ?? null,
+  defaultAssignee: chatOpen.value && myUid.value != null
+    ? chatAssignee({ uid: myUid.value, name: myName.value ?? '' })
+    : null,
   unidentified: unidentifiedCount.value,
 }))
 
@@ -256,13 +264,17 @@ const { data: spaceDetail } = useSpaceDetail(
 // thread waits, and the agent is answered it when it next connects. Read only
 // in the editor, where threads are assigned.
 const myAgents = useMyAgents(computed(() => !!session.value))
-const { uid: myUid, name: myName } = useCurrentUser()
 const commentAssignees = computed(() => assigneeCandidates(
   session.value?.presence.value ?? [],
   [...(spaceDetail.value?.managers ?? []), ...(spaceDetail.value?.members ?? [])],
   myUid.value == null
     ? null
-    : { uid: myUid.value, name: myName.value ?? '', agents: myAgents.value },
+    : {
+        uid: myUid.value,
+        name: myName.value ?? '',
+        // The open chat takes the threads handed to it.
+        agents: chatOpen.value ? [...myAgents.value, { label: CHAT_AGENT_LABEL }] : myAgents.value,
+      },
 ))
 
 // --- Read-page block cards -------------------------------------------------
@@ -340,6 +352,8 @@ const cardEnforcedSteps = computed<readonly ReviewStep[] | null>(() => {
 // editing — unless Review was closed, which hands this page's pane back to the
 // outline. Below `lg` there is no pane and the outline follows the page.
 const { wide } = useSidePane()
+
+useChatCommentHandler(session, myUid)
 </script>
 
 <template>

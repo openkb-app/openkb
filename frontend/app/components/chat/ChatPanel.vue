@@ -10,7 +10,14 @@ import { SCOPE_ALL, scopeLabel } from '#shared/utils/chat-scope'
 
 const emit = defineEmits<{ close: [] }>()
 
-const { draft, closeChat, takeChatFocus, wide } = useSidePane()
+const { draft, closeChat, takeChatFocus, wide, chatEnlarged, toggleChatEnlarged } = useSidePane()
+
+/** Escape minimizes an enlarged chat, giving the page back. */
+function onKeydown(ev: KeyboardEvent) {
+  if (ev.key !== 'Escape' || !chatEnlarged.value) return
+  ev.stopPropagation()
+  toggleChatEnlarged()
+}
 
 // `unsent` and `scrollTop` outlive this component, because the pane it renders
 // in remounts with the page: what is half-typed and where the reader had read
@@ -29,22 +36,7 @@ const suggestions = [
   'What changed in this space this week?',
 ]
 
-// The page the reader has open travels with the turn, so the assistant can act
-// on "this page" without being told the path. Only the catch-all page route is
-// such a page; search and space listings have nothing the tools can address.
-const route = useRoute()
-const pagePath = computed(() => (route.name === 'slug' ? route.path : null))
-
-// The space that page lives in travels with it: under the whole-knowledge-base
-// scope it biases retrieval towards what the reader is looking at.
-const { slug: pageSpace } = useActiveSpace()
-
 const { spaces } = useSpaces()
-
-/** The space the next question goes out under, or null for the whole base. */
-function currentScopeName(): string | null {
-  return scope.value === SCOPE_ALL ? null : scopeLabel(scope.value, spaces.value)
-}
 
 // A scope naming a space this reader cannot see is a narrowing that answers
 // nothing, so it widens back out — once a loaded list says it is one.
@@ -53,14 +45,10 @@ watch([scope, spaces], ([picked, seen]) => {
   if (!seen.some(space => space.slug === picked)) scope.value = SCOPE_ALL
 }, { immediate: true })
 
+const sendTurn = useChatAsk()
+
 function send(text: string) {
-  const context = {
-    scope: scope.value,
-    ...(pagePath.value ? { path: pagePath.value } : {}),
-    ...(pageSpace.value ? { space: pageSpace.value } : {}),
-  }
-  askedScopes.value.push(currentScopeName())
-  void chat.sendMessage({ text }, { body: { context } })
+  void sendTurn(text)
 }
 
 function submit() {
@@ -292,9 +280,28 @@ const strayQuestion = computed(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col bg-(--okb-ground)">
+  <!-- Enlarged from `lg`, the panel covers the page's row (`ChromePageBody`);
+       below it the slideover widens instead. -->
+  <div
+    data-test="chat-panel"
+    class="flex min-h-0 flex-1 flex-col bg-(--okb-ground)"
+    :class="{ 'absolute inset-0 z-30 shadow-xl': chatEnlarged && wide }"
+    :data-enlarged="chatEnlarged"
+    @keydown="onKeydown"
+  >
     <ChromeSidePaneBand class="bg-(--ui-bg)">
       <ChatHeader v-model:scope="scope" @clear="clearChat" />
+      <UButton
+        :icon="chatEnlarged ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2'"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        data-test="chat-enlarge"
+        :aria-label="chatEnlarged ? 'Minimize the chat' : 'Enlarge the chat'"
+        :aria-pressed="chatEnlarged"
+        class="shrink-0"
+        @click="toggleChatEnlarged()"
+      />
       <UButton
         icon="i-lucide-x"
         color="neutral"

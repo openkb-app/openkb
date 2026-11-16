@@ -6,10 +6,11 @@
 // actually clickable: the button. The container's dead space and the keyboard
 // hint above it stay transparent to the pointer — otherwise they swallow
 // clicks on whatever page control happens to sit in the bottom-right corner.
-const { content, hidden, toggleChat } = useSidePane()
+const { chatOpen, hidden, toggleChat } = useSidePane()
 
-// The chat is already on screen, and the button's place is over its composer.
-const shown = computed(() => content.value === 'chat' && !hidden.value)
+// The chat is already on screen — the whole pane or the editor's chat section —
+// and the button's place is over its composer.
+const shown = computed(() => chatOpen.value && !hidden.value)
 </script>
 
 <template>

@@ -25,6 +25,8 @@ const props = defineProps<{
   assigneeCandidates: AssigneeCandidate[]
   /** This session's own identity — what "assigned to you" is measured against. */
   me: CommentAssignee | null
+  /** Who a new thread goes to when it mentions nobody. */
+  defaultAssignee?: CommentAssignee | null
   /** How many blocks carry no id — the hold no sign-off can clear. */
   unidentified: number
 }>()
@@ -198,6 +200,7 @@ function approvalOn(row: ReviewQueueRow, step: ReviewStep) {
       :shown-for="threadsShownFor"
       :candidates="assigneeCandidates"
       :me="me"
+      :default-assignee="defaultAssignee"
       @post="emit('post-comment', $event)"
       @discard="emit('discard-comment')"
       @reply="emit('reply-comment', $event)"

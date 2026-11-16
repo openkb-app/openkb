@@ -14,7 +14,7 @@ watchEffect(() => request(props.pane ?? null))
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1">
+  <div class="relative flex min-h-0 flex-1">
     <!-- The panel holds no body padding, so this column carries it. `pb-28`
          clears the chat launcher. -->
     <div
