@@ -22,12 +22,35 @@ const shownName = (uuid: string) => files.resolved.value[uuid]?.name ?? 'file'
 const ownName = (uuid: string) => files.fileNames.value[uuid] ?? files.resolved.value[uuid]?.name ?? ''
 
 const editing = ref<string | null>(null)
+// What is typed but not committed: a re-render on a page-text change keeps it.
+const nameDraft = ref('')
+const descriptionDraft = ref('')
 
-function rename(uuid: string, event: Event): void {
-  const input = event.target as HTMLInputElement
-  files.rename(uuid, input.value)
+/** Follows a stored value (an undo, a peer's edit) into its draft while nothing is typed over it. */
+function followStoredValue(draft: Ref<string>, stored: () => string): void {
+  watch(stored, (now, before) => {
+    if (draft.value === before) draft.value = now
+  })
+}
+followStoredValue(nameDraft, () => (editing.value && files.resolved.value[editing.value]?.name) || '')
+followStoredValue(descriptionDraft, () => (editing.value && files.descriptions.value[editing.value]) || '')
+
+/** Opens a file's name and description for editing, or closes them. */
+function toggleEditing(uuid: string): void {
+  if (editing.value === uuid) {
+    editing.value = null
+    return
+  }
+  nameDraft.value = files.resolved.value[uuid]?.name ?? ''
+  descriptionDraft.value = files.descriptions.value[uuid] ?? ''
+  editing.value = uuid
+}
+
+/** Commits the typed name. */
+function rename(uuid: string): void {
+  files.rename(uuid, nameDraft.value)
   // An empty name shows the file's own again.
-  input.value = shownName(uuid)
+  nameDraft.value = files.resolved.value[uuid]?.name ?? ''
 }
 
 const INPUT = 'block w-full rounded-sm bg-default px-1.5 -mx-1.5 my-0.5 ring-1 ring-inset ring-accented outline-none placeholder:text-dimmed focus:text-default focus-visible:ring-2 focus-visible:ring-primary'
@@ -48,24 +71,24 @@ const INPUT = 'block w-full rounded-sm bg-default px-1.5 -mx-1.5 my-0.5 ring-1 r
         >
           <template v-if="editing === uuid" #name>
             <input
-              :value="files.resolved.value[uuid]?.name"
+              v-model="nameDraft"
               :placeholder="ownName(uuid)"
               :maxlength="FILE_NAME_MAX_LENGTH"
               :aria-label="`Name of ${shownName(uuid)} on this page`"
               :class="[INPUT, 'font-medium']"
               data-test="page-file-name"
-              @change="rename(uuid, $event)"
+              @change="rename(uuid)"
               @keydown.esc.prevent="editing = null"
             >
           </template>
           <template v-if="editing === uuid && files.carded.value.includes(uuid)" #description>
             <input
-              :value="files.descriptions.value[uuid] ?? ''"
+              v-model="descriptionDraft"
               placeholder="Add a description"
               :aria-label="`Description of ${shownName(uuid)}`"
               :class="[INPUT, 'text-sm text-muted']"
               data-test="page-file-description"
-              @change="files.describe(uuid, ($event.target as HTMLInputElement).value)"
+              @change="files.describe(uuid, descriptionDraft)"
               @keydown.esc.prevent="editing = null"
             >
           </template>
@@ -78,7 +101,7 @@ const INPUT = 'block w-full rounded-sm bg-default px-1.5 -mx-1.5 my-0.5 ring-1 r
               :aria-label="editing === uuid ? `Done editing ${shownName(uuid)}` : `Edit name and description of ${shownName(uuid)}`"
               :aria-expanded="editing === uuid"
               data-test="page-file-edit"
-              @click="editing = editing === uuid ? null : uuid"
+              @click="toggleEditing(uuid)"
             />
             <UCheckbox
               v-if="files.lists.value.attachments.includes(uuid)"
