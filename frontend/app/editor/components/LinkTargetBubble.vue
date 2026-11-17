@@ -25,6 +25,7 @@ import {
   type LinkTarget,
   type PageFileSource,
 } from '~/editor/link-target'
+import { showAndPositionBubbleMenu } from '~/editor/show-bubble-menu'
 import { formatFileSize } from '#shared/utils/files'
 import { CITE_STATE_NOTE, citeState, citeTarget, citeUrlTitle } from '#shared/utils/citations'
 
@@ -127,17 +128,23 @@ function sameTarget(next: LinkTarget | null, prev: LinkTarget | null): boolean {
   return !!next && !!prev && next.kind === prev.kind && JSON.stringify(next.attrs) === JSON.stringify(prev.attrs)
 }
 
-function focusFirst(): void {
-  panel.value?.querySelector<HTMLElement>('button, input, [href]:not([tabindex="-1"])')?.focus()
+/** Focuses the first control. */
+function focusFirst(options?: FocusOptions): void {
+  panel.value?.querySelector<HTMLElement>('button, input, [href]:not([tabindex="-1"])')?.focus(options)
 }
 
+/**
+ * Opens the URL field with the target's current URL and focuses it.
+ *
+ * No scroll: the bubble may not be placed yet.
+ */
 function startEdit(): void {
   const value = target.value
   if (!value) return
   url.value = value.kind === 'link' ? value.attrs.href : value.kind === 'citation' ? value.attrs.url ?? '' : ''
   invalid.value = false
   editing.value = true
-  nextTick(() => field.value?.inputRef?.focus())
+  nextTick(() => field.value?.inputRef?.focus({ preventScroll: true }))
 }
 
 /** Links the target to the file the picker gives, wherever the target moved meanwhile. */
@@ -210,6 +217,7 @@ function tabIn(event: KeyboardEvent): void {
   focusFirst()
 }
 
+/** Follows the link target at the selection, and shows the bubble a request asks for. */
 function onTransaction({ transaction }: { transaction: Transaction }): void {
   const next = bubbleTargetAt(props.editor.state)
   if (!sameTarget(next, target.value)) editing.value = false
@@ -228,12 +236,16 @@ function onTransaction({ transaction }: { transaction: Transaction }): void {
     toggle('show')
     if (request.focus === 'url') startEdit()
     else if (request.focus === 'files') void pickFile()
-    else focusFirst()
+    // No scroll: the bubble may not be placed yet.
+    else focusFirst({ preventScroll: true })
   })
 }
 
+/** Shows the bubble under its target, or hides it. */
 function toggle(meta: 'show' | 'hide'): void {
-  if (!props.editor.isDestroyed) props.editor.view.dispatch(props.editor.state.tr.setMeta(LINK_BUBBLE_KEY, meta))
+  if (props.editor.isDestroyed) return
+  if (meta === 'show') showAndPositionBubbleMenu(props.editor, LINK_BUBBLE_KEY)
+  else props.editor.view.dispatch(props.editor.state.tr.setMeta(LINK_BUBBLE_KEY, 'hide'))
 }
 
 function shouldShow({ editor, element, view, state }: { editor: Editor, element: HTMLElement, view: EditorView, state: EditorState }): boolean {
@@ -242,12 +254,17 @@ function shouldShow({ editor, element, view, state }: { editor: Editor, element:
   return bubbleTargetAt(state) !== null
 }
 
-/** A link's whole range is the anchor, not the caret in it. */
+/**
+ * A link's whole range is the anchor, not the caret in it.
+ *
+ * Measured when floating-ui places the bubble, so the rect is current.
+ */
 function anchor() {
   const value = target.value
   if (value?.kind !== 'link' || props.editor.isDestroyed) return null
-  const rect = posToDOMRect(props.editor.view, value.from, value.to)
-  return { getBoundingClientRect: () => rect, getClientRects: () => [rect] }
+  const { view } = props.editor
+  const measureLinkRect = () => props.editor.isDestroyed ? new DOMRect() : posToDOMRect(view, value.from, value.to)
+  return { getBoundingClientRect: measureLinkRect, getClientRects: () => [measureLinkRect()] }
 }
 
 // The editor may be destroyed before the bubble unmounts, and then has no view.

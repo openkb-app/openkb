@@ -8,6 +8,7 @@ import { CollabTrailingNode } from '~/editor/collab-trailing-node'
 import { ignoreMenuMouseEnterWithoutPointerMove } from '~/editor/stationary-pointer'
 import { readUnreadSelection } from '~/editor/selection-sync'
 import { LINK_BUBBLE_KEY, bubbleTargetAt } from '~/editor/link-target'
+import { showAndPositionBubbleMenu } from '~/editor/show-bubble-menu'
 import { useEditorSession } from '~/composables/useEditorSession'
 import { selectedEmbed, useFilePickerRequest, useFilePickerStatus } from '~/editor/page-file-insert'
 import type { ReviewStep } from '#shared/page-blocks'
@@ -131,11 +132,9 @@ watch(() => editorRef.value?.editor, (editor, _old, onCleanup) => {
   if (!editor) return
 
   /**
-   * The `show` meta positions before it shows, and positioning is a no-op
-   * while hidden — hence the second dispatch. A blurred editor gets nothing:
-   * the plugin hid the menu on the blur. In a table a bare caret is enough.
-   * A link, page link or citation gets the link bubble instead, an image or
-   * a file card the embed bubble.
+   * Shows the menu that fits the selection: the link bubble on a link, page
+   * link or citation, the embed bubble on an image or file card. None on a
+   * blurred editor (the plugin hid it) or a bare caret outside a table.
    * The release can come before PM has read the click's selection.
    */
   const show = (): void => {
@@ -143,8 +142,7 @@ watch(() => editorRef.value?.editor, (editor, _old, onCleanup) => {
     readUnreadSelection(editor.view)
     const key = bubbleTargetAt(editor.state) ? LINK_BUBBLE_KEY : embedSelected(editor) ? embedBubbleKey : bubbleKey
     if (key === bubbleKey && editor.state.selection.empty && !editor.isActive('table')) return
-    editor.view.dispatch(editor.state.tr.setMeta(key, 'show'))
-    editor.view.dispatch(editor.state.tr.setMeta(key, 'updatePosition'))
+    showAndPositionBubbleMenu(editor, key)
   }
   // Only a mouse: a touch selection has no button to hold the menu down.
   const down = (event: PointerEvent) => {
