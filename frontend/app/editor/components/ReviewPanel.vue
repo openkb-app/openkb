@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { isYours, itemName, reviewableCount, STEP_LABEL, type ReviewQueueRow, type WaitingState } from '../review-marks'
+import { computed, ref, useId } from 'vue'
+import { changesLabel, isYours, itemName, signableRows, STEP_LABEL, type ReviewQueueRow, type WaitingState } from '../review-marks'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
 import type { CommentAssignee } from '#shared/block-comments'
@@ -29,11 +29,16 @@ const props = defineProps<{
   defaultAssignee?: CommentAssignee | null
   /** How many blocks carry no id — the hold no sign-off can clear. */
   unidentified: number
+  /** Whether this reader signed anything off in this session. */
+  signedOff?: boolean
+  /** `step:item` keys Drupal refused this reader in this session — never offered in bulk. */
+  refused?: readonly string[]
 }>()
 
 const emit = defineEmits<{
   'jump': [ReviewQueueRow]
   'approve': [{ item: string, step: ReviewStep }]
+  'approve-all': [{ items: Array<{ item: string, step: ReviewStep }>, waiting: number }]
   'jump-block': [string]
   'post-comment': [{ text: string, assignee: CommentAssignee | null }]
   'discard-comment': []
@@ -52,17 +57,37 @@ const groups = computed(() => REVIEW_STEPS
   .filter(group => group.rows.length > 0))
 
 /**
- * How many of the listed blocks this reader can clear themselves — the only
- * number in the queue that names an action. The rest is waiting on other
- * people, and an editor who cannot tell the two apart finds out by refusal.
+ * The rows this reader can clear themselves — the only number in the queue
+ * that names an action. The rest is waiting on other people, and an editor
+ * who cannot tell the two apart finds out by refusal.
  */
-const reviewable = computed(() => reviewableCount(props.queue))
+const signable = computed(() => signableRows(props.queue, props.refused))
+
+/** What "Approve all" sends: one sign-off per row and step. Drupal re-checks each. */
+const signOffs = computed(() => signable.value.flatMap(row => row.steps.map(step => ({ item: row.item, step }))))
+
+/** The changes owing a step this reader cannot sign off, incl. partly signable ones. */
+const waitingOnOthers = computed(() => {
+  const mine = new Map(signable.value.map(row => [row.item, row.steps.length]))
+  return props.queue.filter(row => (mine.get(row.id) ?? 0) < row.steps.length).length
+})
+
+const confirmOpen = ref(false)
+const warningId = useId()
+
+/** Closes the dialog and sends the sign-offs it showed. */
+function confirmSignOffAll() {
+  confirmOpen.value = false
+  if (signOffs.value.length > 0) {
+    emit('approve-all', { items: signOffs.value, waiting: waitingOnOthers.value })
+  }
+}
 
 /** What a row says about whose move it is — never colour alone. */
 const ROW_STATE: Record<WaitingState, string> = {
-  'reviewable': 'Yours to sign off',
+  'reviewable': 'Yours to approve',
   'awaiting-others': 'Needs somebody else',
-  'unattributed': 'Needs a sign-off — nobody on record wrote it',
+  'unattributed': 'Needs approval — nobody on record wrote it',
 }
 
 /** A block reads as its first words — enough to recognise, short enough to scan. */
@@ -116,15 +141,73 @@ function approvalOn(row: ReviewQueueRow, step: ReviewStep) {
     <template v-else-if="groups.length > 0">
       <p class="text-sm text-muted" data-testid="review-queue-summary">
         {{ queue.length === 1 ? 'One change is' : `${queue.length} changes are` }}
-        waiting for review. The page publishes once they are all signed off.
+        waiting for review. The page publishes once they are all approved.
       </p>
       <!-- The line that answers "what can I do about it": the four-eyes rule
            means most of a queue is usually somebody else's move. -->
-      <p class="mb-4 text-sm text-highlighted" data-testid="review-queue-reviewable">
-        {{ reviewable === 0
-          ? 'None of them is yours to sign off.'
-          : `You can sign off ${reviewable} of them.` }}
-      </p>
+      <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p class="text-sm text-highlighted" data-testid="review-queue-reviewable">
+          {{ signable.length === 0
+            ? 'None of them is yours to approve.'
+            : `You can approve ${signable.length} of them.` }}
+        </p>
+        <UButton
+          v-if="signable.length >= 2"
+          icon="i-lucide-check-check"
+          color="primary"
+          variant="soft"
+          size="sm"
+          data-testid="review-sign-off-all"
+          @click="confirmOpen = true"
+        >
+          {{ signedOff ? `Approve the remaining ${signable.length}` : `Approve all ${signable.length}` }}
+        </UButton>
+      </div>
+
+      <!-- No close button, so the first focusable control is Cancel. -->
+      <UModal
+        v-model:open="confirmOpen"
+        :title="`Are you sure you want to approve ${changesLabel(signable.length)}?`"
+        :close="false"
+        :content="{ 'aria-describedby': warningId }"
+      >
+        <template #body>
+          <div class="flex flex-col gap-3 text-sm" data-testid="review-sign-off-all-dialog">
+            <UAlert
+              :id="warningId"
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-triangle-alert"
+              title="You confirm that you have reviewed every one of them."
+              description="The page history records this approval under your name."
+              data-testid="review-sign-off-all-warning"
+            />
+            <p v-if="waitingOnOthers > 0" class="text-muted">
+              {{ changesLabel(waitingOnOthers) }} cannot be approved by you and still {{ waitingOnOthers === 1 ? 'needs' : 'need' }} approval.
+            </p>
+          </div>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              data-testid="review-sign-off-all-cancel"
+              @click="confirmOpen = false"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              icon="i-lucide-check-check"
+              :disabled="signable.length === 0"
+              data-testid="review-sign-off-all-confirm"
+              @click="confirmSignOffAll"
+            >
+              Approve {{ changesLabel(signable.length) }}
+            </UButton>
+          </div>
+        </template>
+      </UModal>
 
       <section
         v-for="group in groups"

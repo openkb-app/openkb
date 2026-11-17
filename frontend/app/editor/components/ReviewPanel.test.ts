@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest'
-import { createApp, h } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import ReviewPanel from './ReviewPanel.vue'
 import type { ReviewQueueRow } from '../review-marks'
 
@@ -11,7 +11,13 @@ import type { ReviewQueueRow } from '../review-marks'
  * The two holds are separate states and have to read as two: a queue a
  * sign-off clears, and id-less blocks no sign-off can.
  */
-function mount(props: { queue?: ReviewQueueRow[], unidentified?: number }) {
+function mount(props: {
+  queue?: ReviewQueueRow[]
+  unidentified?: number
+  signedOff?: boolean
+  refused?: string[]
+  onApproveAll?: (e: unknown) => void
+}) {
   const root = document.createElement('div')
   document.body.appendChild(root)
   const app = createApp({
@@ -23,12 +29,25 @@ function mount(props: { queue?: ReviewQueueRow[], unidentified?: number }) {
       assigneeCandidates: [],
       me: null,
       unidentified: props.unidentified ?? 0,
+      signedOff: props.signedOff ?? false,
+      refused: props.refused ?? [],
+      onApproveAll: props.onApproveAll,
     }),
   })
   app.component('UIcon', { props: ['name'], render: () => h('span') })
   app.component('UButton', {
     props: ['icon', 'color', 'variant', 'size', 'block'],
     setup: (_p, { slots }) => () => h('button', slots.default?.()),
+  })
+  app.component('UModal', {
+    props: ['open', 'title', 'close', 'content'],
+    setup: (p, { slots }) => () => p.open
+      ? h('div', { 'data-testid': 'modal', ...p.content }, [h('h2', p.title), slots.body?.(), slots.footer?.()])
+      : null,
+  })
+  app.component('UAlert', {
+    props: ['color', 'variant', 'icon', 'title', 'description'],
+    setup: p => () => h('div', { 'data-icon': p.icon }, [h('strong', p.title), ' ', p.description]),
   })
   app.component('EditorCommentThreads', { render: () => h('div') })
   app.mount(root)
@@ -74,13 +93,117 @@ describe('ReviewPanel', () => {
     expect(root.querySelector('[data-testid="review-queue-empty"]')).toBeNull()
     expect(root.querySelector('#okb-review-step-peer')).not.toBeNull()
     expect(root.querySelector('[data-testid="review-queue-state-b-1"]')?.textContent)
-      .toBe('Needs a sign-off — nobody on record wrote it')
+      .toBe('Needs approval — nobody on record wrote it')
   })
 
   it('offers the sign-off on a removed unattributed row', () => {
     const root = mount({ queue: [{ ...ROW, kind: 'removed', pos: null, text: '', state: 'unattributed' }] })
     expect(root.querySelector('[data-testid="review-queue-state-b-1"]')?.textContent)
-      .toBe('Needs a sign-off — nobody on record wrote it')
+      .toBe('Needs approval — nobody on record wrote it')
     expect(root.querySelector('[data-testid="review-queue-approve-b-1"]')?.getAttribute('aria-disabled')).not.toBe('true')
+  })
+})
+
+/** Three blocks for this reader, one owing both steps, and one somebody else's. */
+const QUEUE: ReviewQueueRow[] = [
+  {
+    ...ROW,
+    steps: ['agent', 'peer'],
+    approvals: [
+      { step: 'agent', label: 'Mark read', refusal: null },
+      { step: 'peer', label: 'Mark reviewed', refusal: null },
+    ],
+  },
+  { ...ROW, id: 'b-2', text: 'Another' },
+  { ...ROW, id: 'b-4', text: 'A third' },
+  {
+    ...ROW,
+    id: 'b-3',
+    text: 'Mine',
+    state: 'awaiting-others',
+    approvals: [{ step: 'peer', label: 'Mark reviewed', refusal: 'This block needs a second pair of eyes.' }],
+  },
+]
+
+/** The "Approve all" button, or null where none is drawn. */
+const signOffAll = (root: HTMLElement) =>
+  root.querySelector<HTMLButtonElement>('[data-testid="review-sign-off-all"]')
+
+describe('Approve all', () => {
+  it('is offered from two changes that are this reader\'s', () => {
+    expect(signOffAll(mount({ queue: [ROW] }))).toBeNull()
+    expect(signOffAll(mount({ queue: QUEUE }))?.textContent).toBe('Approve all 3')
+  })
+
+  it('counts changes, as the line above it does', () => {
+    const root = mount({ queue: QUEUE })
+    expect(root.querySelector('[data-testid="review-queue-reviewable"]')?.textContent?.trim())
+      .toBe('You can approve 3 of them.')
+    expect(signOffAll(root)?.textContent).toBe('Approve all 3')
+  })
+
+  it('offers the remaining ones once this reader signed something off', () => {
+    expect(signOffAll(mount({ queue: QUEUE, signedOff: true }))?.textContent).toBe('Approve the remaining 3')
+  })
+
+  it('leaves out what Drupal just refused this reader', () => {
+    expect(signOffAll(mount({ queue: QUEUE, refused: ['peer:b-2'] }))?.textContent).toBe('Approve all 2')
+    // b-1 still owes its peer step.
+    expect(signOffAll(mount({ queue: QUEUE, refused: ['agent:b-1'] }))?.textContent).toBe('Approve all 3')
+    const root = mount({ queue: QUEUE, refused: ['peer:b-2', 'peer:b-4'] })
+    expect(signOffAll(root)).toBeNull()
+    expect(root.querySelector('[data-testid="review-queue-reviewable"]')?.textContent?.trim())
+      .toBe('You can approve 1 of them.')
+  })
+
+  it('asks first, with a warning and the count, and sends the list on confirm', async () => {
+    const sent: unknown[] = []
+    const root = mount({ queue: QUEUE, onApproveAll: e => sent.push(e) })
+    signOffAll(root)!.click()
+    await nextTick()
+    const dialog = root.querySelector('[data-testid="modal"]')
+    expect(dialog?.querySelector('h2')?.textContent).toBe('Are you sure you want to approve 3 changes?')
+    const warning = dialog?.querySelector('[data-testid="review-sign-off-all-warning"]')
+    // Focus opens on Cancel; screen readers get the warning as the description.
+    expect(warning?.id).toBeTruthy()
+    expect(dialog?.getAttribute('aria-describedby')).toBe(warning?.id)
+    expect(warning?.getAttribute('data-icon')).toBe('i-lucide-triangle-alert')
+    expect(warning?.textContent).toBe('You confirm that you have reviewed every one of them. The page history records this approval under your name.')
+    expect(dialog?.textContent).toContain('1 change cannot be approved by you and still needs approval.')
+    expect(dialog?.querySelector('[data-testid="review-sign-off-all-confirm"]')?.textContent?.trim()).toBe('Approve 3 changes')
+    expect(sent).toEqual([])
+
+    root.querySelector<HTMLButtonElement>('[data-testid="review-sign-off-all-confirm"]')!.click()
+    await nextTick()
+    expect(sent).toEqual([{
+      items: [
+        { item: 'b-1', step: 'agent' },
+        { item: 'b-1', step: 'peer' },
+        { item: 'b-2', step: 'peer' },
+        { item: 'b-4', step: 'peer' },
+      ],
+      waiting: 1,
+    }])
+    expect(root.querySelector('[data-testid="modal"]')).toBeNull()
+  })
+
+  it('counts a partly signable change as waiting on somebody else too', async () => {
+    const root = mount({ queue: QUEUE, refused: ['agent:b-1'] })
+    signOffAll(root)!.click()
+    await nextTick()
+    const dialog = root.querySelector('[data-testid="modal"]')
+    expect(dialog?.querySelector('h2')?.textContent).toBe('Are you sure you want to approve 3 changes?')
+    expect(dialog?.textContent).toContain('2 changes cannot be approved by you and still need approval.')
+  })
+
+  it('sends nothing on cancel', async () => {
+    const sent: unknown[] = []
+    const root = mount({ queue: QUEUE, onApproveAll: e => sent.push(e) })
+    signOffAll(root)!.click()
+    await nextTick()
+    root.querySelector<HTMLButtonElement>('[data-testid="review-sign-off-all-cancel"]')!.click()
+    await nextTick()
+    expect(sent).toEqual([])
+    expect(root.querySelector('[data-testid="modal"]')).toBeNull()
   })
 })

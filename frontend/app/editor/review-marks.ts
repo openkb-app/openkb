@@ -549,9 +549,119 @@ export function reviewQueue(
   return rows
 }
 
-/** How many of these rows this reader can act on — the drawer's headline. */
-export function reviewableCount(rows: readonly ReviewQueueRow[]): number {
-  return rows.filter(isYours).length
+/** "3 changes", "1 change". */
+export function changesLabel(count: number): string {
+  return count === 1 ? '1 change' : `${count} changes`
+}
+
+/**
+ * The one toast an "approve all" is answered with: what was taken, Drupal's
+ * refusals grouped by reason, and what stays with somebody else.
+ *
+ * - `approved`: the changes approved.
+ * - `refusals`: per refused change, its distinct reasons.
+ * - `waiting`: the changes that still need somebody else.
+ */
+export function bulkSignOffToast(approved: number, refusals: ReadonlyArray<readonly string[]>, waiting: number) {
+  const left = waiting > 0 ? `${changesLabel(waiting)} still ${waiting === 1 ? 'needs' : 'need'} approval by somebody else.` : ''
+  if (refusals.length === 0) {
+    return {
+      title: `Approved ${changesLabel(approved)}.`,
+      description: left || undefined,
+      icon: 'i-lucide-check-check',
+      color: 'success' as const,
+    }
+  }
+  const counts = new Map<string, number>()
+  for (const reason of refusals.flat()) counts.set(reason, (counts.get(reason) ?? 0) + 1)
+  const grouped = [...counts].map(([reason, count]) => (count > 1 ? `${reason} (${count}×)` : reason))
+  return {
+    title: `${approved} approved, ${refusals.length} refused`,
+    description: [...grouped, left].filter(Boolean).join(' '),
+    icon: 'i-lucide-lock',
+    color: approved > 0 ? 'warning' as const : 'error' as const,
+  }
+}
+
+/** `step:item`, the key a sign-off is matched by. */
+export function signOffKey(entry: { item: string, step: string }): string {
+  return `${entry.step}:${entry.item}`
+}
+
+/**
+ * The rows this reader may still sign off, each with its steps. Leaves out the
+ * keys Drupal refused them in this session. One count for the panel's line, its
+ * button and the dialog.
+ */
+export function signableRows(rows: readonly ReviewQueueRow[], refused: readonly string[] = []) {
+  return rows
+    .map(row => ({
+      item: row.id,
+      steps: row.approvals
+        .filter(({ step, refusal }) => refusal === null && !refused.includes(signOffKey({ item: row.id, step })))
+        .map(({ step }) => step),
+    }))
+    .filter(row => row.steps.length > 0)
+}
+
+/** Drupal's answer to the sign-offs a checkpoint carried, as `_meta.review` holds it. */
+export interface ReviewAnswer {
+  at?: number
+  approved?: Array<{ item: string, step: string, uid: number }>
+  refused?: Array<{ item: string, step: string, uid: number, reason: string }>
+}
+
+/** An "approve all" waiting for its answer. */
+export interface BulkSignOff {
+  /** The `step:item` keys it sent. */
+  keys: readonly string[]
+  /** How many changes it left to somebody else. */
+  waiting: number
+}
+
+/**
+ * What one answer means for this reader.
+ *
+ * - `refused`: the session's refused keys; a key taken now drops out.
+ * - `toasts`: one for the entries of `bulk`, one per other refusal.
+ * - `bulk`: null once its entries arrived.
+ *
+ * Entries of other readers are ignored.
+ */
+export function reviewAnswerFor(
+  answer: ReviewAnswer,
+  uid: number,
+  refused: readonly string[],
+  bulk: BulkSignOff | null,
+) {
+  const approved = (answer.approved ?? []).filter(entry => entry.uid === uid)
+  const denied = (answer.refused ?? []).filter(entry => entry.uid === uid)
+  const taken = new Set(approved.map(signOffKey))
+  const nextRefused = [...new Set([...refused.filter(key => !taken.has(key)), ...denied.map(signOffKey)])]
+
+  const sent = new Set(bulk?.keys ?? [])
+  const inBulk = (entry: { item: string, step: string }) => sent.has(signOffKey(entry))
+  const toasts: Array<ReturnType<typeof bulkSignOffToast>> = []
+  let nextBulk = bulk
+  if (bulk && [...approved, ...denied].some(inBulk)) {
+    // Counted in changes: a change refused on any step counts as refused.
+    const refusals = new Map<string, Set<string>>()
+    for (const entry of denied.filter(inBulk)) {
+      refusals.set(entry.item, (refusals.get(entry.item) ?? new Set()).add(entry.reason))
+    }
+    const signed = new Set(approved.filter(inBulk).map(entry => entry.item).filter(item => !refusals.has(item)))
+    toasts.push(bulkSignOffToast(signed.size, [...refusals.values()].map(reasons => [...reasons]), bulk.waiting))
+    nextBulk = null
+  }
+  for (const entry of denied.filter(entry => !(bulk && inBulk(entry)))) {
+    toasts.push({
+      title: 'Sign-off refused',
+      description: entry.reason,
+      icon: 'i-lucide-lock',
+      color: 'error' as const,
+    })
+  }
+  return { refused: nextRefused, toasts, bulk: nextBulk }
 }
 
 /** Whether this reader may sign off at least one step the row owes. */

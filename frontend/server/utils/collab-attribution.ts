@@ -85,7 +85,10 @@ export interface ReviewAction {
 }
 
 /**
- * One stateless message read as a sign-off this server will carry, or null.
+ * One stateless message read as the sign-offs this server will carry.
+ *
+ * The message names one `item`/`step`, or several as `items` — a "sign off
+ * all" is one message, so it rides one checkpoint and one revision.
  *
  * The uid is the connection's and nothing else: the message says what was
  * written, never who wrote it. A seat with no authenticated account — an
@@ -99,24 +102,29 @@ export interface ReviewAction {
  *   removed block or the title — and `undefined` for a key that is neither,
  *   which is not carried.
  */
-export function reviewActionFrom(
+export function reviewActionsFrom(
   payload: string,
   uid: number,
   printOf: (item: string) => string | null | undefined,
-): ReviewAction | null {
-  let message: { type?: unknown, item?: unknown, step?: unknown }
+): ReviewAction[] {
+  let message: { type?: unknown, item?: unknown, step?: unknown, items?: unknown }
   try {
     message = JSON.parse(payload)
   }
   catch {
-    return null
+    return []
   }
-  if (message?.type !== 'review.approve') return null
-  const item = typeof message.item === 'string' ? message.item : ''
-  const step = message.step as ReviewStep
-  if (uid <= 0 || item === '' || !REVIEW_STEPS.includes(step)) return null
-  const print = printOf(item)
-  return print === undefined ? null : { item, step, uid, print }
+  if (message?.type !== 'review.approve' || uid <= 0) return []
+  const asked = Array.isArray(message.items) ? message.items : [message]
+  const actions = new Map<string, ReviewAction>()
+  for (const entry of asked as Array<{ item?: unknown, step?: unknown }>) {
+    const item = typeof entry?.item === 'string' ? entry.item : ''
+    const step = entry?.step as ReviewStep
+    if (item === '' || !REVIEW_STEPS.includes(step)) continue
+    const print = printOf(item)
+    if (print !== undefined) actions.set(`${step}:${item}`, { item, step, uid, print })
+  }
+  return [...actions.values()]
 }
 
 /** One document's accounting. */

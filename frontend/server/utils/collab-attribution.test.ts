@@ -15,7 +15,7 @@ import {
   isPeerUpdate,
   newLedger,
   recordFileAdders,
-  reviewActionFrom,
+  reviewActionsFrom,
   sessionWindow,
   sharedIdKeepers,
   sharedIdRenames,
@@ -859,32 +859,54 @@ describe('a sign-off this server will carry', () => {
   const signOff = JSON.stringify({ type: 'review.approve', item: 'b-1', step: 'peer' })
 
   it('takes the uid from the connection and the print from the document', () => {
-    expect(reviewActionFrom(signOff, ADA.uid, printOf))
-      .toEqual({ item: 'b-1', step: 'peer', uid: ADA.uid, print: 'print-1' })
+    expect(reviewActionsFrom(signOff, ADA.uid, printOf))
+      .toEqual([{ item: 'b-1', step: 'peer', uid: ADA.uid, print: 'print-1' }])
   })
 
   it('carries nothing for a seat with no account — an agent signs nothing off', () => {
-    expect(reviewActionFrom(signOff, 0, printOf)).toBeNull()
+    expect(reviewActionsFrom(signOff, 0, printOf)).toEqual([])
   })
 
   it('ignores a uid the message claims for itself', () => {
-    const claimed = JSON.stringify({ type: 'review.approve', item: 'b-1', step: 'peer', uid: FAGO.uid })
-    expect(reviewActionFrom(claimed, ADA.uid, printOf)?.uid).toBe(ADA.uid)
+    const claimed = JSON.stringify({ type: 'review.approve', item: 'b-1', step: 'peer', uid: 999 })
+    expect(reviewActionsFrom(claimed, ADA.uid, printOf)[0]?.uid).toBe(ADA.uid)
   })
 
   it('carries an item the document holds no block for, with no print', () => {
-    // A removed block and the title read as `null` rather than as unknown.
-    const withItems = (item: string) => (item === 'b-1' ? 'print-1' : (item === 'field:title' ? null : undefined))
     const title = JSON.stringify({ type: 'review.approve', item: 'field:title', step: 'peer' })
-    expect(reviewActionFrom(title, ADA.uid, withItems))
-      .toEqual({ item: 'field:title', step: 'peer', uid: ADA.uid, print: null })
+    const withItems = (item: string) => (item === 'field:title' ? null : printOf(item))
+    expect(reviewActionsFrom(title, ADA.uid, withItems))
+      .toEqual([{ item: 'field:title', step: 'peer', uid: ADA.uid, print: null }])
   })
 
   it('carries nothing for an unknown step, an unknown item, or a message it cannot read', () => {
-    expect(reviewActionFrom(JSON.stringify({ type: 'review.approve', item: 'b-1', step: 'legal' }), ADA.uid, printOf)).toBeNull()
-    expect(reviewActionFrom(JSON.stringify({ type: 'review.approve', item: 'b-9', step: 'peer' }), ADA.uid, printOf)).toBeNull()
-    expect(reviewActionFrom(JSON.stringify({ type: 'awareness.ping' }), ADA.uid, printOf)).toBeNull()
-    expect(reviewActionFrom('not json', ADA.uid, printOf)).toBeNull()
+    expect(reviewActionsFrom(JSON.stringify({ type: 'review.approve', item: 'b-1', step: 'legal' }), ADA.uid, printOf)).toEqual([])
+    expect(reviewActionsFrom(JSON.stringify({ type: 'review.approve', item: 'b-9', step: 'peer' }), ADA.uid, printOf)).toEqual([])
+    expect(reviewActionsFrom(JSON.stringify({ type: 'awareness.ping' }), ADA.uid, printOf)).toEqual([])
+    expect(reviewActionsFrom('not json', ADA.uid, printOf)).toEqual([])
+  })
+
+  it('carries a list in one message, without the items it would drop or repeat', () => {
+    const prints = (item: string) => ({ 'b-1': 'print-1', 'b-2': 'print-2', 'field:title': null } as Record<string, string | null>)[item]
+    const all = JSON.stringify({
+      type: 'review.approve',
+      items: [
+        { item: 'b-1', step: 'peer' },
+        { item: 'b-1', step: 'agent' },
+        { item: 'b-1', step: 'peer' },
+        { item: 'b-2', step: 'legal' },
+        { item: 'b-9', step: 'peer' },
+        { item: 'field:title', step: 'peer' },
+        'b-2',
+        null,
+      ],
+    })
+    expect(reviewActionsFrom(all, ADA.uid, prints)).toEqual([
+      { item: 'b-1', step: 'peer', uid: ADA.uid, print: 'print-1' },
+      { item: 'b-1', step: 'agent', uid: ADA.uid, print: 'print-1' },
+      { item: 'field:title', step: 'peer', uid: ADA.uid, print: null },
+    ])
+    expect(reviewActionsFrom(all, 0, prints)).toEqual([])
   })
 })
 

@@ -21,12 +21,15 @@ const props = defineProps<{
   me: CommentAssignee | null
   defaultAssignee?: CommentAssignee | null
   unidentified: number
+  signedOff?: boolean
+  refused?: readonly string[]
 }>()
 
 const emit = defineEmits<{
   'update:open': [boolean]
   'jump': [ReviewQueueRow]
   'approve': [{ item: string, step: ReviewStep }]
+  'approve-all': [{ items: Array<{ item: string, step: ReviewStep }>, waiting: number }]
   'jump-block': [string]
   'post-comment': [{ text: string, assignee: CommentAssignee | null }]
   'discard-comment': []
@@ -76,8 +79,11 @@ function jumpToBlock(blockId: string) {
         :me="me"
         :default-assignee="defaultAssignee"
         :unidentified="unidentified"
+        :signed-off="signedOff"
+        :refused="refused"
         @jump="jump"
         @approve="emit('approve', $event)"
+        @approve-all="emit('approve-all', $event)"
         @jump-block="jumpToBlock"
         @post-comment="emit('post-comment', $event)"
         @discard-comment="emit('discard-comment')"

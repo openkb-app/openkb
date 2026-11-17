@@ -17,10 +17,12 @@ import {
   addressableBlocks,
   approveActionLabel,
   blockLabel,
+  bulkSignOffToast,
+  reviewAnswerFor,
+  signableRows,
   createActiveBlockPlugin,
   blockAtSelection,
   createReviewMarksPlugin,
-  reviewableCount,
   reviewDecorations,
   reviewMarkOf,
   reviewMarksKey,
@@ -1108,7 +1110,7 @@ describe('reviewQueue', () => {
     const owed = { 'b-1': ['peer' as const], 'b-2': ['peer' as const], 'b-3': ['peer' as const] }
     const rows = reviewQueue(document, owed, meta, WRITER)
     expect(rows.map(r => r.state)).toEqual(['awaiting-others', 'reviewable', 'unattributed'])
-    expect(reviewableCount(rows)).toBe(2)
+    expect(signableRows(rows)).toHaveLength(2)
   })
 
   // The drawer counts an estimate for the peer it is drawn for, so its headline
@@ -1119,15 +1121,15 @@ describe('reviewQueue', () => {
     const owed = { 'b-1': ['peer' as const] }
 
     expect(reviewQueue(document, owed, meta, OTHER).map(r => r.state)).toEqual(['reviewable'])
-    expect(reviewableCount(reviewQueue(document, owed, meta, OTHER))).toBe(1)
-    expect(reviewableCount(reviewQueue(document, owed, meta, WRITER))).toBe(0)
+    expect(signableRows(reviewQueue(document, owed, meta, OTHER))).toHaveLength(1)
+    expect(signableRows(reviewQueue(document, owed, meta, WRITER))).toHaveLength(0)
   })
 
   it('offers the whole queue to a moderator', () => {
     const document = doc(para('mine', 'b-1'), para('orphan', 'b-2'))
     const meta: BlockMetaMap = { 'b-1': awaiting([9]), 'b-2': awaiting([]) }
     const owed = { 'b-1': ['peer' as const], 'b-2': ['peer' as const] }
-    expect(reviewableCount(reviewQueue(document, owed, meta, MODERATOR))).toBe(2)
+    expect(signableRows(reviewQueue(document, owed, meta, MODERATOR))).toHaveLength(2)
   })
 
   /**
@@ -1220,5 +1222,116 @@ describe('reviewToggleLabel', () => {
     // only the gate's count, so a reader on the label alone must get both.
     expect(reviewToggleLabel({ unidentified: 1, awaiting: 15, reviewableNow: 2, assigned: assigned(0, 0) }))
       .toBe('Review — 1 block without an id, 15 awaiting, 2 you can sign off')
+  })
+})
+
+describe('bulkSignOffToast', () => {
+  it('says what was signed off and what stays with others', () => {
+    expect(bulkSignOffToast(23, [], 4)).toMatchObject({
+      title: 'Approved 23 changes.',
+      description: '4 changes still need approval by somebody else.',
+      color: 'success',
+    })
+    expect(bulkSignOffToast(1, [], 0)).toMatchObject({ title: 'Approved 1 change.', description: undefined })
+  })
+
+  it('groups Drupal\'s refusals by reason', () => {
+    expect(bulkSignOffToast(21, [['A.'], ['A.'], ['B.']], 1)).toMatchObject({
+      title: '21 approved, 3 refused',
+      description: 'A. (2×) B. 1 change still needs approval by somebody else.',
+      color: 'warning',
+    })
+    expect(bulkSignOffToast(0, [['A.']], 0)).toMatchObject({ title: '0 approved, 1 refused', color: 'error' })
+  })
+})
+
+describe('signableRows', () => {
+  const row = (id: string, approvals: Array<[ReviewStep, string | null]>) => ({
+    id,
+    kind: 'block' as const,
+    pos: 0,
+    text: id,
+    steps: approvals.map(([step]) => step),
+    state: 'reviewable' as const,
+    approvals: approvals.map(([step, refusal]) => ({ step, label: 'Mark reviewed', refusal })),
+  })
+
+  it('keeps the steps this reader may sign off, minus the refused keys', () => {
+    const rows = [row('b-1', [['agent', null], ['peer', null]]), row('b-2', [['peer', 'Not yours.']]), row('b-3', [['peer', null]])]
+    expect(signableRows(rows)).toEqual([{ item: 'b-1', steps: ['agent', 'peer'] }, { item: 'b-3', steps: ['peer'] }])
+    expect(signableRows(rows, ['peer:b-1', 'peer:b-3'])).toEqual([{ item: 'b-1', steps: ['agent'] }])
+  })
+})
+
+describe('reviewAnswerFor', () => {
+  const ME = 7
+  const bulk = { keys: ['peer:b-1', 'peer:b-2', 'agent:b-2'], waiting: 2 }
+
+  it('turns a refusal of a single sign-off into its own toast and remembers the key', () => {
+    const result = reviewAnswerFor({ refused: [{ item: 'b-9', step: 'peer', uid: ME, reason: 'Not yours.' }] }, ME, [], null)
+    expect(result.refused).toEqual(['peer:b-9'])
+    expect(result.toasts).toEqual([expect.objectContaining({ title: 'Sign-off refused', description: 'Not yours.' })])
+    expect(result.bulk).toBeNull()
+  })
+
+  it('drops a refused key once a later sign-off of it is taken', () => {
+    const result = reviewAnswerFor({ approved: [{ item: 'b-9', step: 'peer', uid: ME }] }, ME, ['peer:b-9', 'agent:b-8'], null)
+    expect(result.refused).toEqual(['agent:b-8'])
+    expect(result.toasts).toEqual([])
+  })
+
+  it('ignores the entries of other readers', () => {
+    const answer = { refused: [{ item: 'b-1', step: 'peer', uid: 8, reason: 'Not yours.' }] }
+    expect(reviewAnswerFor(answer, ME, ['agent:b-8'], bulk)).toEqual({ refused: ['agent:b-8'], toasts: [], bulk })
+  })
+
+  it('answers a bulk sign-off with one toast, counting changes', () => {
+    const result = reviewAnswerFor({
+      approved: [{ item: 'b-2', step: 'peer', uid: ME }, { item: 'b-2', step: 'agent', uid: ME }],
+      refused: [{ item: 'b-1', step: 'peer', uid: ME, reason: 'Edited since.' }],
+    }, ME, [], bulk)
+    expect(result.toasts).toEqual([expect.objectContaining({
+      title: '1 approved, 1 refused',
+      description: 'Edited since. 2 changes still need approval by somebody else.',
+    })])
+    expect(result.refused).toEqual(['peer:b-1'])
+    expect(result.bulk).toBeNull()
+  })
+
+  it('counts a change refused on both steps once', () => {
+    const result = reviewAnswerFor({
+      approved: [{ item: 'b-1', step: 'peer', uid: ME }],
+      refused: [
+        { item: 'b-2', step: 'peer', uid: ME, reason: 'Edited since.' },
+        { item: 'b-2', step: 'agent', uid: ME, reason: 'Edited since.' },
+      ],
+    }, ME, [], bulk)
+    expect(result.toasts).toEqual([expect.objectContaining({
+      title: '1 approved, 1 refused',
+      description: 'Edited since. 2 changes still need approval by somebody else.',
+    })])
+  })
+
+  it('counts a change refused on one step and taken on the other as refused', () => {
+    const result = reviewAnswerFor({
+      approved: [{ item: 'b-1', step: 'peer', uid: ME }, { item: 'b-2', step: 'peer', uid: ME }],
+      refused: [{ item: 'b-2', step: 'agent', uid: ME, reason: 'Edited since.' }],
+    }, ME, [], bulk)
+    expect(result.toasts).toEqual([expect.objectContaining({ title: '1 approved, 1 refused' })])
+  })
+
+  it('answers with single toasts once the bulk sign-off is claimed', () => {
+    const first = reviewAnswerFor({ approved: [{ item: 'b-1', step: 'peer', uid: ME }] }, ME, [], bulk)
+    expect(first.bulk).toBeNull()
+    const later = reviewAnswerFor({
+      refused: [{ item: 'b-2', step: 'peer', uid: ME, reason: 'Edited since.' }],
+    }, ME, first.refused, first.bulk)
+    expect(later.toasts).toEqual([expect.objectContaining({ title: 'Sign-off refused', description: 'Edited since.' })])
+  })
+
+  it('leaves a pending bulk sign-off alone when the answer is to another sign-off', () => {
+    const result = reviewAnswerFor({ refused: [{ item: 'b-9', step: 'peer', uid: ME, reason: 'Not yours.' }] }, ME, [], bulk)
+    expect(result.toasts).toEqual([expect.objectContaining({ title: 'Sign-off refused' })])
+    expect(result.bulk).toBe(bulk)
   })
 })

@@ -1,4 +1,4 @@
-import { reviewableCount, reviewQueue, unidentifiedBlocks, type ReviewQueueRow } from '~/editor/review-marks'
+import { reviewQueue, signableRows, unidentifiedBlocks, type ReviewQueueRow } from '~/editor/review-marks'
 import { commentRows, type CommentThreadView } from '~/editor/comment-marks'
 import { assignedCounts } from '~/editor/comment-assignee'
 import { awaitingReview } from '#shared/utils/moderation'
@@ -116,7 +116,7 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
    * number fago asked to see. The rest are somebody else's move, and saying so
    * is the difference between a queue and a nag.
    */
-  const reviewableNow = computed(() => reviewableCount(reviewRows.value))
+  const reviewableNow = computed(() => signableRows(reviewRows.value, session.value?.refusedSignOffs.value).length)
 
   /** A row standing for an item the document holds no block for sends nobody
    *  anywhere: it is signed off from the row itself. */

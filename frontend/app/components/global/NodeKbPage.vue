@@ -147,6 +147,8 @@ const reviewSurface = computed(() => ({
     ? chatAssignee({ uid: myUid.value, name: myName.value ?? '' })
     : null,
   unidentified: unidentifiedCount.value,
+  signedOff: session.value?.signedOff.value ?? false,
+  refused: session.value?.refusedSignOffs.value ?? [],
 }))
 
 /**
@@ -164,6 +166,8 @@ const titleReview = computed(() => reviewMarkOf(
 const reviewEvents = {
   jump: goToReviewBlock,
   approve: (e: { item: string, step: ReviewStep }) => session.value?.approveItem(e.item, e.step),
+  approveAll: (e: { items: Array<{ item: string, step: ReviewStep }>, waiting: number }) =>
+    session.value?.approveAll(e.items, e.waiting),
   jumpBlock: goToCommentBlock,
   postComment: (e: { text: string, assignee: CommentAssignee | null }) =>
     session.value?.postComment(e.text, e.assignee),

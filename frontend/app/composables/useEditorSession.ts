@@ -12,7 +12,7 @@ import { seedEmptyFragment } from '~/editor/seed-fragment'
 import { CollabHistory } from '~/editor/collab-history'
 import { NodeSelectionOverTextToCaret } from '~/editor/node-selection-over-text'
 import { runAfterTransactionsThatChange } from '~/editor/run-after-transaction'
-import { ReviewMarks, refreshReviewMarks, sidecarLookup, topLevelBlockPos } from '~/editor/review-marks'
+import { ReviewMarks, refreshReviewMarks, reviewAnswerFor, sidecarLookup, signOffKey, topLevelBlockPos, type BulkSignOff, type ReviewAnswer } from '~/editor/review-marks'
 import { CommentMarks, refreshCommentMarks, type CommentDraft, type ShownThreads } from '~/editor/comment-marks'
 import { AgentMarks, refreshAgentMarks } from '~/editor/agent-marks'
 import {
@@ -206,6 +206,15 @@ export async function useEditorSession(
     localKey: localKey.value,
   })
 
+  /** Whether this reader sent a sign-off in this session. */
+  const signedOff = ref(false)
+
+  /**
+   * An "approve all" waiting for Drupal's answer. Every later approval replaces
+   * it, so one whose items all dropped out cannot claim a later answer.
+   */
+  let bulkPending: BulkSignOff | null = null
+
   /**
    * Signs a block off — an act in the session, not a request from this client.
    *
@@ -220,9 +229,10 @@ export async function useEditorSession(
    * checkpoint re-read.
    *
    * One step per sign-off, and every control names the one its block is pending
-   * on.
+   * on. Several go out as one message, so they ride one checkpoint and land in
+   * one revision.
    */
-  const approveItem = (item: string, step: ReviewStep) => {
+  const sendSignOffs = (items: Array<{ item: string, step: ReviewStep }>): boolean => {
     if (!provider.value || liveStatus.value !== 'live') {
       // A stateless message on a dead socket is dropped without a word, and a
       // sign-off that quietly did not happen is the one outcome a reviewer
@@ -233,10 +243,28 @@ export async function useEditorSession(
         icon: 'i-lucide-wifi-off',
         color: 'error',
       })
-      return
+      return false
     }
-    provider.value.sendStateless(JSON.stringify({ type: 'review.approve', item, step }))
+    provider.value.sendStateless(JSON.stringify({ type: 'review.approve', items }))
+    signedOff.value = true
+    return true
   }
+
+  /** Signs off one step of one review item. */
+  const approveItem = (item: string, step: ReviewStep) => {
+    if (sendSignOffs([{ item, step }])) bulkPending = null
+  }
+
+  /** Signs off a list at once; Drupal's answer comes back as one toast. */
+  const approveAll = (items: Array<{ item: string, step: ReviewStep }>, waiting: number) => {
+    if (sendSignOffs(items)) bulkPending = { keys: items.map(signOffKey), waiting }
+  }
+
+  /**
+   * `step:item` keys Drupal refused this reader in this session. The bulk
+   * control leaves them out until a later sign-off of the same key is taken.
+   */
+  const refusedSignOffs = ref<string[]>([])
 
   /**
    * The refusals of this reader's own sign-offs, in Drupal's words.
@@ -249,20 +277,14 @@ export async function useEditorSession(
   const reviewMeta = ydoc.getMap('_meta')
   let lastReviewAt = 0
   const onReviewAnswer = () => {
-    const answer = reviewMeta.get('review') as
-      { at?: number, refused?: Array<{ uid: number, reason: string }> } | undefined
+    const answer = reviewMeta.get('review') as ReviewAnswer | undefined
     const at = Number(answer?.at ?? 0)
     if (!answer || at <= lastReviewAt) return
     lastReviewAt = at
-    for (const entry of answer.refused ?? []) {
-      if (entry.uid !== collabUser.uid) continue
-      toast.add({
-        title: 'Sign-off refused',
-        description: entry.reason,
-        icon: 'i-lucide-lock',
-        color: 'error',
-      })
-    }
+    const result = reviewAnswerFor(answer, collabUser.uid, refusedSignOffs.value, bulkPending)
+    refusedSignOffs.value = result.refused
+    bulkPending = result.bulk
+    for (const spec of result.toasts) toast.add(spec)
   }
   onMounted(() => {
     // The answer is in the document, so it outlives the session that earned it
@@ -1404,6 +1426,9 @@ export async function useEditorSession(
     revert,
     reload,
     approveItem,
+    approveAll,
+    signedOff,
+    refusedSignOffs,
     markSelectedBlockReviewed,
     threads,
     commentDraft,

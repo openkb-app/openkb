@@ -18,7 +18,7 @@ import { seedBlockMeta, seedFromDrupal, type SeedDeps, type SeedOutcome } from '
 import { sharedFieldSource } from '../utils/drupal-fields'
 import { fetchCeWorkingCopy, fetchInlineComments, putInlineComments, type CePageRead } from '../utils/drupal'
 import { asCollabServer, collabAuthHeaders, collabIdentityConfigured, forgetCollabToken } from '../utils/collab-identity'
-import { adoptSnapshot, agentOnly, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionFrom, sessionPayload, sessionWindow, sharedIdKeepers, sharedIdRenames, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
+import { adoptSnapshot, agentOnly, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionsFrom, sessionPayload, sessionWindow, sharedIdKeepers, sharedIdRenames, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
 import { isAgentOrigin } from '../utils/agent-peer'
 import { initProseMirrorDoc } from '@tiptap/y-tiptap'
 import type { Node as ProseNode } from '@tiptap/pm/model'
@@ -994,15 +994,16 @@ export default defineNitroPlugin((nitroApp) => {
       // document holds no block for: they read as `null`, which is what the
       // window states for them, rather than as an unknown key.
       const items = new Set(Object.keys(readBlockMeta(ydoc)))
-      const action = reviewActionFrom(
+      const uid = (connection.context as { user?: { uid?: number } })?.user?.uid ?? 0
+      const actions = reviewActionsFrom(
         payload,
-        (connection.context as { user?: { uid?: number } })?.user?.uid ?? 0,
+        uid,
         item => prints.get(item)?.print ?? (items.has(item) ? null : undefined),
       )
-      if (!action) return
-      ledgerFor(documentName).actions.push(action)
+      if (actions.length === 0) return
+      ledgerFor(documentName).actions.push(...actions)
 
-      await scheduler.checkpoint(documentName, 'manual', { uid: action.uid })
+      await scheduler.checkpoint(documentName, 'manual', { uid })
     },
 
     // Every doc mutation re-arms the quiet timer (and arms the max-dirty
