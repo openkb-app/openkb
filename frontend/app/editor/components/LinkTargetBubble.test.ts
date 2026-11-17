@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { createApp, defineComponent, h, nextTick, ref } from 'vue'
 import type { App } from 'vue'
 import { Editor } from '@tiptap/core'
 import Collaboration from '@tiptap/extension-collaboration'
@@ -341,3 +341,68 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
   })
 })
 
+describe('LinkTargetBubble: focus back to the text', () => {
+  /** An input that binds `v-model` and exposes `inputRef`, as UInput does. */
+  const UInputWithModel = defineComponent({
+    props: { modelValue: { type: String, default: '' } },
+    emits: ['update:modelValue'],
+    setup(props, { attrs, emit, expose }) {
+      const inputRef = ref<HTMLInputElement>()
+      expose({ inputRef })
+      return () => h('input', { ...attrs, ref: inputRef, value: props.modelValue, onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value) })
+    },
+  })
+
+  it('focuses the editor in the same task as the apply, so keys typed right away reach the text', async () => {
+    const element = document.createElement('div')
+    document.body.appendChild(element)
+    onTestFinished(() => element.remove())
+    editor = new Editor({ element, extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: await parseMarkdownToJson('See the plan here.') })
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 5, 13)))
+    root = document.createElement('div')
+    document.body.appendChild(root)
+    app = createApp({ render: () => h(LinkTargetBubble as never, { editor, resolve: async () => null }) })
+    app.component('UButton', { props: ['to', 'icon'], setup: (props, { attrs }) => () => h(props.to ? 'a' : 'button', { ...attrs, href: props.to }) })
+    app.component('UInput', UInputWithModel)
+    app.mount(root)
+    requestLinkBubble(editor, 'url')
+
+    const field = await vi.waitFor(() => {
+      const input = root.querySelector<HTMLInputElement>('input[aria-label="Link URL"]')
+      expect(document.activeElement).toBe(input)
+      return input!
+    })
+    field.value = 'https://example.org/plan'
+    field.dispatchEvent(new Event('input'))
+    await nextTick()
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+
+    expect(document.activeElement).toBe(editor.view.dom)
+    expect((await serializeDocToMarkdown(editor.getJSON())).trim()).toBe('See [the plan](https://example.org/plan) here.')
+  })
+
+  it('focuses the editor in the same task as Remove, so keys typed right away reach the text', async () => {
+    const element = document.createElement('div')
+    document.body.appendChild(element)
+    onTestFinished(() => element.remove())
+    editor = new Editor({ element, extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: await parseMarkdownToJson('See [the plan](https://example.org/plan) here.') })
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 6)))
+    root = document.createElement('div')
+    document.body.appendChild(root)
+    app = createApp({ render: () => h(LinkTargetBubble as never, { editor, resolve: async () => null }) })
+    app.component('UButton', { props: ['to', 'icon'], setup: (props, { attrs }) => () => h(props.to ? 'a' : 'button', { ...attrs, href: props.to }) })
+    app.component('UInput', UInputWithModel)
+    app.mount(root)
+
+    const button = await vi.waitFor(() => {
+      const found = root.querySelector<HTMLButtonElement>('[aria-label="Remove link"]')
+      expect(found).not.toBeNull()
+      return found!
+    })
+    button.focus()
+    button.click()
+
+    expect(document.activeElement).toBe(editor.view.dom)
+    expect((await serializeDocToMarkdown(editor.getJSON())).trim()).toBe('See the plan here.')
+  })
+})

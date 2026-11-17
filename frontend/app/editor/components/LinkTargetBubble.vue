@@ -165,6 +165,7 @@ function close(): void {
   props.editor.view.focus()
 }
 
+/** Applies the typed URL and gives the text back its focus; an invalid one keeps the field. */
 function apply(): void {
   const value = target.value
   if (!value) return
@@ -173,6 +174,8 @@ function apply(): void {
   if (done) {
     editing.value = false
     clearLinkBubbleRequest(props.editor)
+    // TipTap's focus() waits a frame; keys typed meanwhile would go to the page.
+    props.editor.view.focus()
   }
 }
 
@@ -183,8 +186,9 @@ function change(): void {
   else startEdit()
 }
 
+/** Removes the target and gives the text back its focus. */
 function remove(): void {
-  if (target.value) removeTarget(props.editor, target.value, linkedFile.value?.name)
+  if (target.value && removeTarget(props.editor, target.value, linkedFile.value?.name)) props.editor.view.focus()
 }
 
 function onKeydown(event: KeyboardEvent): void {
