@@ -30,6 +30,7 @@ export function useCurrentUser() {
     isAdmin: computed(() => user.value?.isAdmin === true),
     canCreateSpace: computed(() => user.value?.canCreateSpace === true),
     canCreatePage: computed(() => user.value?.canCreatePage === true),
+    canChat: computed(() => user.value?.canChat === true),
   }
 }
 

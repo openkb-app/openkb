@@ -18,14 +18,14 @@ import { seedBlockMeta, seedFromDrupal, type SeedDeps, type SeedOutcome } from '
 import { sharedFieldSource } from '../utils/drupal-fields'
 import { fetchCeWorkingCopy, fetchInlineComments, putInlineComments, type CePageRead } from '../utils/drupal'
 import { asCollabServer, collabAuthHeaders, collabIdentityConfigured, forgetCollabToken } from '../utils/collab-identity'
-import { adoptSnapshot, agentOnly, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionsFrom, sessionPayload, sessionWindow, sharedIdKeepers, sharedIdRenames, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
+import { adoptSnapshot, agentOnly, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionsFrom, sessionPayload, sessionWindow, sharedIdKeepers, sharedIdRenames, socketOfOrigin, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
 import { isAgentOrigin } from '../utils/agent-peer'
 import { initProseMirrorDoc } from '@tiptap/y-tiptap'
 import type { Node as ProseNode } from '@tiptap/pm/model'
 import { editorSchema } from '../utils/editor-schema'
 import { readBlockMeta } from '#shared/page-blocks'
 import { commentsRoot, pruneComments } from '#shared/block-comments'
-import { commentRecords, commentsSynced, stampCommentAuthors, type StoredConversations } from '../utils/collab-comments'
+import { commentRecords, commentsSynced, releaseTakes, stampCommentAuthors, type StoredConversations } from '../utils/collab-comments'
 import { mapCeFieldValues, TITLE_KEY, type FieldValues } from '../utils/entity-fields'
 import { CheckpointScheduler } from '../utils/commit-scheduler'
 import { TtlCache } from '../utils/ttl-cache'
@@ -203,6 +203,9 @@ export default defineNitroPlugin((nitroApp) => {
   // not tracked here — "whoever authenticated last" is a different account the
   // moment a second editor joins.
   const ledgers = new Map<string, Ledger>()
+  // The takes on comment threads each connection wrote, by socket: a closed
+  // connection's takes end with it (see onDisconnect).
+  const takesBySocket = new WeakMap<Y.Doc, Map<string, Set<string>>>()
   // The live review-mark mirror: the flags an edit earns reach the session's
   // sidecar without waiting for the checkpoint that makes them durable. It
   // only reads the document and its ledger; when it runs is its own.
@@ -589,10 +592,17 @@ export default defineNitroPlugin((nitroApp) => {
     commentsRoot(document).observe((event, transaction) => {
       if (!isPeerUpdate(transaction.origin) && !isAgentOrigin(transaction.origin)) return
       const writer = writerOfOrigin(transaction.origin)
-      stampCommentAuthors(event, writer && {
+      const takes = stampCommentAuthors(event, writer && {
         ...writer,
         name: (isAgentOrigin(transaction.origin) ? transaction.origin.seat?.name : ledger.peers.get(writer.uid)?.name) ?? null,
       })
+      const socketId = socketOfOrigin(transaction.origin)
+      if (!takes.length || !socketId) return
+      const bySocket = takesBySocket.get(document) ?? new Map<string, Set<string>>()
+      takesBySocket.set(document, bySocket)
+      const keys = bySocket.get(socketId) ?? new Set<string>()
+      bySocket.set(socketId, keys)
+      for (const key of takes) keys.add(key)
     })
 
     // The starting point, when it is knowable now. Three states, not two:
@@ -1016,7 +1026,14 @@ export default defineNitroPlugin((nitroApp) => {
 
     },
 
-    async onDisconnect({ documentName, clientsCount }) {
+    async onDisconnect({ documentName, document, socketId, clientsCount }) {
+      // A tab closed or reloaded mid-turn: its takes end now, not when they lapse.
+      const takes = takesBySocket.get(document)
+      const keys = takes?.get(socketId)
+      if (keys) {
+        takes!.delete(socketId)
+        releaseTakes(document, keys)
+      }
       if (/^node:\d+$/.test(documentName) && !isRetired(documentName)) {
         // Last peer leaving triggers an immediate checkpoint (idempotent).
         scheduler.onDisconnect(documentName, clientsCount)

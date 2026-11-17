@@ -4,6 +4,7 @@ import * as Y from 'yjs'
 import {
   commentRecords,
   commentsSynced,
+  releaseTakes,
   seedComments,
   stampCommentAuthors,
   META_NODE_UUID,
@@ -270,15 +271,15 @@ describe('a chat tab taking a thread', () => {
    * server's `clock`.
    */
   function assigned(
-    clock: { now: number, writer?: CommentWriter },
-    assignment: CommentMessage = { uid: 9, at: AT, assignee: { uid: 9, name: 'editor2', via: 'AI chat' } },
+    clock: { now: number, writer?: CommentWriter, kept?: string[] },
+    assignment: CommentMessage = { uid: 9, at: AT, assignee: { uid: 9, name: 'editor2', via: 'AI assistant' } },
   ): Y.Doc {
     const doc = new Y.Doc()
     const root = commentsRoot(doc)
     root.set(KEY('m-1'), { uid: 7, at: AT, text: 'shorten this' })
     root.set(KEY('m-2'), assignment)
     root.observe((event, transaction) => {
-      if (transaction.origin === PEER) stampCommentAuthors(event, clock.writer ?? EDITOR2, clock.now)
+      if (transaction.origin === PEER) clock.kept = stampCommentAuthors(event, clock.writer ?? EDITOR2, clock.now)
     })
     return doc
   }
@@ -317,6 +318,18 @@ describe('a chat tab taking a thread', () => {
     expect(readThreads(doc)[0]!.handling).toEqual({ tab: 'tab-b', at: AT + 22 })
   })
 
+  it('lets another tab take it at once when the first tab\'s connection closed', () => {
+    const clock: { now: number, kept?: string[] } = { now: AT + 20 }
+    const doc = assigned(clock)
+    take(doc, 'm-3', 'tab-a')
+    expect(clock.kept).toEqual([KEY('m-3')])
+    releaseTakes(doc, clock.kept!)
+    expect(readThreads(doc)[0]!.handling).toBeNull()
+    clock.now = AT + 21
+    take(doc, 'm-4', 'tab-b')
+    expect(readThreads(doc)[0]!.handling).toEqual({ tab: 'tab-b', at: AT + 21 })
+  })
+
   it('keeps another tab\'s live take when a lapsed tab gives its own back', () => {
     // Also covers: another tab takes the thread once the first take lapsed.
     const clock = { now: AT + 20 }
@@ -349,26 +362,26 @@ describe('a chat tab taking a thread', () => {
   it('reads the latest assignment with the same tie-break as the threads do', () => {
     const doc = assigned({ now: AT + 20 })
     // Same clock, earlier key, written later: the key decides, not the write order.
-    commentsRoot(doc).set(KEY('m-1z'), { uid: 7, at: AT, assignee: { uid: 7, name: 'editor1', via: 'AI chat' } })
+    commentsRoot(doc).set(KEY('m-1z'), { uid: 7, at: AT, assignee: { uid: 7, name: 'editor1', via: 'AI assistant' } })
     expect(readThreads(doc)[0]!.assignee?.uid).toBe(9)
     take(doc, 'm-3', 'tab-a')
     expect(commentsRoot(doc).has(KEY('m-3'))).toBe(true)
   })
 
   it('refuses a take on a thread assigned to somebody else', () => {
-    const doc = assigned({ now: AT + 20 }, { uid: 7, at: AT, assignee: { uid: 7, name: 'editor1', via: 'AI chat' } })
+    const doc = assigned({ now: AT + 20 }, { uid: 7, at: AT, assignee: { uid: 7, name: 'editor1', via: 'AI assistant' } })
     take(doc, 'm-3', 'tab-a')
     expect(commentsRoot(doc).has(KEY('m-3'))).toBe(false)
   })
 
   it('refuses a take on a thread another account handed to the writer\'s chat', () => {
-    const doc = assigned({ now: AT + 20 }, { uid: 7, at: AT, assignee: { uid: 9, name: 'editor2', via: 'AI chat' } })
+    const doc = assigned({ now: AT + 20 }, { uid: 7, at: AT, assignee: { uid: 9, name: 'editor2', via: 'AI assistant' } })
     take(doc, 'm-3', 'tab-a')
     expect(commentsRoot(doc).has(KEY('m-3'))).toBe(false)
   })
 })
 
-describe('handing a thread to an AI chat', () => {
+describe('handing a thread to an AI assistant', () => {
   const PEER = { source: 'connection' }
   const KEY = (msg: string) => `b-1\u0000c-1:${msg}`
 
@@ -384,8 +397,8 @@ describe('handing a thread to an AI chat', () => {
 
   it('keeps a hand-off to the writer\'s own chat and drops one to another account\'s', () => {
     const editor1: CommentWriter = { uid: 7, name: 'editor1', via: null }
-    expect(handOff(editor1, { uid: 7, name: 'editor1', via: 'AI chat' })).toBe(true)
-    expect(handOff(editor1, { uid: 9, name: 'editor2', via: 'AI chat' })).toBe(false)
+    expect(handOff(editor1, { uid: 7, name: 'editor1', via: 'AI assistant' })).toBe(true)
+    expect(handOff(editor1, { uid: 9, name: 'editor2', via: 'AI assistant' })).toBe(false)
     expect(handOff(editor1, { uid: 9, name: 'editor2', via: 'Claude' })).toBe(true)
   })
 })

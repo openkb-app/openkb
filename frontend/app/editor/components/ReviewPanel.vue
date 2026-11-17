@@ -25,7 +25,7 @@ const props = defineProps<{
   assigneeCandidates: AssigneeCandidate[]
   /** This session's own identity — what "assigned to you" is measured against. */
   me: CommentAssignee | null
-  /** Who a new thread goes to when it mentions nobody. */
+  /** Who a new thread starts assigned to; null for nobody. */
   defaultAssignee?: CommentAssignee | null
   /** How many blocks carry no id — the hold no sign-off can clear. */
   unidentified: number

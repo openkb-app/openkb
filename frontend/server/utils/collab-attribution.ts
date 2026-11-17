@@ -1,5 +1,6 @@
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { blockIdOf, holdsNothing, ID_BEARING_TYPES, resolveSharedIds, REVIEW_STEPS, type ReviewStep, TITLE_REVIEW_KEY } from '#shared/page-blocks'
+import type { Connection } from '@hocuspocus/server'
 import type { CoAuthor } from './commit'
 
 /**
@@ -438,6 +439,12 @@ export function writerOfOrigin(origin: unknown): WriterRef | null {
     { user?: { uid?: number } } | undefined
   const uid = Number(ctx?.user?.uid)
   return Number.isFinite(uid) && uid > 0 ? { uid, via: null } : null
+}
+
+/** The socket of the client connection an update came in on, or null for any other origin. */
+export function socketOfOrigin(origin: unknown): string | null {
+  const tagged = origin as { source?: string, connection?: Connection } | null
+  return tagged?.source === 'connection' ? tagged.connection?.socketId ?? null : null
 }
 
 /**

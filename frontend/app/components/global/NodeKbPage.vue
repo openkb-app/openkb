@@ -20,9 +20,8 @@ import { absoluteDateTime, referenceLabels, type CeEntityReference } from '#shar
 import { spaceReviewSteps, spaceSlug, type KbSpaceCeProp } from '#shared/utils/kb-spaces'
 import { enforcedSteps, mayModerate } from '#shared/utils/moderation'
 import { BLOCK_ID_PREFIX, TITLE_REVIEW_KEY, type BlockByline, type ReviewStep } from '#shared/page-blocks'
-import { assigneeCandidates } from '~/editor/comment-assignee'
+import { assignableOwnAgents, assigneeCandidates, defaultAssigneeForNextNewComment } from '~/editor/comment-assignee'
 import { chatAssignee } from '~/editor/chat-comments'
-import { CHAT_AGENT_LABEL } from '#shared/utils/chat-agent'
 import { readFences, readFencesKey } from '~/editor/fence-renders'
 import { itemName, reviewMarkOf } from '~/editor/review-marks'
 import type { CommentAssignee } from '#shared/block-comments'
@@ -131,8 +130,12 @@ const {
   publishPage,
 } = useKbReviewGate(editSession, moderation)
 
-const { uid: myUid, name: myName } = useCurrentUser()
+const { uid: myUid, name: myName, canChat } = useCurrentUser()
 const { chatOpen } = useSidePane()
+
+/** The assignee of the reader's last new comment in this edit session: undefined before the first, null for nobody. */
+const lastNewCommentAssignee = ref<CommentAssignee | null | undefined>()
+watch(mode, (now) => { if (now !== 'edit') lastNewCommentAssignee.value = undefined })
 
 // What the review surface is given, and what it reports back. One block, so
 // the pane's frame and the phone's slideover can never drift apart.
@@ -143,9 +146,12 @@ const reviewSurface = computed(() => ({
   threadsShownFor: session.value?.threadsShownFor.value ?? null,
   assigneeCandidates: commentAssignees.value,
   me: session.value?.me.value ?? null,
-  defaultAssignee: chatOpen.value && myUid.value != null
-    ? chatAssignee({ uid: myUid.value, name: myName.value ?? '' })
-    : null,
+  defaultAssignee: defaultAssigneeForNextNewComment(
+    lastNewCommentAssignee.value,
+    commentAssignees.value,
+    myUid.value != null && canChat.value ? chatAssignee({ uid: myUid.value, name: myName.value ?? '' }) : null,
+    chatOpen.value,
+  ),
   unidentified: unidentifiedCount.value,
   signedOff: session.value?.signedOff.value ?? false,
   refused: session.value?.refusedSignOffs.value ?? [],
@@ -169,8 +175,10 @@ const reviewEvents = {
   approveAll: (e: { items: Array<{ item: string, step: ReviewStep }>, waiting: number }) =>
     session.value?.approveAll(e.items, e.waiting),
   jumpBlock: goToCommentBlock,
-  postComment: (e: { text: string, assignee: CommentAssignee | null }) =>
-    session.value?.postComment(e.text, e.assignee),
+  postComment: (e: { text: string, assignee: CommentAssignee | null }) => {
+    lastNewCommentAssignee.value = e.assignee
+    session.value?.postComment(e.text, e.assignee)
+  },
   discardComment: () => { if (session.value) session.value.commentDraft.value = null },
   replyComment: (e: { blockId: string, threadId: string, text: string }) =>
     session.value?.replyToComment(e.blockId, e.threadId, e.text),
@@ -276,8 +284,8 @@ const commentAssignees = computed(() => assigneeCandidates(
     : {
         uid: myUid.value,
         name: myName.value ?? '',
-        // The open chat takes the threads handed to it.
-        agents: chatOpen.value ? [...myAgents.value, { label: CHAT_AGENT_LABEL }] : myAgents.value,
+        // The assistant takes the threads handed to it; from `lg` it opens the chat to do so.
+        agents: assignableOwnAgents(myAgents.value, canChat.value),
       },
 ))
 

@@ -28,6 +28,11 @@ export interface OkbUser {
    * writable too (`canWrite` on `/api/spaces`).
    */
   canCreatePage: boolean
+  /**
+   * Whether the AI assistant can act for the account: Drupal issues an
+   * administrator account no agent token. Gates handing a comment to it.
+   */
+  canChat: boolean
 }
 
 export const ANONYMOUS_USER: OkbUser = Object.freeze({
@@ -37,6 +42,7 @@ export const ANONYMOUS_USER: OkbUser = Object.freeze({
   isAdmin: false,
   canCreateSpace: false,
   canCreatePage: false,
+  canChat: false,
 })
 
 /**

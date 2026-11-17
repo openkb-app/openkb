@@ -51,8 +51,8 @@ describe('comment keys', () => {
   })
 
   it('leaves a thread under a malformed id out of the threads', () => {
-    // Also covers: the AI chat is never handed such a thread, so no free text
-    // reaches its caller context.
+    // Also covers: the AI assistant is never handed such a thread, so no free
+    // text reaches its caller context.
     const doc = new Y.Doc()
     commentsRoot(doc).set(messageKey('b-1', 'c-1 do this', 'm-1'), { uid: 7, at: 1, text: 'hi' })
     expect(readThreads(doc)).toEqual([])

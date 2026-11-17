@@ -1,26 +1,47 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { createApp, h, nextTick, reactive } from 'vue'
 import CommentThreads from './CommentThreads.vue'
-import type { CommentThreadView, ShownThreads } from '../comment-marks'
+import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import { assigneeCandidates } from '../comment-assignee'
+import type { CommentAssignee } from '#shared/block-comments'
 import type { PresencePeer } from '#shared/utils/presence'
 
 /**
  * The composer half of the drawer, in a bare Vue app.
  *
  * Nuxt UI is stubbed down to what the component drives: a real `<textarea>` and
- * a picker that hands back the identity it was told to. The mention field is
+ * a picker that hands back {@link nextPick} and closes. The mention field is
  * the real one, so the echo behind the text is asserted here too.
  */
 
-interface PickerProps { candidates: unknown[], open?: boolean }
+interface PickerProps {
+  candidates: unknown[]
+  open?: boolean
+  selected?: CommentAssignee | null
+  assigned?: CommentAssignee | null
+}
+
+const ADAS_AGENT: CommentAssignee = { uid: 7, name: 'Ada', via: 'Claude' }
+const DRAFT: CommentDraft = { blockId: 'b-1', anchor: null, label: 'Image: Probe chart' }
+
+/** What a press on the stubbed picker picks; null is its "Nobody" row. */
+let nextPick: CommentAssignee | null = ADAS_AGENT
+beforeEach(() => { nextPick = ADAS_AGENT })
+
+/** The props a test changes after mounting. */
+interface LiveProps {
+  draft?: CommentDraft | null
+  defaultAssignee?: CommentAssignee | null
+  candidates?: ReturnType<typeof assigneeCandidates>
+}
 
 function mount(
   candidates: ReturnType<typeof assigneeCandidates>,
   threads: CommentThreadView[] = [],
   shownFor: ShownThreads | null = null,
   me: { uid: number, name: string } | null = null,
+  live: LiveProps = {},
 ) {
   const root = document.createElement('div')
   document.body.appendChild(root)
@@ -30,10 +51,11 @@ function mount(
   const app = createApp({
     render: () => h(CommentThreads as never, {
       threads,
-      draft: { blockId: 'b-1', anchor: null, label: 'Image: Probe chart' },
+      draft: DRAFT,
       shownFor,
       candidates,
       me,
+      ...live,
       onPost: (payload: unknown) => posted.push(payload),
       onReply: (payload: unknown) => replied.push(payload),
       onAssign: (payload: unknown) => assigned.push(payload),
@@ -66,15 +88,20 @@ function mount(
   // The picker is exercised through the identity it emits, not through the
   // palette — that has a suite of its own.
   app.component('EditorAssigneePicker', {
-    props: ['candidates', 'open', 'allowUnassign'],
+    props: ['candidates', 'open', 'allowUnassign', 'selected', 'assigned'],
     emits: ['pick', 'update:open'],
     setup: (props: PickerProps, { slots, emit }) => () => h('div', {
       'data-stub': 'picker',
       'data-open': String(!!props.open),
-      'onClick': () => emit('pick', { uid: 7, name: 'Ada', via: 'Claude' }),
+      'data-selected': props.selected === undefined ? '' : JSON.stringify(props.selected),
+      'data-assigned': props.assigned === undefined ? '' : JSON.stringify(props.assigned),
+      'onClick': () => {
+        emit('pick', nextPick)
+        emit('update:open', false)
+      },
     }, slots.default?.()),
   })
-  app.component('EditorAssigneeChip', { props: ['assignee', 'viewerUid'], render: () => h('span') })
+  app.component('EditorAssigneeChip', { props: ['assignee', 'viewerUid'], render: () => h('span', { 'data-stub': 'chip' }) })
   app.mount(root)
   return { root, posted, replied, assigned }
 }
@@ -126,11 +153,27 @@ function press(field: HTMLTextAreaElement, modifier: 'ctrlKey' | 'metaKey' | nul
   }))
 }
 
+/** The new comment's assignee menu. */
 const picker = (root: HTMLElement) => root.querySelector('[data-stub="picker"]')!
+/** The assignee menu of the reply box on thread `threadId`. */
 const replyPicker = (root: HTMLElement, threadId: string) => root
-  .querySelector(`[data-testid="comment-reply-mention-${threadId}"]`)!
-  .closest('[data-stub="picker"]')!
-const assignNote = (root: HTMLElement) => root.querySelector('[data-testid="comment-assign-note"]')
+  .querySelector(`[data-testid="comment-reply-assignee-${threadId}"]`)!
+  .closest<HTMLElement>('[data-stub="picker"]')!
+/** The menu of the thread's assignee chip. */
+const chipPicker = (root: HTMLElement) => root
+  .querySelector('[data-stub="chip"]')!
+  .closest<HTMLElement>('[data-stub="picker"]')!
+/** The button that names the draft's assignee and opens the menu. */
+const assigneeButton = (root: HTMLElement) => root.querySelector<HTMLElement>('[data-testid="comment-assignee"]')!
+/** The new comment's text field. */
+const draftField = (root: HTMLElement) => root.querySelector<HTMLTextAreaElement>('[data-stub="textarea"]')!
+
+/** Replaces what a textarea holds, the way a paste or a select-and-delete does. */
+async function setText(field: HTMLTextAreaElement, text: string): Promise<void> {
+  field.value = text
+  field.dispatchEvent(new Event('input', { bubbles: true }))
+  await nextTick()
+}
 /** The chips the echo paints behind the draft, in order. */
 const echoed = (root: HTMLElement) => [...root.querySelectorAll('[data-testid="mention-echo"] .okb-mention-echo')]
   .map(chip => chip.textContent)
@@ -153,7 +196,7 @@ describe('the comment composer', () => {
     expect(field.value).toBe('@')
   })
 
-  it('writes the pick into the draft and says who it hands the thread to', async () => {
+  it('completes a typed @ to a mention and selects who it names', async () => {
     const { root } = mount(CANDIDATES)
     await type(root, '@')
 
@@ -161,8 +204,9 @@ describe('the comment composer', () => {
     await nextTick()
 
     // Somebody else's agent is named by its owner too.
-    expect(root.querySelector<HTMLTextAreaElement>('[data-stub="textarea"]')!.value).toBe('@Ada via Claude ')
-    expect(assignNote(root)?.textContent?.trim()).toBe('Assigns this to Ada via Claude')
+    expect(draftField(root).value).toBe('@Ada via Claude ')
+    expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
+    expect(picker(root).getAttribute('data-open')).toBe('false')
   })
 
   it('names the reader\'s own agent by itself', async () => {
@@ -172,8 +216,8 @@ describe('the comment composer', () => {
     ;(picker(root) as HTMLElement).click()
     await nextTick()
 
-    expect(root.querySelector<HTMLTextAreaElement>('[data-stub="textarea"]')!.value).toBe('@Claude ')
-    expect(assignNote(root)?.textContent?.trim()).toBe('Assigns this to Claude')
+    expect(draftField(root).value).toBe('@Claude ')
+    expect(assigneeButton(root).textContent?.trim()).toBe('Claude')
   })
 
   it('sets the mention off from the prose around it', async () => {
@@ -186,27 +230,174 @@ describe('the comment composer', () => {
     expect(echoed(root)).toEqual(['@Ada via Claude'])
   })
 
-  it('offers nothing to assign while the draft mentions nobody', async () => {
+  it('starts with nobody, and says so in the button\'s name', async () => {
     const { root } = mount(CANDIDATES)
     await type(root, 'x')
 
     expect(picker(root).getAttribute('data-open')).toBe('false')
-    expect(assignNote(root)).toBeNull()
+    expect(assigneeButton(root).textContent?.trim()).toBe('Nobody')
+    expect(assigneeButton(root).getAttribute('aria-label')).toBe('Assignee: Nobody')
+    expect(picker(root).getAttribute('data-selected')).toBe('null')
     expect(echoed(root)).toEqual([])
   })
 
-  it('posts the mention as the thread\'s assignee, with no box to tick', async () => {
+  it('selects a pick from the menu and writes nothing into the draft', async () => {
     const { root, posted } = mount(CANDIDATES)
-    await type(root, '@')
+    await type(root, 'x')
 
     ;(picker(root) as HTMLElement).click()
     await nextTick()
-    root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
 
-    expect(posted).toEqual([{
-      text: '@Ada via Claude ',
-      assignee: { uid: 7, name: 'Ada', via: 'Claude' },
-    }])
+    expect(draftField(root).value).toBe('x')
+    expect(assigneeButton(root).getAttribute('aria-label')).toBe('Assignee: Ada via Claude')
+    expect(picker(root).getAttribute('data-selected')).toBe(JSON.stringify(ADAS_AGENT))
+
+    root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    expect(posted).toEqual([{ text: 'x', assignee: ADAS_AGENT }])
+  })
+
+  it('writes no mention on a menu pick that follows a completed one', async () => {
+    const { root } = mount(CANDIDATES)
+    await type(root, '@')
+    const stub = picker(root) as HTMLElement
+    stub.click()
+    await nextTick()
+    expect(draftField(root).value).toBe('@Ada via Claude ')
+
+    await setText(draftField(root), 'plain words')
+    stub.click()
+    await nextTick()
+
+    expect(draftField(root).value).toBe('plain words')
+  })
+
+  it('keeps the selection when the mention is deleted again', async () => {
+    const { root, posted } = mount(CANDIDATES)
+    await type(root, '@')
+    ;(picker(root) as HTMLElement).click()
+    await nextTick()
+
+    await setText(draftField(root), 'no mention left')
+
+    expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
+    root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    expect(posted).toEqual([{ text: 'no mention left', assignee: ADAS_AGENT }])
+  })
+
+  it('keeps a pick when the candidates change under a mention in the draft', async () => {
+    const live = reactive<LiveProps>({ candidates: CANDIDATES })
+    const { root } = mount(CANDIDATES, [], null, null, live)
+    await type(root, '@')
+    ;(picker(root) as HTMLElement).click()
+    await nextTick()
+    nextPick = null
+    ;(picker(root) as HTMLElement).click()
+    await nextTick()
+
+    // Ada's agent drops out of the page and comes back.
+    live.candidates = assigneeCandidates([peer(1, 'Ada', 7)], [])
+    await nextTick()
+    live.candidates = CANDIDATES
+    await nextTick()
+
+    expect(draftField(root).value).toBe('@Ada via Claude ')
+    expect(assigneeButton(root).textContent?.trim()).toBe('Nobody')
+  })
+
+  it('keeps the selection when the last of two mentions is deleted', async () => {
+    const { root } = mount(CANDIDATES)
+    await setText(draftField(root), '@Ada and @Ada via Claude ')
+    expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
+
+    await setText(draftField(root), '@Ada and ')
+
+    expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
+  })
+
+  it('keeps the selection on a Backspace inside a mention', async () => {
+    const { root } = mount(CANDIDATES)
+    await setText(draftField(root), '@Ada via Claude ')
+    nextPick = null
+    ;(picker(root) as HTMLElement).click()
+    await nextTick()
+
+    await setText(draftField(root), '@Ada via Claude')
+    await setText(draftField(root), '@Ada via Claud')
+
+    expect(assigneeButton(root).textContent?.trim()).toBe('Nobody')
+  })
+
+  it('reads a name a person and the reader\'s own agent share as the agent, in text and echo', async () => {
+    const both = assigneeCandidates(
+      [peer(1, 'claude', 9)],
+      [],
+      { uid: 7, name: 'fago', agents: [{ label: 'claude' }] },
+    )
+    const { root } = mount(both, [], null, { uid: 7, name: 'fago' })
+
+    await setText(draftField(root), '@claude please check')
+
+    expect(picker(root).getAttribute('data-selected'))
+      .toBe(JSON.stringify({ uid: 7, name: 'fago', via: 'claude' }))
+    const chips = [...root.querySelectorAll('[data-testid="mention-echo"] .okb-mention-echo')]
+    expect(chips.map(chip => chip.classList.contains('okb-mention-echo--agent'))).toEqual([true])
+  })
+
+  it('keeps a selected candidate that leaves the list, and posts to it', async () => {
+    const live = reactive<LiveProps>({ candidates: CANDIDATES })
+    const { root, posted } = mount(CANDIDATES, [], null, null, live)
+    await type(root, 'x')
+    ;(picker(root) as HTMLElement).click()
+    await nextTick()
+
+    live.candidates = assigneeCandidates([peer(1, 'Ada', 7)], [])
+    await nextTick()
+
+    expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
+    root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    expect(posted).toEqual([{ text: 'x', assignee: ADAS_AGENT }])
+  })
+
+  it('selects whoever a mention typed out in full names', async () => {
+    const { root } = mount(CANDIDATES)
+
+    await setText(draftField(root), 'over to @Ada via Claude now')
+
+    expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
+  })
+
+  it('posts to nobody once Nobody is picked', async () => {
+    const assistant = { uid: 7, name: 'Ada', via: 'AI assistant' }
+    const { root, posted } = mount(CANDIDATES, [], null, { uid: 7, name: 'Ada' }, { defaultAssignee: assistant })
+    await type(root, 'x')
+    expect(assigneeButton(root).getAttribute('aria-label')).toBe('Assignee: AI assistant')
+
+    nextPick = null
+    ;(picker(root) as HTMLElement).click()
+    await nextTick()
+
+    expect(assigneeButton(root).textContent?.trim()).toBe('Nobody')
+    root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    expect(posted).toEqual([{ text: 'x', assignee: null }])
+  })
+
+  it('fixes the preselection when the draft opens, and takes the new one with the next draft', async () => {
+    const assistant = { uid: 7, name: 'Ada', via: 'AI assistant' }
+    const live = reactive<LiveProps>({ draft: DRAFT, defaultAssignee: assistant })
+    const { root, posted } = mount(CANDIDATES, [], null, { uid: 7, name: 'Ada' }, live)
+    expect(assigneeButton(root).textContent?.trim()).toBe('AI assistant')
+
+    // The chat is folded while the draft is open.
+    live.defaultAssignee = null
+    await nextTick()
+    expect(assigneeButton(root).textContent?.trim()).toBe('AI assistant')
+    await type(root, 'x')
+    root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    expect(posted).toEqual([{ text: 'x', assignee: assistant }])
+
+    live.draft = { ...DRAFT, blockId: 'b-2' }
+    await nextTick()
+    expect(assigneeButton(root).textContent?.trim()).toBe('Nobody')
   })
 })
 
@@ -245,36 +436,145 @@ describe('handing a thread on from a reply', () => {
     )!
   }
 
+  const ASSIGNED: CommentThreadView = { ...THREAD, assignee: ADAS_AGENT, assignedTo: [ADAS_AGENT] }
+  /** The button that names the reply's assignee and opens its menu. */
+  const replyButton = (root: HTMLElement) =>
+    root.querySelector<HTMLElement>('[data-testid="comment-reply-assignee-c-1"]')!
+
+  it('hands the thread on to a menu pick when the reply is posted, with no mention written', async () => {
+    const { root, replied, assigned } = mount(CANDIDATES, [THREAD])
+    const field = await openReply(root)
+    expect(replyButton(root).getAttribute('aria-label')).toBe('Assignee: Nobody')
+
+    replyPicker(root, 'c-1').click()
+    await nextTick()
+    expect(field.value).toBe('')
+    expect(replyButton(root).getAttribute('aria-label')).toBe('Assignee: Ada via Claude')
+    // Nothing is handed on before the reply is posted.
+    expect(assigned).toEqual([])
+
+    await setText(field, 'Agreed.')
+    press(field, 'ctrlKey')
+
+    expect(assigned).toEqual([{ blockId: 'b-1', threadId: 'c-1', assignee: ADAS_AGENT }])
+    expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
+  })
+
   it('assigns the thread, not the reply, to whoever the reply mentions', async () => {
     const { root, replied, assigned } = mount(CANDIDATES, [THREAD])
     const field = await openReply(root)
 
-    root.querySelector<HTMLElement>('[data-testid="comment-reply-mention-c-1"]')!
-      .closest('[data-stub="picker"]')!.dispatchEvent(new Event('click', { bubbles: true }))
-    await nextTick()
-
-    expect(field.value).toBe('@Ada via Claude ')
+    await setText(field, 'over to @Ada via Claude now')
     press(field, 'ctrlKey')
 
-    expect(assigned).toEqual([{
-      blockId: 'b-1',
-      threadId: 'c-1',
-      assignee: { uid: 7, name: 'Ada', via: 'Claude' },
-    }])
-    expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: '@Ada via Claude ' }])
+    expect(assigned).toEqual([{ blockId: 'b-1', threadId: 'c-1', assignee: ADAS_AGENT }])
+    expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'over to @Ada via Claude now' }])
   })
 
-  it('leaves the thread where it is when the reply mentions nobody', async () => {
-    const { root, replied, assigned } = mount(CANDIDATES, [THREAD])
+  it('leaves the thread where it is when the reply leaves the selection alone', async () => {
+    const { root, replied, assigned } = mount(CANDIDATES, [ASSIGNED])
     const field = await openReply(root)
-    field.value = 'Agreed.'
-    field.dispatchEvent(new Event('input', { bubbles: true }))
-    await nextTick()
+    expect(replyButton(root).textContent?.trim()).toBe('Ada via Claude')
+    expect(replyPicker(root, 'c-1').getAttribute('data-selected')).toBe(JSON.stringify(ADAS_AGENT))
 
+    await setText(field, 'Agreed.')
     press(field, 'ctrlKey')
 
     expect(assigned).toEqual([])
     expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
+  })
+
+  it('keeps the reply\'s selection on a Backspace inside a mention', async () => {
+    const { root, assigned } = mount(CANDIDATES, [THREAD])
+    const field = await openReply(root)
+    await setText(field, 'over to @Ada via Claude ')
+    nextPick = null
+    replyPicker(root, 'c-1').click()
+    await nextTick()
+
+    await setText(field, 'over to @Ada via Claude')
+    await setText(field, 'over to @Ada via Claud')
+
+    expect(replyButton(root).getAttribute('aria-label')).toBe('Assignee: Nobody')
+    press(field, 'ctrlKey')
+    expect(assigned).toEqual([])
+  })
+
+  // The reader is no candidate of their own menu; it lists them all the same.
+  it('names the reader on a reply to a thread assigned to them', async () => {
+    const me = { uid: 3, name: 'Bob', via: null }
+    const mine: CommentThreadView = { ...THREAD, assignee: me, assignedTo: [me] }
+    const { root } = mount(CANDIDATES, [mine], null, { uid: 3, name: 'Bob' })
+    await openReply(root)
+
+    expect(replyButton(root).getAttribute('aria-label')).toBe('Assignee: Bob')
+    expect(replyPicker(root, 'c-1').getAttribute('data-selected')).toBe(JSON.stringify(me))
+  })
+
+  it('keeps the thread\'s assignee in the reply\'s menu once Nobody is picked', async () => {
+    const me = { uid: 3, name: 'Bob', via: null }
+    const mine: CommentThreadView = { ...THREAD, assignee: me, assignedTo: [me] }
+    const { root } = mount(CANDIDATES, [mine], null, { uid: 3, name: 'Bob' })
+    await openReply(root)
+
+    nextPick = null
+    replyPicker(root, 'c-1').click()
+    await nextTick()
+
+    expect(replyButton(root).getAttribute('aria-label')).toBe('Assignee: Nobody')
+    expect(replyPicker(root, 'c-1').getAttribute('data-assigned')).toBe(JSON.stringify(me))
+  })
+
+  it('marks the thread\'s assignee in the chip\'s menu', () => {
+    const assignedThread: CommentThreadView = { ...THREAD, assignee: ADAS_AGENT, assignedTo: [ADAS_AGENT] }
+    const { root } = mount(CANDIDATES, [assignedThread])
+
+    expect(chipPicker(root).getAttribute('data-selected')).toBe(JSON.stringify(ADAS_AGENT))
+  })
+
+  it('writes nothing when the chip\'s menu picks the thread\'s assignee again', async () => {
+    const assignedThread: CommentThreadView = { ...THREAD, assignee: ADAS_AGENT, assignedTo: [ADAS_AGENT] }
+    const { root, assigned } = mount(CANDIDATES, [assignedThread])
+
+    nextPick = ADAS_AGENT
+    chipPicker(root).click()
+    await nextTick()
+
+    expect(assigned).toEqual([])
+  })
+
+  it('assigns nothing when a reply on an unassigned thread leaves the menu alone', async () => {
+    const { root, replied, assigned } = mount(CANDIDATES, [THREAD])
+    const field = await openReply(root)
+
+    await setText(field, 'Agreed.')
+    press(field, 'ctrlKey')
+
+    expect(assigned).toEqual([])
+    expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
+  })
+
+  it('does not assign again when the pick is who holds the thread already', async () => {
+    const { root, assigned } = mount(CANDIDATES, [ASSIGNED])
+    const field = await openReply(root)
+
+    replyPicker(root, 'c-1').click()
+    await setText(field, 'Agreed.')
+    press(field, 'ctrlKey')
+
+    expect(assigned).toEqual([])
+  })
+
+  it('takes the thread off its assignee when the reply picks Nobody', async () => {
+    const { root, assigned } = mount(CANDIDATES, [ASSIGNED])
+    const field = await openReply(root)
+
+    nextPick = null
+    replyPicker(root, 'c-1').click()
+    await setText(field, 'Mine after all.')
+    press(field, 'ctrlKey')
+
+    expect(assigned).toEqual([{ blockId: 'b-1', threadId: 'c-1', assignee: null }])
   })
 
   it('does not carry an open picker over to the next thread it is opened on', async () => {

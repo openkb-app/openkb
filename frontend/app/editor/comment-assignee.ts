@@ -68,12 +68,12 @@ export function assigneeCandidates(
 ): AssigneeCandidate[] {
   const present: AssigneeCandidate[] = []
   const seen = new Set<string>()
-  const keyOf = (who: CommentAssignee): string => `${who.uid}|${who.via ?? ''}`
+  /** Whether `who` is the reader themself, not one of their agents. */
   const isReader = (who: CommentAssignee): boolean =>
     !who.via && own != null && who.uid === own.uid
   for (const peer of peers) {
     if (peer.uid == null || isReader({ uid: peer.uid, name: peer.name, via: peer.via ?? null })) continue
-    // An account starts its own AI chat only.
+    // An account starts its own AI assistant only.
     if (peer.via === CHAT_AGENT_LABEL) continue
     const candidate: AssigneeCandidate = {
       uid: peer.uid,
@@ -82,18 +82,18 @@ export function assigneeCandidates(
       color: peer.color,
       present: true,
     }
-    if (seen.has(keyOf(candidate))) continue
-    seen.add(keyOf(candidate))
+    if (seen.has(assigneeKey(candidate))) continue
+    seen.add(assigneeKey(candidate))
     present.push(candidate)
   }
   const absent = roster
     .map(member => ({ uid: member.uid, name: member.name, via: null, present: false }))
-    .filter(member => !seen.has(keyOf(member)) && !isReader(member))
+    .filter(member => !seen.has(assigneeKey(member)) && !isReader(member))
   const mine = (own?.agents ?? [])
     .map(agent => ({ uid: own!.uid, name: own!.name, via: agent.label, present: false }))
     .filter((agent) => {
-      if (seen.has(keyOf(agent))) return false
-      seen.add(keyOf(agent))
+      if (seen.has(assigneeKey(agent))) return false
+      seen.add(assigneeKey(agent))
       return true
     })
   return [
@@ -102,6 +102,46 @@ export function assigneeCandidates(
     ...present.filter(candidate => candidate.via),
     ...mine,
   ]
+}
+
+/** A string naming one person or one agent of an account; empty for nobody. */
+export function assigneeKey(who: { uid?: number | null, via?: string | null } | null | undefined): string {
+  return who ? `${who.uid}|${who.via ?? ''}` : ''
+}
+
+/** Whether two assignees are the same person or the same agent of an account. */
+export function isSameAssignee(
+  one: CommentAssignee | null | undefined,
+  other: CommentAssignee | null | undefined,
+): boolean {
+  return assigneeKey(one) === assigneeKey(other)
+}
+
+/**
+ * The agents of the reader's own a thread can be handed to: the connected
+ * clients, and the AI assistant for an account that can chat.
+ */
+export function assignableOwnAgents(agents: readonly OwnAgent[], canChat: boolean): OwnAgent[] {
+  return canChat ? [...agents, { label: CHAT_AGENT_LABEL }] : [...agents]
+}
+
+/**
+ * Who the next new comment starts assigned to: the choice of the reader's last
+ * new comment, while that assignee is still on offer; else the reader's
+ * assistant while the chat is open; else nobody.
+ *
+ * `last` is undefined before the reader's first new comment and null when it
+ * went to nobody. `assistant` is null where the reader has none.
+ */
+export function defaultAssigneeForNextNewComment(
+  last: CommentAssignee | null | undefined,
+  candidates: readonly AssigneeCandidate[],
+  assistant: CommentAssignee | null,
+  chatOpen: boolean,
+): CommentAssignee | null {
+  if (last === null) return null
+  if (last && candidates.some(candidate => isSameAssignee(candidate, last))) return last
+  return chatOpen ? assistant : null
 }
 
 /**
@@ -117,44 +157,78 @@ export function mentionName(
 }
 
 /**
- * Where `@name` last stands as a whole mention, or -1. A name may not run on
- * into a letter or digit, so `@Adam` is not a mention of `Ada`.
+ * Who an edit of a draft newly mentions — who the mention selects as the
+ * assignee. Only a mention that overlaps the inserted text counts: a deletion,
+ * or a candidate coming or going, selects nobody. Of several, the last wins.
+ *
+ * A character repeated at the edit point fits either side of it, so the
+ * inserted span is read twice, prefix first and suffix first. A candidate
+ * counts only if a mention of them overlaps both readings.
  */
-function lastMentionAt(text: string, name: string): number {
-  const needle = `@${name}`
-  for (let at = text.lastIndexOf(needle); at !== -1;) {
-    if (!/[\p{L}\p{N}]/u.test(text[at + needle.length] ?? '')) return at
-    at = at > 0 ? text.lastIndexOf(needle, at - 1) : -1
-  }
-  return -1
-}
-
-/**
- * The candidate a draft mentions — what the "Assign to …" checkbox is about.
- * The last mention wins, and the longest name at that spot, so `@editor10` is
- * not read as `editor1`.
- */
-export function mentionedCandidate(
-  text: string,
+export function addedMention(
+  before: string,
+  after: string,
   candidates: readonly AssigneeCandidate[],
   viewerUid?: number | null,
 ): AssigneeCandidate | null {
-  let found: { at: number, length: number, candidate: AssigneeCandidate } | null = null
-  for (const candidate of candidates) {
-    const name = mentionName(candidate, viewerUid)
-    const at = lastMentionAt(text, name)
-    if (at === -1) continue
-    const better = !found
-      || at > found.at
-      || (at === found.at && name.length > found.length)
-      // The same word can name a person and the reader's own agent, which
-      // reads by its bare label. The agent takes it: only its owner writes
-      // that form, and they wrote it about their agent.
-      || (at === found.at && name.length === found.length
-        && !!candidate.via && !found.candidate.via)
-    if (better) found = { at, length: name.length, candidate }
+  const readings = [insertedSpan(before, after, false), insertedSpan(before, after, true)]
+    .map(span => ({ span, keys: new Set<string>() }))
+  if (readings.some(({ span }) => span.start === span.end)) {
+    return null
   }
-  return found?.candidate ?? null
+  const mentions: AssigneeCandidate[] = []
+  let at = 0
+  for (const { text, mention } of draftRuns(after, candidates, viewerUid)) {
+    const runEnd = at + text.length
+    if (mention) {
+      const overlapping = readings.filter(({ span }) => at < span.end && span.start < runEnd)
+      if (overlapping.length > 0) {
+        mentions.push(mention)
+      }
+      for (const { keys } of overlapping) {
+        keys.add(assigneeKey(mention))
+      }
+    }
+    at = runEnd
+  }
+  let added: AssigneeCandidate | null = null
+  for (const mention of mentions) {
+    if (readings.every(({ keys }) => keys.has(assigneeKey(mention)))) {
+      added = mention
+    }
+  }
+  return added
+}
+
+/** The span of `after` an edit of `before` inserted; empty for a pure deletion. */
+function insertedSpan(before: string, after: string, suffixFirst: boolean): { start: number, end: number } {
+  const shorter = Math.min(before.length, after.length)
+  if (suffixFirst) {
+    const suffix = commonSuffixLength(before, after, shorter)
+    const prefix = commonPrefixLength(before, after, shorter - suffix)
+    return { start: prefix, end: after.length - suffix }
+  }
+  const prefix = commonPrefixLength(before, after, shorter)
+  const suffix = commonSuffixLength(before, after, shorter - prefix)
+  return { start: prefix, end: after.length - suffix }
+}
+
+/** How many leading UTF-16 units `one` and `other` share, at most `limit`. */
+function commonPrefixLength(one: string, other: string, limit: number): number {
+  let length = 0
+  while (length < limit && one[length] === other[length]) {
+    length++
+  }
+  return length
+}
+
+/** How many trailing UTF-16 units `one` and `other` share, at most `limit`. */
+function commonSuffixLength(one: string, other: string, limit: number): number {
+  let length = 0
+  while (length < limit && one[one.length - 1 - length] === other[other.length - 1 - length]) {
+    length++
+  }
+  return length
 }
 
 /** One run of a draft: plain words, or a whole mention of somebody. */
@@ -212,7 +286,13 @@ export function draftRuns(
   candidates: readonly AssigneeCandidate[],
   viewerUid?: number | null,
 ): DraftRun[] {
-  const forms = candidates.map(candidate => ({ name: mentionName(candidate, viewerUid), candidate }))
+  // Agents first: a name the reader's own agent shares with a person names the
+  // agent. Only its owner writes that form, and they wrote it about their agent.
+  const ordered = [
+    ...candidates.filter(candidate => candidate.via),
+    ...candidates.filter(candidate => !candidate.via),
+  ]
+  const forms = ordered.map(candidate => ({ name: mentionName(candidate, viewerUid), candidate }))
   return splitMentions(text, forms, form => form.name)
 }
 
@@ -248,7 +328,7 @@ export function messageRuns(
 /**
  * The draft with the `@` at `at` turned into a mention of `name`
  * ({@link mentionName}). It is spaced off on both sides, so a mention always
- * stands on its own — which is what {@link mentionedCandidate} reads back.
+ * stands on its own — which is what {@link addedMention} reads back.
  */
 export function insertMention(text: string, at: number, name: string): string {
   const before = text.slice(0, at)

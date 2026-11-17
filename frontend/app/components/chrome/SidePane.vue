@@ -128,7 +128,7 @@ const LABEL: Record<SidePaneContent, string> = {
                 class="max-w-full"
                 @click="openChat()"
               >
-                <span class="truncate">AI chat</span>
+                <span class="truncate">AI assistant</span>
               </UButton>
             </h2>
           </ChromeSidePaneBand>

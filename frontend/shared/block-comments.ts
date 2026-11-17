@@ -45,9 +45,9 @@ import * as Y from 'yjs'
  * of text, latest wins, `null` unassigns. It rides the same opaque `data` map,
  * so Drupal, revisions and the checkpoint mirror need nothing for it.
  *
- * ## Handling by the AI chat
+ * ## Handling by the AI assistant
  *
- * A thread assigned to a reader's AI chat is worked by one open chat at a
+ * A thread assigned to a reader's AI assistant is worked by one open chat at a
  * time. The chat takes it with a message carrying `handling` (the tab), and
  * gives it back by deleting that message; latest take wins. The collab server
  * refuses a take while another tab's take is live (`stampCommentAuthors`).
@@ -178,7 +178,7 @@ const COMMENT_ID = /^[A-Za-z0-9_-]{1,64}$/
  * The block, thread and message a key names, or null when the key is not a
  * message. A key with an id outside {@link COMMENT_ID} is not one either:
  * - Drupal refuses to store it;
- * - the ids reach the AI chat's system prompt, so they must not carry text.
+ * - the ids reach the AI assistant's system prompt, so they must not carry text.
  */
 export function parseMessageKey(
   key: string,

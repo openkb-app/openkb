@@ -12,8 +12,8 @@ const emit = defineEmits<{ close: [] }>()
 
 const { draft, closeChat, takeChatFocus, wide, chatEnlarged, toggleChatEnlarged } = useSidePane()
 
-/** Escape minimizes an enlarged chat, giving the page back. */
-function onKeydown(ev: KeyboardEvent) {
+/** Escape returns an enlarged chat to the side bar, giving the page back. */
+function returnEnlargedChatToSideBarOnEscape(ev: KeyboardEvent) {
   if (ev.key !== 'Escape' || !chatEnlarged.value) return
   ev.stopPropagation()
   toggleChatEnlarged()
@@ -287,18 +287,18 @@ const strayQuestion = computed(() => {
     class="flex min-h-0 flex-1 flex-col bg-(--okb-ground)"
     :class="{ 'absolute inset-0 z-30 shadow-xl': chatEnlarged && wide }"
     :data-enlarged="chatEnlarged"
-    @keydown="onKeydown"
+    @keydown="returnEnlargedChatToSideBarOnEscape"
   >
     <ChromeSidePaneBand class="bg-(--ui-bg)">
       <ChatHeader v-model:scope="scope" @clear="clearChat" />
+      <!-- One button for both states, so the focus stays on it. -->
       <UButton
-        :icon="chatEnlarged ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2'"
+        :icon="chatEnlarged ? 'i-lucide-panel-right-close' : 'i-lucide-maximize-2'"
         color="neutral"
         variant="ghost"
         size="sm"
         data-test="chat-enlarge"
-        :aria-label="chatEnlarged ? 'Minimize the chat' : 'Enlarge the chat'"
-        :aria-pressed="chatEnlarged"
+        :aria-label="chatEnlarged ? 'Back to side bar' : 'Enlarge the chat'"
         class="shrink-0"
         @click="toggleChatEnlarged()"
       />
@@ -312,8 +312,9 @@ const strayQuestion = computed(() => {
         @click="endChat"
       />
       <!-- The frame's own control sits outermost: the chat closes back to what
-           the page put in the pane, the pane closes the lot. -->
-      <slot name="controls" />
+           the page put in the pane, the pane closes the lot. An enlarged chat
+           covers that frame, so its control waits for the chat to return. -->
+      <slot v-if="!chatEnlarged" name="controls" />
     </ChromeSidePaneBand>
 
     <div ref="scroller" data-test="chat-scroller" class="flex min-h-0 flex-1 flex-col overflow-y-auto">

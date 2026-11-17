@@ -152,7 +152,7 @@ describe('the side pane', () => {
     expect(pane.chatOpen.value).toBe(false)
   })
 
-  it('enlarges the chat until minimized, and closing it minimizes it too', () => {
+  it('enlarges the chat until it goes back to the side bar, and closing it ends the enlargement', () => {
     const pane = useSidePane()
     pane.openChat()
 
@@ -164,6 +164,18 @@ describe('the side pane', () => {
     pane.toggleChatEnlarged()
     pane.closeChat()
     expect(pane.chatEnlarged.value).toBe(false)
+  })
+
+  it('opens the chat for a comment thread without taking the caret, and brings a put-away pane back for this visit only', () => {
+    const pane = useSidePane()
+    pane.request('comments')
+    pane.hide()
+
+    pane.openChatKeepingFocus()
+    expect(pane.chatOpen.value).toBe(true)
+    expect(pane.hidden.value).toBe(false)
+    expect(pane.takeChatFocus()).toBe(false)
+    expect(store.get('okb-side-pane-hidden')!.value).toBe(true)
   })
 
   it('toggles the chat shut, and brings a put-away pane back with it', () => {

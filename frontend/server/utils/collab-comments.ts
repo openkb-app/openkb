@@ -81,21 +81,24 @@ function isMessage(value: unknown): value is CommentMessage {
  *   message's ({@link parseMessageKey}), is removed;
  * - a message naming another account, or with no writer to file it under, is
  *   removed — a peer speaks for itself only;
- * - a hand-off to another account's AI chat is removed — an account starts
+ * - a hand-off to another account's AI assistant is removed — an account starts
  *   its own chat only;
  * - a take on a thread ({@link refusesTake}) that is not the writer's to take
  *   is removed, and so is `handling: null` — a tab gives a take back by
  *   deleting its own;
  * - otherwise the message gets the writer's uid, name and via, and a take this
  *   server's clock.
+ *
+ * Returns the keys of the takes it kept.
  */
 export function stampCommentAuthors(
   event: Y.YMapEvent<unknown>,
   writer: CommentWriter | null,
   now: number = Date.now(),
-): void {
+): string[] {
   const root = event.target
   const stamped = new Map<string, CommentMessage | null>()
+  const takes: string[] = []
   for (const [key, change] of event.changes.keys) {
     const old = change.oldValue as unknown
     if (isRecord(old) && (!writer || old.uid !== writer.uid)) {
@@ -113,6 +116,7 @@ export function stampCommentAuthors(
       stamped.set(key, null)
       continue
     }
+    if (value.handling) takes.push(key)
     const at = value.handling === undefined ? value.at : now
     if (
       value.uid === writer.uid && (value.name ?? null) === writer.name
@@ -121,11 +125,27 @@ export function stampCommentAuthors(
     const { via: _via, ...message } = value
     stamped.set(key, { ...message, at, uid: writer.uid, name: writer.name, ...(writer.via ? { via: writer.via } : {}) })
   }
-  if (stamped.size === 0) return
-  root.doc!.transact(() => {
-    for (const [key, message] of stamped) {
-      if (message) root.set(key, message)
-      else root.delete(key)
+  if (stamped.size > 0) {
+    root.doc!.transact(() => {
+      for (const [key, message] of stamped) {
+        if (message) root.set(key, message)
+        else root.delete(key)
+      }
+    })
+  }
+  return takes
+}
+
+/**
+ * Ends the takes under `keys` that the map still holds: what the server does
+ * for a tab whose connection closed, so another tab can take the thread at once.
+ */
+export function releaseTakes(doc: Y.Doc, keys: Iterable<string>): void {
+  const root = commentsRoot(doc)
+  doc.transact(() => {
+    for (const key of keys) {
+      const value = root.get(key)
+      if (isRecord(value) && value.handling) root.delete(key)
     }
   })
 }

@@ -1,12 +1,13 @@
 /**
- * The `via` of every write the AI chat makes: the label of its OAuth client
- * (`ChatAgentToken::LABEL`).
+ * The `via` of every write the AI assistant makes: the label of its OAuth
+ * client (`ChatAgentToken::LABEL`).
  */
-export const CHAT_AGENT_LABEL = 'AI chat'
+export const CHAT_AGENT_LABEL = 'AI assistant'
 
 /**
- * How long a chat tab's take on a thread holds. A tab closed mid-turn never
- * gives the thread back, so the take lapses instead.
+ * How long a chat tab's take on a thread holds. The collab server ends a take
+ * when the tab's connection closes; one it could not end (it restarted)
+ * lapses.
  */
 export const CHAT_HANDLING_TTL_MS = 5 * 60_000
 

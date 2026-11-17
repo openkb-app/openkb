@@ -1,20 +1,20 @@
 import type { CommentAssignee, CommentThread } from '#shared/block-comments'
-import { CHAT_AGENT_LABEL, handlingLive } from '#shared/utils/chat-agent'
+import { CHAT_AGENT_LABEL, CHAT_HANDLING_TTL_MS, handlingLive } from '#shared/utils/chat-agent'
 
 /**
- * Comment threads the reader's AI chat works: which ones are its to take, and
- * what it is asked to do with one.
+ * Comment threads the reader's AI assistant works: which ones are its to take,
+ * and what it is asked to do with one.
  *
  * Pure over its inputs, so the pick and the wording are pinned without a
  * browser.
  */
 
-/** The reader's AI chat as an assignee. */
+/** The reader's AI assistant as an assignee. */
 export function chatAssignee(me: { uid: number, name: string }): CommentAssignee {
   return { uid: me.uid, name: me.name, via: CHAT_AGENT_LABEL }
 }
 
-/** Whether `who` is the AI chat of account `uid`. */
+/** Whether `who` is the AI assistant of account `uid`. */
 function isChatOf(who: CommentAssignee | null | undefined, uid: number | null | undefined): boolean {
   return !!who && uid != null && who.uid === uid && who.via === CHAT_AGENT_LABEL
 }
@@ -53,13 +53,30 @@ export function nextForChat(
 }
 
 /**
- * The turn a thread is sent as: the reader's request and nothing more. How to
- * work it is the comment tool's description to say, keyed by
- * {@link chatTurnContext}.
+ * When the first live take on a thread waiting on the chat of `uid` lapses, or
+ * null for none. A lapse changes no thread, so nothing else wakes the chat to
+ * take the thread then.
+ */
+export function firstLapseOfTakeOnThreadAwaitingChat(
+  threads: readonly CommentThread[],
+  uid: number | null | undefined,
+  now: number,
+): number | null {
+  const lapses = threads
+    .filter(thread => awaitsChat(thread, uid) && handlingLive(thread.handling, now))
+    .map(thread => thread.handling!.at + CHAT_HANDLING_TTL_MS)
+  return lapses.length ? Math.min(...lapses) : null
+}
+
+/**
+ * The turn a thread is sent as, which the reader sees in the chat: the passage
+ * and what was said in the thread. The thread's ids ride the caller context
+ * ({@link chatTurnContext}); how to work it is the comment tool's description
+ * to say.
  */
 export function chatTurnText(thread: CommentThread): string {
-  const lines = [`Review comment thread ${thread.threadId} on block ${thread.blockId}:`]
-  if (thread.anchor?.quote) lines.push(`About the passage: "${thread.anchor.quote}"`)
+  const quote = thread.anchor?.quote
+  const lines = [quote ? `Review comment on "${quote}":` : 'Review comment:']
   for (const message of thread.messages) {
     lines.push(`${message.via ? `${message.name} via ${message.via}` : message.name}: ${message.text}`)
   }

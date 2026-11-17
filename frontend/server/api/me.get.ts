@@ -21,6 +21,10 @@ import { canCreateSpace } from '../utils/spaces'
  * sitePermissions}) — one JSON read, no page rendered; Drupal still decides
  * every access behind them. `canCreatePage` is the site-wide half only: which
  * spaces a page may be created in is `canWrite` on `/api/spaces`.
+ *
+ * `canChat` is whether the AI assistant can act for the account. Drupal issues
+ * an administrator no agent token: user 1, or an account with an administrator
+ * role, which the user resource includes for the accounts that hold one.
  */
 
 interface JsonApiUsers {
@@ -30,7 +34,7 @@ interface JsonApiUsers {
       display_name?: string
     }
   }>
-  included?: Array<{ type: string, attributes?: { uri?: { url?: string } } }>
+  included?: Array<{ type: string, attributes?: { uri?: { url?: string }, is_admin?: boolean } }>
 }
 
 /** The included `user_picture` file, absolutised onto the backend origin. */
@@ -40,15 +44,22 @@ function pictureUrl(user: JsonApiUsers): string | null {
   return url.startsWith('/') ? `${publicDrupalBaseUrl()}${url}` : url
 }
 
+/** Whether the account is one Drupal treats as an administrator. */
+function isAdministratorAccount(uid: number, user: JsonApiUsers): boolean {
+  return uid === 1
+    || !!user.included?.some(role => role.type === 'user_role--user_role' && role.attributes?.is_admin === true)
+}
+
 export default defineEventHandler(async (event) => {
   const { uid } = await resolveActor(event)
-  if (uid == null) return { name: null, uid: null, picture: null, isAdmin: false, canCreateSpace: false, canCreatePage: false }
+  if (uid == null) return { name: null, uid: null, picture: null, isAdmin: false, canCreateSpace: false, canCreatePage: false, canChat: false }
 
   const params = new DrupalJsonApiParams()
     .addFilter('drupal_internal__uid', String(uid))
-    .addFields('user--user', ['name', 'display_name', 'user_picture'])
+    .addFields('user--user', ['name', 'display_name', 'user_picture', 'roles'])
     .addFields('file--file', ['uri'])
-    .addInclude(['user_picture'])
+    .addFields('user_role--user_role', ['is_admin'])
+    .addInclude(['user_picture', 'roles'])
   const user = await drupalFetch<JsonApiUsers>(event, `/jsonapi/user/user?${params.getQueryString({ encodeValuesOnly: true })}`)
   const attrs = user.data?.[0]?.attributes
   const permissions = await sitePermissions(event)
@@ -61,5 +72,6 @@ export default defineEventHandler(async (event) => {
     isAdmin: permissions[BACKEND_PERMISSION] === true,
     canCreateSpace: await canCreateSpace(event),
     canCreatePage: permissions[PAGE_CREATE_PERMISSION] === true,
+    canChat: !isAdministratorAccount(uid, user),
   }
 })

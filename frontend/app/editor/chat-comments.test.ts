@@ -6,6 +6,7 @@ import {
   chatReplied,
   chatTurnContext,
   chatTurnText,
+  firstLapseOfTakeOnThreadAwaitingChat,
   needsHandBack,
   nextForChat,
   turnKey,
@@ -73,6 +74,15 @@ describe('the next thread for the chat', () => {
     expect(nextForChat([held], 7, AT + 5 * 60_000, new Set())).toBe(held)
   })
 
+  it('looks again when the first take on a waiting thread lapses', () => {
+    // Also covers: a take on a thread that no longer waits wakes nothing.
+    const held = thread('c-1', { handling: { tab: 'tab-b', at: AT } })
+    const later = thread('c-2', { handling: { tab: 'tab-c', at: AT + 1000 } })
+    const answered = thread('c-3', { handling: { tab: 'tab-d', at: AT - 1000 }, resolved: true })
+    expect(firstLapseOfTakeOnThreadAwaitingChat([later, held, answered], 7, AT + 10)).toBe(AT + 5 * 60_000)
+    expect(firstLapseOfTakeOnThreadAwaitingChat([held], 7, AT + 5 * 60_000)).toBe(null)
+  })
+
   it('asks once per message', () => {
     const first = thread('c-1')
     const second = thread('c-2')
@@ -82,19 +92,19 @@ describe('the next thread for the chat', () => {
 })
 
 describe('the turn the chat is sent', () => {
-  it('names the thread, the passage and what was said', () => {
-    // Also covers: the turn is the reader's request only, with no tool name
-    // and no orders to the model.
+  it('reads as the review comment: the passage and what was said', () => {
+    // Also covers: the turn is the reader's request only, with no ids, no
+    // tool name and no orders to the model.
     const text = chatTurnText(thread('c-1', {
       anchor: { from: 0, to: 9, quote: 'The quick' },
       messages: [message('m-1'), message('m-2', { uid: 3, name: 'fago', via: 'Claude', text: 'agreed' })],
     }))
     expect(text).toBe([
-      'Review comment thread c-1 on block b-1:',
-      'About the passage: "The quick"',
+      'Review comment on "The quick":',
       'editor1: shorten this',
       'fago via Claude: agreed',
     ].join('\n'))
+    expect(chatTurnText(thread('c-1'))).toBe('Review comment:\neditor1: shorten this')
   })
 
   it('carries the thread in the caller context', () => {
@@ -104,7 +114,7 @@ describe('the turn the chat is sent', () => {
 
 describe('a turn that ended', () => {
   const before = new Set(['m-1'])
-  const reply = message('m-2', { via: 'AI chat', text: 'Shortened it.' })
+  const reply = message('m-2', { via: 'AI assistant', text: 'Shortened it.' })
 
   it('counts a new agent write of the account as the chat\'s reply', () => {
     expect(chatReplied(thread('c-1', { messages: [message('m-1'), reply] }), 7, before)).toBe(true)

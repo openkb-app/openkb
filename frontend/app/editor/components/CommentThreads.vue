@@ -4,11 +4,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import {
+  addedMention,
   assignedCounts,
+  assigneeKey,
   filterThreads,
   insertMention,
+  isSameAssignee,
   mentionName,
-  mentionedCandidate,
   messageRuns,
   readerStanding,
   type AssigneeCandidate,
@@ -32,10 +34,11 @@ import { ownedLabel } from '#shared/utils/attribution'
  * the record of a decision about the text, and the reasoning is the part worth
  * keeping — but it is not what the drawer is for once it is settled.
  *
- * A thread can be handed to somebody: `@` in the composer or in a reply, or the
- * chip on a thread's header. The hand-over is the thread's, never one message's
- * — a conversation has one owner at a time. Only a person marks one done: an
- * agent answers and leaves the standing to whoever asked.
+ * A thread can be handed to somebody: the assignee menu of the composer or of
+ * a reply, a typed `@` mention, or the chip on a thread's header. The hand-over
+ * is the thread's, never one message's — a conversation has one owner at a
+ * time. Only a person marks one done: an agent answers and leaves the standing
+ * to whoever asked.
  */
 const props = defineProps<{
   threads: CommentThreadView[]
@@ -47,7 +50,7 @@ const props = defineProps<{
   candidates: AssigneeCandidate[]
   /** This session's own identity — what "assigned to you" is measured against. */
   me: CommentAssignee | null
-  /** Who a new thread goes to when it mentions nobody: the reader's open AI chat. */
+  /** Who a new thread starts assigned to; null or absent for nobody. */
   defaultAssignee?: CommentAssignee | null
 }>()
 
@@ -94,11 +97,13 @@ const open = computed(() => shown.value.filter(t => !t.resolved))
 const resolved = computed(() => shown.value.filter(t => t.resolved))
 
 const draftText = ref('')
-/** Whether a draft that mentions nobody goes to {@link defaultAssignee}. */
-const toDefault = ref(true)
+/** Who the open draft goes to: set when the draft opens, then only by the reader. */
+const draftAssignee = ref<CommentAssignee | null>(props.defaultAssignee ?? null)
 /** The thread the reply box is open on — one at a time, like a focused field. */
 const replyingTo = ref<string | null>(null)
 const replyText = ref('')
+/** Who the open reply hands the thread to; undefined while the reader chose nothing. */
+const replyAssignee = ref<CommentAssignee | null | undefined>()
 // What each picker is placed against: the whole composer, not the button in it.
 const draftBox = ref<HTMLElement | null>(null)
 const replyBoxes = ref<HTMLElement | HTMLElement[] | null>(null)
@@ -111,8 +116,7 @@ const replyBox = computed<HTMLElement | null>(() =>
 // how a note ends up on the wrong passage.
 watch(() => props.draft, () => {
   draftText.value = ''
-  toDefault.value = true
-  mentionAt.value = null
+  draftAssignee.value = props.defaultAssignee ?? null
 })
 
 /**
@@ -150,7 +154,7 @@ function scrollPendingTargetIntoView(): void {
   target.scrollIntoView({ block: 'center' })
 }
 
-// --- the composer's mention ------------------------------------------------
+// --- the composer's assignee -----------------------------------------------
 
 const mentionOpen = ref(false)
 /** Where the `@` being completed sits in the draft; null when none is. */
@@ -158,21 +162,47 @@ const mentionAt = ref<number | null>(null)
 const replyMentionOpen = ref(false)
 const replyMentionAt = ref<number | null>(null)
 
-/** Who the draft mentions — a person or an agent, as the words stand. */
-const mentioned = computed<CommentAssignee | null>(
-  () => mentionedCandidate(draftText.value, props.candidates, props.me?.uid),
-)
+// A typed `@` is completed only while its palette is open.
+watch(mentionOpen, (open) => { if (!open) mentionAt.value = null })
+watch(replyMentionOpen, (open) => { if (!open) replyMentionAt.value = null })
 
-/** Who an open reply mentions — it hands the thread over, not the message. */
-const replyMentioned = computed<CommentAssignee | null>(
-  () => mentionedCandidate(replyText.value, props.candidates, props.me?.uid),
-)
+/** Who an edit of a draft or reply newly mentions; null when it adds no mention. */
+function addedMentionAssignee(before: string, after: string): CommentAssignee | null {
+  const who = addedMention(before, after, props.candidates, props.me?.uid)
+  return who ? plainAssignee(who) : null
+}
+
+// A mention selects its assignee as the reader writes it. Only a text edit
+// selects: deleting a mention, or a new presence list, keeps the selection.
+// A reply's mention hands the thread over, not the message.
+watch(draftText, (after, before) => {
+  const who = addedMentionAssignee(before, after)
+  if (who) draftAssignee.value = who
+})
+watch(replyText, (after, before) => {
+  const who = addedMentionAssignee(before, after)
+  if (who) replyAssignee.value = who
+})
+
+/** The assignee without the picker's own fields, as a thread stores it. */
+function plainAssignee(who: CommentAssignee): CommentAssignee {
+  return { uid: who.uid, name: who.name, via: who.via ?? null }
+}
+
+/** How the assignee button names a choice. */
+function assigneeLabel(who: CommentAssignee | null): string {
+  return who ? ownedLabel(who, props.me?.uid) : 'Nobody'
+}
+
+/** Who the reply form shows: the reader's choice, else the thread's assignee. */
+function replyAssigneeShown(thread: CommentThreadView): CommentAssignee | null {
+  return replyAssignee.value === undefined ? thread.assignee ?? null : replyAssignee.value
+}
 
 /**
- * Typing `@` is the shortcut into the picker; the button beside it is the rest.
+ * Opens the picker on a typed `@`, which a pick then completes to a mention.
  * Read off the input rather than the keystroke, so the character has landed in
- * the draft before the palette takes the focus — from a keydown it lands in the
- * palette's own search box instead.
+ * the draft before the palette takes the focus.
  */
 function onDraftInput(event: Event): void {
   if ((event as InputEvent).data !== '@') return
@@ -181,6 +211,7 @@ function onDraftInput(event: Event): void {
   mentionOpen.value = true
 }
 
+/** Opens the reply's picker on a typed `@`, as {@link onDraftInput} does. */
 function onReplyInput(event: Event): void {
   if ((event as InputEvent).data !== '@') return
   const field = event.target as HTMLTextAreaElement
@@ -188,24 +219,25 @@ function onReplyInput(event: Event): void {
   replyMentionOpen.value = true
 }
 
-/** The draft with `who` mentioned, at the typed `@` or appended to the end. */
-function withMention(text: string, at: number | null, who: CommentAssignee): string {
-  const typed = at !== null
-  const base = typed ? text : `${text}@`
-  return insertMention(base, typed ? at : base.length - 1, mentionName(who, props.me?.uid))
+/** The text with the `@` typed at `at` completed to a mention of `who`. */
+function completeTypedMention(text: string, at: number, who: CommentAssignee): string {
+  return insertMention(text, at, mentionName(who, props.me?.uid))
 }
 
-/** Opened from the button rather than by typing: the `@` is added with the name. */
-function insertPicked(who: CommentAssignee | null): void {
-  if (!who) return
-  draftText.value = withMention(draftText.value, mentionAt.value, who)
-  mentionAt.value = null
+/** Selects the draft's assignee; a pick that completes a typed `@` writes the mention too. */
+function pickDraftAssignee(who: CommentAssignee | null): void {
+  if (who && mentionAt.value !== null) {
+    draftText.value = completeTypedMention(draftText.value, mentionAt.value, who)
+  }
+  draftAssignee.value = who
 }
 
-function insertReplyPicked(who: CommentAssignee | null): void {
-  if (!who) return
-  replyText.value = withMention(replyText.value, replyMentionAt.value, who)
-  replyMentionAt.value = null
+/** Selects who the reply hands the thread to, as {@link pickDraftAssignee} does. */
+function pickReplyAssignee(who: CommentAssignee | null): void {
+  if (who && replyMentionAt.value !== null) {
+    replyText.value = completeTypedMention(replyText.value, replyMentionAt.value, who)
+  }
+  replyAssignee.value = who
 }
 
 /**
@@ -218,35 +250,41 @@ function submitOn(event: KeyboardEvent, submit: () => void): void {
   submit()
 }
 
+/** Posts the draft as a new thread, assigned to the form's choice. */
 function post() {
   if (!draftText.value.trim()) return
-  const to = mentioned.value ?? (toDefault.value ? props.defaultAssignee ?? null : null)
-  emit('post', {
-    text: draftText.value,
-    assignee: to ? { uid: to.uid, name: to.name, via: to.via ?? null } : null,
-  })
+  const to = draftAssignee.value
+  emit('post', { text: draftText.value, assignee: to ? plainAssignee(to) : null })
   draftText.value = ''
 }
 
 // --- threads ---------------------------------------------------------------
 
+/** Posts the reply, handing the thread on when the reader chose another assignee. */
 function reply(thread: CommentThreadView) {
   if (!replyText.value.trim()) return
-  const to = replyMentioned.value
-  if (to) assign(thread, { uid: to.uid, name: to.name, via: to.via ?? null })
+  const to = replyAssignee.value
+  if (to !== undefined) {
+    assign(thread, to ? plainAssignee(to) : null)
+  }
   emit('reply', { blockId: thread.blockId, threadId: thread.threadId, text: replyText.value })
   replyText.value = ''
   replyingTo.value = null
 }
 
+/** Opens the reply box on a thread, or closes the one open on it. */
 function startReply(threadId: string) {
   replyingTo.value = replyingTo.value === threadId ? null : threadId
   replyText.value = ''
-  replyMentionAt.value = null
+  replyAssignee.value = undefined
   replyMentionOpen.value = false
 }
 
+/** Hands the thread to `who`, or to nobody; the thread's own assignee writes nothing. */
 function assign(thread: CommentThreadView, who: CommentAssignee | null) {
+  if (isSameAssignee(who, thread.assignee)) {
+    return
+  }
   emit('assign', { blockId: thread.blockId, threadId: thread.threadId, assignee: who })
 }
 
@@ -258,12 +296,11 @@ function assign(thread: CommentThreadView, who: CommentAssignee | null) {
  * after the thread moves on to somebody else.
  */
 function known(thread: CommentThreadView): AssigneeCandidate[] {
-  const keyOf = (who: { uid?: number | null, via?: string | null }) => `${who.uid}|${who.via ?? ''}`
-  const seen = new Set(props.candidates.map(keyOf))
+  const seen = new Set(props.candidates.map(assigneeKey))
   const all = [...props.candidates]
   for (const who of [...thread.assignedTo, ...thread.messages]) {
-    if (who.uid == null || seen.has(keyOf(who))) continue
-    seen.add(keyOf(who))
+    if (who.uid == null || seen.has(assigneeKey(who))) continue
+    seen.add(assigneeKey(who))
     all.push({ uid: who.uid, name: who.name || 'Someone', via: who.via ?? null, present: false })
   }
   return all
@@ -367,27 +404,21 @@ function when(at: number): string {
           :candidates="candidates"
           :viewer-uid="me?.uid ?? null"
           :anchor="draftBox"
-          @pick="insertPicked"
+          :selected="draftAssignee"
+          @pick="pickDraftAssignee"
         >
           <UButton
             icon="i-lucide-at-sign"
             color="neutral"
             variant="ghost"
             size="xs"
-            aria-label="Mention somebody"
-            data-testid="comment-mention"
-          />
+            class="max-w-48"
+            :aria-label="`Assignee: ${assigneeLabel(draftAssignee)}`"
+            data-testid="comment-assignee"
+          >
+            {{ assigneeLabel(draftAssignee) }}
+          </UButton>
         </EditorAssigneePicker>
-        <span v-if="mentioned" class="text-xs text-muted" data-testid="comment-assign-note">
-          Assigns this to {{ ownedLabel(mentioned, me?.uid) }}
-        </span>
-        <UCheckbox
-          v-else-if="defaultAssignee"
-          v-model="toDefault"
-          size="sm"
-          data-testid="comment-assign-chat"
-          :label="`Let ${ownedLabel(defaultAssignee, me?.uid)} handle this`"
-        />
         <UButton class="ml-auto" color="neutral" variant="ghost" size="sm" @click="emit('discard')">
           Cancel
         </UButton>
@@ -459,6 +490,7 @@ function when(at: number): string {
           <EditorAssigneePicker
             :candidates="candidates"
             :viewer-uid="me?.uid ?? null"
+            :selected="thread.assignee"
             allow-unassign
             @pick="assign(thread, $event)"
           >
@@ -538,24 +570,22 @@ function when(at: number): string {
               :candidates="candidates"
               :viewer-uid="me?.uid ?? null"
               :anchor="replyBox"
-              @pick="insertReplyPicked"
+              :selected="replyAssigneeShown(thread)"
+              :assigned="thread.assignee ?? null"
+              @pick="pickReplyAssignee"
             >
               <UButton
                 icon="i-lucide-at-sign"
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                aria-label="Hand this thread to somebody"
-                :data-testid="`comment-reply-mention-${thread.threadId}`"
-              />
+                class="max-w-48"
+                :aria-label="`Assignee: ${assigneeLabel(replyAssigneeShown(thread))}`"
+                :data-testid="`comment-reply-assignee-${thread.threadId}`"
+              >
+                {{ assigneeLabel(replyAssigneeShown(thread)) }}
+              </UButton>
             </EditorAssigneePicker>
-            <span
-              v-if="replyMentioned"
-              class="text-xs text-muted"
-              :data-testid="`comment-reply-assign-note-${thread.threadId}`"
-            >
-              Hands this to {{ ownedLabel(replyMentioned, me?.uid) }}
-            </span>
             <UButton
               class="ml-auto"
               color="primary"

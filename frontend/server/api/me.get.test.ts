@@ -29,7 +29,7 @@ vi.mock('../utils/spaces', () => ({
 
 const event = {} as H3Event
 
-const ANONYMOUS = { name: null, uid: null, picture: null, isAdmin: false, canCreateSpace: false, canCreatePage: false }
+const ANONYMOUS = { name: null, uid: null, picture: null, isAdmin: false, canCreateSpace: false, canCreatePage: false, canChat: false }
 
 function callMe() {
   return handler(event)
@@ -129,6 +129,24 @@ describe('GET /api/me', () => {
     stubSession(3, { name: 'editor1' })
     sitePermissions.mockResolvedValue({})
     await expect(callMe()).resolves.toMatchObject({ canCreatePage: false })
+  })
+
+  it('lets the assistant act for an account without an administrator role', async () => {
+    stubSession(3, { name: 'editor1' })
+    await expect(callMe()).resolves.toMatchObject({ canChat: true })
+    // The roles are asked for in the same request as the name.
+    expect(decodeURIComponent(String(drupalFetch.mock.calls[0]?.[1]))).toContain('include=user_picture,roles')
+
+    stubSession(5, { name: 'siteadmin' }, [{ type: 'user_role--user_role', attributes: { is_admin: false } }])
+    await expect(callMe()).resolves.toMatchObject({ canChat: true })
+  })
+
+  it('reports no chat for an administrator, who is issued no agent token', async () => {
+    stubSession(1, { name: 'admin' })
+    await expect(callMe()).resolves.toMatchObject({ canChat: false })
+
+    stubSession(8, { name: 'root' }, [{ type: 'user_role--user_role', attributes: { is_admin: true } }])
+    await expect(callMe()).resolves.toMatchObject({ canChat: false })
   })
 
   it('passes an upstream failure through instead of reporting anonymous', async () => {

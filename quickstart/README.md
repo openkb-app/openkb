@@ -38,7 +38,7 @@ miss.
   browser window to edit it from both.
 - Invite a second user into the space and switch the space to reviewed
   publishing, so a change needs a sign-off.
-- Turn on the AI chat with an OpenAI key, below, and ask it about what you
+- Turn on the AI assistant with an OpenAI key, below, and ask it about what you
   wrote. Without a key the rest of the stack runs unchanged.
 
 `docker compose ps` shows the four services and their health,
@@ -54,7 +54,7 @@ docker compose exec drupal drush uli            # a one-time login link for admi
 docker compose exec drupal drush cron           # run cron now
 ```
 
-## Turning on the AI chat
+## Turning on the AI assistant
 
 The site reads the OpenAI key from the container's environment — nothing is
 pasted into Drupal, and no provider has to be picked: chat and embeddings

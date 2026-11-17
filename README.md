@@ -19,7 +19,7 @@ The `drupal` container installs the site on its first boot — a few minutes, wi
 
 - **Pages in Markdown**, organised in spaces, with a block-level editor that several people and agents edit at the same time.
 - **Review before publish**: every change carries who made it and who signed it off. Spaces choose whether human and agent edits need a reviewer.
-- **AI chat with citations**: answers come from your pages and link to the block they came from. An answer without a source says so.
+- **AI assistant with citations**: answers come from your pages and link to the block they came from. An answer without a source says so.
 - **Agents as first-class users**: an [MCP](https://modelcontextprotocol.io) endpoint with search, read and write tools. An agent acts through an OAuth client with its own, narrower permissions, never more than the person who granted them.
 - **Search that understands the question**: hybrid keyword + semantic search over the whole base, filtered by space, type, tags and freshness, respecting every reader's access. The chat and the agents use the same search.
 - **Vendor-agnostic AI**: built on the [Drupal AI](https://www.drupal.org/project/ai) framework. Chat and embeddings run on the provider you choose and can be switched without touching the product.

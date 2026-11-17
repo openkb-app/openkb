@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addedMention,
   assigneeCandidates,
   assignedCounts,
+  assignableOwnAgents,
+  defaultAssigneeForNextNewComment,
+  isSameAssignee,
   draftRuns,
   filterThreads,
   insertMention,
   mentionName,
-  mentionedCandidate,
   messageRuns,
 } from './comment-assignee'
 import { actorLabel, ownedLabel } from '#shared/utils/attribution'
@@ -63,14 +66,14 @@ describe('who can be assigned', () => {
       .toEqual([['Bob', null], ['Cleo', null], ['Ada', 'Claude'], ['Ada', 'Codex']])
   })
 
-  it('offers no AI chat in the page but the reader\'s own open one', () => {
+  it('offers no AI assistant in the page but the reader\'s own open one', () => {
     const candidates = assigneeCandidates(
-      [peer(1, 'Bob', 9, 'AI chat'), peer(2, 'Ada', 7, 'AI chat'), peer(3, 'Bob', 9, 'Claude')],
+      [peer(1, 'Bob', 9, 'AI assistant'), peer(2, 'Ada', 7, 'AI assistant'), peer(3, 'Bob', 9, 'Claude')],
       [],
-      { uid: 7, name: 'Ada', agents: [{ label: 'AI chat' }] },
+      { uid: 7, name: 'Ada', agents: [{ label: 'AI assistant' }] },
     )
     expect(candidates.map(candidate => [candidate.name, candidate.via]))
-      .toEqual([['Bob', 'Claude'], ['Ada', 'AI chat']])
+      .toEqual([['Bob', 'Claude'], ['Ada', 'AI assistant']])
   })
 })
 
@@ -90,14 +93,46 @@ describe('mentioning somebody in a draft', () => {
     expect(insertMention('cc@', 2, 'Ada')).toBe('cc @Ada ')
   })
 
-  it('reads the last mention, which is the one just typed', () => {
-    expect(mentionedCandidate('@Ada no, @Bob', candidates)?.name).toBe('Bob')
+  it('reads the mention an edit adds, the last one where it adds several', () => {
+    expect(addedMention('@Ada no, ', '@Ada no, @Bob', candidates)?.name).toBe('Bob')
+    expect(addedMention('', '@Ada no, @Bob', candidates)?.name).toBe('Bob')
+    expect(addedMention('@Ada, ', '@Ada, @Ada', candidates)?.name).toBe('Ada')
+  })
+
+  it('reads no mention where an edit adds none', () => {
+    expect(addedMention('@Ada and @Bob', '@Ada and ', candidates)).toBeNull()
+    expect(addedMention('@Ada', '@Ada, thanks', candidates)).toBeNull()
+    expect(addedMention('@Ada', '', candidates)).toBeNull()
+  })
+
+  it('reads no mention where an edit only deletes, even when a shorter name is left', () => {
+    const agents = assigneeCandidates([peer(1, 'Ada', 7), peer(2, 'Ada', 7, 'Claude')], [])
+
+    expect(addedMention('@Ada via Claude', '@Ada via Claud', agents)).toBeNull()
+    expect(addedMention('@editor10', '@editor1', editors)).toBeNull()
+    expect(addedMention('@Ada hi', '@Ada his', candidates)).toBeNull()
+    expect(addedMention('hi @Adxa x', 'hi @Ada x', candidates)).toBeNull()
+  })
+
+  it('reads no mention where a typed character repeats the one a mention starts with', () => {
+    expect(addedMention('x @Ada', 'x @@Ada', candidates)).toBeNull()
+    expect(addedMention('see @Ada ', 'see @@Ada ', candidates)).toBeNull()
+  })
+
+  it('reads the pasted mention, not the one right after it', () => {
+    expect(addedMention('@Ada x', '@Bob @Ada x', candidates)?.name).toBe('Bob')
+    expect(addedMention('x @Ada', '@Ada @Bob x @Ada', candidates)?.name).toBe('Bob')
+  })
+
+  it('reads a pasted mention next to an identical one', () => {
+    expect(addedMention('hi @Ada ', 'hi @Ada @Ada ', candidates)?.name).toBe('Ada')
+    expect(addedMention('@Bob hi', '@Bob @Bob hi', candidates)?.name).toBe('Bob')
   })
 
   it('does not read a longer name as a shorter one it starts with', () => {
-    expect(mentionedCandidate('@Adam', editors)?.name).toBe('Adam')
-    expect(mentionedCandidate('@editor10', editors)?.name).toBe('editor10')
-    expect(mentionedCandidate('@editor1 ', editors)?.name).toBe('editor1')
+    expect(addedMention('', '@Adam', editors)?.name).toBe('Adam')
+    expect(addedMention('', '@editor10', editors)?.name).toBe('editor10')
+    expect(addedMention('', '@editor1 ', editors)?.name).toBe('editor1')
   })
 
   it('names somebody else\'s agent by its owner, and the reader\'s own by itself', () => {
@@ -111,9 +146,11 @@ describe('mentioning somebody in a draft', () => {
   it('reads an agent mention as the agent, and the owner is not mentioned by it', () => {
     const agents = assigneeCandidates([peer(1, 'Ada', 7), peer(2, 'Ada', 7, 'Claude')], [])
 
-    expect(mentionedCandidate('@Ada via Claude please check', agents)?.via).toBe('Claude')
-    expect(mentionedCandidate('@Claude please check', agents, 7)?.via).toBe('Claude')
-    expect(mentionedCandidate('@Ada please check', agents)?.via).toBe(null)
+    expect(addedMention('', '@Ada via Claude please check', agents)?.via).toBe('Claude')
+    expect(addedMention('', '@Claude please check', agents, 7)?.via).toBe('Claude')
+    expect(addedMention('', '@Ada please check', agents)?.via).toBe(null)
+    // Typed on, the owner's mention becomes the agent's.
+    expect(addedMention('@Ada', '@Ada via Claude', agents)?.via).toBe('Claude')
   })
 
   it('reads a name a person and my own agent share as my agent', () => {
@@ -123,12 +160,12 @@ describe('mentioning somebody in a draft', () => {
       { uid: 7, name: 'fago', agents: [{ label: 'claude' }] },
     )
 
-    expect(mentionedCandidate('@claude please check', both, 7)?.via).toBe('claude')
+    expect(addedMention('', '@claude please check', both, 7)?.via).toBe('claude')
   })
 
   it('finds nobody in a draft that mentions nobody', () => {
-    expect(mentionedCandidate('needs a source', candidates)).toBeNull()
-    expect(mentionedCandidate('@Nobody', candidates)).toBeNull()
+    expect(addedMention('', 'needs a source', candidates)).toBeNull()
+    expect(addedMention('', '@Nobody', candidates)).toBeNull()
   })
 })
 
@@ -256,5 +293,61 @@ describe('a posted message, read', () => {
 
   it('leaves the words that name nobody alone', () => {
     expect(messageRuns('@nobody at all', agents, 3).map(run => run.mention)).toEqual([null])
+  })
+})
+
+describe('the assignee a new comment starts with', () => {
+  const assistant = { uid: 7, name: 'Ada', via: 'AI assistant' }
+  const bob = { uid: 9, name: 'Bob', via: null }
+  const claude = { uid: 7, name: 'Ada', via: 'Claude' }
+  const candidates = assigneeCandidates([], [bob], {
+    uid: 7,
+    name: 'Ada',
+    agents: [{ label: 'Claude' }, { label: 'AI assistant' }],
+  })
+
+  it('starts with the assistant before the first comment only while the chat is open', () => {
+    expect(defaultAssigneeForNextNewComment(undefined, candidates, assistant, true)).toEqual(assistant)
+    expect(defaultAssigneeForNextNewComment(undefined, candidates, assistant, false)).toBe(null)
+  })
+
+  it('never starts with the assistant for a reader who has none', () => {
+    expect(defaultAssigneeForNextNewComment(undefined, candidates, null, true)).toBe(null)
+  })
+
+  it('keeps the last comment\'s assignee, whether the chat is open or not', () => {
+    expect(defaultAssigneeForNextNewComment(bob, candidates, assistant, true)).toEqual(bob)
+    expect(defaultAssigneeForNextNewComment(claude, candidates, assistant, true)).toEqual(claude)
+    expect(defaultAssigneeForNextNewComment(assistant, candidates, assistant, false)).toEqual(assistant)
+  })
+
+  it('keeps nobody, even while the chat is open', () => {
+    expect(defaultAssigneeForNextNewComment(null, candidates, assistant, true)).toBe(null)
+  })
+
+  it('starts over when the last assignee is not on offer any more', () => {
+    const gone = { uid: 11, name: 'Cleo', via: null }
+    expect(defaultAssigneeForNextNewComment(gone, candidates, assistant, true)).toEqual(assistant)
+    expect(defaultAssigneeForNextNewComment({ ...bob, via: 'Codex' }, candidates, assistant, false)).toBe(null)
+  })
+})
+
+describe('the reader\'s own agents a thread can be handed to', () => {
+  it('offers the AI assistant only to an account that can chat', () => {
+    const connected = [{ label: 'Claude' }]
+    expect(assignableOwnAgents(connected, true)).toEqual([{ label: 'Claude' }, { label: 'AI assistant' }])
+    expect(assignableOwnAgents(connected, false)).toEqual([{ label: 'Claude' }])
+  })
+})
+
+describe('telling two assignees apart', () => {
+  const ada = { uid: 7, name: 'Ada', via: null }
+
+  it('reads an account and its agent as two, and nobody as nobody', () => {
+    expect(isSameAssignee(ada, { ...ada })).toBe(true)
+    expect(isSameAssignee(ada, { ...ada, via: 'Claude' })).toBe(false)
+    expect(isSameAssignee(ada, { uid: 9, name: 'Bob', via: null })).toBe(false)
+    expect(isSameAssignee(null, null)).toBe(true)
+    expect(isSameAssignee(ada, null)).toBe(false)
   })
 })

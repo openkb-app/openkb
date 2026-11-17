@@ -767,8 +767,8 @@ export async function useEditorSession(
   }
 
   /**
-   * Takes a thread for this tab's AI chat; returns the take's message id, or
-   * null when the take did not hold. The collab server refuses a take while
+   * Takes a thread for this tab's AI assistant; returns the take's message id,
+   * or null when the take did not hold. The collab server refuses a take while
    * another tab holds the thread; the refusal follows its acknowledgement of
    * the write within a moment.
    */
@@ -799,8 +799,8 @@ export async function useEditorSession(
   }
 
   /**
-   * Gives back a thread the AI chat took, whether or not it was answered, by
-   * deleting this tab's own take — another tab's take stays live.
+   * Gives back a thread the AI assistant took, whether or not it was answered,
+   * by deleting this tab's own take — another tab's take stays live.
    */
   function giveBackFromChat(blockId: string, threadId: string, msgId: string): void {
     ydoc.transact(() => {
@@ -808,7 +808,7 @@ export async function useEditorSession(
     })
   }
 
-  /** Hands a thread the AI chat left unanswered back to the reader, saying so in it. */
+  /** Hands a thread the AI assistant left unanswered back to the reader, saying so in it. */
   function handBackFromChat(blockId: string, threadId: string, text: string): void {
     writeMessage(blockId, threadId, { text, assignee: { uid: reviewer.value.uid, name: collabUser.name } })
   }

@@ -19,7 +19,7 @@ export const sidePaneMounted = () => useState<boolean>('side-pane-mounted', () =
 export function useSidePane() {
   const requested = useState<SidePaneContent | null>('side-pane', () => null)
   const chatOpen = useState<boolean>('side-pane-chat', () => false)
-  /** The chat laid over the page's main column, until minimized. */
+  /** The chat laid over the page's main column, until it returns to the side bar. */
   const chatEnlarged = useState<boolean>('side-pane-chat-enlarged', () => false)
   /** The Review section folded to its header, for this edit session. */
   const reviewCollapsed = useState<boolean>('side-pane-review-collapsed', () => false)
@@ -57,10 +57,17 @@ export function useSidePane() {
     }
   }
 
+  /** Opens the chat and shows the pane for this visit, leaving the caret and the remembered choice as they are. */
+  function openChatKeepingFocus() {
+    chatOpen.value = true
+    hidden.value = false
+  }
+
+  /** Opens the chat for the reader to type in, with `question` in the composer. */
   function openChat(question?: string) {
     if (question) draft.value = question
-    chatOpen.value = true
     chatFocus.value = true
+    chatOpen.value = true
     setHidden(false)
   }
 
@@ -88,6 +95,7 @@ export function useSidePane() {
      *  back; the arriving page's request is the next one. */
     request,
     openChat,
+    openChatKeepingFocus,
     /** Whether the composer should take focus on this mount, asked once. */
     takeChatFocus() {
       const take = chatFocus.value

@@ -20,7 +20,7 @@ import type { PresencePeer } from '#shared/utils/presence'
 interface PaletteGroup {
   id: string
   label?: string
-  items: Array<{ label: string, suffix?: string, onSelect: () => void }>
+  items: Array<{ id: string, label: string, suffix?: string, onSelect: () => void }>
 }
 
 /**
@@ -30,7 +30,7 @@ interface PaletteGroup {
  */
 function stubPalette(app: ReturnType<typeof createApp>, highlighted: number): void {
   app.component('UCommandPalette', {
-    props: ['groups', 'searchTerm', 'placeholder'],
+    props: ['groups', 'searchTerm', 'placeholder', 'modelValue', 'by'],
     emits: ['update:searchTerm'],
     setup: (props, { slots, emit }) => () => {
       // Rows are numbered across the list, the way the arrow keys move; a
@@ -49,6 +49,8 @@ function stubPalette(app: ReturnType<typeof createApp>, highlighted: number): vo
             ...(row++ === highlighted ? { 'data-highlighted': '' } : {}),
             'data-group': group.id,
             'data-suffix': item.suffix ?? '',
+            // The palette marks the row its model value names.
+            'aria-selected': String(item.id === (props.modelValue as { id: string } | undefined)?.id),
             'onClick': item.onSelect,
           }, [slots['item-leading']?.({ item }), item.label])),
       ])])
@@ -149,6 +151,13 @@ const CANDIDATES = assigneeCandidates(
   [{ uid: 9, name: 'Bob' }],
 )
 
+/** The labels of the rows the palette marks as the form's choice. */
+function marked(root: HTMLElement): Array<string | null> {
+  return [...root.querySelectorAll('[data-testid="assignee-picker"] button[aria-selected="true"]')]
+    .map(button => button.textContent)
+}
+
+/** Every palette row, in list order, with the group it is listed under. */
 function entries(root: HTMLElement): Array<{ label: string, group: string }> {
   return [...root.querySelectorAll('[data-testid="assignee-picker"] button')].map(button => ({
     label: button.textContent ?? '',
@@ -224,6 +233,17 @@ describe('AssigneePicker', () => {
     expect(rowFor(root, 'Claude').getAttribute('data-suffix')).toBe('Offline')
   })
 
+  // The assistant works from the reader's open chat, never from the page.
+  it('gives the AI assistant no presence', () => {
+    const root = mount(AssigneePicker, {
+      candidates: mine(['Claude', 'AI assistant'], [peer(1, 'Ada', 7)]),
+      open: true,
+      viewerUid: READER,
+    })
+
+    expect(rowFor(root, 'AI assistant').getAttribute('data-suffix')).toBe('')
+  })
+
   // The list does not scroll, so it rests at what fits under the composer.
   it('rests at eight rows, the reader\'s own agent among them', () => {
     const root = mount(AssigneePicker, {
@@ -238,6 +258,72 @@ describe('AssigneePicker', () => {
     expect(rows.filter(row => row.group === 'my-agents')).toHaveLength(1)
     // What gives way is the roster, which is the only group that grows.
     expect(rows.filter(row => row.group === 'space')).toHaveLength(6)
+  })
+
+  it('rests with the form\'s choice shown and marked, however far down the roster', () => {
+    const root = mount(AssigneePicker, {
+      candidates: mine([], [], editors(30)),
+      open: true,
+      viewerUid: READER,
+      selected: { uid: 124, name: 'editor25', via: null },
+    })
+
+    const rows = entries(root).filter(row => row.group !== 'none')
+    expect(rows).toHaveLength(8)
+    expect(marked(root)).toEqual(['editor25'])
+    // The kept row stays at its place in the group.
+    expect(rows.map(row => row.label)).toEqual([
+      'editor1', 'editor2', 'editor3', 'editor4', 'editor5', 'editor6', 'editor7', 'editor25',
+    ])
+  })
+
+  it('lists the AI assistant at its own place in its group, short roster or long', () => {
+    const agents = ['Claude', 'Codex', 'AI assistant']
+    const short = mount(AssigneePicker, { candidates: mine(agents), open: true, viewerUid: READER })
+    const long = mount(AssigneePicker, {
+      candidates: mine(agents, [], editors(12)),
+      open: true,
+      viewerUid: READER,
+    })
+
+    /** The labels of the rows listed under "My agents". */
+    const ownAgents = (root: HTMLElement) =>
+      entries(root).filter(row => row.group === 'my-agents').map(row => row.label)
+    expect(ownAgents(short)).toEqual(['Claude', 'Codex', 'AI assistant'])
+    expect(ownAgents(long).at(-1)).toBe('AI assistant')
+  })
+
+  // A thread assigned to the reader: the reader is no candidate, but the
+  // reply's menu names them on its button, so the list holds them too.
+  it('lists and marks the form\'s choice when it is no candidate', () => {
+    const reader = mount(AssigneePicker, {
+      candidates: mine(['Claude'], [peer(1, 'Ada', 7)]),
+      open: true,
+      viewerUid: READER,
+      selected: { uid: READER, name: 'Reader', via: null },
+    })
+    expect(entries(reader)[0]).toEqual({ label: 'Reader', group: 'unlisted' })
+    expect(marked(reader)).toEqual(['Reader'])
+
+    const goneAgent = mount(AssigneePicker, {
+      candidates: CANDIDATES,
+      open: true,
+      selected: { uid: 9, name: 'Bob', via: 'Codex' },
+    })
+    expect(rowFor(goneAgent, 'Bob via Codex').getAttribute('data-suffix')).toBe('Offline')
+    expect(marked(goneAgent)).toEqual(['Bob via Codex'])
+  })
+
+  it('rests with the reader\'s AI assistant shown, behind other agents of theirs', () => {
+    const root = mount(AssigneePicker, {
+      candidates: mine(['Claude', 'Codex', 'Gemini', 'AI assistant'], [peer(1, 'Ada', 7)], editors(12)),
+      open: true,
+      viewerUid: READER,
+      selected: null,
+    })
+
+    expect(entries(root).filter(row => row.group !== 'none')).toHaveLength(8)
+    expect(rowFor(root, 'AI assistant')).toBeTruthy()
   })
 
   // Nothing is hidden from the search: the cap is what the list rests at, and
@@ -264,6 +350,100 @@ describe('AssigneePicker', () => {
 
     const with_ = mount(AssigneePicker, { candidates: CANDIDATES, open: true, allowUnassign: true })
     expect(entries(with_).at(-1)).toEqual({ label: 'Unassign', group: 'none' })
+  })
+
+  it('offers Nobody to a form, and marks the choice the form holds', () => {
+
+    const chosen = mount(AssigneePicker, {
+      candidates: CANDIDATES,
+      open: true,
+      selected: { uid: 7, name: 'Ada', via: 'Claude' },
+    })
+    expect(entries(chosen).at(-1)).toEqual({ label: 'Nobody', group: 'none' })
+    expect(marked(chosen)).toEqual(['Ada via Claude'])
+
+    const nobody = mount(AssigneePicker, { candidates: CANDIDATES, open: true, selected: null })
+    expect(marked(nobody)).toEqual(['Nobody'])
+
+    // Without a choice to show, nothing is marked.
+    const bare = mount(AssigneePicker, { candidates: CANDIDATES, open: true, allowUnassign: true })
+    expect(marked(bare)).toEqual([])
+  })
+
+  // The thread's chip: its assignee is marked, and "Unassign" is the way to nobody.
+  it('marks the thread\'s assignee in the chip\'s menu, with Unassign in place of Nobody', () => {
+    const chip = mount(AssigneePicker, {
+      candidates: CANDIDATES,
+      open: true,
+      allowUnassign: true,
+      selected: { uid: 7, name: 'Ada', via: 'Claude' },
+    })
+
+    expect(marked(chip)).toEqual(['Ada via Claude'])
+    expect(entries(chip).filter(entry => entry.group === 'none').map(entry => entry.label)).toEqual(['Unassign'])
+  })
+
+  // A reply on a thread assigned to the reader, once "Nobody" is picked: the
+  // reader is no candidate, yet stays on offer to go back to.
+  it('keeps listing the thread\'s assignee once the form\'s choice moved off it', () => {
+    const root = mount(AssigneePicker, {
+      candidates: mine(['Claude'], [peer(1, 'Ada', 7)], editors(12)),
+      open: true,
+      viewerUid: READER,
+      selected: null,
+      assigned: { uid: READER, name: 'Reader', via: null },
+    })
+
+    expect(entries(root)[0]).toEqual({ label: 'Reader', group: 'unlisted' })
+    expect(entries(root).filter(row => row.group !== 'none')).toHaveLength(8)
+    expect(marked(root)).toEqual(['Nobody'])
+  })
+
+  it('lists an unlisted assignee once when it is both the choice and the thread\'s', () => {
+    const reader = { uid: READER, name: 'Reader', via: null }
+    const root = mount(AssigneePicker, {
+      candidates: mine(['Claude'], [peer(1, 'Ada', 7)]),
+      open: true,
+      viewerUid: READER,
+      selected: reader,
+      assigned: reader,
+    })
+
+    expect(entries(root).filter(row => row.group === 'unlisted')).toEqual([{ label: 'Reader', group: 'unlisted' }])
+    expect(marked(root)).toEqual(['Reader'])
+  })
+
+  it('rests with the choice, the thread\'s assignee and the AI assistant shown, all three agents of the reader', () => {
+    const root = mount(AssigneePicker, {
+      candidates: mine(
+        ['Claude', 'Codex', 'AI assistant'],
+        [peer(1, 'Ada', 7), peer(2, 'Bob', 9), peer(3, 'Cy', 11), peer(4, 'Ada', 7, 'Claude'), peer(5, 'Bob', 9, 'Gemini')],
+        editors(12),
+      ),
+      open: true,
+      viewerUid: READER,
+      selected: { uid: READER, name: 'Reader', via: 'Codex' },
+      assigned: { uid: READER, name: 'Reader', via: 'Claude' },
+    })
+    const rows = entries(root).filter(row => row.group !== 'none')
+
+    expect(rows).toHaveLength(8)
+    expect(rows.filter(row => row.group === 'my-agents').map(row => row.label))
+      .toEqual(['Claude', 'Codex', 'AI assistant'])
+  })
+
+  it('hands back nobody when Nobody is picked', () => {
+    const picked: Array<CommentAssignee | null> = []
+    const root = mount(AssigneePicker, {
+      candidates: CANDIDATES,
+      open: true,
+      selected: { uid: 9, name: 'Bob', via: null },
+      onPick: (who: CommentAssignee | null) => picked.push(who),
+    })
+
+    rowFor(root, 'Nobody').click()
+
+    expect(picked).toEqual([null])
   })
 
   it('picks the highlighted suggestion on Tab, arrows and all', () => {
