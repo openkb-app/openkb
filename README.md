@@ -9,7 +9,7 @@ Website, product overview and documentation: **[openkb.app](https://openkb.app)*
 Two files into an empty directory, and the published images do the rest. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
 
 ```sh
-mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-beta4/quickstart/{docker-compose.yml,.env}"
+mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha1/quickstart/{docker-compose.yml,.env}"
 docker compose up -d
 ```
 
@@ -33,7 +33,7 @@ The `drupal` container installs the site on its first boot — a few minutes, wi
 |---|---|---|
 | Containers | any OCI runtime with Compose-compatible tooling; Docker Engine with the Compose v2 plugin is what we test, other engines such as Podman may work; amd64 or arm64 | same |
 | CPU | 2 cores | 4 cores, more for many concurrent readers |
-| RAM | 4 GB free for the stack | 8 GB free, with an OpenSearch heap of 1 GB or more (`OPENSEARCH_JAVA_OPTS`) |
+| RAM | 4 GB free for the stack, or more | same |
 | Disk | 5 GB: the four images are ~4.6 GB (OpenSearch 2.8 GB, `openkb-drupal` 1.0 GB, MariaDB 0.5 GB, `openkb-frontend` 0.3 GB) | 20 GB plus what your pages, files and database grow to |
 | Kernel | none | Linux with `vm.max_map_count=262144` for OpenSearch |
 | Network | localhost | two hostnames under one domain, a reverse proxy that terminates TLS |

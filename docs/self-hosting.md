@@ -187,7 +187,7 @@ Restore is the reverse, into a stack whose `frontend` is stopped: the dump throu
 
 ## Resources and logs
 
-Host sizing and image sizes are in the [README](../README.md#requirements): 8 GB of RAM free for a production host. `OPENSEARCH_JAVA_OPTS` sets the OpenSearch heap; the image default is 512 MB, a production host gives it 1 GB or more (`-Xms1g -Xmx1g`).
+Host sizing and image sizes are in the [README](../README.md#requirements): 4 GB of RAM free for the stack, or more. `OPENSEARCH_JAVA_OPTS` sets the OpenSearch heap; the image default is 512 MB, a larger index gets more (`-Xms1g -Xmx1g`).
 
 All services log to stdout: `docker compose logs -f drupal` (Caddy's access and error log as JSON lines, PHP errors among them), `frontend`, `cron` (supercronic's start and result line per run, plus whatever drush printed), `mariadb`, `opensearch`. Drupal's own log is at `/admin/reports/dblog`.
 
