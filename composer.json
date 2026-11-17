@@ -41,7 +41,7 @@
         "drupal/lupus_decoupled_recipe": "^2.1.0",
         "drupal/monitoring": "^1.22.0",
         "drupal/ohdear_integration": "^3.0.0",
-        "drupal/openkb": "1.x-dev",
+        "drupal/openkb": "1.0.0-beta4",
         "drupal/redirect": "^1.13.0",
         "drupal/rest_menu_items": "^3.1.0",
         "drupal/search_api_opensearch": "2.5.0 as 2.x-dev",

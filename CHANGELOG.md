@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.0.0-beta4](https://github.com/openkb-app/openkb/compare/v1.0.0-beta3...v1.0.0-beta4) - 2026-11-17
+
+### Features
+
+- Rename a file per page and edit its description in the editor's attachment list. ([4ce7a79](https://github.com/openkb-app/openkb/commit/4ce7a79821cd27f5e0837d1b39881e3519d8b120))
+- Rename a file from its bubble in the text, the same name as the attachment list's. ([5858045](https://github.com/openkb-app/openkb/commit/585804571e12e27ebd26239afdc223d476be9c76))
+- Open each revision from the version history, and pin who sees which versions. ([af53464](https://github.com/openkb-app/openkb/commit/af53464845d40063b070d270984ed4d3fe68c626))
+- Type emoji with a :shortcode menu in the page editor. ([743a0a7](https://github.com/openkb-app/openkb/commit/743a0a70e808cfc223af39dbc482158604068eae))
+- Review and AI chat as collapsible sections of the editor pane; comments assigned to the chat are handled by it. ([98104b2](https://github.com/openkb-app/openkb/commit/98104b25b42c22f85de8796264488e81dac43c9e))
+- One Vue component per comark component, shared by read view and editor. ([f31bb83](https://github.com/openkb-app/openkb/commit/f31bb83992c2f6ab07048449c38d7d0143c102cd))
+- Approve every change that is yours on a page at once, after a confirmation, in one revision. ([f498103](https://github.com/openkb-app/openkb/commit/f4981035780feb70cc8416fea37734c1cff4469c))
+
+### Fixes
+
+- Build the drupal image on FrankenPHP 1.13.4. ([7465d5b](https://github.com/openkb-app/openkb/commit/7465d5b72cbf4f7fb34b5568fd1d9822e58fd11a))
+- Give diagrams more space above and below than a paragraph. ([bec7968](https://github.com/openkb-app/openkb/commit/bec796865b1919f2ac48b477a98a4a45fdd6fc0c))
+- Security update 2026-10-28: ai 1.5.2 (+ symfony/mime). ([67d8833](https://github.com/openkb-app/openkb/commit/67d88337e08c2ec0f7e29a0eb99acd31f97e7bb6))
+- Undo an image or file insert in one step, keep typing below it, keep redo working on pages ending in a block. ([08b4176](https://github.com/openkb-app/openkb/commit/08b4176d71254588b8e21f8cae2122a9b840fbb7))
+- Update nuxt to 4.6.4 and the frontend's vulnerable runtime dependencies (hono, fast-uri, qs, zod). ([2a003bd](https://github.com/openkb-app/openkb/commit/2a003bdb58d50ad8cfb0a3474403c8d21123f8cc))
+- Raise the root composer floors to the locked versions. ([a15215b](https://github.com/openkb-app/openkb/commit/a15215b5e248a2d9ed6d37858cc107b4a50bbd9a))
+- Security update 2026-11-04: simple_oauth 6.1.4 and Symfony 7.4.23. ([b996839](https://github.com/openkb-app/openkb/commit/b996839577491470003bdffdc16e2786a5f8d481))
+- Update nuxt-component-preview to 1.1.2 and list @vercel/nft and @rollup/plugin-node-resolve as build-only. ([6087f73](https://github.com/openkb-app/openkb/commit/6087f73bb3ae90df0b43f59198db74923a8125fe))
+- FrankenPHP 1.13.5, Alpine security updates in both images, no dependabot cooldown on base images, upstream security-release check in the image scan. ([27bd934](https://github.com/openkb-app/openkb/commit/27bd934f9aaa15f16e3a546d39e85e73aea6cddc))
+- Fail the base-images job when the GitHub API call fails; doc wordings. ([7b81584](https://github.com/openkb-app/openkb/commit/7b81584f98251aad600dc511e7bcc94d775be275))
+- Render a mention as a chip on the read page. ([11ec108](https://github.com/openkb-app/openkb/commit/11ec108c163f46b4e72b3c0c024da10a6bb734ed))
+- Run block-menu actions on the live position, drop per-keystroke rebuilds, and fix two raced specs. ([5def909](https://github.com/openkb-app/openkb/commit/5def9090f1d3d5d4440bbb025bc066700a2ee8cc))
+- Bump y-tiptap to 3.2.0 and cover co-editing carets and undo per feature. ([d450686](https://github.com/openkb-app/openkb/commit/d4506864ceb5060dfb51fbbdbf37c3b5ea8f2f54))
+- Add FEFF to the module's cspell words, so drupal.org's cspell job passes. ([c828365](https://github.com/openkb-app/openkb/commit/c828365b61cd15e2415e4de36118cbe5f8f9a287))
+- Rotate the committed dev default credentials. ([c18d7a9](https://github.com/openkb-app/openkb/commit/c18d7a99d522587a18bc506aff867dc11195049f))
+- Hold the site while Drupal installs, so no request writes its hook list over the installer's. ([a0c6c87](https://github.com/openkb-app/openkb/commit/a0c6c878fa51e4aa93dc8b40412553d8b90a2aa6))
+- Keep a file name typed in the page's file list when the page text changes before Enter. ([9396604](https://github.com/openkb-app/openkb/commit/93966046ea625c3f2260eaadb3065ce8365678f4))
+- Focus the editor as soon as a link is applied, so keys typed right away reach the text. ([5355427](https://github.com/openkb-app/openkb/commit/5355427fa61ba3a8c496f32cc5c2afb178bcb1f5))
+
+### Performance
+
+- Mount the one toolbar set that fits instead of hiding the others with CSS. ([9466792](https://github.com/openkb-app/openkb/commit/94667920fd7e206e2443fe1483a43f1eee23466d))
+- Keep the presence list as is while it reads the same, so a peer's keystroke re-renders no review pane. ([9d67dbf](https://github.com/openkb-app/openkb/commit/9d67dbf786d21411c259d47c1d9cebf6ec40f0b9))
+- Apply peers' document updates in one transaction per 100 ms window, so the editor's work follows the window, not the number of typists. ([0ec4641](https://github.com/openkb-app/openkb/commit/0ec4641435a42eb5c8f89d91d5dbe5394f6f80f6))
+- Nitro serves brotli and gzip copies of the public assets. ([c79e6ce](https://github.com/openkb-app/openkb/commit/c79e6ce6b3085e4091d9879dd9f89402f6c9ba52))
+- Editor speed part 2: toolbar answers, margin controls kept in the DOM, block list without text. ([84d8d12](https://github.com/openkb-app/openkb/commit/84d8d12d2e37d40c9dc5b68215e769aad0a238c3))
+
+### Documentation
+
+- Mark only alphas as GitHub pre-releases, and align the release and publishing docs with sync.sh. ([370e383](https://github.com/openkb-app/openkb/commit/370e3833229eec28c2e0acbc6ffce1c3dea33300))
+
 ## [1.0.0-beta3] - 2026-10-23
 
 ### Features
