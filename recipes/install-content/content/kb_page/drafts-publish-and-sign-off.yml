@@ -88,13 +88,15 @@ default:
         To sign a block off: {#b-7503be36}
 
         ::block{#b-6fc81acb}
-        1. Open the page in the editor and click "Review" in the header. The review pane lists every change that is waiting, and says which of them are yours to sign off.
+        1. Open the page in the editor and click "Review" in the header. The review pane lists every change that is waiting, and says which of them are yours to approve.
         2. Click a row to jump to the block.
         3. Click the checkmark next to the pill, "Mark reviewed". The toolbar's "Mark this block reviewed" and the block's ⠿ menu do the same.
-        4. When every change is signed off, "Publish" becomes available.
+        4. When every change is approved, "Publish" becomes available.
         ::
 
         A sign-off you may not give is greyed and says why, for example "This block needs a second pair of eyes: its only contributor is the account approving it." A site administrator may sign off their own writing. {#b-0dd85d02}
+
+        When two or more changes are yours to approve, the review pane also offers "Approve all". It asks first, warns that the page history records the approval under your name, and says how many changes still need somebody else. All of them are recorded in one revision. It does not publish the page. {#b-59de8f78}
 
         In a space with "Review before publishing" off, anyone on the roster publishes whenever they are ready. Saving is still a draft. {#b-ab1bf61f}
 
