@@ -60,8 +60,6 @@ package-lock.json
 
 # Ignore sensitive files
 .env
-# The evaluation stack ships its settings; they are public by design.
-!quickstart/.env
 
 # Packages #
 ############

@@ -6,7 +6,7 @@ Both images are published to GHCR per release. `.env.example` sets `OPENKB_TAG=l
 
 ## Evaluating on a laptop
 
-Everything below describes a real host. To just look at OpenKB, run the evaluation stack instead and skip the rest of this page: two files, no hostnames, no secrets, described in [`quickstart/README.md`](../quickstart/README.md).
+Everything below describes a real host. To just look at OpenKB, run the evaluation stack instead and skip the rest of this page: one file, no hostnames, no secrets, described in [`quickstart/README.md`](../quickstart/README.md).
 
 ## Prerequisites
 

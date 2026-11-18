@@ -6,7 +6,6 @@ containers, nothing to fill in. Docker with the compose plugin (2.24 or newer) i
 ```sh
 mkdir openkb && cd openkb
 curl -fsSLO https://github.com/openkb-app/openkb/releases/latest/download/docker-compose.yml
-curl -fsSL -o .env https://github.com/openkb-app/openkb/releases/latest/download/openkb.env
 docker compose up -d
 ```
 
@@ -16,23 +15,27 @@ takes a few minutes; until it is done both URLs answer with a "setting up" page
 that reloads itself, and `docker compose logs -f drupal` shows the install.
 
 Open **<http://localhost:8642>** and sign in as **`admin`** with the password
-**`admin`** — the `ADMIN_PASSWORD` of `.env`. The same session opens Drupal's own
+**`admin`** — the default `ADMIN_PASSWORD`. The same session opens Drupal's own
 admin at <http://localhost:8643/admin>.
 
-## The two files
+## The one file
 
-| File | What it is |
-|---|---|
-| `docker-compose.yml` | the stack: `drupal` and `frontend` (the OpenKB images) plus `mariadb` and `opensearch`. It pulls; it never builds. |
-| `.env` | every setting, filled in for localhost. Compose reads it because it sits next to the compose file. The release ships it as `openkb.env`, because GitHub renames a download whose name starts with a dot. |
+`docker-compose.yml` is the stack: `drupal` and `frontend` (the OpenKB images)
+plus `mariadb` and `opensearch`. It pulls; it never builds. Every setting has
+its value in it, filled in for localhost.
+
+A `.env` next to it is optional. Compose reads it when it is there: a line in it
+overrides the value in `docker-compose.yml`, and every line reaches the `drupal`
+and `cron` containers. Create it with only the lines you change; the sections
+below name them.
 
 `frontend` runs in `drupal`'s network namespace, so `http://localhost:8642` and
 `http://localhost:8643` mean the same thing in the browser and inside both
 containers — the two services call each other under the same URLs you use.
 
-**Evaluation only.** The passwords in `.env` are published with it, so they are
-public, and both ports stay on `127.0.0.1`. Keep nothing in this stack you would
-miss.
+**Evaluation only.** The passwords in `docker-compose.yml` are published with
+it, so they are public, and both ports stay on `127.0.0.1`. Keep nothing in this
+stack you would miss.
 
 ## What to try
 
@@ -63,8 +66,8 @@ pasted into Drupal, and no provider has to be picked: chat and embeddings
 already default to OpenAI.
 
 ```sh
-OPENAI_API_KEY=sk-...       # in .env
-docker compose up -d        # re-creates the containers that read it
+echo 'OPENAI_API_KEY=sk-...' >> .env   # creates .env when there is none
+docker compose up -d                   # re-creates the containers that read it
 ```
 
 Then the **Ask OpenKnowledgebase** launcher in the app's chrome opens the chat.
@@ -77,6 +80,9 @@ docker compose exec drupal drush search-api:index kb_chunks -y
 ```
 
 ## Changing things
+
+Each setting below is a line in `.env`, e.g. `OPENKB_TAG=1.2.3`, followed by
+`docker compose up -d`.
 
 **Ports.** 8642 and 8643 are picked to collide with little. They are published
 and handed to the servers unchanged, so changing one means changing the URL that
@@ -92,15 +98,15 @@ loopback address.
 - `sha-1a2b3c4`: one build of the branch, pinned.
 
 Updating is one command, `docker compose pull && docker compose up -d`: it
-fetches what `OPENKB_TAG` names now. Run the first `curl` line above before it
+fetches what `OPENKB_TAG` names now. Run the `curl` line above before it
 to also move MariaDB and OpenSearch to the versions the newest release was
 tested with. Where the new images bring database updates, the site holds itself
 on a maintenance page until an administrator has run them: sign in at
 <http://localhost:8643/user/login> and open <http://localhost:8643/update.php>.
 The hold lifts itself when they are through.
 
-**OpenSearch memory mapping.** `OPENSEARCH_ALLOW_MMAP=false` is what lets this
-stack start on any host: with mmap on, OpenSearch requires
+**OpenSearch memory mapping.** `OPENSEARCH_ALLOW_MMAP=false`, the default here,
+is what lets this stack start on any host: with mmap on, OpenSearch requires
 `vm.max_map_count` ≥ 262144 on the host, which Linux does not grant by default.
 Turning it off costs read performance on a large index — fine while evaluating,
 not what a production install should run on. `OPENSEARCH_JAVA_OPTS` holds the

@@ -6,12 +6,11 @@ Website, product overview and documentation: **[openkb.app](https://openkb.app)*
 
 ## Try it in five minutes
 
-Two files of the newest release into an empty directory, and the published images do the rest. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
+One file of the newest release into an empty directory, and the published images do the rest. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
 
 ```sh
 mkdir openkb && cd openkb
 curl -fsSLO https://github.com/openkb-app/openkb/releases/latest/download/docker-compose.yml
-curl -fsSL -o .env https://github.com/openkb-app/openkb/releases/latest/download/openkb.env
 docker compose up -d
 ```
 

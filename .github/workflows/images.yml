@@ -9,7 +9,7 @@
 #   and an amd64 development image, tagged `1.x` and `sha-<short>`.
 # - Tag `vX.Y.Z`, or a manual run naming one: the same, pushed for amd64 and
 #   arm64 under the semver tags, plus a release entry carrying the version's
-#   `CHANGELOG.md` section and the quickstart's two files as assets.
+#   `CHANGELOG.md` section and the quickstart's compose file as an asset.
 #   `latest` follows the newest release (job `latest`).
 # - Tag `vX.Y.Z+rN`, an image revision (the `revision` workflow): the same as
 #   `vX.Y.Z`, plus the image tag `X.Y.Z-rN`; the version's semver tags and its
@@ -377,7 +377,7 @@ jobs:
           push-to-registry: true
 
   # The release entry for a version tag: the version's CHANGELOG.md section as
-  # notes, plus how to run it, and the quickstart's two files as assets. A
+  # notes, plus how to run it, and the quickstart's compose file as an asset. A
   # manual run re-publishing a tag, or an image revision, updates the entry the
   # version already has.
   release:
@@ -430,7 +430,6 @@ jobs:
 
       # Only alphas are pre-releases. "Latest" follows the `latest` image tag,
       # so `releases/latest/download/<asset>` serves the files `latest` runs.
-      # GitHub renames an asset starting with a dot: `.env` ships as `openkb.env`.
       - name: Create or update the release
         run: |
           set -euo pipefail
@@ -438,8 +437,7 @@ jobs:
             *-alpha*) prerelease=true ;;
             *) prerelease=false ;;
           esac
-          cp quickstart/.env openkb.env
-          assets=(quickstart/docker-compose.yml openkb.env)
+          assets=(quickstart/docker-compose.yml)
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "${assets[@]}" --clobber
             gh release edit "$TAG" --title "$TAG" --notes-file notes.md --draft=false --prerelease="$prerelease" --latest="$LATEST"

@@ -16,8 +16,8 @@ It prepends the version's section to `CHANGELOG.md` with git-cliff and
 to `1.2.3` in `composer.json` and `composer.lock`, where `1.x` carries
 `1.x-dev`; commits `release: v1.2.3.`, tags `v1.2.3` and pushes both to
 `1.x`. The tag is what starts everything below. The quickstart names no
-version: `quickstart/.env` carries `OPENKB_TAG=latest`, and both READMEs fetch
-it from the newest release.
+version: `quickstart/docker-compose.yml` defaults to `OPENKB_TAG=latest`, and
+both READMEs fetch it from the newest release.
 
 Only the new section is written, so the sections below it are yours to correct
 by hand between releases.
@@ -44,14 +44,13 @@ To retry a failed run, re-run all jobs, not only the failed ones: a re-run of
 failed jobs reuses the run's earlier `latest` answer.
 
 It then opens the GitHub release: the version's `CHANGELOG.md` section as the
-notes, followed by how to run that version, and the quickstart's two files as
-assets, `docker-compose.yml` and `openkb.env` (`quickstart/.env`; GitHub
-renames an asset whose name starts with a dot). An alpha (`v1.2.3-alpha1`) is
+notes, followed by how to run that version, and the quickstart's
+`docker-compose.yml` as an asset. An alpha (`v1.2.3-alpha1`) is
 marked pre-release; a beta, a release candidate and a stable version are
 regular releases, their image revisions included. The release `latest` points
 at is GitHub's "Latest", so
 `https://github.com/openkb-app/openkb/releases/latest/download/docker-compose.yml`
-and `…/openkb.env` serve the files of the release `OPENKB_TAG=latest` runs. A
+serves the file of the release `OPENKB_TAG=latest` runs. A
 tag whose version has no section in `CHANGELOG.md` fails the job — the images
 are published, the release entry is not.
 
@@ -130,7 +129,7 @@ lock.
 
 ## Pinning a version
 
-`quickstart/.env` and `.env.example` carry `OPENKB_TAG=latest`, so
+`quickstart/docker-compose.yml` and `.env.example` carry `OPENKB_TAG=latest`, so
 `docker compose pull && docker compose up -d` updates to the newest release. A
 self-hoster pins one in `.env` instead:
 
