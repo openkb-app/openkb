@@ -11,6 +11,7 @@ import type { ResolvedFile } from '#shared/utils/files'
 const slots = useSlots()
 
 const props = defineProps<{
+  /** @notIndexed */
   file?: string
   /** @render */
   url?: string

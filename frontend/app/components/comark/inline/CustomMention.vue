@@ -6,6 +6,7 @@
  * sets `label` from the mention's words.
  */
 defineProps<{
+  /** @notIndexed */
   uid?: string
   /** @render */
   label?: string

@@ -27,7 +27,7 @@ describe('the comark component declarations', () => {
   it('reads the callout: an enum with its default, and a body', () => {
     expect(declarations.callout).toEqual({
       tag: 'callout',
-      props: { type: { kind: 'enum', values: ['info', 'warning', 'success', 'danger'], default: 'info' } },
+      props: { type: { kind: 'enum', values: ['info', 'warning', 'success', 'danger'], default: 'info', notIndexed: true } },
       slot: true,
       propsEditedInPlace: [],
       inline: false,
@@ -44,6 +44,11 @@ describe('the comark component declarations', () => {
       slot: false,
     })
     expect(Object.keys(declarations.image!.props)).toEqual(['file', 'alt', 'width'])
+  })
+
+  it('marks a prop tagged @notIndexed', () => {
+    expect(declarations.image!.props).toMatchObject({ file: { notIndexed: true }, width: { notIndexed: true } })
+    expect(declarations.image!.props.alt!.notIndexed).toBeUndefined()
   })
 
   it('reads the chips from the inline folder', () => {

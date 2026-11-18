@@ -15,13 +15,25 @@
 import { CITE_STATE_GLYPH, CITE_STATE_NOTE, type CiteState } from '#shared/utils/citations'
 
 const props = defineProps<{
-  /** The cited page. The tree passes render the chip from `n`, `path` and `title`. */
+  /**
+   * The cited page. The tree passes render the chip from `n`, `path` and `title`.
+   * @notIndexed
+   */
   nid?: number
-  /** The cited block on that page. */
+  /**
+   * The cited block on that page.
+   * @notIndexed
+   */
   block?: string
-  /** The cited block's version. */
+  /**
+   * The cited block's version.
+   * @notIndexed
+   */
   v?: string
-  /** The cited address outside the knowledge base. */
+  /**
+   * The cited address outside the knowledge base.
+   * @notIndexed
+   */
   url?: string
   /** @render */
   n: string

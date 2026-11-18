@@ -9,7 +9,9 @@
 defineProps<{
   /** @render */
   href: string
+  /** @notIndexed */
   nid: number
+  /** @notIndexed */
   block?: string
   /** @render */
   title?: string

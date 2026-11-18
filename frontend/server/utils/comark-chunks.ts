@@ -13,6 +13,7 @@
  */
 import type { BlockReferences, ComarkNode } from '#shared/utils/comark-tree'
 import { BLOCK_ID_PREFIX } from '#shared/page-blocks'
+import { comarkComponentDeclarations, type ComarkPropDeclaration } from '#shared/utils/comark-components'
 
 export interface Chunk {
   /** The block id of the chunk's first block — where a citation lands. */
@@ -120,7 +121,8 @@ function blockText(node: ComarkNode): string {
 }
 
 /**
- * The words below a node, an image's alt and title in its place.
+ * The words below a node, an image's alt and title in its place, and a
+ * component's stored props in front of its body.
  *
  * An image is often the only place a diagram's words are, so they are
  * indexed; its source, a URL or a data URI, is not words.
@@ -138,9 +140,18 @@ function wordsOf(nodes: ComarkNode[]): string {
       out += ` ${[...new Set(labels)].join(' ')} `
       continue
     }
+    const declaration = comarkComponentDeclarations[tag]
+    if (declaration) out += ` ${indexedPropValuesOfComponent(declaration.props, props ?? {}).join(' ')} `
     out += wordsOf(children)
   }
   return out
+}
+
+/** A component's stored prop values in declaration order, those tagged `@notIndexed` left out. */
+function indexedPropValuesOfComponent(declared: Record<string, ComarkPropDeclaration>, props: Record<string, unknown>): string[] {
+  return Object.entries(declared)
+    .filter(([name, prop]) => !prop.notIndexed && props[name] !== undefined && props[name] !== null && props[name] !== '')
+    .map(([name]) => String(props[name]))
 }
 
 /** A table as one line per body row, `Column: cell; Column: cell`. */

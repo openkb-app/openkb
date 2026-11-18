@@ -17,10 +17,12 @@ import { loadPhotoSwipe, openLightbox } from '~/utils/image-lightbox'
  * (`utils/image-lightbox.ts`).
  */
 const props = defineProps<{
+  /** @notIndexed */
   file?: string
   /** @render */
   src?: string
   alt?: string
+  /** @notIndexed */
   width?: string
   /** @render */
   inline?: boolean

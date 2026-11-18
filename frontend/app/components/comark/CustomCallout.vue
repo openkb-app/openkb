@@ -1,5 +1,6 @@
 <script setup lang="ts">
 interface Props {
+  /** @notIndexed */
   type?: 'info' | 'warning' | 'success' | 'danger'
 }
 

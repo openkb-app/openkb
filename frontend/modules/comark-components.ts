@@ -59,6 +59,7 @@ export function declarePropOfComponent(component: string, prop: PropertyMeta): C
   const declaration: ComarkPropDeclaration = { kind: 'string' }
   const fallback = parsePropDefault(prop.default)
   if (fallback !== undefined) declaration.default = fallback
+  if (prop.tags.some(tag => tag.name === 'notIndexed')) declaration.notIndexed = true
   if (options.length > 0 && options.every(option => typeof option === 'string' && /^".*"$/.test(option))) {
     return { ...declaration, kind: 'enum', values: options.map(option => JSON.parse(option as string) as string) }
   }

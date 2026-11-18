@@ -7,6 +7,7 @@
 import type { ResolvedFile } from '#shared/utils/files'
 
 const props = defineProps<{
+  /** @notIndexed */
   file?: string
   /** @render */
   url?: string

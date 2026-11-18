@@ -20,6 +20,8 @@ export interface ComarkPropDeclaration {
   /** The enum's values. */
   values?: string[]
   default?: string | number | boolean
+  /** The prop carries the JSDoc tag `@notIndexed`: its value stays out of the search index. */
+  notIndexed?: true
 }
 
 /** What the build reads off one `Custom<Name>.vue`. */

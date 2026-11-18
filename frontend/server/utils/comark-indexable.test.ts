@@ -75,4 +75,29 @@ describe('markdownToIndexable', () => {
     const out = await markdownToIndexable('# Page {#b-1111}\n\n::callout{type="info"}\ninside callout\n::\n')
     expect(out.chunks.map(chunk => chunk.text).join('\n')).toContain('inside callout')
   })
+
+  describe('a component\'s stored props', () => {
+    /** The page's chunk text, one string. */
+    async function indexedText(markdown: string): Promise<string> {
+      return (await markdownToIndexable(markdown)).chunks.map(chunk => chunk.text).join('\n')
+    }
+
+    it('put a lone prop in front of its body: an infobox title', async () => {
+      const text = await indexedText('# Page {#b-1111}\n\n::infobox{title="Good to know"}\nBox line.\n::\n')
+      expect(text).toContain('Good to know Box line.')
+    })
+
+    it('leave out a prop tagged @notIndexed', async () => {
+      const text = await indexedText('# Page {#b-1111}\n\nSee :doc[Release notes]{nid="4242"} and ask :mention[Avery]{uid="7"} today. {#b-3333}\n')
+      expect(text).toContain('See Release notes and ask Avery today.')
+      expect(text).not.toContain('4242')
+      expect(text).not.toMatch(/\b7\b/)
+    })
+
+    it('leave out a callout type: it is a tone, not words', async () => {
+      const text = await indexedText('# Page {#b-1111}\n\n::callout{type="warning"}\nMind the gap.\n::\n')
+      expect(text).toContain('Mind the gap.')
+      expect(text).not.toContain('warning')
+    })
+  })
 })
