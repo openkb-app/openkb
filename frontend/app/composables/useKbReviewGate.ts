@@ -1,4 +1,4 @@
-import { reviewQueue, signableRows, unidentifiedBlocks, type ReviewQueueRow } from '~/editor/review-marks'
+import { blockLabel, reviewQueue, signableRows, unidentifiedBlocks, type ReviewQueueRow, type UnidentifiedRow } from '~/editor/review-marks'
 import { commentRows, type CommentThreadView } from '~/editor/comment-marks'
 import { assignedCounts } from '~/editor/comment-assignee'
 import { awaitingReview } from '#shared/utils/moderation'
@@ -96,10 +96,11 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
   const reviewRows = ref<ReviewQueueRow[]>([])
   /**
    * Blocks with no id: no review lane, so Drupal refuses the publish
-   * structurally. Counted off the same document as the queue, so the surface
-   * names both holds before the refusal does.
+   * structurally. Read off the same document as the queue, so the surface
+   * lists both before the refusal does.
    */
-  const unidentifiedCount = ref(0)
+  const unidentifiedRows = ref<UnidentifiedRow[]>([])
+  const unidentifiedCount = computed(() => unidentifiedRows.value.length)
   // Hydration seeds the document after the parse is awaited, so it is a trigger too.
   watch([awaitingBlocks, reviewOpen, () => session.value?.hydrated.value], () => {
     const doc = editorInstance.value?.state.doc
@@ -108,7 +109,7 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
     // this stands in for nobody rather than deciding anything.
     const reviewer = session.value?.reviewer.value ?? { uid: null, isAdmin: false }
     reviewRows.value = doc ? reviewQueue(doc, awaitingBlocks.value, sidecar, reviewer) : []
-    unidentifiedCount.value = doc ? unidentifiedBlocks(doc).length : 0
+    unidentifiedRows.value = doc ? unidentifiedBlocks(doc).map(({ pos, node }) => ({ pos, text: blockLabel(node) })) : []
   }, { immediate: true })
 
   /**
@@ -120,7 +121,7 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
 
   /** A row standing for an item the document holds no block for sends nobody
    *  anywhere: it is signed off from the row itself. */
-  function goToReviewBlock(row: ReviewQueueRow) {
+  function goToReviewBlock(row: Pick<ReviewQueueRow, 'pos'>) {
     if (row.pos !== null) session.value?.goToBlock(row.pos)
   }
 
@@ -179,6 +180,7 @@ export function useKbReviewGate(editSession: KbNodeEditSession, moderation: Mode
     reviewParked,
     awaitingCount,
     unidentifiedCount,
+    unidentifiedRows,
     reviewRows,
     reviewableNow,
     commentThreads,

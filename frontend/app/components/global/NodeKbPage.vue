@@ -121,6 +121,7 @@ const {
   reviewParked,
   awaitingCount,
   unidentifiedCount,
+  unidentifiedRows,
   reviewableNow,
   reviewRows,
   commentThreads,
@@ -152,7 +153,7 @@ const reviewSurface = computed(() => ({
     myUid.value != null && canChat.value ? chatAssignee({ uid: myUid.value, name: myName.value ?? '' }) : null,
     chatOpen.value,
   ),
-  unidentified: unidentifiedCount.value,
+  unidentified: unidentifiedRows.value,
   signedOff: session.value?.signedOff.value ?? false,
   refused: session.value?.refusedSignOffs.value ?? [],
 }))

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { serializeCommitJSON, type ProseMirrorJSON } from './commit'
+import { parseMarkdownToDoc } from '../../app/comark/markdown-engine'
 
 /**
  * Block versions — what a block's content is, as one short string.
@@ -126,4 +127,99 @@ export function blockVersions(canonical: string): Record<string, string> {
   return Object.fromEntries(
     [...blockSegments(canonical)].map(([id, markdown]) => [id, blockVersion(markdown)]),
   )
+}
+
+/** The ids of the blocks `after` adds, changes or removes against `before`. */
+export function changedBlockIds(before: string, after: string): string[] {
+  const old = blockSegments(before)
+  const next = blockSegments(after)
+  const changed = [...next].filter(([id, markdown]) => old.get(id) !== markdown).map(([id]) => id)
+  const removed = [...old.keys()].filter(id => !next.has(id))
+  return [...changed, ...removed]
+}
+
+/**
+ * The body to write, with each block nobody edited in Drupal's stored bytes.
+ *
+ * The serializer has one spelling, so a block stored in another one would get
+ * new bytes, and a new version, at every checkpoint. Keeping the stored bytes
+ * where they read as exactly the written block keeps its version, and with it
+ * its review state and history (ADR 0024).
+ *
+ * Stored bytes go back only where the body still reads as written, both to
+ * comark and to Drupal's segmentation: an unclosed callout would take in the
+ * block after it. All re-spelled blocks are tried together first; when they
+ * do not fit, each is tried on its own.
+ *
+ * @param stored Drupal's body, title heading off.
+ * @param written The canonical body the checkpoint serialized, title heading off.
+ */
+export async function keepStoredSpellingOfUntouchedBlocks(stored: string, written: string): Promise<string> {
+  const respelled = await respelledUntouchedBlocks(stored, written)
+  if (respelled.length === 0) return written
+  const all = spliceStoredBytes(written, respelled)
+  if (await readsAsWritten(all, written, respelled)) return all
+  let body = written
+  for (const block of respelled) {
+    const next = spliceStoredBytes(body, [block])
+    if (await readsAsWritten(next, written, respelled)) body = next
+  }
+  return body
+}
+
+/** A block's canonical markdown and its stored bytes. */
+interface RespelledBlock {
+  markdown: string
+  stored: string
+}
+
+/** The written blocks whose stored bytes differ but read, on their own, as the same block. */
+async function respelledUntouchedBlocks(stored: string, written: string): Promise<RespelledBlock[]> {
+  const before = blockSegments(stored)
+  const respelled: RespelledBlock[] = []
+  for (const [id, markdown] of blockSegments(written)) {
+    const old = before.get(id)
+    if (old === undefined || old === markdown) continue
+    // A block leaning on text elsewhere, such as a link reference definition,
+    // must not be put back without it.
+    if (await canonicalMarkdown(old) !== markdown) continue
+    respelled.push({ markdown, stored: old })
+  }
+  return respelled
+}
+
+/** The body with each block's markdown replaced by its stored bytes, where it occurs exactly once. */
+function spliceStoredBytes(body: string, blocks: RespelledBlock[]): string {
+  for (const { markdown, stored } of blocks) {
+    const at = body.indexOf(markdown)
+    if (at === -1 || body.indexOf(markdown, at + 1) !== -1) continue
+    body = body.slice(0, at) + stored + body.slice(at + markdown.length)
+  }
+  return body
+}
+
+/**
+ * Whether a spliced body reads as the written one.
+ *
+ * - comark reads it as the written body;
+ * - Drupal's segmentation finds the written chunks in the same order, each
+ *   as written or as that block's stored bytes.
+ */
+async function readsAsWritten(body: string, written: string, respelled: RespelledBlock[]): Promise<boolean> {
+  const spliced = chunks(body)
+  const expected = chunks(written)
+  if (spliced.length !== expected.length) return false
+  const storedOf = new Map(respelled.map(block => [block.markdown, block.stored]))
+  const sameChunks = spliced.every((chunk, at) => chunk === expected[at] || chunk === storedOf.get(expected[at]!))
+  return sameChunks && await canonicalMarkdown(body) === written
+}
+
+/** Markdown as a checkpoint would write it, or null where it does not parse. */
+async function canonicalMarkdown(markdown: string): Promise<string | null> {
+  try {
+    return await serializeCommitJSON((await parseMarkdownToDoc(markdown)).toJSON() as ProseMirrorJSON)
+  }
+  catch {
+    return null
+  }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useId } from 'vue'
-import { changesLabel, isYours, itemName, signableRows, STEP_LABEL, type ReviewQueueRow, type WaitingState } from '../review-marks'
+import { changesLabel, isYours, itemName, signableRows, STEP_LABEL, type ReviewQueueRow, type UnidentifiedRow, type WaitingState } from '../review-marks'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
 import type { CommentAssignee } from '#shared/block-comments'
@@ -27,8 +27,8 @@ const props = defineProps<{
   me: CommentAssignee | null
   /** Who a new thread starts assigned to; null for nobody. */
   defaultAssignee?: CommentAssignee | null
-  /** How many blocks carry no id — the hold no sign-off can clear. */
-  unidentified: number
+  /** The blocks that carry no id, in document order — no sign-off clears them. */
+  unidentified: UnidentifiedRow[]
   /** Whether this reader signed anything off in this session. */
   signedOff?: boolean
   /** `step:item` keys Drupal refused this reader in this session — never offered in bulk. */
@@ -36,7 +36,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'jump': [ReviewQueueRow]
+  'jump': [Pick<ReviewQueueRow, 'pos'>]
   'approve': [{ item: string, step: ReviewStep }]
   'approve-all': [{ items: Array<{ item: string, step: ReviewStep }>, waiting: number }]
   'jump-block': [string]
@@ -74,6 +74,8 @@ const waitingOnOthers = computed(() => {
 
 const confirmOpen = ref(false)
 const warningId = useId()
+const unidentifiedWarningId = useId()
+const stepHeadingIdPrefix = useId()
 
 /** Closes the dialog and sends the sign-offs it showed. */
 function confirmSignOffAll() {
@@ -118,20 +120,40 @@ function approvalOn(row: ReviewQueueRow, step: ReviewStep) {
   <div data-testid="review-panel">
     <!-- Shown up front: an id-less block has no review lane, so no sign-off
          clears it. Typing in it mints the id. -->
-    <p
-      v-if="unidentified > 0"
-      class="mb-4 text-sm text-warning"
-      data-testid="review-unidentified"
-    >
-      {{ unidentified === 1 ? 'One block has no id' : `${unidentified} blocks have no id` }}
-      and cannot be reviewed, so the page cannot publish. Editing such a block gives it one.
-    </p>
+    <section v-if="unidentified.length > 0" class="mb-4">
+      <p
+        :id="unidentifiedWarningId"
+        class="text-sm text-warning"
+        data-testid="review-unidentified"
+      >
+        {{ unidentified.length === 1 ? 'One block has no id' : `${unidentified.length} blocks have no id` }}
+        and cannot be reviewed, so the page cannot publish. Editing such a block gives it one.
+      </p>
+      <ul
+        class="mt-1 flex flex-col gap-1"
+        :aria-labelledby="unidentifiedWarningId"
+      >
+        <li v-for="block in unidentified" :key="block.pos">
+          <UButton
+            block
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="min-w-0 justify-start text-left"
+            :data-testid="`review-unidentified-${block.pos}`"
+            @click="emit('jump', block)"
+          >
+            <span class="truncate">{{ excerpt(block.text) }}</span>
+          </UButton>
+        </li>
+      </ul>
+    </section>
 
     <!-- "Nothing is waiting", not "everything is signed off": a block nobody
          has changed carries no sign-off either, and it is on the page all the
          same. Saying otherwise would credit a review nobody gave. -->
     <p
-      v-if="groups.length === 0 && unidentified === 0"
+      v-if="groups.length === 0 && unidentified.length === 0"
       class="text-sm text-muted"
       data-testid="review-queue-empty"
     >
@@ -213,10 +235,11 @@ function approvalOn(row: ReviewQueueRow, step: ReviewStep) {
         v-for="group in groups"
         :key="group.step"
         class="mb-4"
-        :aria-labelledby="`okb-review-step-${group.step}`"
+        :aria-labelledby="`${stepHeadingIdPrefix}-${group.step}`"
+        :data-testid="`review-step-${group.step}`"
       >
         <h3
-          :id="`okb-review-step-${group.step}`"
+          :id="`${stepHeadingIdPrefix}-${group.step}`"
           class="mb-1 flex items-center gap-2 text-sm font-medium text-highlighted"
         >
           <UIcon

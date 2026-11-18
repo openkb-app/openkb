@@ -13,6 +13,7 @@ import {
   type KbPagePatchExtra,
 } from './drupal'
 import { storedBody } from './title-heading'
+import { changedBlockIds, keepStoredSpellingOfUntouchedBlocks } from './block-versions'
 import { actorLabel } from '#shared/utils/attribution'
 
 /**
@@ -243,6 +244,7 @@ export type CommitOutcome =
   | 'conflict' // 409 — Drupal moved underneath the session
   | 'invalid' // 422 — Drupal rejected the payload
   | 'empty-body' // document holds nothing while Drupal holds a page
+  | 'foreign-blocks' // the body changes a block outside `onlyBlocks`
   | 'error' // anything else
 
 export interface CommitResult {
@@ -333,9 +335,7 @@ export function serializeYDoc(
  * style, so `_em_`, `* item`, a setext heading or a padded table all come back
  * spelled differently — a hash taken over Drupal's own bytes therefore reports
  * every legacy page as dirty from the moment it loads, and a session that
- * typed nothing writes a revision canonicalizing the whole body. Every drifted
- * block then reaches presave as changed with nothing accounting for it, which is
- * the review state reserved for text no server witnessed.
+ * typed nothing writes a revision canonicalizing the whole body.
  */
 export function serializeCommitJSON(
   json: ProseMirrorJSON,
@@ -381,6 +381,11 @@ export interface CommitOptions {
    * than one account's save. See {@link SessionWrite}.
    */
   sessionWrite?: SessionWrite
+  /**
+   * The blocks this write may change against Drupal's body. A body changing
+   * any other block is not written: the outcome is `foreign-blocks`.
+   */
+  onlyBlocks?: ReadonlySet<string>
 }
 
 /**
@@ -505,6 +510,12 @@ export async function commitDocument(
       return { outcome: 'empty-body', committed: false, markdown, hash, changed: page.changed }
     }
 
+    const body = await keepStoredSpellingOfUntouchedBlocks(page.body ?? '', markdown)
+    const onlyBlocks = options.onlyBlocks
+    if (onlyBlocks && changedBlockIds(page.body ?? '', body).some(id => !onlyBlocks.has(id))) {
+      return { outcome: 'foreign-blocks', committed: false, markdown, hash, changed: page.changed }
+    }
+
     // Extenders run before the concurrency verdict so the adopt branch below
     // can tell "nothing at all to write" from "body adopted, fields pending".
     // A CommitValidationError from an extender (unresolvable ref, bad value)
@@ -526,7 +537,7 @@ export async function commitDocument(
     // stale one with 409, inside the lock that orders the writers.
     const expected = Number(meta.get('drupal_changed') ?? 0)
     if (expected > 0 && page.changed !== expected) {
-      if (page.body === markdown) {
+      if (page.body === body) {
         // Drupal moved, but to exactly what this session holds — a lost `_meta`
         // write, or the user reverted onto the external revision. Adopt the
         // baseline so the session is not wedged behind a conflict it can never
@@ -582,7 +593,7 @@ export async function commitDocument(
     // The title heading and the final newline belong to the stored body, not
     // to the document (server/utils/title-heading.ts). The heading is spelt
     // from the title this write leaves behind, so a rename carries it.
-    const stored = storedBody(page.titleHeading, extra.attributes?.title ?? page.title, markdown)
+    const stored = storedBody(page.titleHeading, extra.attributes?.title ?? page.title, body)
     const { changed, review, files } = await commitKbPageWithAuth(auth, nid, stored, extra)
 
     const at = now()

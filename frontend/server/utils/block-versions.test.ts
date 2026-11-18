@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blockSegments, blockSegmentsOfDoc, blockVersion, blockVersions } from './block-versions'
+import { blockSegments, blockSegmentsOfDoc, blockVersion, blockVersions, keepStoredSpellingOfUntouchedBlocks } from './block-versions'
 import type { ProseMirrorJSON } from './commit'
 import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
 
@@ -125,5 +125,93 @@ describe('block versions', () => {
     ] } as ProseMirrorJSON
     expect(await blockSegmentsOfDoc(json)).toEqual(blockSegments(BODY))
     expect(blockVersion((await blockSegmentsOfDoc(json)).get('b-1')!)).toBe(blockVersions(BODY)['b-1'])
+  })
+})
+
+describe('keepStoredSpellingOfUntouchedBlocks', () => {
+  const STORED = 'One. {#b-1}\n\n_Two._ {#b-2}\n\nThree __bold__. {#b-3}\n'
+
+  it('writes an untouched block in its stored bytes, and an edited one canonically', async () => {
+    const written = 'One, edited. {#b-1}\n\n*Two.* {#b-2}\n\nThree **bold**. {#b-3}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(STORED, written))
+      .toBe('One, edited. {#b-1}\n\n_Two._ {#b-2}\n\nThree __bold__. {#b-3}')
+  })
+
+  it('writes a block canonically once its content changed', async () => {
+    const written = 'One. {#b-1}\n\n*Two, edited.* {#b-2}\n\nThree **bold**. {#b-3}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(STORED, written))
+      .toBe('One. {#b-1}\n\n*Two, edited.* {#b-2}\n\nThree __bold__. {#b-3}')
+  })
+
+  it('keeps inline HTML the serializer drops, as long as nobody edits the block', async () => {
+    const stored = 'Press <kbd>K</kbd> now. {#b-1}\n'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, 'Press K now. {#b-1}')).toBe('Press <kbd>K</kbd> now. {#b-1}')
+  })
+
+  it('writes a block canonically when its stored bytes lean on a link reference definition', async () => {
+    const stored = 'See [x][ref]. {#b-1}\n\n[ref]: https://example.com\n'
+    const written = 'See [x](https://example.com). {#b-1}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written)).toBe(written)
+  })
+
+  it('keeps the stored bytes of an untouched block that moved', async () => {
+    const written = 'Three **bold**. {#b-3}\n\nOne. {#b-1}\n\n*Two.* {#b-2}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(STORED, written))
+      .toBe('Three __bold__. {#b-3}\n\nOne. {#b-1}\n\n_Two._ {#b-2}')
+  })
+
+  it('keeps the stored bytes of a callout whose body is re-spelled', async () => {
+    const stored = '::callout{#b-1}\n_Careful._\n::\n\nTwo. {#b-2}\n'
+    const written = '::callout{type="info" #b-1}\n*Careful.*\n::\n\nTwo, edited. {#b-2}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written))
+      .toBe('::callout{#b-1}\n_Careful._\n::\n\nTwo, edited. {#b-2}')
+  })
+
+  it('writes an unclosed callout canonically once a block follows it', async () => {
+    const stored = 'One. {#b-1}\n\n::callout{#b-2}\n_Careful._\n'
+    const written = 'One. {#b-1}\n\n::callout{type="info" #b-2}\n*Careful.*\n::\n\nAppended. {#b-3}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written)).toBe(written)
+  })
+
+  it('keeps the stored bytes of an unclosed callout that stays last', async () => {
+    const stored = 'One. {#b-1}\n\n::callout{#b-2}\n_Careful._\n'
+    const written = 'One, edited. {#b-1}\n\n::callout{type="info" #b-2}\n*Careful.*\n::'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written))
+      .toBe('One, edited. {#b-1}\n\n::callout{#b-2}\n_Careful._')
+  })
+
+  it('keeps the other blocks\' stored bytes when one cannot be kept', async () => {
+    const stored = '_One._ {#b-1}\n\n::callout{#b-2}\n_Careful._\n'
+    const written = '*One.* {#b-1}\n\n::callout{type="info" #b-2}\n*Careful.*\n::\n\nAppended. {#b-3}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written))
+      .toBe('_One._ {#b-1}\n\n::callout{type="info" #b-2}\n*Careful.*\n::\n\nAppended. {#b-3}')
+  })
+
+  it('writes a callout canonically when Drupal would not close it before the next block', async () => {
+    // comark closes the fence on the indented `::`, Drupal's segmentation only at column 0.
+    const stored = 'One. {#b-1}\n\n::callout{#b-2}\n_Careful._\n  ::\n'
+    const written = 'One. {#b-1}\n\n::callout{type="info" #b-2}\n*Careful.*\n::\n\nAppended. {#b-3}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written)).toBe(written)
+  })
+
+  it('keeps the stored bytes of a callout with an indented closer that stays last', async () => {
+    const stored = 'One. {#b-1}\n\n::callout{#b-2}\n_Careful._\n  ::\n'
+    const written = 'One, edited. {#b-1}\n\n::callout{type="info" #b-2}\n*Careful.*\n::'
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written))
+      .toBe('One, edited. {#b-1}\n\n::callout{#b-2}\n_Careful._\n  ::')
+  })
+
+  it('keeps the stored bytes of every block before a callout written closed', async () => {
+    const numbers = Array.from({ length: 22 }, (_, at) => at + 1)
+    const stored = numbers.map(n => `_${n}._ {#b-${n}}`).join('\n\n') + '\n\n::callout{#b-c}\n_Careful._\n'
+    const callout = '::callout{type="info" #b-c}\n*Careful.*\n::'
+    const written = [...numbers.map(n => `*${n}.* {#b-${n}}`), callout, 'Appended. {#b-new}'].join('\n\n')
+    const expected = [...numbers.map(n => `_${n}._ {#b-${n}}`), callout, 'Appended. {#b-new}'].join('\n\n')
+    expect(await keepStoredSpellingOfUntouchedBlocks(stored, written)).toBe(expected)
+  })
+
+  it('leaves a body with nothing re-spelled as written', async () => {
+    const written = 'One. {#b-1}\n\n*New.* {#b-9}'
+    expect(await keepStoredSpellingOfUntouchedBlocks(STORED, written)).toBe(written)
   })
 })

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useMediaQuery } from '@vueuse/core'
-import type { ReviewQueueRow } from '../review-marks'
+import type { ReviewQueueRow, UnidentifiedRow } from '../review-marks'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
 import type { CommentAssignee } from '#shared/block-comments'
@@ -20,14 +20,14 @@ const props = defineProps<{
   assigneeCandidates: AssigneeCandidate[]
   me: CommentAssignee | null
   defaultAssignee?: CommentAssignee | null
-  unidentified: number
+  unidentified: UnidentifiedRow[]
   signedOff?: boolean
   refused?: readonly string[]
 }>()
 
 const emit = defineEmits<{
   'update:open': [boolean]
-  'jump': [ReviewQueueRow]
+  'jump': [Pick<ReviewQueueRow, 'pos'>]
   'approve': [{ item: string, step: ReviewStep }]
   'approve-all': [{ items: Array<{ item: string, step: ReviewStep }>, waiting: number }]
   'jump-block': [string]
@@ -48,7 +48,7 @@ const open = computed({
 
 /** A block the sheet covers is only reachable once the sheet is gone. A row
  *  with no block in the document sends nobody anywhere, so the sheet stays. */
-function jump(row: ReviewQueueRow) {
+function jump(row: Pick<ReviewQueueRow, 'pos'>) {
   emit('jump', row)
   if (!isDesktop.value && row.pos !== null) open.value = false
 }

@@ -3,7 +3,7 @@ import * as Y from 'yjs'
 import { Node as PMNode } from '@tiptap/pm/model'
 import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import { editorSchema } from './editor-schema'
-import { serializeDocToMarkdown } from '../../app/comark/markdown-engine'
+import { parseMarkdownToJson, serializeDocToMarkdown } from '../../app/comark/markdown-engine'
 
 vi.mock('./drupal', () => ({
   fetchCeWorkingCopy: vi.fn(),
@@ -794,6 +794,66 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     })
     expect(res.outcome).toBe('committed')
     expect(commitMock).toHaveBeenCalledOnce()
+  })
+})
+
+describe('a block nobody edited', () => {
+  beforeEach(() => {
+    readMock.mockReset()
+    commitMock.mockReset()
+  })
+
+  it('is written in the bytes Drupal stores, so its version stays', async () => {
+    const ydoc = seed(await parseMarkdownToJson('One, edited. {#b-1}\n\n_Two._ {#b-2}\n') as Json)
+    readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: '_One._ {#b-1}\n\n_Two._ {#b-2}\n' } as never)
+    commitMock.mockResolvedValue({ changed: 200, review: null })
+
+    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
+
+    expect(commitMock.mock.lastCall![2]).toBe('One, edited. {#b-1}\n\n_Two._ {#b-2}\n')
+    // The dirty check stays on the canonical form.
+    expect(res.hash).toBe(contentHash('One, edited. {#b-1}\n\n*Two.* {#b-2}'))
+  })
+
+  it('is written canonically when it is an unclosed callout and a block now follows it', async () => {
+    const written = '::callout{type="info" #b-1}\n*Careful.*\n::\n\nAppended. {#b-2}'
+    const ydoc = seed(await parseMarkdownToJson(written) as Json)
+    readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: '::callout{#b-1}\n_Careful._\n' } as never)
+    commitMock.mockResolvedValue({ changed: 200, review: null })
+
+    await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
+
+    expect(commitMock.mock.lastCall![2]).toBe(`${written}\n`)
+  })
+})
+
+describe('a write limited to some blocks', () => {
+  beforeEach(() => {
+    readMock.mockReset()
+    commitMock.mockReset()
+  })
+
+  const STORED = '::callout{#b-1}\n_Careful._\n'
+  const WRITTEN = '::callout{type="info" #b-1}\n*Careful.*\n::\n\nAppended. {#b-2}'
+
+  it('is not written when the body changes another block', async () => {
+    const ydoc = seed(await parseMarkdownToJson(WRITTEN) as Json)
+    readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: STORED } as never)
+
+    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'agent' }, onlyBlocks: new Set(['b-2']) })
+
+    expect(res.outcome).toBe('foreign-blocks')
+    expect(commitMock).not.toHaveBeenCalled()
+  })
+
+  it('is written when the body changes only those blocks', async () => {
+    const ydoc = seed(await parseMarkdownToJson(WRITTEN) as Json)
+    readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: STORED } as never)
+    commitMock.mockResolvedValue({ changed: 200, review: null })
+
+    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'agent' }, onlyBlocks: new Set(['b-1', 'b-2']) })
+
+    expect(res.outcome).toBe('committed')
   })
 })
 

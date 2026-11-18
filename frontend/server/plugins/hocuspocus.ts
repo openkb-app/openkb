@@ -1112,69 +1112,86 @@ export default defineNitroPlugin((nitroApp) => {
     quietMs: COLLAB_COMMIT_QUIET_MS,
     maxDirtyMs: COLLAB_COMMIT_MAX_DIRTY_MS,
     commit: async (documentName, trigger, identity) => {
-      // The ledger has to be complete before the window is read off it, and the
-      // pass is local work — no round trip, no race with the unload the commit
-      // below guards against.
-      accountFor(documentName)
-      settleSharedIds(documentName)
-      const ledger = ledgerFor(documentName)
-      // What this checkpoint carries, taken here rather than after the write:
-      // commitDocument serializes the body before its first await, and this is
-      // the accounting for exactly that body.
-      const window = sessionWindow(ledger, titleIsDirty(hp, documentName))
-      // An agent hands over its own token, and that write is the token
-      // owner's: no statement, no account switch (ADR 0001). Drupal credits
-      // all of it to the agent, so the token carries only a window the agent
-      // alone wrote. Every other checkpoint goes out under this server's OAuth
-      // client and states who is acting. The captured peer cookie is never
-      // replayed onto a write.
-      const agentCarrier = identity?.token !== undefined && agentOnly(window, { user: identity.user, uid: identity.uid, via: identity.via ?? null })
-      const carrier = agentCarrier ? identity : await collabCommitIdentity()
-      const owed = Object.keys(window.blocks).length > 0
-      // Whoever triggered this is who it acts as; one nobody triggered acts as
-      // the human the window elected.
-      const payload = agentCarrier ? undefined : sessionPayload(window, identity?.uid ?? null)
-      const result = await commitDocument(hp, documentName, {
-        trigger,
-        // A caller that brought its own credential authenticated on this very
-        // request; only the replayed session needs re-verifying.
-        precondition: identity ? undefined : () => sessionStillValid(documentName),
-        identity: carrier,
-        // A session's checkpoint is not its carrier's save: it carries the
-        // window's own accounting, and Drupal credits the peers it names and
-        // writes as the human it names. Nothing on an agent's, which is that
-        // token owner's ordinary save.
-        sessionWrite: payload,
-        // Fields and block ids ride the checkpoint payload.
-        hooks: mergeCommitHooks(
-          fieldsCommitHooks(fieldSource.fetchSpecs),
-          // Drupal takes page files from a session checkpoint only (ADR 0020):
-          // an agent's own write leaves them pending for the next one.
-          agentCarrier ? {} : filesCommitHooks(),
-          // Two reasons to write that the body hash cannot see.
-          //  - A window whose writers Drupal has not recorded yet: the text
-          //    may already be in Drupal (an agent wrote it) and the credit is
-          //    not durable until a checkpoint carries it. Drupal books it onto
-          //    blocks this write leaves alone.
-          //  - A stated sign-off: the checkpoint IS how a sign-off reaches
-          //    Drupal, and a reviewer clearing a block types nothing.
-          {
-            dirtyChecks: [
-              async () => payload !== undefined && (owed || payload.actions.length > 0),
-            ],
-          },
-          // The pass above resolved every shared id against what the blocks
-          // held before; the commit applies that rather than reading document
-          // order, which is the client's to choose.
-          blockIdCommitHooks(sharedIdKeepers(ledger.baseline)),
-          // The sidecar mirror is re-taken in the post-commit lane, with the
-          // other bookkeeping that writes to the doc: a doc write landing after
-          // the confirmed-checkpoint signal resurrects the y-indexeddb mirror
-          // the peers just cleared.
-          // The postCommit lane runs only after a PATCH Drupal accepted.
-          { postCommit: [async () => { await syncSidecarFromDrupal(documentName, true) }] },
-        ),
-      })
+      /** One checkpoint attempt; `asAgent` lets an agent's own token carry it. */
+      const attempt = async (asAgent: boolean) => {
+        // The ledger has to be complete before the window is read off it, and the
+        // pass is local work — no round trip, no race with the unload the commit
+        // below guards against.
+        accountFor(documentName)
+        settleSharedIds(documentName)
+        const ledger = ledgerFor(documentName)
+        // What this checkpoint carries, taken here rather than after the write:
+        // commitDocument serializes the body before its first await, and this is
+        // the accounting for exactly that body.
+        const window = sessionWindow(ledger, titleIsDirty(hp, documentName))
+        // An agent hands over its own token, and that write is the token
+        // owner's: no statement, no account switch (ADR 0001). Drupal credits
+        // all of it to the agent, so the token carries only a window the agent
+        // alone wrote. Every other checkpoint goes out under this server's OAuth
+        // client and states who is acting. The captured peer cookie is never
+        // replayed onto a write.
+        const agentCarrier = asAgent && identity?.token !== undefined && agentOnly(window, { user: identity.user, uid: identity.uid, via: identity.via ?? null })
+        const carrier = agentCarrier ? identity : await collabCommitIdentity()
+        const owed = Object.keys(window.blocks).length > 0
+        // Whoever triggered this is who it acts as; one nobody triggered acts as
+        // the human the window elected.
+        const payload = agentCarrier ? undefined : sessionPayload(window, identity?.uid ?? null)
+        const result = await commitDocument(hp, documentName, {
+          trigger,
+          // A caller that brought its own credential authenticated on this very
+          // request; only the replayed session needs re-verifying.
+          precondition: identity ? undefined : () => sessionStillValid(documentName),
+          identity: carrier,
+          // A session's checkpoint is not its carrier's save: it carries the
+          // window's own accounting, and Drupal credits the peers it names and
+          // writes as the human it names. Nothing on an agent's, which is that
+          // token owner's ordinary save.
+          sessionWrite: payload,
+          // The agent's token carries only the blocks the agent wrote.
+          ...(agentCarrier ? { onlyBlocks: new Set(Object.keys(window.blocks)) } : {}),
+          // Fields and block ids ride the checkpoint payload.
+          hooks: mergeCommitHooks(
+            fieldsCommitHooks(fieldSource.fetchSpecs),
+            // Drupal takes page files from a session checkpoint only (ADR 0020):
+            // an agent's own write leaves them pending for the next one.
+            agentCarrier ? {} : filesCommitHooks(),
+            // Two reasons to write that the body hash cannot see.
+            //  - A window whose writers Drupal has not recorded yet: the text
+            //    may already be in Drupal (an agent wrote it) and the credit is
+            //    not durable until a checkpoint carries it. Drupal books it onto
+            //    blocks this write leaves alone.
+            //  - A stated sign-off: the checkpoint IS how a sign-off reaches
+            //    Drupal, and a reviewer clearing a block types nothing.
+            {
+              dirtyChecks: [
+                async () => payload !== undefined && (owed || payload.actions.length > 0),
+              ],
+            },
+            // The pass above resolved every shared id against what the blocks
+            // held before; the commit applies that rather than reading document
+            // order, which is the client's to choose.
+            blockIdCommitHooks(sharedIdKeepers(ledger.baseline)),
+            // The sidecar mirror is re-taken in the post-commit lane, with the
+            // other bookkeeping that writes to the doc: a doc write landing after
+            // the confirmed-checkpoint signal resurrects the y-indexeddb mirror
+            // the peers just cleared.
+            // The postCommit lane runs only after a PATCH Drupal accepted.
+            { postCommit: [async () => { await syncSidecarFromDrupal(documentName, true) }] },
+          ),
+        })
+        return { ledger, window, payload, result }
+      }
+      let { ledger, window, payload, result } = await attempt(true)
+      // The agent's token credits every changed block to the agent, so a body
+      // changing a block it did not write, such as a callout written closed,
+      // goes out as a session write: that block stays credited to nobody.
+      if (result.outcome === 'foreign-blocks') {
+        const sessionAttempt = await attempt(false)
+        ledger = sessionAttempt.ledger
+        window = sessionAttempt.window
+        payload = sessionAttempt.payload
+        result = sessionAttempt.result
+      }
       // The window is owed until Drupal holds the bytes it accounts for. A
       // checkpoint that wrote nothing, failed, hit a conflict — or carried no
       // accounting at all — leaves its writer sets on the books to ride the

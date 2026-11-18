@@ -485,6 +485,12 @@ export interface ReviewQueueRow {
   approvals: PillApproval[]
 }
 
+/** A block with no id, as the review panel lists it: where it is and its text. */
+export interface UnidentifiedRow {
+  pos: number
+  text: string
+}
+
 /** How a review item names itself where there is no text to recognise it by. */
 export function itemName(id: string): string {
   return id === TITLE_REVIEW_KEY ? 'The page title' : `Block ${id}`
