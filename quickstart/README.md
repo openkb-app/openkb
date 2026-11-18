@@ -1,10 +1,12 @@
 # Try OpenKB
 
-An evaluation stack on your own machine: the published images, four containers,
-nothing to fill in. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
+An evaluation stack on your own machine: the newest release's images, four
+containers, nothing to fill in. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
 
 ```sh
-mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha1/quickstart/{docker-compose.yml,.env}"
+mkdir openkb && cd openkb
+curl -fsSLO https://github.com/openkb-app/openkb/releases/latest/download/docker-compose.yml
+curl -fsSL -o .env https://github.com/openkb-app/openkb/releases/latest/download/openkb.env
 docker compose up -d
 ```
 
@@ -22,7 +24,7 @@ admin at <http://localhost:8643/admin>.
 | File | What it is |
 |---|---|
 | `docker-compose.yml` | the stack: `drupal` and `frontend` (the OpenKB images) plus `mariadb` and `opensearch`. It pulls; it never builds. |
-| `.env` | every setting, filled in for localhost. Compose reads it because it sits next to the compose file. |
+| `.env` | every setting, filled in for localhost. Compose reads it because it sits next to the compose file. The release ships it as `openkb.env`, because GitHub renames a download whose name starts with a dot. |
 
 `frontend` runs in `drupal`'s network namespace, so `http://localhost:8642` and
 `http://localhost:8643` mean the same thing in the browser and inside both
@@ -82,15 +84,20 @@ carries it too — `FRONTEND_HTTP_PORT` with `DRUPAL_FRONTEND_BASE_URL`,
 `DRUPAL_HTTP_PORT` with `DRUPAL_BASE_URL`. `LISTEN_IP` moves both to another
 loopback address.
 
-**Image version.** `OPENKB_TAG` names what is pulled. These two files carry
-`1.x`, the development branch, rebuilt on every push to it and built for amd64
-only; the copies a release ships carry that release instead, built for amd64
-and arm64. `sha-1a2b3c4` pins one build of the branch. After changing it,
-`docker compose pull && docker compose up -d`. Where the new images bring
-database updates, the site holds itself on a maintenance page until an
-administrator has run them: sign in at <http://localhost:8643/user/login> and
-open <http://localhost:8643/update.php>. The hold lifts itself when they are
-through.
+**Image version.** `OPENKB_TAG` names what is pulled:
+
+- `latest`, the default: the newest release, for amd64 and arm64.
+- `1.2.3`: that release, pinned.
+- `1.x`: the development branch, rebuilt on every push to it, amd64 only.
+- `sha-1a2b3c4`: one build of the branch, pinned.
+
+Updating is one command, `docker compose pull && docker compose up -d`: it
+fetches what `OPENKB_TAG` names now. Run the first `curl` line above before it
+to also move MariaDB and OpenSearch to the versions the newest release was
+tested with. Where the new images bring database updates, the site holds itself
+on a maintenance page until an administrator has run them: sign in at
+<http://localhost:8643/user/login> and open <http://localhost:8643/update.php>.
+The hold lifts itself when they are through.
 
 **OpenSearch memory mapping.** `OPENSEARCH_ALLOW_MMAP=false` is what lets this
 stack start on any host: with mmap on, OpenSearch requires

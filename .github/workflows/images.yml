@@ -9,7 +9,8 @@
 #   and an amd64 development image, tagged `1.x` and `sha-<short>`.
 # - Tag `vX.Y.Z`, or a manual run naming one: the same, pushed for amd64 and
 #   arm64 under the semver tags, plus a release entry carrying the version's
-#   `CHANGELOG.md` section.
+#   `CHANGELOG.md` section and the quickstart's two files as assets.
+#   `latest` follows the newest release (job `latest`).
 # - Tag `vX.Y.Z+rN`, an image revision (the `revision` workflow): the same as
 #   `vX.Y.Z`, plus the image tag `X.Y.Z-rN`; the version's semver tags and its
 #   release entry move onto it.
@@ -120,7 +121,7 @@ jobs:
       # log of the container that is not healthy says where.
       - name: Wait for the healthchecks
         run: |
-          for i in $(seq 1 36); do
+          for _ in $(seq 1 36); do
             drupal=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q drupal)")
             frontend=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q frontend)")
             echo "drupal=$drupal frontend=$frontend"
@@ -173,6 +174,41 @@ jobs:
             --certificate-identity-regexp '^https://github.com/php/frankenphp/\.github/workflows/docker\.yaml@' \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             "docker.io/dunglas/frankenphp@$digest" > /dev/null
+
+  # Whether this run's version is the newest release, so `latest` moves to it;
+  # the rule is in docs/release.md. It runs after `publish`, right before
+  # `merge` tags: this narrows, not closes, the window in which a slower run
+  # of an older version moves `latest` back.
+  latest:
+    if: github.event_name != 'pull_request'
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      latest: ${{ steps.latest.outputs.latest }}
+    steps:
+      - name: Newest release
+        id: latest
+        env:
+          TAG: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/') && github.ref_name || '') }}
+        run: |
+          set -euo pipefail
+          release=${TAG%%+*}
+          versions=$(git ls-remote --tags --refs "https://github.com/$GITHUB_REPOSITORY.git" 'refs/tags/v*' \
+            | sed 's#.*refs/tags/##; s#+.*##' | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' || true; } | sort -uV)
+          stable=$(grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' <<< "$versions" || true)
+          if [ -n "$stable" ]; then
+            candidates=$stable
+          else
+            candidates=$(grep -v -- '-alpha' <<< "$versions" || true)
+          fi
+          newest=$(tail -n 1 <<< "$candidates")
+          latest=false
+          if [ -n "$release" ] && [ "$release" = "$newest" ]; then
+            latest=true
+          fi
+          echo "$release: newest release is $newest, latest=$latest"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
 
   # Skipped with verify-base on a pull request. Each platform builds on a
   # runner of its own architecture and pushes by digest; `merge` tags the
@@ -260,7 +296,7 @@ jobs:
 
   # Joins the platform images of `publish` into one image under the tags.
   merge:
-    needs: publish
+    needs: [publish, latest]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -302,16 +338,18 @@ jobs:
             echo "revision-tag=${revision:+${release#v}-${revision#+}}"
           } >> "$GITHUB_OUTPUT"
 
-      # A pre-release tag (v1.0.0-beta.1) collapses every pattern onto its
-      # exact version and leaves `latest` unset — the action's own rule. On a
-      # branch build the semver patterns yield nothing (they need a tag ref or
-      # a `value`), so it carries `1.x` and `sha-<short>` and no `latest`.
+      # A pre-release tag (v1.2.3-beta1) collapses every semver pattern onto
+      # its exact version. On a branch build the semver patterns yield nothing
+      # (they need a tag ref or a `value`), so it carries `1.x` and
+      # `sha-<short>`. `latest` comes from job `latest` only.
       - name: Tags
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
+          flavor: latest=false
           tags: |
+            type=raw,value=latest,enable=${{ needs.latest.outputs.latest }}
             type=semver,pattern={{version}},value=${{ steps.version.outputs.release }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.release }}
             type=semver,pattern={{major}},value=${{ steps.version.outputs.release }}
@@ -339,11 +377,12 @@ jobs:
           push-to-registry: true
 
   # The release entry for a version tag: the version's CHANGELOG.md section as
-  # notes, plus how to run it. A manual run re-publishing a tag, or an image
-  # revision, updates the entry the version already has.
+  # notes, plus how to run it, and the quickstart's two files as assets. A
+  # manual run re-publishing a tag, or an image revision, updates the entry the
+  # version already has.
   release:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: merge
+    needs: [merge, latest]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -351,6 +390,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REF: ${{ inputs.version || github.ref_name }}
+      LATEST: ${{ needs.latest.outputs.latest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -373,8 +413,8 @@ jobs:
           }
           {
             printf '\n## Run it\n\n'
+            printf "To run exactly this version, set \`OPENKB_TAG=%s\` in \`.env\`. Then:\n\n" "$version"
             printf '```sh\n'
-            printf 'OPENKB_TAG=%s\n' "$version"
             printf 'docker compose pull && docker compose up -d\n'
             printf '```\n'
             # A quoted heredoc: the markdown backticks are not command substitution.
@@ -388,16 +428,21 @@ jobs:
           } >> notes.md
           cat notes.md
 
-      # Alphas are pre-releases; betas, release candidates and stable versions
-      # are regular releases, their image revisions included.
+      # Only alphas are pre-releases. "Latest" follows the `latest` image tag,
+      # so `releases/latest/download/<asset>` serves the files `latest` runs.
+      # GitHub renames an asset starting with a dot: `.env` ships as `openkb.env`.
       - name: Create or update the release
         run: |
+          set -euo pipefail
           case $TAG in
             *-alpha*) prerelease=true ;;
             *) prerelease=false ;;
           esac
+          cp quickstart/.env openkb.env
+          assets=(quickstart/docker-compose.yml openkb.env)
           if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TAG" --notes-file notes.md --prerelease="$prerelease"
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --title "$TAG" --notes-file notes.md --draft=false --prerelease="$prerelease" --latest="$LATEST"
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md --prerelease="$prerelease"
+            gh release create "$TAG" "${assets[@]}" --verify-tag --title "$TAG" --notes-file notes.md --prerelease="$prerelease" --latest="$LATEST"
           fi

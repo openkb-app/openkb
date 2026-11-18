@@ -6,10 +6,12 @@ Website, product overview and documentation: **[openkb.app](https://openkb.app)*
 
 ## Try it in five minutes
 
-Two files into an empty directory, and the published images do the rest. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
+Two files of the newest release into an empty directory, and the published images do the rest. Docker with the compose plugin (2.24 or newer) is the only prerequisite.
 
 ```sh
-mkdir openkb && cd openkb && curl -fsSLO "https://raw.githubusercontent.com/openkb-app/openkb/v1.0.0-alpha1/quickstart/{docker-compose.yml,.env}"
+mkdir openkb && cd openkb
+curl -fsSLO https://github.com/openkb-app/openkb/releases/latest/download/docker-compose.yml
+curl -fsSL -o .env https://github.com/openkb-app/openkb/releases/latest/download/openkb.env
 docker compose up -d
 ```
 
@@ -33,7 +35,7 @@ The `drupal` container installs the site on its first boot — a few minutes, wi
 |---|---|---|
 | Containers | any OCI runtime with Compose-compatible tooling; Docker Engine with the Compose v2 plugin is what we test, other engines such as Podman may work; amd64 or arm64 | same |
 | CPU | 2 cores | 4 cores, more for many concurrent readers |
-| RAM | 4 GB free for the stack, or more | same |
+| RAM | 4 GB free for the stack | same |
 | Disk | 5 GB: the four images are ~4.6 GB (OpenSearch 2.8 GB, `openkb-drupal` 1.0 GB, MariaDB 0.5 GB, `openkb-frontend` 0.3 GB) | 20 GB plus what your pages, files and database grow to |
 | Kernel | none | Linux with `vm.max_map_count=262144` for OpenSearch |
 | Network | localhost | two hostnames under one domain, a reverse proxy that terminates TLS |
@@ -48,7 +50,7 @@ The container stack is how OpenKB is run. The quickstart above is the evaluation
 
 ```sh
 git clone https://github.com/openkb-app/openkb.git && cd openkb
-cp .env.example .env              # the two URLs, the cookie domain, the secrets; OPENKB_TAG=<release> pulls instead of building
+cp .env.example .env              # the two URLs, the cookie domain, the secrets
 docker compose pull && docker compose up -d
 ```
 
@@ -60,7 +62,7 @@ The rest is as in [Try it in five minutes](#try-it-in-five-minutes). [`docs/self
 - the collaboration server: exactly one `frontend` replica;
 - the backup set: database, `drupal-files` volume and `collab-store` volume, backed up and restored together.
 
-[`docs/release.md`](docs/release.md) describes the image tags `OPENKB_TAG` can name.
+`OPENKB_TAG=latest` runs the newest release; [`docs/release.md`](docs/release.md) describes the other image tags `OPENKB_TAG` can name.
 
 **Outside containers.** Running the backend and the frontend on your own hosting is advanced. It is for people who run Drupal and Nuxt themselves; the images are what the release tests run.
 
@@ -112,7 +114,7 @@ docker compose exec drupal drush search-api:index kb_chunks -y
 ## Updates
 
 1. **Back up** the database and the `drupal-files` and `collab-store` volumes. The commands are in [`docs/self-hosting.md`](docs/self-hosting.md#volumes-and-backup).
-2. Set the new version in `.env`, `OPENKB_TAG=1.0.1`, then pull and restart the images:
+2. Pull the newest release and restart:
 
    ```sh
    docker compose pull && docker compose up -d
@@ -122,7 +124,7 @@ docker compose exec drupal drush search-api:index kb_chunks -y
 
    From a shell, `docker compose exec drupal drush updatedb` runs the same updates and lifts the hold the same way.
 
-Every release carries its notes on the [releases page](https://github.com/openkb-app/openkb/releases) and in [`CHANGELOG.md`](https://github.com/openkb-app/openkb/blob/1.x/CHANGELOG.md). The module inside the image is released as the same version on [drupal.org/project/openkb](https://www.drupal.org/project/openkb). Pin an exact version in `OPENKB_TAG`; [`docs/release.md`](docs/release.md) lists the other tags and what they follow.
+Every release carries its notes on the [releases page](https://github.com/openkb-app/openkb/releases) and in [`CHANGELOG.md`](https://github.com/openkb-app/openkb/blob/1.x/CHANGELOG.md). The module inside the image is released as the same version on [drupal.org/project/openkb](https://www.drupal.org/project/openkb). `OPENKB_TAG=1.2.3` pins a version instead of `latest`; [`docs/release.md`](docs/release.md) lists the other tags and what they follow.
 
 ## How it is built
 

@@ -3,7 +3,7 @@
 A release is the `1.x` branch tagged `vX.Y.Z`. The Drupal module it installs
 is released on [drupal.org/project/openkb](https://www.drupal.org/project/openkb)
 as `X.Y.Z` — Drupal spells a pre-release without the `v` and without a dot
-before the counter, so `v1.0.0-alpha1` here is `1.0.0-alpha1` there.
+before the counter, so `v1.2.3-alpha1` here is `1.2.3-alpha1` there.
 
 ## Cutting one
 
@@ -14,10 +14,10 @@ checks for the tag and stops before it writes anything when it is missing.
 It prepends the version's section to `CHANGELOG.md` with git-cliff and
 `cliff.toml`, covering the commits since the previous tag; pins `drupal/openkb`
 to `1.2.3` in `composer.json` and `composer.lock`, where `1.x` carries
-`1.x-dev`; points the quickstart at the release — `OPENKB_TAG` in
-`quickstart/.env` and the tag in the fetch URL both READMEs show — and stops
-when either has moved; commits `release: v1.2.3.`, tags `v1.2.3` and pushes
-both to `1.x`. The tag is what starts everything below.
+`1.x-dev`; commits `release: v1.2.3.`, tags `v1.2.3` and pushes both to
+`1.x`. The tag is what starts everything below. The quickstart names no
+version: `quickstart/.env` carries `OPENKB_TAG=latest`, and both READMEs fetch
+it from the newest release.
 
 Only the new section is written, so the sections below it are yours to correct
 by hand between releases.
@@ -28,17 +28,32 @@ The `images` workflow builds the stack, installs the site on it and checks it
 answers, then verifies the FrankenPHP base image's SLSA provenance against
 `php/frankenphp` and pushes `ghcr.io/openkb-app/openkb-drupal` and
 `ghcr.io/openkb-app/openkb-frontend` for `linux/amd64` and `linux/arm64` as
-`1.2.3`, `1.2`, `1` and `latest`, each with a build-provenance attestation in
-the registry. A version with a `-` (`v1.2.3-beta1`) publishes that exact tag
-only — no `1.2`, `1` or `latest`.
+`1.2.3`, `1.2` and `1`, each with a build-provenance attestation in the
+registry. A version with a `-` (`v1.2.3-beta1`) publishes that exact tag only —
+no `1.2` or `1`.
+
+`latest` moves to the version when it is the newest release:
+
+- an alpha never is;
+- once a stable version (`vX.Y.Z`, no `-`) exists, the newest stable version
+  is;
+- until then, the newest beta or release candidate is.
+
+Re-publishing or revising an older version leaves `latest` where it is.
+To retry a failed run, re-run all jobs, not only the failed ones: a re-run of
+failed jobs reuses the run's earlier `latest` answer.
 
 It then opens the GitHub release: the version's `CHANGELOG.md` section as the
-notes, followed by how to run that version. An alpha (`v1.2.3-alpha1`) is
+notes, followed by how to run that version, and the quickstart's two files as
+assets, `docker-compose.yml` and `openkb.env` (`quickstart/.env`; GitHub
+renames an asset whose name starts with a dot). An alpha (`v1.2.3-alpha1`) is
 marked pre-release; a beta, a release candidate and a stable version are
-regular releases, so the newest of them is GitHub's "Latest". An image
-revision keeps its version's flag. A tag whose version has no section in
-`CHANGELOG.md` fails the job — the images are published, the release entry is
-not.
+regular releases, their image revisions included. The release `latest` points
+at is GitHub's "Latest", so
+`https://github.com/openkb-app/openkb/releases/latest/download/docker-compose.yml`
+and `…/openkb.env` serve the files of the release `OPENKB_TAG=latest` runs. A
+tag whose version has no section in `CHANGELOG.md` fails the job — the images
+are published, the release entry is not.
 
 Check what arrived:
 
@@ -86,10 +101,10 @@ The workflow:
 - commits `release: v1.2.3+rN.`, then tags and pushes `v1.2.3+rN`
 
 `+rN` is semver build metadata: the same version, another build. `images`
-publishes it as `1.2.3-rN` (Docker tags carry no `+`). It moves `1.2.3`, `1.2`,
-`1` and `latest` onto it, as the `v1.2.3` tag would, and updates the `v1.2.3`
-release entry. A site on `OPENKB_TAG=1.2.3` gets the patch with
-`docker compose pull`; `OPENKB_TAG=1.2.3-rN` pins that build.
+publishes it as `1.2.3-rN` (Docker tags carry no `+`). It moves `1.2.3`, `1.2`
+and `1` onto it, and `latest` when `1.2.3` is the newest release, as the
+`v1.2.3` tag would, and updates the `v1.2.3` release entry and its assets. A
+site on `OPENKB_TAG=1.2.3` gets the patch with `docker compose pull`; `OPENKB_TAG=1.2.3-rN` pins that build.
 
 A stable version gets revisions only while it is the newest stable one,
 because its floating tags move; any version with a `-` can get one. The
@@ -115,15 +130,16 @@ lock.
 
 ## Pinning a version
 
-A self-hoster names the release in `.env` instead of building:
+`quickstart/.env` and `.env.example` carry `OPENKB_TAG=latest`, so
+`docker compose pull && docker compose up -d` updates to the newest release. A
+self-hoster pins one in `.env` instead:
 
 ```sh
 OPENKB_TAG=1.2.3
 ```
 
 ```sh
-docker compose pull
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 The `drupal` container installs the site on a first boot. On an existing site

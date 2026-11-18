@@ -2,7 +2,7 @@
 
 The stack ships as two images — `openkb-drupal` (Drupal on FrankenPHP, with drush; the `cron` service runs the same image with supercronic, `drush cron` every five minutes) and `openkb-frontend` (the built Nuxt server with the embedded collaboration server) — next to the official `mariadb:11.4` and `opensearchproject/opensearch:3` images. `docker-compose.yml` is that stack; every setting is an environment variable, listed in [`.env.example`](../.env.example). The `drupal` and `cron` containers get every variable of `.env` (`env_file`), so a provider key or other secret added there reaches Drupal without a compose entry; the `environment:` entries in `docker-compose.yml` set defaults and derived values on top. That includes the compose-only variables (`OPENKB_TAG`, ports, `MARIADB_ROOT_PASSWORD`): keep `.env` to what the stack's containers may see.
 
-Both images are published to GHCR per release; [`release.md`](release.md) covers pinning a version instead of building from this checkout.
+Both images are published to GHCR per release. `.env.example` sets `OPENKB_TAG=latest`, the newest release; [`release.md`](release.md) covers the other tags and pinning a version.
 
 ## Evaluating on a laptop
 
@@ -19,9 +19,10 @@ Everything below describes a real host. To just look at OpenKB, run the evaluati
 
 ```sh
 cp .env.example .env              # the two URLs, the cookie domain, the secrets
-docker compose build              # builds openkb-drupal and openkb-frontend from this checkout
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
+
+To run images built from this checkout instead, set `OPENKB_TAG=dev` and run `docker compose build` before `up`.
 
 The `drupal` container installs the site on its first boot: the install state the image carries, the collaboration server's OAuth client from `OKB_COLLAB_CLIENT_ID` / `OKB_COLLAB_CLIENT_SECRET`, and the `admin` password from `ADMIN_PASSWORD` — or a generated one, printed to the container log. Both services answer with a "setting up" page (`503`, `Retry-After`) until the install is through, and `docker compose logs -f drupal` carries it. A restart of an installed site reinstalls nothing; a restart after a failed install installs again. A database that holds tables but no finished OpenKB install is left alone: the setup page stays up and the log names the ways out, each followed by a restart of the `drupal` service: `openkb-update` for a working site that lacks the marker, `openkb-install`, which destroys what the database holds, or an empty database.
 
@@ -32,9 +33,10 @@ An `openkb-install` that fails while Drupal installs leaves the setup page up. A
 ## Updating
 
 ```sh
-docker compose pull
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
+
+With `OPENKB_TAG=latest` this brings the newest release; a pinned version stays where it is until `OPENKB_TAG` names another.
 
 MariaDB and OpenSearch run at the versions `docker-compose.yml` names, which each release updates. `OPENKB_MARIADB_IMAGE` and `OPENKB_OPENSEARCH_IMAGE` run another image, e.g. a newer patch release before OpenKB ships it.
 
@@ -187,7 +189,7 @@ Restore is the reverse, into a stack whose `frontend` is stopped: the dump throu
 
 ## Resources and logs
 
-Host sizing and image sizes are in the [README](../README.md#requirements): 4 GB of RAM free for the stack, or more. `OPENSEARCH_JAVA_OPTS` sets the OpenSearch heap; the image default is 512 MB, a larger index gets more (`-Xms1g -Xmx1g`).
+Host sizing and image sizes are in the [README](../README.md#requirements): 4 GB of RAM free for the stack. `OPENSEARCH_JAVA_OPTS` sets the OpenSearch heap; the default, 512 MB, fits in it.
 
 All services log to stdout: `docker compose logs -f drupal` (Caddy's access and error log as JSON lines, PHP errors among them), `frontend`, `cron` (supercronic's start and result line per run, plus whatever drush printed), `mariadb`, `opensearch`. Drupal's own log is at `/admin/reports/dblog`.
 

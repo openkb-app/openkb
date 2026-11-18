@@ -110,32 +110,13 @@ jobs:
             --ignore-platform-reqs --no-interaction --quiet
           composer validate --no-check-all
           git diff --unified=0 composer.json
-          # The quickstart runs the images of this version and is fetched by
-          # this tag. A renamed variable or moved URL fails the release here
-          # rather than shipping a stale tag.
-          sed -i "s#^OPENKB_TAG=.*#OPENKB_TAG=$VERSION#" quickstart/.env
-          grep -qx "OPENKB_TAG=$VERSION" quickstart/.env || {
-            echo "quickstart/.env has no OPENKB_TAG line to pin." >&2
-            exit 1
-          }
-          sed -i "s#/openkb-app/openkb/v[^/]*/quickstart/#/openkb-app/openkb/v$VERSION/quickstart/#g" \
-            README.md quickstart/README.md
-          for file in README.md quickstart/README.md; do
-            grep -qF "/openkb-app/openkb/v$VERSION/quickstart/" "$file" || {
-              echo "$file has no quickstart fetch URL to pin." >&2
-              exit 1
-            }
-          done
-          git diff --unified=0 quickstart/.env README.md quickstart/README.md
 
       - name: Commit, tag and push
         run: |
           set -euo pipefail
           git config user.name 'OpenKB'
           git config user.email 'noreply@openkb.app'
-          git commit -m "release: v$VERSION." \
-            CHANGELOG.md composer.json composer.lock \
-            quickstart/.env README.md quickstart/README.md
+          git commit -m "release: v$VERSION." CHANGELOG.md composer.json composer.lock
           git tag -a "v$VERSION" -m "OpenKB $VERSION"
           git push origin 1.x "v$VERSION"
 
