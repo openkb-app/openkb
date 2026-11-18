@@ -43,7 +43,7 @@
  *   does not hide the rest of the body.
  */
 import { BLOCK_ID_PREFIX } from '#shared/page-blocks'
-import { comarkComponentDeclarations, listChipComponentDeclarations } from '#shared/utils/comark-components'
+import { comarkComponentDeclarations, listChipComponentDeclarations, readBooleanPropBindings } from '#shared/utils/comark-components'
 import { isFileUuid, type ResolvedFile } from './files'
 import { DOC_LINK_TAG, docLinkHref, docLinkTarget, type ResolvedDoc } from '#shared/utils/doc-links'
 import {
@@ -1088,11 +1088,14 @@ function allowedProps(props: ComarkProps, rules: Record<string, AttrRule> | unde
 }
 
 /**
- * comark renders a task-list checkbox through `:checked`/`:disabled` bindings.
- * Written as plain attributes here, so the two states the parser expresses
- * survive the filter while no expression ever reaches the renderer.
+ * comark renders a task-list checkbox through `:checked`/`:disabled` bindings,
+ * and a component's boolean prop as `:name="true"`. Written as plain
+ * attributes here, so the states the parser expresses survive the filter
+ * while no expression ever reaches the renderer.
  */
 function plainBindings(tag: string, props: ComarkProps): ComarkProps {
+  const declaration = comarkComponentDeclarations[tag]
+  if (declaration) return readBooleanPropBindings(declaration, props)
   if (tag !== 'input' || props.type !== 'checkbox') return props
   const { ':checked': checked, ':disabled': disabled, ...rest } = props
   return {

@@ -51,6 +51,8 @@ export interface ComarkMenuEntry {
 
 /** How the settings menu's field of one prop looks. */
 export interface ComarkPropControl {
+  /** The field's label; the prop's name by default. */
+  label?: string
   /** An icon per enum value, shown beside its label. */
   icons?: Record<string, string>
 }
@@ -72,6 +74,9 @@ export interface ComarkEditorPart {
   /** Further editor extensions the component needs. */
   extensions?: AnyExtension[]
 }
+
+/** The meta of the transaction that inserts a block component from the menu: a one-time hint to its node view. */
+export const insertedComponentMeta = 'okbInsertedComponent'
 
 /** Every comark component's declaration, by tag. */
 export const comarkComponentDeclarations: Record<string, ComarkComponentDeclaration> = generatedDeclarations
@@ -118,14 +123,34 @@ export function readStoredPropValue(prop: ComarkPropDeclaration, value: unknown)
   }
 }
 
-/** The node attributes of a component's stored props, read off its markdown props. */
-export function readNodeAttributesFromProps(declaration: ComarkComponentDeclaration, props: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(declaration.props).map(([name, prop]) => [name, readStoredPropValue(prop, props[name])]))
+/**
+ * A component's props with its boolean props read off comark's form: comark
+ * parses a bare `open` as the binding `:open="true"` and writes it back so.
+ */
+export function readBooleanPropBindings<T extends Record<string, unknown>>(declaration: ComarkComponentDeclaration, props: T): T {
+  const read: Record<string, unknown> = { ...props }
+  for (const [name, prop] of Object.entries(declaration.props)) {
+    if (prop.kind !== 'boolean' || !Object.hasOwn(read, `:${name}`)) continue
+    read[name] = read[`:${name}`] === 'true'
+    delete read[`:${name}`]
+  }
+  return read as T
 }
 
-/** The markdown props of a component's node attributes; unset and empty values are not written. */
-export function writePropsFromNodeAttributes(declaration: ComarkComponentDeclaration, attrs: Record<string, unknown>): Record<string, string | number | boolean> {
+/** The node attributes of a component's stored props, read off its markdown props. */
+export function readNodeAttributesFromProps(declaration: ComarkComponentDeclaration, props: Record<string, unknown>): Record<string, unknown> {
+  const read = readBooleanPropBindings(declaration, props)
+  return Object.fromEntries(Object.entries(declaration.props).map(([name, prop]) => [name, readStoredPropValue(prop, read[name])]))
+}
+
+/**
+ * The markdown props of a component's node attributes, as comark writes them:
+ * unset, empty and false values are not written, a true boolean is the
+ * binding `:name="true"` comark writes as a bare `name`.
+ */
+export function writePropsFromNodeAttributes(declaration: ComarkComponentDeclaration, attrs: Record<string, unknown>): Record<string, string | number> {
   return Object.fromEntries(Object.keys(declaration.props)
     .map(name => [name, attrs[name]] as const)
-    .filter((entry): entry is readonly [string, string | number | boolean] => entry[1] !== null && entry[1] !== undefined && entry[1] !== ''))
+    .filter((entry): entry is readonly [string, string | number | true] => entry[1] !== null && entry[1] !== undefined && entry[1] !== '' && entry[1] !== false)
+    .map(([name, value]) => value === true ? [`:${name}`, 'true'] : [name, value]))
 }

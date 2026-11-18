@@ -48,7 +48,7 @@ function emitFieldValue(name: string, prop: ComarkPropDeclaration, value: string
           <UFormField
             v-for="(prop, name) in menuProps"
             :key="name"
-            :label="labelOfComarkName(String(name))"
+            :label="controls?.[name]?.label ?? labelOfComarkName(String(name))"
             :name="String(name)"
           >
             <USelect

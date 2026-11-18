@@ -70,14 +70,14 @@ function ranges(d: PMNode, threads: CommentThread[]): Array<[number, number]> {
 
 const NO_ACTIONS: CommentMarginActions = { showThreads: () => {}, startThread: () => {} }
 
-/** The margin control of each block, as the DOM it renders. */
+/** The margin control of each block, as the DOM it renders, without its anchor. */
 function margins(d: PMNode, threads: CommentThread[], actions: CommentMarginActions = NO_ACTIONS): HTMLElement[] {
   return marginDecorations(d, threadCounts(threads), actions)
     .find()
     .filter(x => 'toDOM' in (x as unknown as { type: object }).type)
     .map(x => (x as unknown as {
       type: { toDOM: (view: unknown, getPos: () => number) => HTMLElement }
-    }).type.toDOM(null, () => x.from))
+    }).type.toDOM(null, () => x.from).firstElementChild as HTMLElement)
 }
 
 describe('commentDecorations', () => {
@@ -183,25 +183,32 @@ describe('the control in a block\'s margin', () => {
       .filter(Boolean)).toEqual([{ class: 'okb-margin-host' }, { class: 'okb-margin-host' }])
   })
 
+  it('hangs from an anchor without a box inside a block', () => {
+    const d = doc(para('Text', 'b-1'))
+    const [button] = margins(d, [])
+
+    expect(button!.parentElement!.className).toBe('okb-margin-anchor')
+    expect(button!.parentElement!.contentEditable).toBe('false')
+  })
+
   it('rides an anchor after a leaf block, which has no inside', () => {
     const spy = actions()
     const d = doc(editorSchema.node('image', { id: 'b-img', file: 'f-1' }))
-    const [host] = margins(d, [], spy)
+    const [button] = margins(d, [], spy)
 
-    expect(host!.className).toBe('okb-margin-gap')
-    const button = host!.firstElementChild as HTMLElement
-    expect(button.className).toBe('okb-comment-start')
-    button.dispatchEvent(new Event('click'))
+    expect(button!.parentElement!.className).toBe('okb-margin-gap')
+    expect(button!.className).toBe('okb-comment-start')
+    button!.dispatchEvent(new Event('click'))
     expect(spy.started).toEqual([0])
   })
 
   it('rides an anchor after a code block, out of its text', () => {
     const spy = actions()
     const d = doc(editorSchema.node('codeBlock', { id: 'b-code', language: 'js' }, editorSchema.text('const x = 1')))
-    const [host] = margins(d, [], spy)
+    const [button] = margins(d, [], spy)
 
-    expect(host!.className).toBe('okb-margin-gap')
-    ;(host!.firstElementChild as HTMLElement).dispatchEvent(new Event('click'))
+    expect(button!.parentElement!.className).toBe('okb-margin-gap')
+    button!.dispatchEvent(new Event('click'))
     expect(spy.started).toEqual([0])
   })
 

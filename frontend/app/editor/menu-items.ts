@@ -8,7 +8,7 @@ import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
 import { comarkEditorParts } from '#okb-comark-editor-parts'
 import { CITATION_TAG } from '#shared/utils/citations'
-import { defaultAttributeOfProp, labelOfComarkName, listBlockComponentDeclarations } from '#shared/utils/comark-components'
+import { defaultAttributeOfProp, insertedComponentMeta, labelOfComarkName, listBlockComponentDeclarations } from '#shared/utils/comark-components'
 import type { ComarkComponentDeclaration, ComarkMenuEntry } from '#shared/utils/comark-components'
 import { FENCES, fenceFor } from '#shared/utils/fences'
 
@@ -150,7 +150,7 @@ export const comarkHandlers: Record<string, EditorHandler> = {
     canExecute: editor => editor.can().insertContent(''),
     execute: (editor, cmd) => {
       const declaration = listBlockComponentDeclarations().find(d => d.tag === (cmd as ComponentCmd)?.component)
-      return declaration ? editor.chain().focus().insertContent(insertedComponentNode(declaration)) : editor.chain()
+      return declaration ? editor.chain().focus().insertContent(insertedComponentNode(declaration)).setMeta(insertedComponentMeta, declaration.tag) : editor.chain()
     },
     isActive: (editor, cmd) => editor.isActive((cmd as ComponentCmd)?.component ?? ''),
   },

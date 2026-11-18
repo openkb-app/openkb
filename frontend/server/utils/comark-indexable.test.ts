@@ -82,6 +82,14 @@ describe('markdownToIndexable', () => {
       return (await markdownToIndexable(markdown)).chunks.map(chunk => chunk.text).join('\n')
     }
 
+    it('include a collapsible section\'s summary, closed or open', async () => {
+      const text = await indexedText('# Page {#b-1111}\n\n::details{summary="Why we pin the version"}\nThe next one breaks the build.\n::\n')
+      expect(text).toContain('Why we pin the version The next one breaks the build.')
+      const open = await indexedText('# Page {#b-1111}\n\n::details{summary="Server logs" open}\nThe last run.\n::\n')
+      expect(open).toContain('Server logs The last run.')
+      expect(open).not.toContain('true')
+    })
+
     it('put a lone prop in front of its body: an infobox title', async () => {
       const text = await indexedText('# Page {#b-1111}\n\n::infobox{title="Good to know"}\nBox line.\n::\n')
       expect(text).toContain('Good to know Box line.')

@@ -601,6 +601,12 @@ body {
   position: relative;
   height: 0;
 }
+/* Inside a block the marks hang from an anchor without a box: the block stays
+   their positioned parent, and ProseMirror's `endOfTextblock` measures only the
+   text lines, so ArrowUp / ArrowDown leave the block on its edge lines. */
+.inplace-editor .ProseMirror .okb-margin-anchor {
+  display: contents;
+}
 .inplace-editor .ProseMirror .okb-margin-gap .okb-review-pills {
   top: auto;
   bottom: 0.15em;

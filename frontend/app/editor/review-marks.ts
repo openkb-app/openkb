@@ -278,6 +278,21 @@ export function marksInside(node: PMNode): boolean {
 }
 
 /**
+ * The uneditable span a margin control hangs from:
+ * - inside a block, `okb-margin-anchor`: it draws no box, so the block's text
+ *   lines are all ProseMirror measures for `endOfTextblock`;
+ * - after a block without an inside, `okb-margin-gap`: empty, the prose
+ *   margins collapse through it, so nothing moves.
+ */
+export function marginAnchor(control: HTMLElement, inside: boolean): HTMLElement {
+  const anchor = document.createElement('span')
+  anchor.className = inside ? 'okb-margin-anchor' : 'okb-margin-gap'
+  anchor.contentEditable = 'false'
+  anchor.append(control)
+  return anchor
+}
+
+/**
  * The blocks Drupal reads as text outside identified blocks: no id, and
  * something in them. An empty paragraph serializes to nothing, so it holds
  * nothing back — counting it would put a hold on every blank line an editor
@@ -760,12 +775,7 @@ function pillsDom(pills: readonly ReviewPill[], options: PillsDomOptions): HTMLE
       host.append(approveDom(pill.approve, pill.tone, ids.join(' '), options))
     }
   }
-  if (options.inside) return host
-  const anchor = document.createElement('span')
-  anchor.className = 'okb-margin-gap'
-  anchor.contentEditable = 'false'
-  anchor.append(host)
-  return anchor
+  return marginAnchor(host, options.inside)
 }
 
 /**

@@ -14,10 +14,10 @@ import ComponentNodeView from '../components/ComponentNodeView.vue'
 import { CaretMemory } from './cite-insert'
 import { CiteNumbers } from './cite-numbers'
 import { codeHighlightPlugin } from './code-highlight'
-import { fenceCaretPlugin } from './fence-caret'
 import { fenceErrorPlugin } from './fence-error'
 import { fenceFor } from '#shared/utils/fences'
 import { DocLinkSelection } from './doc-link-selection'
+import { HiddenCaretKeys } from './hidden-caret'
 import { PageFileDropHandler } from './drop-files'
 import { LinkOpen } from './link-open'
 import { LinkTargetKeys } from './link-target'
@@ -77,6 +77,7 @@ export function buildEditorExtensions() {
     PageImageFileHandler,
     PageFileDropHandler,
     CiteNumbers,
+    HiddenCaretKeys,
     BlockId,
     ...buildComarkComponentEditorExtensions(),
     OkbMention,
@@ -101,7 +102,7 @@ export function buildEditorExtensions() {
         })
       },
       addProseMirrorPlugins() {
-        return [...(this.parent?.() ?? []), codeHighlightPlugin(this.name), fenceErrorPlugin(), fenceCaretPlugin(this.name)]
+        return [...(this.parent?.() ?? []), codeHighlightPlugin(this.name), fenceErrorPlugin()]
       },
     }),
     OkbOrderedList,

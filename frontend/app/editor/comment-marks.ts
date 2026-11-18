@@ -3,7 +3,7 @@ import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, editsInsideBlocks, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
+import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, editsInsideBlocks, marginAnchor, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
 import { widgetDrawnOncePerDecoration } from './widget-drawn-once'
 import { openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
 
@@ -286,7 +286,7 @@ export function marginDecorations(
           const at = getPos()
           return at === undefined ? undefined : at - offset
         }, actions)
-        return inside ? control : marginGap(control)
+        return marginAnchor(control, inside)
       }),
       {
         side: -1,
@@ -300,19 +300,6 @@ export function marginDecorations(
     ))
   }
   return DecorationSet.create(doc, decorations)
-}
-
-/**
- * A block that keeps marks out of its content ({@link marksInside}) has its
- * control on an empty anchor after it — the prose margins collapse through
- * it, so nothing moves.
- */
-function marginGap(control: HTMLElement): HTMLElement {
-  const anchor = document.createElement('span')
-  anchor.className = 'okb-margin-gap'
-  anchor.contentEditable = 'false'
-  anchor.append(control)
-  return anchor
 }
 
 /**

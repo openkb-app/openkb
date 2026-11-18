@@ -711,6 +711,11 @@ describe('the text format’s allowed list', () => {
     expect(find(nodes, 'callout')?.[1]).toEqual({ id: 'b-71c2', type: 'warning' })
   })
 
+  it('hands a component\'s boolean prop to the renderer as a plain value', async () => {
+    const nodes = await markdownToTree('::details{summary="Logs" open :summary="x"}\nwords\n::\n', { allowedHtml })
+    expect(find(nodes, 'details')?.[1]).toEqual({ summary: 'Logs', open: true })
+  })
+
   it('drops a component\'s id outside the block-id prefix, and any id of a chip', async () => {
     const md = '::callout{#nav type="info"}\nwords\n::\n\nAsk :mention[Ann]{#b-71c2 uid="2"}.\n'
     const nodes = await markdownToTree(md, { allowedHtml })

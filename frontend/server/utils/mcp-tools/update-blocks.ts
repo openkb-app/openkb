@@ -65,7 +65,7 @@ export function updateBlocksTool(): KbTool {
                 description: 'The comark markdown to write. It is markdown text: raw HTML and entities (`<span>`, `&nbsp;`) '
                   + 'are kept as the characters you typed, not as markup. Only the mark tags a read serves (`<u>`, '
                   + '`<strong>`, `<em>`, `<del>`) stay marks, so a block written back as it was read is unchanged. '
-                  + 'Use `::callout`, `::infobox`, `::image` and `:doc` for anything beyond CommonMark'
+                  + 'Use `::callout`, `::infobox`, `::details`, `::image` and `:doc` for anything beyond CommonMark'
                   + FENCES.map(fence => `, a \`\`\`${fence.language} fence for ${fence.agentHint}`).join('')
                   + '. A fence of those that does not parse is refused with its line and column.',
               },

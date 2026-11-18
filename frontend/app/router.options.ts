@@ -1,5 +1,6 @@
 import type { RouterConfig } from '@nuxt/schema'
 import { START_LOCATION } from 'vue-router'
+import { useNuxtApp } from '#app'
 
 /**
  * Scrolling for navigation to a block (`/<space>/<slug>#b-…`).
@@ -17,8 +18,15 @@ export default <RouterConfig>{
     // and hands the browser a fragment from the last one.
     const mine = ++generation
     if (!to.hash) return false
+    const nuxtApp = useNuxtApp()
     const el = await waitFor(hashId(to.hash), mine)
     if (!el) return false
+    if (el.closest('details')) {
+      // Hydration sets a `details` element's `open` back to the rendered value.
+      if (nuxtApp.isHydrating) await new Promise<void>(resolve => nuxtApp.hooks.hookOnce('app:suspense:resolve', () => resolve()))
+      if (generation !== mine) return false
+      openDetailsAround(el)
+    }
     // `:target` follows the document's own fragment, which a router push does
     // not touch, so one real fragment navigation is what sets it. That
     // navigation runs this again, so it happens only while the element is not
@@ -33,6 +41,13 @@ export default <RouterConfig>{
     el.scrollIntoView()
     return false
   },
+}
+
+/** Opens `el` if it is a `details`, and every `details` around it: a closed body is not scrolled to. */
+function openDetailsAround(el: HTMLElement): void {
+  for (let details = el.closest('details'); details; details = details.parentElement?.closest('details') ?? null) {
+    details.open = true
+  }
 }
 
 /** The element id a fragment names; a malformed one is taken as written. */

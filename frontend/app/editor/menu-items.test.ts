@@ -5,6 +5,7 @@ import { createHandlers } from '@nuxt/ui/utils/editor'
 import { editorSchema } from '../../server/utils/editor-schema'
 import { comarkHandlers, insertToolbarItem, slashItems, tableBubbleItems, tableOpItems, tableToolbarItem } from './menu-items'
 import { takeLinkSelection } from './doc-link-selection'
+import { insertedComponentMeta } from '#shared/utils/comark-components'
 
 /** An editor whose chain records the calls a handler makes on it. */
 function recordingEditor(selection: { from: number, to: number }, text = '') {
@@ -88,15 +89,21 @@ describe('the callout insert', () => {
     expect(callouts[0]).toMatchObject({ kind: 'comarkComponent', label: 'Callout', icon: 'i-lucide-info' })
   })
 
-  it('inserts an info callout with its starting words', () => {
+  it('inserts an info callout with its starting words, the transaction marked as a menu insert', () => {
     const inserted: unknown[] = []
-    const chain = { focus: () => chain, insertContent: (content: unknown) => (inserted.push(content), chain) }
+    const meta: Record<string, unknown> = {}
+    const chain = {
+      focus: () => chain,
+      insertContent: (content: unknown) => (inserted.push(content), chain),
+      setMeta: (key: string, value: unknown) => ((meta[key] = value), chain),
+    }
     comarkHandlers.comarkComponent!.execute({ chain: () => chain } as unknown as Editor, { component: 'callout' })
     expect(inserted).toEqual([{
       type: 'callout',
       attrs: { type: 'info' },
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New callout — type here.' }] }],
     }])
+    expect(meta).toEqual({ [insertedComponentMeta]: 'callout' })
   })
 })
 
@@ -111,7 +118,7 @@ describe('the block inserts', () => {
     'heading', 'heading', 'bulletList', 'orderedList', 'taskList', 'table',
     'codeBlock', 'horizontalRule', 'image', 'attachment', 'docLink', 'cite',
     '— Comark',
-    'callout', 'infobox', 'fence', 'fence',
+    'callout', 'details', 'infobox', 'fence', 'fence',
     '— Embed',
     'htmlEmbed', 'pdfEmbed',
   ]

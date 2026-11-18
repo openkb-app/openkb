@@ -75,7 +75,7 @@ export const editorShortcuts: ShortcutRow[] = [
 
 /** The sequences that open something while typing in the editor. */
 export const typedTriggers: TypedRow[] = [
-  { code: '/', what: 'The block menu: every block this editor inserts — headings, lists, a table, code, a rule, an image, a callout, an infobox — plus a link to a page and a citation' },
+  { code: '/', what: 'The block menu: every block this editor inserts — headings, lists, a table, code, a rule, an image, a callout, an infobox, a collapsible section — plus a link to a page and a citation' },
   { code: '[[', what: 'Link to another page. Typing a title offers pages; adding # offers that page’s blocks' },
   { code: '[^', what: 'Cite the source this text comes from: a page, one of its blocks, or a pasted https:// address' },
   { code: '@', what: 'Mention a person' },
