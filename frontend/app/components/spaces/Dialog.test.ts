@@ -28,6 +28,7 @@ const SPACE: KbSpaceDetail = {
   members: [],
   viewers: [],
   canManage: true,
+  canInvite: true,
 }
 
 const fetchMock = vi.fn()

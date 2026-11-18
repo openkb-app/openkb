@@ -13,12 +13,17 @@
 // eat that before it happened.
 const ANON_ROUTES = new Set(['/access-denied', '/user/login', '/user/password', '/oauth/authorize'])
 
+// The one-time login link: the invitee's, or a password reset's.
+const ONE_TIME_LOGIN = /^\/user\/reset\//
+
+/**
+ * Whether the request carries a Drupal session cookie.
+ *
+ * - SSR: matches the raw Cookie header; Drupal hashes the cookie name from
+ *   the cookie domain.
+ * - Client: always true; the initial SSR already gated the visitor.
+ */
 function hasSessionCookie(): boolean {
-  // useCookie returns a Ref; the value is populated from the request
-  // headers on SSR and from document.cookie on the client. We don't
-  // know the exact session-cookie name (Drupal hashes it from the
-  // cookie_domain), so probe a handful of likely names by reading
-  // the raw header on SSR and falling back to document.cookie.
   if (import.meta.server) {
     const event = useRequestEvent()
     const raw = event?.node?.req?.headers?.cookie ?? ''
@@ -30,8 +35,14 @@ function hasSessionCookie(): boolean {
   return true
 }
 
+/**
+ * Sends a visitor without a session to /access-denied, except on the sign-in
+ * pages and the one-time login link.
+ */
 export default defineNuxtRouteMiddleware((to) => {
-  if (ANON_ROUTES.has(to.path)) return
+  if (ANON_ROUTES.has(to.path) || ONE_TIME_LOGIN.test(to.path)) {
+    return
+  }
   if (!hasSessionCookie()) {
     return navigateTo({ path: '/access-denied', query: { from: to.fullPath } })
   }

@@ -5,7 +5,7 @@ import { drupalFetch, jsonApiNextPath, sitePermissions, JSONAPI_PAGE_SIZE, type 
 import { UPSTREAM_UNAVAILABLE } from './upstream'
 import { forwardedAuthHeaders } from './actor'
 import { atLeast, spaceAccessBySlug } from './space-access'
-import { SPACE_TYPE, SPACE_CREATE_PERMISSION, spaceSlug, type KbSpaceDetail, type KbSpaceMember, type KbSpaceSummary, type KbSpaceReadAccess } from '#shared/utils/kb-spaces'
+import { SPACE_TYPE, SPACE_CREATE_PERMISSION, USER_INVITE_PERMISSION, spaceSlug, type KbSpaceDetail, type KbSpaceMember, type KbSpaceSummary, type KbSpaceReadAccess } from '#shared/utils/kb-spaces'
 import { parseOutline, sanitiseOutline, type Outline } from '#shared/utils/kb-outline'
 
 /**
@@ -257,12 +257,15 @@ export async function loadSpace(event: H3Event, uuid: string): Promise<KbSpaceDe
   )
   const users = indexUsers(json.included)
   const summary = toSummary(json.data)
+  const canManage = await canManageSpace(event, summary.slug)
+  const canInvite = canManage && (await sitePermissions(event))[USER_INVITE_PERMISSION] === true
   return {
     ...summary,
     managers: rosterOf(json.data, 'managers', users),
     members: rosterOf(json.data, 'members', users),
     viewers: rosterOf(json.data, 'viewers', users),
-    canManage: await canManageSpace(event, summary.slug),
+    canManage,
+    canInvite,
   }
 }
 

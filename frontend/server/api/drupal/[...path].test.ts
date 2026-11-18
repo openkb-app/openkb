@@ -93,10 +93,23 @@ describe('/api/drupal/[...path]', () => {
 
   it('serves the allowlisted prefixes and nothing else', async () => {
     expect(await statusOf(handler(event(undefined, { path: 'user/1' })))).toBe(404)
+    expect(await statusOf(handler(event(undefined, { path: 'jsonapi/user/user' })))).toBe(404)
     // A `..` segment resolves past the prefix at Drupal, so it is refused here.
     expect(await statusOf(handler(event(undefined, { path: 'openkb/../user/1' })))).toBe(404)
     expect(await statusOf(handler(event(undefined, { path: 'openkb/%2e%2e/user/1' })))).toBe(404)
     expect(fetchUpstream).not.toHaveBeenCalled()
+  })
+
+  it('forwards the invite collection and single invites, not their relationships', async () => {
+    await handler(event(undefined, { path: 'jsonapi/openkb_invite/openkb_invite' }))
+    expect(fetchUpstream).toHaveBeenCalledWith('http://drupal.test/jsonapi/openkb_invite/openkb_invite', expect.anything())
+    const uuid = '0b9e3f0e-6c1a-4f7e-9d43-2a1b5c6d7e8f'
+    await handler(event(undefined, { path: `jsonapi/openkb_invite/openkb_invite/${uuid}` }))
+    expect(fetchUpstream).toHaveBeenCalledTimes(2)
+    for (const path of [`${uuid}/space`, `${uuid}/relationships/invitee`]) {
+      expect(await statusOf(handler(event(undefined, { path: `jsonapi/openkb_invite/openkb_invite/${path}` })))).toBe(404)
+    }
+    expect(fetchUpstream).toHaveBeenCalledTimes(2)
   })
 
   it('re-encodes the decoded router param, so `fetch` resolves no `..`', async () => {

@@ -35,6 +35,7 @@ function stubNuxt(outline: Outline, pages: KbPageListItem[]) {
     moderation: true,
     outline,
     canManage: true,
+    canInvite: false,
     canWrite: true,
   }]
   const states = new Map<string, Ref<unknown>>()

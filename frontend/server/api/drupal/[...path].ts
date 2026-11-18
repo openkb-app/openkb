@@ -5,13 +5,20 @@ import { fetchUpstream, relaySetCookie, upstreamError } from '../../utils/upstre
 import { drupalPath } from '../../utils/drupal-proxy'
 
 /**
- * Forwards the allowlisted Drupal API prefixes under the caller's own session
+ * Forwards the allowlisted Drupal API paths under the caller's own session
  * or token, JSON only, with the caller's own CSRF token (ADR 0019);
  * `/api/drupal-ce` does the same for CE pages. No logic here.
  */
 
-/** The Drupal API prefixes this route forwards. */
-const FORWARDED_PREFIXES = ['openkb/']
+/**
+ * The Drupal API paths this route forwards:
+ * - everything under `openkb/`
+ * - the invite collection and single invites, not their relationship routes
+ */
+const FORWARDED_PATHS = [
+  /^openkb\//,
+  /^jsonapi\/openkb_invite\/openkb_invite(?:\/[0-9a-f-]+)?$/,
+]
 
 /** JSON and JSON:API, with any parameters the media type carries. */
 const JSON_TYPE = /^application\/(?:json|vnd\.api\+json)\s*(?:;|$)/i
@@ -22,14 +29,14 @@ function isJson(header: string | undefined): boolean {
 }
 
 /**
- * The path to forward, if this route serves it: under an allowlisted prefix,
+ * The path to forward, if this route serves it: an allowlisted one,
  * through {@link drupalPath}, which refuses dot segments rather than resolving
  * them — `openkb/../user/1` passes any prefix test and reaches Drupal as
  * `/user/1`.
  */
 function forwardable(param: string): string | undefined {
   const path = drupalPath(param)
-  return path !== undefined && FORWARDED_PREFIXES.some(prefix => path.startsWith(prefix)) ? path : undefined
+  return path !== undefined && FORWARDED_PATHS.some(allowed => allowed.test(path)) ? path : undefined
 }
 
 export default defineEventHandler(async (event) => {

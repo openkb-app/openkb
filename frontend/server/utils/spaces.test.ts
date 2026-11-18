@@ -12,7 +12,7 @@ import {
   writeOutline,
   writeSpace,
 } from './spaces'
-import { SPACE_CREATE_PERMISSION } from '#shared/utils/kb-spaces'
+import { SPACE_CREATE_PERMISSION, USER_INVITE_PERMISSION } from '#shared/utils/kb-spaces'
 import { makeEvent, stubFetch } from '../test-support/h3'
 
 /**
@@ -91,11 +91,26 @@ describe('loadSpace', () => {
       description: 'Docs.',
       readAccess: 'all_users',
       canManage: false,
+      canInvite: false,
     })
     expect(space.managers.map(m => m.name)).toEqual(['Bob B.'])
     expect(space.members.map(m => m.name)).toEqual(['ada'])
     expect(space.viewers).toEqual([])
   })
+
+  it('offers inviting to a manager who holds the invite permission', async () => {
+    const spaces = { body: { spaces: [{ slug: 'product-design', name: 'Product & Design', description: '', access: 'manage', moderated: true }] } }
+    const permitted = (invite: boolean) => stubFetch({
+      '/jsonapi/openkb_space/openkb_space/space-uuid': { body: { data: spaceDoc(), included: INCLUDED } },
+      '/openkb/spaces': spaces,
+      '/api/site-info': { body: { 'system.site': { name: 'OpenKB' }, permissions: { [USER_INVITE_PERMISSION]: invite } } },
+    })
+    permitted(true)
+    expect(await loadSpace(makeEvent(), 'space-uuid')).toMatchObject({ canManage: true, canInvite: true })
+    permitted(false)
+    expect(await loadSpace(makeEvent(), 'space-uuid')).toMatchObject({ canManage: true, canInvite: false })
+  })
+
 })
 
 describe('canManageSpace', () => {

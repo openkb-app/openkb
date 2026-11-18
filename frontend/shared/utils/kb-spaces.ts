@@ -27,6 +27,14 @@ export const SPACE_TYPE = 'openkb_space--openkb_space'
 export const SPACE_CREATE_PERMISSION = 'create openkb_space'
 
 /**
+ * Permission that governs inviting a person by email.
+ *
+ * Listed under `lupus_decoupled_site_info.settings` like
+ * {@link SPACE_CREATE_PERMISSION}; Drupal still enforces the invite.
+ */
+export const USER_INVITE_PERMISSION = 'invite users'
+
+/**
  * The site-wide half of who may create a page — core's per-bundle one.
  *
  * `openkb_recipe_core` lists it under `lupus_decoupled_site_info.settings`
@@ -176,6 +184,8 @@ export interface KbSpaceDetail extends KbSpaceSummary {
    * settings. Held by a space's managers, not its members.
    */
   canManage: boolean
+  /** Whether the acting session may invite people onto the roster by email. */
+  canInvite: boolean
 }
 
 /**
@@ -184,7 +194,10 @@ export interface KbSpaceDetail extends KbSpaceSummary {
  * `manager` manages the space and writes; `member` writes its content;
  * `viewer` reads only. A user sits on exactly one roster.
  */
-export type KbSpaceRole = 'manager' | 'member' | 'viewer'
+export const KB_SPACE_ROLES = ['manager', 'member', 'viewer'] as const
+
+/** One of {@link KB_SPACE_ROLES}. */
+export type KbSpaceRole = typeof KB_SPACE_ROLES[number]
 
 /**
  * The most recently changed pages, newest first.
