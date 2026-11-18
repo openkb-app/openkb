@@ -20,6 +20,7 @@ import {
   isAgentOrigin,
   openAgentSession,
   placedVersions,
+  segmentsOf,
   readBlockOpList,
   refuseStaleBlocks,
   StaleBlockError,
@@ -60,7 +61,7 @@ async function writeBody(doc: Y.Doc, markdown: string, authored = false): Promis
 async function writeBlocks(doc: Y.Doc, ops: BlockOp[], authored = false): Promise<Record<string, string>> {
   const parsed = await Promise.all(ops.map(op => parseMarkdownToJson(op.markdown)))
   const { written, placed } = applyBlockOps(doc, ops, parsed, authored)
-  return placedVersions(written, placed)
+  return placedVersions(await segmentsOf(written), placed)
 }
 
 /** {@link refuseStaleBlocks} against the document as it stands. */
@@ -628,7 +629,7 @@ describe('openAgentSession', () => {
     const session = await openAgentSession(host, 1, ACTOR, noTimers)
     const result = await session.apply({ fields: { summary: 'new' }, body: 'after' })
 
-    expect(result).toEqual({ fields: ['summary'], body: true, blocks: {} })
+    expect(result).toEqual({ fields: ['summary'], body: true, blocks: {}, unchanged: [], removed: [] })
     // The block the agent authored carries a minted id, exactly as a browser
     // peer's tracker would have given it.
     expect(await serializeYDoc(document)).toMatch(/^after \{#b-[\da-f]+\}$/)
@@ -781,17 +782,96 @@ describe('openAgentSession', () => {
     const session = await openAgentSession(host, 1, ACTOR, noTimers)
 
     onTestFinished(() => { render.during = undefined })
-    // No expect: the only render is placedVersions', after the write.
+    // An insertion: the only render is segmentsOf's, after the write.
     let leaving: Promise<void> | undefined
     render.during = () => {
       render.during = undefined
       leaving = session.leave()
     }
 
-    await session.apply({ blocks: [{ id: 'b-1', markdown: 'rewritten' }] })
+    await session.apply({ blocks: [{ after: 'b-1', markdown: 'added' }] })
     await leaving
 
     expect(document.awareness.getStates().has(session.clientId)).toBe(false)
+  })
+
+  it('reports a replaced block that holds what it held before as unchanged, and claims nothing', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+    const version = await versionOf(document, 'b-1')
+
+    const expected = await session.apply({ blocks: [{ id: 'b-1', expect: version, markdown: 'first' }] })
+    const unexpected = await session.apply({ blocks: [{ id: 'b-1', markdown: 'first' }] })
+
+    expect(expected).toEqual({ fields: [], body: false, blocks: {}, unchanged: ['b-1'], removed: [] })
+    expect(unexpected).toEqual({ fields: [], body: false, blocks: {}, unchanged: ['b-1'], removed: [] })
+    expect(document.awareness.getStates().get(session.clientId)).not.toHaveProperty('claim')
+  })
+
+  it('tells the changed blocks of a write from the unchanged ones', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first'], ['b-2', 'second']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+
+    const result = await session.apply({
+      blocks: [{ id: 'b-1', markdown: 'first' }, { id: 'b-2', markdown: 'rewritten' }],
+    })
+
+    expect(Object.keys(result.blocks)).toEqual(['b-2'])
+    expect(result.unchanged).toEqual(['b-1'])
+  })
+
+  it('reports a block replaced by empty markdown as removed', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first'], ['b-2', 'second']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+    const version = await versionOf(document, 'b-1')
+
+    const result = await session.apply({ blocks: [{ id: 'b-1', expect: version, markdown: '' }] })
+
+    expect(result).toEqual({ fields: [], body: false, blocks: {}, unchanged: [], removed: ['b-1'] })
+  })
+
+  it('does not report a replace that added a block after the unchanged one as unchanged', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+
+    const result = await session.apply({ blocks: [{ id: 'b-1', markdown: 'first\n\nadded' }] })
+
+    expect(result.unchanged).toEqual([])
+    expect(Object.keys(result.blocks)).toHaveLength(2)
+    expect(result.blocks).toHaveProperty('b-1')
+  })
+
+  it('keeps the claim of the write before when a write changes nothing', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first'], ['b-2', 'second']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+
+    await session.apply({ blocks: [{ id: 'b-1', markdown: 'rewritten' }] })
+    await session.apply({ blocks: [{ id: 'b-2', markdown: 'second' }] })
+
+    expect(document.awareness.getStates().get(session.clientId)?.claim).toEqual({ blocks: ['b-1'] })
+  })
+
+  it('keeps the claim of the write before when a write only removes blocks', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first'], ['b-2', 'second']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+
+    await session.apply({ blocks: [{ id: 'b-1', markdown: 'rewritten' }] })
+    const result = await session.apply({ blocks: [{ id: 'b-2', markdown: '' }] })
+
+    expect(result.removed).toEqual(['b-2'])
+    expect(document.awareness.getStates().get(session.clientId)?.claim).toEqual({ blocks: ['b-1'] })
+  })
+
+  it('drops a removed block from the claim, and the claim once no block is left', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'first'], ['b-2', 'second'], ['b-3', 'third']]))
+    const session = await openAgentSession(host, 1, ACTOR, noTimers)
+
+    await session.apply({ blocks: [{ id: 'b-1', markdown: 'one' }, { id: 'b-2', markdown: 'two' }] })
+    await session.apply({ blocks: [{ id: 'b-1', markdown: '' }] })
+    expect(document.awareness.getStates().get(session.clientId)?.claim).toEqual({ blocks: ['b-2'] })
+
+    await session.apply({ blocks: [{ id: 'b-2', markdown: '' }] })
+    expect(document.awareness.getStates().get(session.clientId)).not.toHaveProperty('claim')
   })
 
   it('claims the blocks it wrote, so a watching human sees where it worked', async () => {

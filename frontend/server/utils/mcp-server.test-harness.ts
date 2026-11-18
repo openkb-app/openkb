@@ -23,6 +23,7 @@ import type { StaleBlockError } from './agent-peer'
 export const getKbPage = vi.fn()
 export const fetchFrontmatterSchema = vi.fn()
 export const findKbPageByPath = vi.fn()
+export const fetchCeNode = vi.fn()
 export const fetchFrontmatterSpecs = vi.fn()
 export const listDrupalTools = vi.fn()
 export const callDrupalTool = vi.fn()
@@ -42,6 +43,7 @@ export const kbReadMock = { getKbPage: (...a: unknown[]) => getKbPage(...a) }
 export const drupalMock = {
   fetchFrontmatterSchema: (...a: unknown[]) => fetchFrontmatterSchema(...a),
   findKbPageByPath: (...a: unknown[]) => findKbPageByPath(...a),
+  fetchCeNode: (...a: unknown[]) => fetchCeNode(...a),
   fetchFrontmatterSpecs: (...a: unknown[]) => fetchFrontmatterSpecs(...a),
 }
 export const hocuspocusMock = { useAgentRouter: () => ({}) }
@@ -102,7 +104,7 @@ export const APPLIED = {
   nid: 7,
   entry: 'started',
   observers: 0,
-  applied: { fields: ['summary'], body: false, blocks: {} },
+  applied: { fields: ['summary'], body: false, blocks: {}, unchanged: [], removed: [] },
 }
 
 export const SCHEMA = {
@@ -153,6 +155,7 @@ export function resetMocks(): void {
   getKbPage.mockReset()
   fetchFrontmatterSchema.mockReset().mockResolvedValue(SCHEMA)
   findKbPageByPath.mockReset().mockResolvedValue({ id: 'n-1', nid: 7, path: 'intro' })
+  fetchCeNode.mockReset()
   fetchFrontmatterSpecs.mockReset().mockResolvedValue(SPECS)
   routeAgentEdit.mockReset().mockResolvedValue(APPLIED)
   joinAgentSession.mockReset()

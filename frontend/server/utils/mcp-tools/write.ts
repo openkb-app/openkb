@@ -43,26 +43,48 @@ export function writeRefusal(message: string, errors: Record<string, string[]> =
   )
 }
 
-/** An applied write, reported in the shape WRITE_OUTPUT_SCHEMA declares. */
+/**
+ * An applied write, reported in the shape WRITE_OUTPUT_SCHEMA declares.
+ *
+ * A call whose replaced blocks all came out unchanged, with nothing else
+ * applied, is a refusal: an answer reading as success lets the model report a
+ * change it never made.
+ */
 function writeResult(result: AgentEditResult): ToolResult {
+  const { unchanged, removed, ...rest } = result.applied
+  const applied = { ...rest, ...(removed.length ? { removed } : {}) }
+  const blocks = Object.entries(applied.blocks)
+  const changed = [
+    applied.fields.length ? `fields: ${applied.fields.join(', ')}` : null,
+    applied.body ? 'body' : null,
+    blocks.length ? `blocks: ${blocks.map(([id, version]) => `${id}@${version}`).join(', ')}` : null,
+    removed.length ? `removed blocks: ${removed.join(', ')}` : null,
+    applied.comment ? `comment in thread ${applied.comment.threadId}` : null,
+  ].filter(Boolean).join('; ')
+  if (!changed && unchanged.length) {
+    const message = `Nothing changed: ${describeUnchangedBlocks(unchanged)}. If you meant to change it, send the changed markdown.`
+    return refused(message, { ok: false, message, nid: result.nid, unchanged })
+  }
   const data = {
     ok: true,
     nid: result.nid,
     entry: result.entry,
     observers: result.observers,
-    applied: result.applied,
+    applied,
+    ...(unchanged.length ? { unchanged } : {}),
   }
-  const blocks = Object.entries(result.applied.blocks)
-  const changed = [
-    result.applied.fields.length ? `fields: ${result.applied.fields.join(', ')}` : null,
-    result.applied.body ? 'body' : null,
-    blocks.length ? `blocks: ${blocks.map(([id, version]) => `${id}@${version}`).join(', ')}` : null,
-    result.applied.comment ? `comment in thread ${result.applied.comment.threadId}` : null,
-  ].filter(Boolean).join('; ') || 'nothing changed'
   const persisted = result.observers > 0
     ? `left to the live session (${result.observers} editor(s) connected)`
     : 'left to your open session, which persists it'
-  return answered(`Updated node ${result.nid} — ${changed}; ${persisted}.`, data)
+  const unchangedNote = unchanged.length ? ` Not changed: ${describeUnchangedBlocks(unchanged)}.` : ''
+  return answered(`Updated node ${result.nid} — ${changed || 'nothing changed'}; ${persisted}.${unchangedNote}`, data)
+}
+
+/** Names unchanged blocks: "block b-1 already holds exactly this markdown". */
+function describeUnchangedBlocks(ids: string[]): string {
+  return ids.length === 1
+    ? `block ${ids[0]} already holds exactly this markdown`
+    : `blocks ${ids.join(', ')} already hold exactly this markdown`
 }
 
 /**

@@ -31,7 +31,7 @@ const POSTED = {
   nid: 7,
   entry: 'joined',
   observers: 1,
-  applied: { fields: [], body: false, blocks: {}, comment: { threadId: 'c-1a2b', msgId: 'm-3c4d' } },
+  applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: [], comment: { threadId: 'c-1a2b', msgId: 'm-3c4d' } },
 }
 
 describe('commentOnBlock', () => {

@@ -7,6 +7,8 @@
 import type { UIMessage } from 'ai'
 import { backendUrl } from '#shared/utils/user'
 import { SCOPE_ALL, scopeLabel } from '#shared/utils/chat-scope'
+import type { Grounding } from '~/utils/chat-answer'
+import type { Receipt } from '~/utils/chat-receipt'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -63,24 +65,86 @@ function ask(text: string) {
   send(text)
 }
 
-// What each answer was asked, and the scope it went out under, so the reader
-// is told what was searched. The scope is the one the question was sent with,
-// not the one the picker shows now: picking another space later does not
-// rewrite what an earlier answer searched.
+/**
+ * Per answer: its question, whether it is a comment turn, the page open when
+ * it was sent, and the scope it was sent with (not the picker's current one).
+ */
 const questions = computed(() => {
-  const asked = new Map<string, { text: string, scopeName: string | null }>()
+  const asked = new Map<string, {
+    text: string
+    scopeName: string | null
+    commentTurn: boolean
+    pagePath: string | null
+  }>()
   let text = ''
   let scopeName: string | null = null
+  let commentTurn = false
+  let pagePath: string | null = null
   let sent = 0
   for (const m of messages.value) {
     if (m.role === 'user') {
       text = textFor(m)
       scopeName = askedScopes.value[sent++] ?? null
+      commentTurn = isCommentTurn(m)
+      pagePath = turnPagePathOf(m)
     }
-    else asked.set(m.id, { text, scopeName })
+    else asked.set(m.id, { text, scopeName, commentTurn, pagePath })
   }
   return asked
 })
+
+/**
+ * Each answer's receipt, by message id: the receipt, and whether it is shown.
+ *
+ * A "Nothing changed" receipt is shown once the answer ended, so a write still
+ * to come does not flip it.
+ */
+const receiptsByMessage = computed(() => {
+  const receipts = new Map<string, { receipt: Receipt | null, shown: boolean }>()
+  for (const m of messages.value) {
+    if (m.role !== 'assistant') continue
+    const commentTurn = questions.value.get(m.id)?.commentTurn ?? false
+    const receipt = receiptForToolRuns(toolRunsFor(m), commentTurn)
+    const ended = !(busy.value && m.id === lastMessageId.value)
+    receipts.set(m.id, { receipt, shown: ended || receipt?.changed === true })
+  }
+  return receipts
+})
+
+/** What the turn changed, as shown, or null. */
+function shownReceiptFor(m: UIMessage): Receipt | null {
+  const entry = receiptsByMessage.value.get(m.id)
+  return entry?.shown ? entry.receipt : null
+}
+
+/** The grounding the answer shows: none for a turn that wrote, which shows its receipt instead. */
+function shownGroundingFor(m: UIMessage): Grounding | null {
+  return receiptsByMessage.value.get(m.id)?.receipt ? null : groundingFor(m)
+}
+
+const route = useRoute()
+
+/** The path of the page open now, or null on any other route. */
+const openPagePath = computed(() => (route.name === 'slug' ? route.path : null))
+
+/**
+ * Counts rendered pages: a receipt's link checks the page's blocks again
+ * once the page it leads to has rendered.
+ */
+const pagesRendered = ref(0)
+const stopCountingPages = useNuxtApp().hook('page:finish', () => {
+  pagesRendered.value++
+})
+onBeforeUnmount(stopCountingPages)
+
+/** Where the answer's changed blocks link to, or null for no link. */
+function changeHrefFor(m: UIMessage): string | null {
+  void pagesRendered.value
+  const receipt = shownReceiptFor(m)
+  if (!receipt) return null
+  const turnPagePath = questions.value.get(m.id)?.pagePath ?? null
+  return receiptHref(receipt, turnPagePath, openPagePath.value)
+}
 
 function questionFor(m: UIMessage): string {
   return questions.value.get(m.id)?.text ?? ''
@@ -117,7 +181,7 @@ watch(draft, (question) => {
 }, { immediate: true })
 
 /**
- * A citation link is being followed.
+ * A link out of an answer is being followed: a citation or a source.
  *
  * The link navigates on its own; this only gets the chat out of the way on a
  * phone, where it covers the page it leads to. `defaultPrevented` is the link
@@ -125,6 +189,16 @@ watch(draft, (question) => {
  */
 function onCitationNavigate(ev: MouseEvent) {
   if (ev.defaultPrevented && !wide.value) closeChat()
+}
+
+/**
+ * A receipt's link to the change is being followed: the editor it opens is the point, so an
+ * enlarged chat goes back to the side bar, and on a phone the chat closes.
+ */
+function onReceiptNavigate(ev: MouseEvent) {
+  if (!ev.defaultPrevented) return
+  if (wide.value) chatEnlarged.value = false
+  else closeChat()
 }
 
 // The scope is the conversation's, not the browser's: it is picked for a
@@ -151,13 +225,15 @@ function loginHref(): string {
   return backendUrl(useRuntimeConfig().public.drupalBaseUrl as string | undefined, '/user/login')
 }
 
-// How the finished answer stands, in one line to be heard.
+/** How the finished answer stands, in one line to be heard. */
 const announcement = computed(() => {
   if (busy.value) return ''
   if (turnError.value) return turnError.value
   const last = messages.value[messages.value.length - 1]
   if (!last || last.role !== 'assistant') return ''
-  return announce(groundingFor(last), citationsFor(last).length)
+  const receipt = shownReceiptFor(last)
+  if (receipt) return announceReceipt(receipt)
+  return announce(shownGroundingFor(last), citationsFor(last).length)
 })
 
 const composer = useTemplateRef<HTMLElement>('composer')
@@ -407,7 +483,7 @@ const strayQuestion = computed(() => {
           <!-- How the answer stands: uncited, or nothing to answer from -->
           <ChatAnswerState
             v-if="message.role === 'assistant'"
-            :grounding="groundingFor(message)"
+            :grounding="shownGroundingFor(message)"
             :cited="citationsFor(message).length"
             :query="questionFor(message)"
             :scope-name="scopeNameFor(message)"
@@ -415,6 +491,15 @@ const strayQuestion = computed(() => {
             @rephrase="rephrase(questionFor(message))"
             @retry="ask(questionFor(message))"
           />
+
+          <!-- What the turn changed, read from its write tools' results -->
+          <!-- Listens on the wrapper: the link has claimed the click by the time it bubbles here. -->
+          <div
+            v-if="message.role === 'assistant' && shownReceiptFor(message)"
+            @click="onReceiptNavigate"
+          >
+            <ChatReceipt :receipt="shownReceiptFor(message)!" :href="changeHrefFor(message)" />
+          </div>
 
           <!-- Cited sources under the assistant message -->
           <div

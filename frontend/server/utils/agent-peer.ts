@@ -296,19 +296,76 @@ export function applyBlockOps(
 }
 
 /**
- * Block id → version for the blocks `placed` names, off the document just
- * written: the tree the fragment holds, segmented as the read side and
- * {@link refuseStaleBlocks} segment it. A block the body exposes no version for
- * is one no op can `expect`; the map answers only what a retry can use.
+ * Block id → version for the blocks `placed` names.
+ *
+ * A block the body exposes no version for is one no op can `expect`; the map
+ * answers only what a retry can use.
+ *
+ * @param segments
+ *   The block segments of the document just written ({@link segmentsOf}).
+ * @param placed
+ *   The ids {@link applyBlockOps} placed.
  */
-export async function placedVersions(written: ProseNode, placed: string[]): Promise<Record<string, string>> {
-  const segments = await blockSegmentsOfDoc(written.toJSON() as ProseMirrorJSON)
+export function placedVersions(segments: Map<string, string>, placed: string[]): Record<string, string> {
   const versions: Record<string, string> = {}
   for (const id of placed) {
     const markdown = segments.get(id)
     if (markdown !== undefined) versions[id] = blockVersion(markdown)
   }
   return versions
+}
+
+/**
+ * The block segments of a written document, segmented as the read side and
+ * {@link refuseStaleBlocks} segment it.
+ */
+export function segmentsOf(written: ProseNode): Promise<Map<string, string>> {
+  return blockSegmentsOfDoc(written.toJSON() as ProseMirrorJSON)
+}
+
+/**
+ * The blocks replace ops named whose version after the write is the one they
+ * held before it.
+ *
+ * A replace whose markdown makes more than one block added a block, so it is
+ * never unchanged.
+ *
+ * @param ops
+ *   The ops written.
+ * @param parsed
+ *   Each op's markdown, parsed.
+ * @param before
+ *   The block segments the write found.
+ * @param after
+ *   Block id → version after the write ({@link placedVersions}).
+ */
+function unchangedBlocks(
+  ops: BlockOp[],
+  parsed: JSONContent[],
+  before: Map<string, string> | null,
+  after: Record<string, string>,
+): string[] {
+  const ids = ops.flatMap((op, index) => 'id' in op && parsed[index]?.content?.length === 1 ? [op.id] : [])
+  return [...new Set(ids)].filter((id) => {
+    const markdown = before?.get(id)
+    return markdown !== undefined && after[id] === blockVersion(markdown)
+  })
+}
+
+/**
+ * The blocks replace ops named that the document no longer holds: replaced by
+ * empty markdown.
+ *
+ * @param ops
+ *   The ops written.
+ * @param before
+ *   The block segments the write found.
+ * @param after
+ *   The block segments after the write.
+ */
+function removedBlocks(ops: BlockOp[], before: Map<string, string> | null, after: Map<string, string>): string[] {
+  const ids = ops.flatMap(op => 'id' in op ? [op.id] : [])
+  return [...new Set(ids)].filter(id => before?.has(id) && !after.has(id))
 }
 
 /**
@@ -485,14 +542,24 @@ export function refuseStaleBlocks(segments: Map<string, string>, ops: BlockOp[])
   if (conflicts.length > 0) throw new StaleBlockError(conflicts)
 }
 
+/** Whether a write changed nothing at all: no field, body, block or comment. */
+function changedNothing(result: AgentOpsResult): boolean {
+  return result.fields.length === 0
+    && !result.body
+    && Object.keys(result.blocks).length === 0
+    && result.removed.length === 0
+    && !result.comment
+}
+
 const DOCUMENT_MOVED = 'The page kept changing while this write was checked against it. Send it again.'
 
 /** Snapshots the stale check takes before it gives up on a busy document. */
 const SNAPSHOT_TRIES = 3
 
 /**
- * Runs `write` with the block segments {@link refuseStaleBlocks} checks
- * against, or with `null` when no op expects a version.
+ * Runs `write` with the block segments as the write finds them, or with `null`
+ * when no op expects a version or replaces a block. {@link refuseStaleBlocks}
+ * checks against them, and a replaced block is compared with them.
  *
  * Rendering them is awaited, so a peer's edit may land meanwhile. `write` runs
  * in the same synchronous continuation as the check that the body fragment did
@@ -506,7 +573,7 @@ async function writeOnUnmoved<T>(
   ops: BlockOp[],
   write: (segments: Map<string, string> | null) => T,
 ): Promise<T> {
-  if (!ops.some(op => op.expect)) return write(null)
+  if (!ops.some(op => op.expect || 'id' in op)) return write(null)
   const fragment = doc.getXmlFragment('default')
   for (let attempt = 0; attempt < SNAPSHOT_TRIES; attempt++) {
     let fragmentChanged = false
@@ -632,6 +699,10 @@ export interface AgentOpsResult {
    * op's `expect`.
    */
   blocks: Record<string, string>
+  /** Blocks a replace op named that hold the same markdown as before it. Not in `blocks`. */
+  unchanged: string[]
+  /** Blocks a replace op with empty markdown removed. */
+  removed: string[]
   /** The thread the message landed in, and the message's own id. */
   comment?: { threadId: string, msgId: string }
 }
@@ -768,6 +839,19 @@ export async function openAgentSession(
     publish()
   }
 
+  /** Drops removed blocks from the claim; clears the claim when none is left. */
+  const dropRemovedBlocksFromClaim = (removed: string[]) => {
+    const claimedBefore = state.claim?.blocks ?? []
+    const kept = claimedBefore.filter(id => !removed.includes(id))
+    if (kept.length === claimedBefore.length) return
+    if (kept.length === 0) {
+      releaseClaim()
+      return
+    }
+    state = { user, claim: { blocks: kept } }
+    publish()
+  }
+
   const humanPeers = () => humanPeersOf(connection.document as unknown as AwareDoc)
 
   return {
@@ -778,18 +862,20 @@ export async function openAgentSession(
     actor,
     humanPeers,
 
-    // One transaction for both lanes, tagged with {@link AgentOrigin}. Not
-    // `connection.transact`: that wraps the callback in a transaction of its
-    // own tagged `{ source: 'local' }`, and a nested transaction keeps the
-    // OUTER origin — the agent tag would never reach an observer. Transacting
-    // on the document directly is the same write (a hocuspocus Document is a
-    // Y.Doc; its update handler broadcasts to peers and fires `onChange`
-    // either way) with the origin we need.
+    /**
+     * Writes `ops` into the document as this peer and claims the blocks it changed.
+     *
+     * One transaction on the document itself, tagged with {@link AgentOrigin},
+     * so observers see the agent as the write's origin.
+     *
+     * @throws {StaleBlockError}
+     *   When a block moved since the version an op expects. Nothing is written.
+     */
     async apply(ops: AgentOps): Promise<AgentOpsResult> {
       const body = ops.body !== undefined ? await parseMarkdownToJson(ops.body) : undefined
       const parsed = await Promise.all((ops.blocks ?? []).map(op => parseMarkdownToJson(op.markdown)))
-      const result: AgentOpsResult = { fields: [], body: false, blocks: {} }
-      const written = await writeOnUnmoved(document, ops.blocks ?? [], (segments) => {
+      const result: AgentOpsResult = { fields: [], body: false, blocks: {}, unchanged: [], removed: [] }
+      const { written, before } = await writeOnUnmoved(document, ops.blocks ?? [], (segments) => {
         // A session that left is detached from the document: its ops would reach
         // nothing while the caller is told the write landed.
         if (left) throw createError({ statusCode: 409, statusMessage: SESSION_CLOSED })
@@ -817,14 +903,25 @@ export async function openAgentSession(
           }
           if (ops.comment) result.comment = applyComment(document, actor, ops.comment)
         }, origin)
-        return written
+        return { written, before: segments }
       })
-      if (written) result.blocks = await placedVersions(written.written, written.placed)
-      if (left) return result
-      // The blocks this write touched, republished as part of the peer's own
-      // state: "somebody is working here", for {@link CLAIM_HOLD_MS}. A write
-      // that named no block clears what the previous one said.
+      if (written) {
+        const after = await segmentsOf(written.written)
+        result.blocks = placedVersions(after, written.placed)
+        result.unchanged = unchangedBlocks(ops.blocks ?? [], parsed, before, result.blocks)
+        result.removed = removedBlocks(ops.blocks ?? [], before, after)
+        for (const id of result.unchanged) delete result.blocks[id]
+      }
+      // A write that changed nothing leaves the claim of the write before it.
+      if (left || changedNothing(result)) return result
+      // The changed blocks, published as "somebody is working here" for
+      // {@link CLAIM_HOLD_MS}. Removal-only block ops keep the claim before, less
+      // what they removed; a write naming no block clears it.
       const claimed = Object.keys(result.blocks)
+      if (claimed.length === 0 && ops.blocks?.length) {
+        dropRemovedBlocksFromClaim(result.removed)
+        return result
+      }
       if (claimHold !== undefined) clearTimer(claimHold)
       state = claimed.length > 0 ? { user, claim: { blocks: claimed } } : { user }
       publish()

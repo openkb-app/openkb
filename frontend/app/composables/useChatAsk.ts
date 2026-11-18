@@ -14,6 +14,14 @@ export function useChatAsk() {
   const { slug: pageSpace } = useActiveSpace()
   const { spaces } = useSpaces()
 
+  /**
+   * Sends `text` as the reader's turn.
+   *
+   * @param text
+   *   The turn's text.
+   * @param extra
+   *   More caller context; `commentThread` marks a comment turn.
+   */
   return function ask(text: string, extra: Record<string, unknown> = {}): Promise<void> {
     const context = {
       scope: scope.value,
@@ -22,6 +30,9 @@ export function useChatAsk() {
       ...extra,
     }
     askedScopes.value.push(scope.value === SCOPE_ALL ? null : scopeLabel(scope.value, spaces.value))
-    return chat.sendMessage({ text }, { body: { context } })
+    // Kept on the message for the panel: whether it is a comment turn, and the
+    // page its receipt links into.
+    const metadata = turnMetadata(Boolean(extra.commentThread), pagePath.value)
+    return chat.sendMessage({ text, metadata }, { body: { context } })
   }
 }

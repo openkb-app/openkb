@@ -12,6 +12,8 @@ import {
   getKbPage,
   routeAgentEdit,
   STALE,
+  findKbPageByPath,
+  fetchCeNode,
 } from '../mcp-server.test-harness'
 import { StaleBlockError, UnanchoredBlockError, UnchainedBlockError } from '../agent-peer'
 
@@ -36,7 +38,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-0d53e244': '05b561c1ae22' } },
+      applied: { fields: [], body: false, blocks: { 'b-0d53e244': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -105,7 +107,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: {} },
+      applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: [] },
     })
     const { client } = await connect()
 
@@ -123,7 +125,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-9f21': '05b561c1ae22' } },
+      applied: { fields: [], body: false, blocks: { 'b-9f21': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
 
@@ -173,7 +175,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: ['b-0d53e244'] },
+      applied: { fields: [], body: false, blocks: ['b-0d53e244'], unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -228,7 +230,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' } },
+      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -278,7 +280,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' } },
+      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -294,7 +296,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' } },
+      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -323,5 +325,142 @@ describe('updateBlocks', () => {
 
     expect((res.structuredContent as any).conflicts[0].markdown).toBe('Wiki & AI {#b-1}')
     expect((res.content as any[])[0].text).toContain('Wiki & AI {#b-1}')
+  })
+
+  it('refuses a write that changed nothing, naming the block, so it cannot read as success', async () => {
+    routeAgentEdit.mockResolvedValue({
+      nid: 39,
+      entry: 'joined',
+      observers: 1,
+      applied: { fields: [], body: false, blocks: {}, unchanged: ['b-4a5e25ad'], removed: [] },
+    })
+    const { client } = await connect()
+    await client.listTools()
+
+    const res = await client.callTool({
+      name: 'updateBlocks',
+      arguments: { path: 'intro', blocks: [{ id: 'b-4a5e25ad', expect: '0334cc92e636', markdown: 'As read.' }] },
+    })
+
+    const message = 'Nothing changed: block b-4a5e25ad already holds exactly this markdown. '
+      + 'If you meant to change it, send the changed markdown.'
+    expect(res.isError).toBe(true)
+    expect((res.content as any[])[0].text).toBe(message)
+    expect(res.structuredContent).toEqual({ ok: false, message, nid: 39, unchanged: ['b-4a5e25ad'] })
+  })
+
+  it('makes no request after the write, by path or by node id', async () => {
+    const afterWrite: string[] = []
+    let written = false
+    routeAgentEdit.mockImplementation(async () => {
+      written = true
+      return { nid: 7, entry: 'joined', observers: 0, applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] } }
+    })
+    findKbPageByPath.mockImplementation(async () => {
+      if (written) afterWrite.push('findKbPageByPath')
+      return { id: 'n-1', nid: 7, path: 'intro' }
+    })
+    getKbPage.mockImplementation(async () => {
+      if (written) afterWrite.push('getKbPage')
+    })
+    fetchCeNode.mockImplementation(async () => {
+      if (written) afterWrite.push('fetchCeNode')
+      return { page: { path: '/intro' } }
+    })
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      if (written) afterWrite.push('fetch')
+      return new Response()
+    })
+    try {
+      const { client } = await connect()
+      await client.listTools()
+      const blocks = [{ id: 'b-1', expect: '0334cc92e636', markdown: 'Changed.' }]
+
+      for (const target of [{ path: 'intro' }, { nid: 7 }]) {
+        written = false
+        const res = await client.callTool({ name: 'updateBlocks', arguments: { ...target, blocks } })
+        expect(res.isError).toBeFalsy()
+        expect(res.structuredContent).toMatchObject({ ok: true, nid: 7 })
+      }
+      expect(afterWrite).toEqual([])
+    }
+    finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('answers a changed block as updated', async () => {
+    routeAgentEdit.mockResolvedValue({
+      nid: 39,
+      entry: 'joined',
+      observers: 1,
+      applied: { fields: [], body: false, blocks: { 'b-4a5e25ad': '05b561c1ae22' }, unchanged: [], removed: [] },
+    })
+    const { client } = await connect()
+    await client.listTools()
+
+    const res = await client.callTool({
+      name: 'updateBlocks',
+      arguments: { path: 'intro', blocks: [{ id: 'b-4a5e25ad', expect: '0334cc92e636', markdown: 'Changed.' }] },
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect((res.content as any[])[0].text).toBe(
+      'Updated node 39 — blocks: b-4a5e25ad@05b561c1ae22; left to the live session (1 editor(s) connected).',
+    )
+    expect(res.structuredContent).not.toHaveProperty('unchanged')
+  })
+
+  it('names the changed and the unchanged blocks of a mixed write apart', async () => {
+    routeAgentEdit.mockResolvedValue({
+      nid: 39,
+      entry: 'joined',
+      observers: 0,
+      applied: { fields: [], body: false, blocks: { 'b-2': '05b561c1ae22' }, unchanged: ['b-1', 'b-3'], removed: [] },
+    })
+    const { client } = await connect()
+    await client.listTools()
+
+    const res = await client.callTool({
+      name: 'updateBlocks',
+      arguments: {
+        path: 'intro',
+        blocks: [
+          { id: 'b-1', expect: '0334cc92e636', markdown: 'As read.' },
+          { id: 'b-2', expect: '0334cc92e637', markdown: 'Changed.' },
+          { id: 'b-3', expect: '0334cc92e638', markdown: 'As read too.' },
+        ],
+      },
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect((res.content as any[])[0].text).toBe(
+      'Updated node 39 — blocks: b-2@05b561c1ae22; left to your open session, which persists it. '
+      + 'Not changed: blocks b-1, b-3 already hold exactly this markdown.',
+    )
+    expect((res.structuredContent as any).applied.blocks).toEqual({ 'b-2': '05b561c1ae22' })
+    expect((res.structuredContent as any).unchanged).toEqual(['b-1', 'b-3'])
+  })
+
+  it('names a block removed by empty markdown as removed, not as nothing changed', async () => {
+    routeAgentEdit.mockResolvedValue({
+      nid: 39,
+      entry: 'joined',
+      observers: 0,
+      applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: ['b-1'] },
+    })
+    const { client } = await connect()
+    await client.listTools()
+
+    const res = await client.callTool({
+      name: 'updateBlocks',
+      arguments: { path: 'intro', blocks: [{ id: 'b-1', expect: '0334cc92e636', markdown: '' }] },
+    })
+
+    expect(res.isError).toBeFalsy()
+    expect((res.content as any[])[0].text).toBe(
+      'Updated node 39 — removed blocks: b-1; left to your open session, which persists it.',
+    )
+    expect((res.structuredContent as any).applied).toEqual({ fields: [], body: false, blocks: {}, removed: ['b-1'] })
   })
 })

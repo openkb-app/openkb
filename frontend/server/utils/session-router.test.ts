@@ -256,6 +256,8 @@ describe('routeAgentEdit', () => {
       fields: ['summary'],
       body: false,
       blocks: { [SEED_BLOCK]: expect.stringMatching(/^[\da-f]{12}$/) },
+      unchanged: [],
+      removed: [],
     })
     // Authored content, so the block carries a minted id (agent-block-ids.ts).
     expect(await serializeYDoc(doc)).toBe(REWRITTEN_SEED)

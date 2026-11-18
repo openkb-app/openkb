@@ -153,7 +153,7 @@ export const KB_INSTRUCTIONS
     + 'markdown and call again with the version it reported. A refusal costs '
     + 'one call and needs no read, so write on the version you have rather '
     + 'than re-reading to be sure. A call that succeeds reports the same thing '
-    + 'for what it wrote — `applied.blocks` maps every block it touched to '
+    + 'for what it wrote — `applied.blocks` maps every block it changed to '
     + 'the version it holds now, a block you inserted under the id minted for '
     + 'it. That is the `expect` your next edit to that block sends. Chain '
     + 'edits on it; only read the page again when you need content you do not '

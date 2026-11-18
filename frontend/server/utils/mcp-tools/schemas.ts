@@ -117,10 +117,16 @@ export const WRITE_OUTPUT_SCHEMA: JsonSchema = {
           additionalProperties: { type: 'string' },
           description:
             'Block id → the version that block holds now, for every block the '
-            + 'write touched. A block you replaced is under the id you named; '
+            + 'write changed. A block you replaced is under the id you named; '
             + 'a block you inserted is under the id minted for it, which is how '
-            + 'you learn it. Send one straight back as the next op\'s `expect`: '
-            + 'editing what you just wrote needs no read between.',
+            + 'you learn it. A replaced block that already held your markdown is '
+            + 'in `unchanged` instead. Send one straight back as the next op\'s '
+            + '`expect`: editing what you just wrote needs no read between.',
+        },
+        removed: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Blocks you replaced with empty markdown, so the page no longer holds them.',
         },
         comment: {
           type: 'object',
@@ -140,6 +146,14 @@ export const WRITE_OUTPUT_SCHEMA: JsonSchema = {
       additionalProperties: false,
     },
     message: { type: 'string', description: 'Why the write was refused.' },
+    unchanged: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Blocks you replaced with the markdown they already held, so the write '
+        + 'changed nothing in them. Not in `applied.blocks`. When nothing else '
+        + 'was applied, the call is refused.',
+    },
     errors: {
       type: 'object',
       additionalProperties: { type: 'array', items: { type: 'string' } },

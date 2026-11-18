@@ -41,7 +41,10 @@ export function updateBlocksTool(): KbTool {
       + 'that block holds now, for everything it wrote — including the id minted '
       + 'for a block you inserted. So a follow-up edit to a block you just '
       + 'replaced OR just inserted sends that version as its `expect`, without '
-      + 'reading the page again.',
+      + 'reading the page again. A replaced block whose markdown is the one it '
+      + 'already held is listed in `unchanged`, not `applied.blocks`; a call '
+      + 'that changed nothing at all is refused with "Nothing changed". A block '
+      + 'replaced by empty markdown is removed and listed in `applied.removed`.',
     inputSchema: {
       type: 'object',
       properties: {

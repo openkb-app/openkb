@@ -166,7 +166,7 @@ describe('MCP server', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '28de1f57b3d1' } },
+      applied: { fields: [], body: false, blocks: { 'b-1': '28de1f57b3d1' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
