@@ -69,6 +69,7 @@ install:
   - openkb_agent_registration
   - openkb_ai
   - openkb_collab_api
+  - openkb_invite
   - openkb_jsonapi
   - openkb_revision
   - openkb_schema
@@ -77,6 +78,7 @@ install:
   - openkb_space_access
   - openkb_tools
   - openkb_update_hold
+  - openkb_update_status
   - openkb_workflow
   - options
   - page_cache
@@ -184,6 +186,7 @@ config:
           - 'create openkb_space'
           - 'create kb_page content'
           - 'access administration pages'
+          - 'invite users'
     mcp_server.settings:
       simpleConfigUpdate:
         langcode: en
@@ -306,6 +309,7 @@ config:
         - 'delete own kb_page content'
         - 'edit any kb_page content'
         - 'grant simple_oauth codes'
+        - 'invite users'
         - 'manage own personal consumers'
         - 'restful get lupus_decoupled_site_info'
         - 'restful get rest_menu_item'

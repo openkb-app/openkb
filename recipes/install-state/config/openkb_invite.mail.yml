@@ -1,0 +1,19 @@
+langcode: en
+invite:
+  subject: '[openkb_invite:inviter] invited you to [site:name]'
+  body: |-
+    [openkb_invite:inviter] invited you to the space "[openkb_invite:space]" on [site:name].
+
+    Use this link to sign in and set your password:
+
+    [openkb_invite:login-url]
+
+    Your user name is [user:account-name]. The link works once.
+invite_account:
+  subject: '[openkb_invite:inviter] invited you to [openkb_invite:space]'
+  body: |-
+    [openkb_invite:inviter] invited you to the space "[openkb_invite:space]" on [site:name].
+
+    Sign in and accept the invitation here:
+
+    [openkb_invite:accept-url]

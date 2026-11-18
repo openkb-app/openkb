@@ -93,13 +93,13 @@ default:
         ::block{#b-c7665d06}
         1. Open the space's page and click "Settings". Only managers see the button.
         2. In the "Space settings" dialog, choose "Read access".
-        3. Under "Members", add a person: type a name in "Add a person…", pick the role and click "Add". Change a role with the select next to the name, or remove the person with the X. Roster changes are saved at once.
+        3. Under "Members", add a person: type a name in "Add a person…", pick the role and click "Add". Change a role with the select next to the name, or remove the person with the X. Roster changes are saved at once. Someone without an account yet: type their email address in "Invite by email…", pick the role and click "Invite". They get an email: without an account yet, a link to sign in and set a password; with one, a link to accept the invitation. They join the space when they accept. Until then the invitation is listed under "Pending invitations", with the email address for the manager who sent it.
         4. Click "Save changes" for the description, the read access and the switches under "Publishing".
         ::
 
         ## The site administrator {#b-7c98833d}
 
-        The site administrator reads and writes every space, whatever its roster, and creates the user accounts. See [Users and roles](/openkb-user-guide/users-and-roles). Anyone who creates a space is that space's first manager. {#b-f14cb32e}
+        The site administrator reads and writes every space, whatever its roster, and creates user accounts; space managers invite people by email. See [Users and roles](/openkb-user-guide/users-and-roles). Anyone who creates a space is that space's first manager. {#b-f14cb32e}
 
         ## Related topics {#b-87e87f56}
 
