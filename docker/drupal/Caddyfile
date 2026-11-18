@@ -40,6 +40,13 @@
 	}
 	error @protectedFiles 403
 
+	# Core's JSON login: nothing uses it, closing it tightens the site.
+	@jsonLogin {
+		path_regexp (?i)^(/index\.php)?(/ce-api)?/user/login/?$
+		query _format=*
+	}
+	error @jsonLogin 404
+
 	# The webserver's own cap on page file upload bodies. Drupal's field limits
 	# (`max_filesize`) decide the size; this must stay above the largest one.
 	# A longer body is refused with 413.
