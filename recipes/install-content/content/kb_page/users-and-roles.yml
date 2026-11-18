@@ -70,7 +70,8 @@ default:
         ## How accounts work {#b-fc98806d}
 
         ::block{#b-28c79094}
-        - Self-registration and invitations from the app are not available yet. Until then, an administrator or a site manager creates accounts at `/admin/people/create` on the administration host; `/admin/people` lists them with their roles.
+        - A space manager invites people by email from the space's members form. A new address gets an account with no role and an email with a one-time link to set a password. See [Members and access](/openkb-user-guide/members-and-access).
+        - Self-registration is not available. An administrator or a site manager also creates accounts at `/admin/people/create` on the administration host; `/admin/people` lists them with their roles.
         - Every signed-in account may read the spaces open to "All users", write in the spaces it is a member of, and create spaces of its own.
         - What a person may do in a space is decided by the space's roster, not by a site role. See [Members and access](/openkb-user-guide/members-and-access).
         - The "Administrator" role reaches every space and every page, the Drupal administration, and the "Admin backend" entry in the account menu.

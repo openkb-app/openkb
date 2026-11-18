@@ -14,6 +14,7 @@ dependencies:
     - filter
     - mcp_server
     - node
+    - openkb_invite
     - openkb_space
     - path
     - rest
@@ -36,6 +37,7 @@ permissions:
   - 'delete own kb_page content'
   - 'edit any kb_page content'
   - 'grant simple_oauth codes'
+  - 'invite users'
   - 'manage own personal consumers'
   - 'restful get lupus_decoupled_site_info'
   - 'restful get rest_menu_item'

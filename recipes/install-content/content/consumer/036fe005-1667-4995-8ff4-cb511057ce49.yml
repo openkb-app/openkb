@@ -6,7 +6,7 @@ _meta:
 default:
   label:
     -
-      value: 'AI chat'
+      value: 'AI assistant'
   client_id:
     -
       value: openkb_chat
