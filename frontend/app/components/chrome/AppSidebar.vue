@@ -151,14 +151,15 @@ watch(collapsed, endVisit)
             v-if="activeSpace"
             :to="`/${activeSpace.slug}`"
             data-testid="space-home-link"
-            :aria-label="`${activeSpace.name} — space home`"
             :title="`${activeSpace.name} — space home`"
             class="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded hover:bg-elevated focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ui-primary)"
           >
             <span
+              aria-hidden="true"
               class="inline-flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold text-white"
               :style="{ background: spaceColor(activeSpace.internalId) }"
             >{{ spaceInitials(activeSpace.name) }}</span>
+            <span class="sr-only">{{ activeSpace.name }} — space home</span>
           </NuxtLink>
           <span v-else class="ml-1 flex h-9 w-9 shrink-0 items-center justify-center">
             <UIcon name="i-lucide-folders" class="size-4 text-dimmed" />

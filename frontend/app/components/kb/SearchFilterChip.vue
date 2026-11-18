@@ -26,8 +26,7 @@ defineProps<{
     :class="picked ? 'border-primary bg-elevated text-highlighted' : 'border-default bg-default text-toned'"
   >
     <UIcon :name="icon" class="size-3" />
-    <span class="font-medium">{{ label }}</span>
-    <span class="text-muted">{{ value }}</span>
+    <span class="font-medium">{{ label }}</span>{{ ' ' }}<span class="text-muted">{{ value }}</span>
     <UIcon name="i-lucide-chevron-down" class="size-3 text-dimmed" />
   </button>
 </template>

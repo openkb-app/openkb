@@ -141,14 +141,15 @@ useRailHold(menuOpen)
       <button
         type="button"
         data-testid="user-menu"
-        :aria-label="name ? `Account: ${name}` : 'Account'"
         class="flex min-h-11 items-center gap-2 rounded-md px-1 py-0.5 hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :class="withName ? 'min-w-0' : 'min-w-11 justify-center'"
       >
-        <!-- The button carries the name; the picture is decorative inside it. -->
-        <UAvatar v-bind="avatar" alt="" size="sm" />
+        <!-- The avatar and its initials are decorative; the sr-only text names the button. -->
+        <UAvatar v-bind="avatar" alt="" aria-hidden="true" size="sm" />
+        <span class="sr-only">{{ name ? `Account: ${name}` : 'Account' }}</span>
         <span
           v-if="withName"
+          aria-hidden="true"
           class="min-w-0 flex-1 truncate text-left text-[12.5px] font-semibold leading-tight text-highlighted"
         >{{ name }}</span>
       </button>

@@ -67,19 +67,20 @@ const reviewLabel = computed(() => reviewToggleLabel({
     variant="soft"
     size="sm"
     icon="i-lucide-clipboard-check"
-    :aria-label="reviewLabel"
     :title="reviewLabel"
     :aria-pressed="reviewOpen"
     data-testid="review-toggle"
     @click="reviewOpen = !reviewOpen"
   >
-    <span class="hidden @2xl/editnav:inline">Review</span>
+    <span class="sr-only">{{ reviewLabel }}</span>
+    <span class="hidden @2xl/editnav:inline" aria-hidden="true">Review</span>
     <UBadge
       v-if="awaitingCount > 0"
       color="warning"
       variant="subtle"
       size="sm"
       data-testid="review-awaiting-count"
+      aria-hidden="true"
     >
       {{ awaitingCount }}
     </UBadge>
@@ -94,6 +95,7 @@ const reviewLabel = computed(() => reviewToggleLabel({
       size="sm"
       icon="i-lucide-message-square"
       data-testid="review-assigned-count"
+      aria-hidden="true"
     >
       {{ assigned.total }}
     </UBadge>
