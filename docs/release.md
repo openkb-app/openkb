@@ -22,6 +22,9 @@ both READMEs fetch it from the newest release.
 Only the new section is written, so the sections below it are yours to correct
 by hand between releases.
 
+After the release, update the Features page on openkb.app
+(https://openkb.app/docs/features).
+
 ## What a version tag publishes
 
 The `images` workflow builds the stack, installs the site on it and checks it
