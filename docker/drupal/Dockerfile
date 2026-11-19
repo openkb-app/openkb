@@ -32,9 +32,12 @@ COPY scripts/site-install.sh scripts/site-update.sh scripts/ensure-oauth-keys.sh
 
 # - files/ holds everything that persists: public, private, config sync.
 # - web/files and config/sync point into it.
+# - Code is not writable for the site: composer extracts with BusyBox unzip,
+#   which keeps the 777 directory mode of GitHub zipballs.
 RUN mkdir -p files/public/translations files/private files/config/sync config \
  && ln -sfn ../files/public web/files \
  && ln -sfn ../files/config/sync config/sync \
+ && chmod -R go-w /app \
  && chmod 444 web/sites/default/settings.php
 
 

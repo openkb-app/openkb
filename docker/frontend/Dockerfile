@@ -28,7 +28,9 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 COPY frontend ./
-RUN npm run build
+# Code is not writable for the server: the checkout's modes are copied in.
+RUN npm run build \
+ && chmod -R go-w .output scripts
 
 
 FROM base AS release
@@ -37,7 +39,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
   /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 COPY --from=build /app/frontend/.output .output
-COPY frontend/scripts scripts
+COPY --from=build /app/frontend/scripts scripts
 COPY --chmod=755 docker/frontend/entrypoint.sh /usr/local/bin/openkb-frontend-entrypoint
 
 # var/ holds the collab snapshot store.

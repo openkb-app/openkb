@@ -70,7 +70,7 @@
 
 		@protectedFiles {
 			not path /.well-known/*
-			path_regexp \.(engine|inc|install|make|module|profile|po|sh|[^/]*sql|theme|twig|tpl(\.php)?|xtmpl|yml)(~|\.sw[op]|\.bak|\.orig|\.save)?$|/(Entries[^/]*|Repository|Root|Tag|Template|composer\.(json|lock)|web\.config|yarn\.lock|package\.json)$|^\/#.*#$|\.php(~|\.sw[op]|\.bak|\.orig|\.save)$
+			path_regexp \.(engine|inc|install|make|module|profile|po|sh|[^/]*sql|[^/]*sql\.gz|theme|twig|tpl(\.php)?|xtmpl|yml)(~|\.sw[op]|\.bak|\.orig|\.save)?$|/(Entries[^/]*|Repository|Root|Tag|Template|composer\.(json|lock)|web\.config|yarn\.lock|package\.json|package-lock\.json)$|^\/#.*#$|\.php(~|\.sw[op]|\.bak|\.orig|\.save)$
 		}
 		error @protectedFiles 403
 
@@ -80,6 +80,15 @@
 			query _format=*
 		}
 		error @jsonLogin 404
+
+		# The code's documentation is not served. Only files on disk: a Drupal
+		# route, such as a private file download, may end in .txt or .md.
+		@docFiles {
+			file
+			path_regexp (?i)\.(txt|md)$
+			not path /robots.txt /.well-known/* /files/*
+		}
+		error @docFiles 403
 
 		# A path ending in a slash would match a directory.
 		@staticFile {
