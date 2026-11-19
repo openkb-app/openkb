@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { UIMessage } from 'ai'
 import type { ToolRun } from '~/utils/chat-answer'
-import { announceReceipt, isCommentTurn, receiptForToolRuns, receiptHref, receiptSummary, turnMetadata, turnPagePathOf } from '~/utils/chat-receipt'
+import { announceReceipt, isCommentTurn, receiptForToolRuns, receiptParts, receiptSummary, turnMetadata } from '~/utils/chat-receipt'
 
 const PAGE = '/demo-wiki/authoring-workflow'
 const NOTHING_CHANGED = 'Nothing changed: block b-1 already holds exactly this markdown.'
@@ -20,27 +20,24 @@ function run(name: string, input: Record<string, unknown>, output?: unknown, err
 }
 
 /** A successful write, as the Tool API bridge answers it. */
-function written(blocks: Record<string, string>, fields: string[] = [], unchanged: string[] = [], removed: string[] = []) {
+function written(blocks: Record<string, string>, fields: string[] = [], unchanged: string[] = [], removed: string[] = [], nid = 39) {
   const applied = { fields, body: false, blocks, ...(removed.length ? { removed } : {}) }
-  const result: Record<string, unknown> = { ok: true, nid: 39, applied, ...(unchanged.length ? { unchanged } : {}) }
-  return { success: true, message: 'Updated node 39', outputs: { result } }
+  const result: Record<string, unknown> = { ok: true, nid, applied, ...(unchanged.length ? { unchanged } : {}) }
+  return { success: true, message: `Updated node ${nid}`, outputs: { result } }
 }
-
-/** A page that holds every block. */
-const ON_PAGE = () => true
 
 describe('receiptForToolRuns', () => {
   it('reads a changed block as a change', () => {
     const receipt = receiptForToolRuns([run('update_blocks', { path: PAGE }, written({ 'b-1': 'v2' }))])
 
-    expect(receipt).toEqual({ changed: true, blocks: ['b-1'], removed: [], fields: [], created: false })
+    expect(receipt).toEqual({ changed: true, pages: [{ nid: 39, blocks: ['b-1'] }], removed: [], fields: [], created: false })
     expect(receiptSummary(receipt!)).toBe('1 block changed')
   })
 
   it('reads a write that changed nothing as "Nothing changed"', () => {
     const receipt = receiptForToolRuns([run('update_blocks', { path: PAGE }, undefined, NOTHING_CHANGED)])
 
-    expect(receipt).toEqual({ changed: false, blocks: [], removed: [], fields: [], created: false })
+    expect(receipt).toEqual({ changed: false, pages: [], removed: [], fields: [], created: false })
   })
 
   it('counts each block once per turn, and an unchanged block is no change', () => {
@@ -52,18 +49,18 @@ describe('receiptForToolRuns', () => {
     ])
 
     expect(receipt!.changed).toBe(true)
-    expect(receipt!.blocks).toEqual(['b-1', 'b-3'])
+    expect(receipt!.pages).toEqual([{ nid: 39, blocks: ['b-1', 'b-3'] }])
     expect(receiptSummary(receipt!)).toBe('2 blocks changed, 2 fields changed')
   })
 
-  it('sums writes to two pages in one receipt', () => {
+  it('counts changed blocks per page in one receipt', () => {
     const receipt = receiptForToolRuns([
       run('create_page', { title: 'Release notes', space: 'demo-wiki' }, { success: true, outputs: { path: '/demo-wiki/release-notes', nid: 40 } }),
       run('update_blocks', { path: PAGE }, written({ 'b-1': 'v2' })),
-      run('update_blocks', { path: '/demo-wiki/other' }, written({ 'b-7': 'v4' })),
+      run('update_blocks', { path: '/demo-wiki/other' }, written({ 'b-7': 'v4', 'b-8': 'v1' }, [], [], [], 41)),
     ])
 
-    expect(receiptSummary(receipt!)).toBe('Page created, 2 blocks changed')
+    expect(receiptSummary(receipt!)).toBe('Page created, 1 block changed, 2 blocks changed')
   })
 
   it('drops a block changed and then removed in the same turn from the changed ones', () => {
@@ -72,7 +69,7 @@ describe('receiptForToolRuns', () => {
       run('update_blocks', { path: PAGE }, written({}, [], [], ['b-1'])),
     ])
 
-    expect(receipt).toMatchObject({ blocks: ['b-2'], removed: ['b-1'] })
+    expect(receipt).toMatchObject({ pages: [{ nid: 39, blocks: ['b-2'] }], removed: ['b-1'] })
     expect(receiptSummary(receipt!)).toBe('1 block changed, 1 block removed')
   })
 
@@ -105,25 +102,36 @@ describe('receiptForToolRuns', () => {
     const done = run('update_blocks', { path: PAGE }, written({ 'b-1': 'v2' }))
 
     expect(receiptForToolRuns([running], true)).toBeNull()
-    expect(receiptForToolRuns([done, running], true)).toMatchObject({ changed: true, blocks: ['b-1'] })
+    expect(receiptForToolRuns([done, running], true)).toMatchObject({ changed: true, pages: [{ nid: 39, blocks: ['b-1'] }] })
   })
 })
 
-describe('receiptHref', () => {
-  const changed = receiptForToolRuns([run('update_blocks', { path: PAGE }, written({ 'b-1': 'v2', 'b-2': 'v1' }))])!
+describe('receiptParts', () => {
+  it("links each page's changed blocks to its editor at the first changed block, by node id", () => {
+    const receipt = receiptForToolRuns([
+      run('update_blocks', { path: PAGE }, written({ 'b-1': 'v2', 'b-2': 'v1' })),
+      run('update_blocks', { nid: 41 }, written({ 'b-7': 'v4' }, [], [], [], 41)),
+      run('update_blocks', { path: PAGE }, written({ 'b-3': 'v1' })),
+    ])!
 
-  it("opens the editor of the turn's page at the first changed block while that page is open", () => {
-    expect(receiptHref(changed, PAGE, PAGE, ON_PAGE)).toBe('/demo-wiki/authoring-workflow?edit#b-1')
+    expect(receiptParts(receipt)).toEqual([
+      { text: '3 blocks changed', href: '/node/39/edit#b-1' },
+      { text: '1 block changed', href: '/node/41/edit#b-7' },
+    ])
   })
 
-  it('links nothing when that block is not on the page open now, or no page is open', () => {
-    expect(receiptHref(changed, PAGE, PAGE, id => id === 'b-2')).toBeNull()
-    expect(receiptHref(changed, PAGE, null, ON_PAGE)).toBeNull()
-  })
+  it('links nothing but changed blocks, and nothing for a result without a node id', () => {
+    const noNid = { success: true, outputs: { result: { ok: true, applied: { blocks: { 'b-1': 'v2' } } } } }
+    const receipt = receiptForToolRuns([
+      run('update_blocks', { path: PAGE }, noNid),
+      run('update_blocks', { path: PAGE }, written({}, ['title'], [], ['b-5'])),
+    ])!
 
-  it('links nothing once the reader went to another page, or when the turn was sent from no page', () => {
-    expect(receiptHref(changed, PAGE, '/demo-wiki/other', ON_PAGE)).toBeNull()
-    expect(receiptHref(changed, null, PAGE, ON_PAGE)).toBeNull()
+    expect(receiptParts(receipt)).toEqual([
+      { text: '1 block changed', href: null },
+      { text: '1 block removed', href: null },
+      { text: '1 field changed', href: null },
+    ])
   })
 
   it('links nothing for a receipt without a changed block', () => {
@@ -131,9 +139,8 @@ describe('receiptHref', () => {
     const unchanged = receiptForToolRuns([run('update_blocks', { path: PAGE }, undefined, NOTHING_CHANGED)])!
 
     expect(removed.changed).toBe(true)
-    expect(receiptSummary(removed)).toBe('1 block removed')
-    expect(receiptHref(removed, PAGE, PAGE, ON_PAGE)).toBeNull()
-    expect(receiptHref(unchanged, PAGE, PAGE, ON_PAGE)).toBeNull()
+    expect(receiptParts(removed)).toEqual([{ text: '1 block removed', href: null }])
+    expect(receiptParts(unchanged)).toEqual([])
   })
 })
 
@@ -148,16 +155,14 @@ describe('announceReceipt', () => {
 })
 
 describe('turn metadata', () => {
-  it('tells a comment turn from any other message, and keeps the page it was sent from', () => {
-    const comment = { id: 'u1', role: 'user', parts: [], metadata: turnMetadata(true, PAGE) } as UIMessage
-    const question = { id: 'u2', role: 'user', parts: [], metadata: turnMetadata(false, null) } as UIMessage
+  it('tells a comment turn from any other message', () => {
+    const comment = { id: 'u1', role: 'user', parts: [], metadata: turnMetadata(true) } as UIMessage
+    const question = { id: 'u2', role: 'user', parts: [], metadata: turnMetadata(false) } as UIMessage
     const bare = { id: 'u3', role: 'user', parts: [] } as UIMessage
 
     expect(isCommentTurn(comment)).toBe(true)
-    expect(turnPagePathOf(comment)).toBe(PAGE)
+    expect(question.metadata).toEqual({})
     expect(isCommentTurn(question)).toBe(false)
-    expect(turnPagePathOf(question)).toBeNull()
     expect(isCommentTurn(bare)).toBe(false)
-    expect(turnPagePathOf(bare)).toBeNull()
   })
 })

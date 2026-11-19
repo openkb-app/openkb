@@ -1,14 +1,22 @@
 import type { UIMessage } from 'ai'
 import type { ToolRun } from '~/utils/chat-answer'
 
+/** The blocks a turn changed on one page. */
+export interface ChangedPage {
+  /** The node id the write result names, or null when it names none. */
+  nid: number | null
+  /** Changed block ids, each once, in the order the turn changed them. */
+  blocks: string[]
+}
+
 /**
  * What a turn changed, read from its write tools' results — never from the
  * model's text, which can claim a change it did not make. It names no page.
  */
 export interface Receipt {
   changed: boolean
-  /** Changed block ids, each once, in the order the turn changed them. */
-  blocks: string[]
+  /** The pages with changed blocks, in the order the turn changed them. */
+  pages: ChangedPage[]
   /** Removed block ids, each once. */
   removed: string[]
   /** Changed field keys, each once. */
@@ -30,7 +38,7 @@ const WRITE_TOOLS = new Set([
  * The shape is not checked upstream.
  */
 interface WriteOutputs {
-  result?: { applied?: { blocks?: unknown, removed?: unknown, fields?: unknown } }
+  result?: { nid?: unknown, applied?: { blocks?: unknown, removed?: unknown, fields?: unknown } }
 }
 
 /**
@@ -42,7 +50,7 @@ interface WriteOutputs {
  * - While a write still runs, a receipt without a change is none yet.
  */
 export function receiptForToolRuns(runs: ToolRun[], commentTurn = false): Receipt | null {
-  const receipt: Receipt = { changed: false, blocks: [], removed: [], fields: [], created: false }
+  const receipt: Receipt = { changed: false, pages: [], removed: [], fields: [], created: false }
   let wrote = false
   let pending = false
   for (const run of runs) {
@@ -54,42 +62,56 @@ export function receiptForToolRuns(runs: ToolRun[], commentTurn = false): Receip
     wrote = true
     if (run.failed) continue
     if (run.name === CREATE_PAGE) receipt.created = true
-    const applied = (run.output as { outputs?: WriteOutputs } | undefined)?.outputs?.result?.applied
+    const result = (run.output as { outputs?: WriteOutputs } | undefined)?.outputs?.result
+    const applied = result?.applied
     const removed = stringsOf(applied?.removed)
-    appendMissingValues(receipt.blocks, blockIdsOf(applied?.blocks))
+    const page = changedPageOf(receipt.pages, nidOf(result?.nid))
+    appendMissingValues(page.blocks, blockIdsOf(applied?.blocks))
     appendMissingValues(receipt.removed, removed)
-    receipt.blocks = receipt.blocks.filter(id => !removed.includes(id))
+    page.blocks = page.blocks.filter(id => !removed.includes(id))
     appendMissingValues(receipt.fields, stringsOf(applied?.fields))
   }
   if (!wrote && !commentTurn) return null
+  receipt.pages = receipt.pages.filter(page => page.blocks.length > 0)
   receipt.changed = receipt.created
-    || receipt.blocks.length > 0
+    || receipt.pages.length > 0
     || receipt.removed.length > 0
     || receipt.fields.length > 0
   if (pending && !receipt.changed) return null
   return receipt
 }
 
-/** One part of a receipt's summary; `changedBlocks` marks the part about changed blocks. */
+/** One part of a receipt's summary, and where it links to, if anywhere. */
 export interface ReceiptPart {
   text: string
-  changedBlocks: boolean
+  href: string | null
 }
 
-/** What changed, in parts: "1 block changed", "1 block removed", "2 fields changed". */
+/**
+ * What changed, in parts: "1 block changed", "1 block removed", "2 fields changed".
+ *
+ * Changed blocks get one part per page, linking to the editor at the page's
+ * first changed block.
+ */
 export function receiptParts(receipt: Receipt): ReceiptPart[] {
   const parts: ReceiptPart[] = []
-  if (receipt.created) parts.push({ text: 'Page created', changedBlocks: false })
-  if (receipt.blocks.length) {
-    parts.push({ text: `${countOf(receipt.blocks.length, 'block')} changed`, changedBlocks: true })
+  if (receipt.created) parts.push({ text: 'Page created', href: null })
+  for (const page of receipt.pages) {
+    parts.push({ text: `${countOf(page.blocks.length, 'block')} changed`, href: changedBlockHref(page) })
   }
   if (receipt.removed.length) {
-    parts.push({ text: `${countOf(receipt.removed.length, 'block')} removed`, changedBlocks: false })
+    parts.push({ text: `${countOf(receipt.removed.length, 'block')} removed`, href: null })
   }
   if (receipt.fields.length) {
-    parts.push({ text: `${countOf(receipt.fields.length, 'field')} changed`, changedBlocks: false })
+    parts.push({ text: `${countOf(receipt.fields.length, 'field')} changed`, href: null })
   }
   return parts
+}
+
+/** The editor of a page at its first changed block, or null without a node id. */
+function changedBlockHref(page: ChangedPage): string | null {
+  if (page.nid === null || !page.blocks[0]) return null
+  return `/node/${page.nid}/edit#${page.blocks[0]}`
 }
 
 /** What changed, in a few words: "1 block changed, 1 block removed, 2 fields changed". */
@@ -107,28 +129,6 @@ export function announceReceipt(receipt: Receipt): string {
   return receipt.changed ? `Changed: ${receiptSummary(receipt)}.` : 'Nothing changed.'
 }
 
-/**
- * The turn's page's editor at the first changed block, or null when that page
- * is not open now or does not hold the block.
- *
- * @param turnPagePath
- *   The path of the page open when the turn was sent, or null when none was.
- * @param openPagePath
- *   The path of the page open now, or null when none is.
- * @param onPage
- *   Whether the open page holds a block id.
- */
-export function receiptHref(
-  receipt: Receipt,
-  turnPagePath: string | null,
-  openPagePath: string | null,
-  onPage: (blockId: string) => boolean = blockId => document.getElementById(blockId) !== null,
-): string | null {
-  const block = receipt.blocks[0]
-  if (!turnPagePath || turnPagePath !== openPagePath || !block || !onPage(block)) return null
-  return `${openPagePath}?edit#${block}`
-}
-
 /** The strings of a list, or none when the value is no list. */
 function stringsOf(value: unknown): string[] {
   if (!Array.isArray(value)) return []
@@ -139,6 +139,21 @@ function stringsOf(value: unknown): string[] {
 function blockIdsOf(value: unknown): string[] {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return []
   return Object.keys(value)
+}
+
+/** A positive node id, or null for any other value. */
+function nidOf(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : null
+}
+
+/** The receipt's entry for a page, added when the turn had none yet. */
+function changedPageOf(pages: ChangedPage[], nid: number | null): ChangedPage {
+  let page = pages.find(entry => entry.nid === nid)
+  if (!page) {
+    page = { nid, blocks: [] }
+    pages.push(page)
+  }
+  return page
 }
 
 /** Appends the values `list` does not hold yet. */
@@ -152,16 +167,11 @@ function appendMissingValues(list: string[], values: string[]): void {
 export interface TurnMetadata {
   /** Sent from a comment thread. */
   commentTurn?: true
-  /** The path of the page open when the turn was sent. */
-  pagePath?: string
 }
 
 /** The metadata of a reader's message. */
-export function turnMetadata(commentTurn: boolean, pagePath: string | null): TurnMetadata {
-  return {
-    ...(commentTurn ? { commentTurn: true } : {}),
-    ...(pagePath ? { pagePath } : {}),
-  }
+export function turnMetadata(commentTurn: boolean): TurnMetadata {
+  return commentTurn ? { commentTurn: true } : {}
 }
 
 /** Whether a message was sent from a comment thread. */
@@ -169,8 +179,3 @@ export function isCommentTurn(message: UIMessage): boolean {
   return (message.metadata as TurnMetadata | undefined)?.commentTurn === true
 }
 
-/** The path of the page open when a message was sent, or null when none was. */
-export function turnPagePathOf(message: UIMessage): string | null {
-  const pagePath = (message.metadata as TurnMetadata | undefined)?.pagePath
-  return typeof pagePath === 'string' ? pagePath : null
-}

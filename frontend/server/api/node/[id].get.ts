@@ -17,8 +17,7 @@ import { bodyForms } from '../../utils/kb-read'
  * serving the published default revision.
  *
  * `?version=default` asks for the live revision instead — one request, for a
- * caller that only wants revision-independent data (the /node/<id>/edit
- * redirect needs the path alias and nothing else).
+ * caller that only wants revision-independent data.
  *
  * `versions` rides along — block id => the block's version, derived off the
  * canonical body exactly as a `.md` read derives it

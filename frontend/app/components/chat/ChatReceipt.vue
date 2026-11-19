@@ -7,8 +7,6 @@ import { receiptParts, type Receipt } from '~/utils/chat-receipt'
 const props = defineProps<{
   /** What one turn changed. */
   receipt: Receipt
-  /** Where the changed blocks link to; null for no link. */
-  href: string | null
 }>()
 
 /** "Changed" or "Nothing changed". */
@@ -34,11 +32,11 @@ const parts = computed(() => receiptParts(props.receipt))
   >
     <template #description>
       <template v-if="receipt.changed">
-        <template v-for="(part, i) in parts" :key="part.text">
+        <template v-for="(part, i) in parts" :key="i">
           <template v-if="i > 0">, </template>
           <ULink
-            v-if="part.changedBlocks && href"
-            :to="href"
+            v-if="part.href"
+            :to="part.href"
             class="underline"
           >{{ part.text }}</ULink>
           <template v-else>{{ part.text }}</template>

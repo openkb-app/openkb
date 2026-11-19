@@ -30,9 +30,8 @@ export function useChatAsk() {
       ...extra,
     }
     askedScopes.value.push(scope.value === SCOPE_ALL ? null : scopeLabel(scope.value, spaces.value))
-    // Kept on the message for the panel: whether it is a comment turn, and the
-    // page its receipt links into.
-    const metadata = turnMetadata(Boolean(extra.commentThread), pagePath.value)
+    // Kept on the message for the panel: whether it is a comment turn.
+    const metadata = turnMetadata(Boolean(extra.commentThread))
     return chat.sendMessage({ text, metadata }, { body: { context } })
   }
 }

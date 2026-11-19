@@ -5,10 +5,10 @@ import ChatReceipt from './ChatReceipt.vue'
 import type { Receipt } from '~/utils/chat-receipt'
 
 /** The component in a bare Vue app, the Nuxt UI parts stubbed to what they show. */
-function mount(receipt: Receipt, href: string | null) {
+function mount(receipt: Receipt) {
   const root = document.createElement('div')
   document.body.appendChild(root)
-  const app = createApp({ render: () => h(ChatReceipt, { receipt, href }) })
+  const app = createApp({ render: () => h(ChatReceipt, { receipt }) })
   app.component('UAlert', {
     props: ['title', 'description', 'icon', 'color', 'variant'],
     setup: (props, { slots, attrs }) => () =>
@@ -22,12 +22,12 @@ function mount(receipt: Receipt, href: string | null) {
   return root
 }
 
-const CHANGED: Receipt = { changed: true, blocks: ['b-4a5e25ad'], removed: [], fields: [], created: false }
-const HREF = '/demo-wiki/authoring-workflow?edit#b-4a5e25ad'
+const CHANGED: Receipt = { changed: true, pages: [{ nid: 39, blocks: ['b-4a5e25ad'] }], removed: [], fields: [], created: false }
+const HREF = '/node/39/edit#b-4a5e25ad'
 
 describe('ChatReceipt', () => {
   it('says what changed, names no page, and links the changed blocks to the change', () => {
-    const root = mount(CHANGED, HREF)
+    const root = mount(CHANGED)
 
     const receipt = root.querySelector('[data-test="answer-receipt"]')!
     expect(receipt.getAttribute('data-receipt-state')).toBe('changed')
@@ -40,21 +40,28 @@ describe('ChatReceipt', () => {
   })
 
   it('links only the changed blocks in a line that lists more', () => {
-    const root = mount({ ...CHANGED, removed: ['b-2'], fields: ['title'] }, HREF)
+    const root = mount({ ...CHANGED, removed: ['b-2'], fields: ['title'] })
 
     expect(root.querySelector('p')?.textContent).toBe('1 block changed, 1 block removed, 1 field changed')
     expect([...root.querySelectorAll('a')].map(a => a.textContent)).toEqual(['1 block changed'])
   })
 
-  it('links nothing when there is no change to go to', () => {
-    const root = mount(CHANGED, null)
+  it('links one count per page', () => {
+    const root = mount({ ...CHANGED, pages: [...CHANGED.pages, { nid: 41, blocks: ['b-1', 'b-2'] }] })
+
+    expect(root.querySelector('p')?.textContent).toBe('1 block changed, 2 blocks changed')
+    expect([...root.querySelectorAll('a')].map(a => a.getAttribute('href'))).toEqual([HREF, '/node/41/edit#b-1'])
+  })
+
+  it('links nothing when there is no page to go to', () => {
+    const root = mount({ ...CHANGED, pages: [{ nid: null, blocks: ['b-1'] }] })
 
     expect(root.querySelector('p')?.textContent).toBe('1 block changed')
     expect(root.querySelector('a, button')).toBeNull()
   })
 
   it('says "Nothing changed" neutrally, with no link', () => {
-    const root = mount({ ...CHANGED, changed: false, blocks: [] }, HREF)
+    const root = mount({ ...CHANGED, changed: false, pages: [] })
 
     const receipt = root.querySelector('[data-test="answer-receipt"]')!
     expect(receipt.getAttribute('data-receipt-state')).toBe('unchanged')

@@ -66,29 +66,26 @@ function ask(text: string) {
 }
 
 /**
- * Per answer: its question, whether it is a comment turn, the page open when
- * it was sent, and the scope it was sent with (not the picker's current one).
+ * Per answer: its question, whether it is a comment turn, and the scope it was
+ * sent with (not the picker's current one).
  */
 const questions = computed(() => {
   const asked = new Map<string, {
     text: string
     scopeName: string | null
     commentTurn: boolean
-    pagePath: string | null
   }>()
   let text = ''
   let scopeName: string | null = null
   let commentTurn = false
-  let pagePath: string | null = null
   let sent = 0
   for (const m of messages.value) {
     if (m.role === 'user') {
       text = textFor(m)
       scopeName = askedScopes.value[sent++] ?? null
       commentTurn = isCommentTurn(m)
-      pagePath = turnPagePathOf(m)
     }
-    else asked.set(m.id, { text, scopeName, commentTurn, pagePath })
+    else asked.set(m.id, { text, scopeName, commentTurn })
   }
   return asked
 })
@@ -120,30 +117,6 @@ function shownReceiptFor(m: UIMessage): Receipt | null {
 /** The grounding the answer shows: none for a turn that wrote, which shows its receipt instead. */
 function shownGroundingFor(m: UIMessage): Grounding | null {
   return receiptsByMessage.value.get(m.id)?.receipt ? null : groundingFor(m)
-}
-
-const route = useRoute()
-
-/** The path of the page open now, or null on any other route. */
-const openPagePath = computed(() => (route.name === 'slug' ? route.path : null))
-
-/**
- * Counts rendered pages: a receipt's link checks the page's blocks again
- * once the page it leads to has rendered.
- */
-const pagesRendered = ref(0)
-const stopCountingPages = useNuxtApp().hook('page:finish', () => {
-  pagesRendered.value++
-})
-onBeforeUnmount(stopCountingPages)
-
-/** Where the answer's changed blocks link to, or null for no link. */
-function changeHrefFor(m: UIMessage): string | null {
-  void pagesRendered.value
-  const receipt = shownReceiptFor(m)
-  if (!receipt) return null
-  const turnPagePath = questions.value.get(m.id)?.pagePath ?? null
-  return receiptHref(receipt, turnPagePath, openPagePath.value)
 }
 
 function questionFor(m: UIMessage): string {
@@ -498,7 +471,7 @@ const strayQuestion = computed(() => {
             v-if="message.role === 'assistant' && shownReceiptFor(message)"
             @click="onReceiptNavigate"
           >
-            <ChatReceipt :receipt="shownReceiptFor(message)!" :href="changeHrefFor(message)" />
+            <ChatReceipt :receipt="shownReceiptFor(message)!" />
           </div>
 
           <!-- Cited sources under the assistant message -->
