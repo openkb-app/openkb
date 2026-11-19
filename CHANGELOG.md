@@ -45,6 +45,12 @@
 
 - Mark only alphas as GitHub pre-releases, and align the release and publishing docs with sync.sh. ([370e383](https://github.com/openkb-app/openkb/commit/370e3833229eec28c2e0acbc6ffce1c3dea33300))
 
+### Image revision r1 (2026-11-19)
+
+Rebuilt on newer base images; nothing else changed.
+
+- `dunglas/frankenphp:1.13.5-php8.3-alpine` (`c7362b955772`) → `dunglas/frankenphp:1.13.6-php8.3-alpine` (`8e8487d1548a`)
+
 ## [1.0.0-beta3] - 2026-10-23
 
 ### Features
