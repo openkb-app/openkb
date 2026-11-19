@@ -169,13 +169,6 @@ export function sectionsLabel(page: SearchPage): string {
   return count === 1 ? '1 more matching section' : `${count} more matching sections`
 }
 
-/** The day a row was last changed. `changed` is Drupal's seconds, not JS's ms. */
-export function changedOn(page: SearchPage): string {
-  if (!page.changed) return ''
-  return new Date(page.changed * 1000)
-    .toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 /**
  * The windows the Updated filter offers, and how far back each one reaches.
  *

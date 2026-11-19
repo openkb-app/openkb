@@ -4,7 +4,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { useDebounceFn } from '@vueuse/core'
 import { backendUrl } from '#shared/utils/user'
 import type { PageSearchResponse } from '#shared/utils/kb-search'
-import { rowLink, rowExcerptParts, excerptParts, subSections, sectionLabel, sectionsLabel, changedOn, UPDATED_RANGES } from '#shared/utils/kb-search'
+import { rowLink, rowExcerptParts, excerptParts, subSections, sectionLabel, sectionsLabel, UPDATED_RANGES } from '#shared/utils/kb-search'
 import type { TitleSuggestion } from '~/composables/useTitleSuggest'
 import { toFormModel, type FrontmatterReferenceTarget, type FrontmatterSchema } from '../editor/frontmatter-model'
 import type { EntityRef } from '~/composables/useEntityFields'
@@ -637,7 +637,16 @@ onMounted(() => {
                     </template>
                     <template v-if="page.changed">
                       <span class="text-dimmed">·</span>
-                      <span class="shrink-0" data-testid="search-row-changed">{{ changedOn(page) }}</span>
+                      <!-- `changed` is Drupal's seconds. NuxtTime rewrites the server's
+                           text in the reader's locale and time zone before hydration. -->
+                      <NuxtTime
+                        class="shrink-0"
+                        data-testid="search-row-changed"
+                        :datetime="page.changed * 1000"
+                        day="numeric"
+                        month="short"
+                        year="numeric"
+                      />
                     </template>
                   </div>
                   <div class="mt-0.5 flex items-baseline justify-between gap-3">

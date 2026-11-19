@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rowLink, rowExcerptParts, excerptParts, subSections, sectionLabel, sectionsLabel, changedOn } from './kb-search'
+import { rowLink, rowExcerptParts, excerptParts, subSections, sectionLabel, sectionsLabel } from './kb-search'
 import type { SearchPage, SearchSection } from './kb-search'
 
 function section(overrides: Partial<SearchSection> = {}): SearchSection {
@@ -67,11 +67,6 @@ describe('search result rows', () => {
   it('counts the sections listed under the label, not the excerpt’s', () => {
     expect(sectionsLabel(page([section(), section()]))).toBe('1 more matching section')
     expect(sectionsLabel(page([section(), section(), section()]))).toBe('2 more matching sections')
-  })
-
-  it('shows a change date only where the row carries one', () => {
-    expect(changedOn(page([section()]))).toContain('2025')
-    expect(changedOn({ ...page([section()]), changed: 0 })).toBe('')
   })
 
   it('marks the words the query matched, and nothing else', () => {
