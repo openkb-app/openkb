@@ -141,8 +141,7 @@ OPENKB_TAG=1.2.3
 docker compose pull && docker compose up -d
 ```
 
-The `drupal` container installs the site on a first boot. On an existing site
-whose database updates the new images left pending, it holds the site until an
-administrator has run `<drupal url>/update.php`. `OPENKB_IMAGE_PREFIX` points
+Updating a site to the new images, database updates included:
+[`docs/self-hosting.md`](self-hosting.md#updating). `OPENKB_IMAGE_PREFIX` points
 the same stack at another registry; unset, `OPENKB_TAG` is `dev`, the name
 `docker compose build` writes locally.

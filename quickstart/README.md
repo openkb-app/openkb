@@ -100,10 +100,9 @@ loopback address.
 Updating is one command, `docker compose pull && docker compose up -d`: it
 fetches what `OPENKB_TAG` names now. Run the `curl` line above before it
 to also move MariaDB and OpenSearch to the versions the newest release was
-tested with. Where the new images bring database updates, the site holds itself
-on a maintenance page until an administrator has run them: sign in at
-<http://localhost:8643/user/login> and open <http://localhost:8643/update.php>.
-The hold lifts itself when they are through.
+tested with. Database updates run at <http://localhost:8643/update.php>, as
+[`docs/self-hosting.md`](https://github.com/openkb-app/openkb/blob/1.x/docs/self-hosting.md#updating)
+describes.
 
 **OpenSearch memory mapping.** `OPENSEARCH_ALLOW_MMAP=false`, the default here,
 is what lets this stack start on any host: with mmap on, OpenSearch requires

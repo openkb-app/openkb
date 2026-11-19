@@ -112,16 +112,7 @@ docker compose exec drupal drush search-api:index kb_chunks -y
 
 ## Updates
 
-1. **Back up** the database and the `drupal-files` and `collab-store` volumes. The commands are in [`docs/self-hosting.md`](docs/self-hosting.md#volumes-and-backup).
-2. Pull the newest release and restart:
-
-   ```sh
-   docker compose pull && docker compose up -d
-   ```
-
-3. **Run the database updates.** Where the new images bring database updates, the site holds itself until an administrator has run them: maintenance mode with a message naming `update.php`, cron paused. Sign in at `https://admin.kb.example.com/user/login` with an account that may *administer software updates* (`admin`), open `https://admin.kb.example.com/update.php` and run what it lists. The hold lifts itself. Nothing is updated unattended.
-
-   From a shell, `docker compose exec drupal drush updatedb` runs the same updates and lifts the hold the same way.
+Back up, pull the new images, run the database updates: [`docs/self-hosting.md`](docs/self-hosting.md#updating) has the commands and what the site does until the updates have run.
 
 Every release carries its notes on the [releases page](https://github.com/openkb-app/openkb/releases) and in [`CHANGELOG.md`](https://github.com/openkb-app/openkb/blob/1.x/CHANGELOG.md). The module inside the image is released as the same version on [drupal.org/project/openkb](https://www.drupal.org/project/openkb). `OPENKB_TAG=1.2.3` pins a version instead of `latest`; [`docs/release.md`](docs/release.md) lists the other tags and what they follow.
 
