@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
   const hp = useHocuspocus()
   const docName = `node:${nid}`
 
-  const checkpoint = await checkpointLiveDocument(hp, docName, event)
+  const checkpoint = await checkpointLiveDocument(hp, nid, event)
   if (checkpoint.blocked && checkpoint.statusCode !== 422) {
     // A 422 is not a reason to refuse a revert: the pending edits are exactly
     // what the user asked to throw away, and refusing would leave the session

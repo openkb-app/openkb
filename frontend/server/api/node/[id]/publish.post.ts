@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
 
   // Pending edits that cannot be written are a reason not to publish:
   // publishing anyway silently drops what the user is looking at.
-  const checkpoint = await checkpointLiveDocument(hp, docName, event)
+  const checkpoint = await checkpointLiveDocument(hp, nid, event)
   if (checkpoint.blocked) {
     throw createError({
       statusCode: checkpoint.statusCode,

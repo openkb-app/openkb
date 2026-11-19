@@ -18,7 +18,7 @@ import { seedBlockMeta, seedFromDrupal, type SeedDeps, type SeedOutcome } from '
 import { sharedFieldSource } from '../utils/drupal-fields'
 import { fetchCeWorkingCopy, fetchInlineComments, putInlineComments, type CePageRead } from '../utils/drupal'
 import { asCollabServer, collabAuthHeaders, collabIdentityConfigured, forgetCollabToken } from '../utils/collab-identity'
-import { adoptSnapshot, agentOnly, blockPrints, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionsFrom, sessionPayload, sessionWindow, sharedIdKeepers, sharedIdRenames, socketOfOrigin, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
+import { adoptSnapshot, blockPrints, collabWritePayload, creditWriter, dischargeFieldWriters, dischargeWindow, hydrateLedger, isPeerUpdate, ledgerSnapshot, newLedger, recordFileAdders, reviewActionsFrom, sessionWindow, sharedIdKeepers, sharedIdRenames, socketOfOrigin, writerKey, writerOfOrigin, type Ledger, type LedgerSnapshot } from '../utils/collab-attribution'
 import { isAgentOrigin } from '../utils/agent-peer'
 import { initProseMirrorDoc } from '@tiptap/y-tiptap'
 import type { Node as ProseNode } from '@tiptap/pm/model'
@@ -33,7 +33,7 @@ import { settleDocument, unloadMayRelease, type CollabControl, type CollabContro
 import { COLLAB_COMMIT_MAX_DIRTY_MS, COLLAB_COMMIT_QUIET_MS, COLLAB_DRUPAL_TIMEOUT_MS, COLLAB_MARK_THROTTLE_MS, COLLAB_UPLOAD_COMMIT_MS } from '../utils/collab-timing'
 import { MarkMirror } from '../utils/collab-sidecar'
 import { noEditAccessReason, noFieldAccessReason } from '#shared/utils/collab-auth'
-import { joinAccessUrl, parseJoinAnswer, type JoinAccount } from '../utils/collab-join'
+import { admits, joinAccessUrl, parseJoinAnswer, type JoinAccount } from '../utils/collab-join'
 import { isCrossSiteRequest } from '../utils/cross-site'
 import { isSessionCsrfToken } from '../utils/csrf'
 
@@ -104,13 +104,11 @@ import { isSessionCsrfToken } from '../utils/csrf'
  * server/utils/collab-identity.ts) — never a captured peer cookie. The session
  * cookie captured in onAuthenticate is still re-verified before a checkpoint
  * (sessionStillValid): a session whose access has died must not have its
- * keystrokes made durable. The manual RPC runs under the caller's own cookie,
- * and an agent ending its session under its own token.
+ * keystrokes made durable.
  *
- * Who wrote what is stated on this server's connection and no other. A
- * caller-carried write therefore says nothing about its window, and the
- * checkpoint entry point below delivers that window itself, under the same
- * trigger, before it answers the caller.
+ * Who wrote what is stated on this server's connection and no other, so every
+ * checkpoint goes out on it, whoever triggered it, and names that caller as the
+ * account acting.
  *
  * Auth: parses the `node:<nid>` document namespace, reads the Drupal session
  * cookie from the WS handshake, and calls Drupal's join gate
@@ -193,15 +191,14 @@ export default defineNitroPlugin((nitroApp) => {
   // that follows it (see WORKING_COPY_MEMO_MS). Holds the in-flight promise, so
   // concurrent lanes share the request rather than merely its result.
   const workingCopyMemo = new Map<number, { read: Promise<CePageRead | null>, expiresAt: number }>()
-  // Most recent authenticated session context per document — replayed by the
-  // auto-checkpoint triggers, which have no request of their own (see the
-  // "Auto-trigger credentials" note in the header comment).
-  const sessionContext = new Map<string, CommitIdentity>()
+  // Most recent authenticated peer cookie per document, re-verified before a
+  // checkpoint nobody triggered (sessionStillValid). Never a write carrier.
+  const sessionCookies = new Map<string, string>()
   // Per-document attribution: who wrote which block, witnessed here (see
-  // server/utils/collab-attribution.ts). Which peer a checkpoint credits by
-  // itself is derived from that checkpoint's own credential (carrierOf),
-  // not tracked here — "whoever authenticated last" is a different account the
-  // moment a second editor joins.
+  // server/utils/collab-attribution.ts). Who a checkpoint acts as comes with
+  // its trigger or the window's election, not tracked here — "whoever
+  // authenticated last" is a different account the moment a second editor
+  // joins.
   const ledgers = new Map<string, Ledger>()
   // The takes on comment threads each connection wrote, by socket: a closed
   // connection's takes end with it (see onDisconnect).
@@ -818,20 +815,20 @@ export default defineNitroPlugin((nitroApp) => {
    * TERMINAL_PRECONDITION_TRIES.
    */
   async function sessionStillValid(documentName: string): Promise<true | CommitOutcome> {
-    const identity = sessionContext.get(documentName)
-    // An agent checkpoint carries its own Bearer token, which Drupal
-    // authenticates on the write itself.
-    if (!identity?.cookie) return true
+    const cookie = sessionCookies.get(documentName)
+    // An agent's session holds no cookie; its access was checked when it
+    // entered the session.
+    if (!cookie) return true
     const nid = Number(/^node:(\d+)$/.exec(documentName)?.[1])
     if (!Number.isFinite(nid)) return true
 
-    const { allowed, reachable } = await canEdit(nid, identity.cookie, true)
+    const { allowed, reachable } = await canEdit(nid, cookie, true)
     if (!reachable) {
       console.error(`[collab] ${documentName}: could not re-verify the captured session, checkpoint skipped`)
       return 'error'
     }
     if (!allowed) {
-      sessionContext.delete(documentName)
+      sessionCookies.delete(documentName)
       hp.closeConnections(documentName)
       console.error(`[collab] ${documentName}: captured session no longer valid, connections closed`)
       return 'unauthenticated'
@@ -948,16 +945,13 @@ export default defineNitroPlugin((nitroApp) => {
       // not edit is a field it must not reach through the shared document
       // either. The gate answered both and logged the refusal; a missing
       // answer is refused too (see utils/collab-join.ts).
-      if (denied === null || denied.length > 0) {
+      if (!admits({ update: allowed, denied })) {
         const reason = noFieldAccessReason(nid, denied)
         throw Object.assign(new Error(reason), { reason })
       }
-      // Capture the session context so an auto-checkpoint (which has no
-      // request of its own) can replay this cookie against Drupal's JSON:API.
-      // The user name rides along, server-derived from the same gate call —
-      // it is connection context only; the client's awareness identity comes
-      // from /api/me, since this return value never reaches the browser.
-      sessionContext.set(documentName, { cookie, user: user?.name })
+      // An auto-checkpoint has no request of its own: it re-verifies this
+      // cookie before it writes (sessionStillValid).
+      sessionCookies.set(documentName, cookie)
       // This session's claim on the document, so a previous one's teardown can
       // tell the state it is releasing from the state this just established.
       claims.set(documentName, (claims.get(documentName) ?? 0) + 1)
@@ -1083,7 +1077,7 @@ export default defineNitroPlugin((nitroApp) => {
       editPermCache.sweep()
       ledgers.delete(documentName)
       markMirror.stop(documentName)
-      sessionContext.delete(documentName)
+      sessionCookies.delete(documentName)
       idleSeeds.delete(documentName)
       claims.delete(documentName)
       statedComments.delete(documentName)
@@ -1104,100 +1098,72 @@ export default defineNitroPlugin((nitroApp) => {
     return held !== undefined && dirtyFieldKeys(held as unknown as Y.Doc).includes(TITLE_KEY)
   }
 
-  // Auto-checkpoint scheduler. Its commit callback carries every checkpoint
-  // under this server's own token except an agent's, which brings its own. The
-  // fields hooks put entity-field edits into every checkpoint's payload, so a
+  // Auto-checkpoint scheduler. Every checkpoint is a collab write under this
+  // server's own token, stating the window and who acts (ADR 0001). The fields
+  // hooks put entity-field edits into every checkpoint's payload, so a
   // disconnect checkpoint persists a field-only change too.
   scheduler = new CheckpointScheduler({
     quietMs: COLLAB_COMMIT_QUIET_MS,
     maxDirtyMs: COLLAB_COMMIT_MAX_DIRTY_MS,
     commit: async (documentName, trigger, identity) => {
-      /** One checkpoint attempt; `asAgent` lets an agent's own token carry it. */
-      const attempt = async (asAgent: boolean) => {
-        // The ledger has to be complete before the window is read off it, and the
-        // pass is local work — no round trip, no race with the unload the commit
-        // below guards against.
-        accountFor(documentName)
-        settleSharedIds(documentName)
-        const ledger = ledgerFor(documentName)
-        // What this checkpoint carries, taken here rather than after the write:
-        // commitDocument serializes the body before its first await, and this is
-        // the accounting for exactly that body.
-        const window = sessionWindow(ledger, titleIsDirty(hp, documentName))
-        // An agent hands over its own token, and that write is the token
-        // owner's: no statement, no account switch (ADR 0001). Drupal credits
-        // all of it to the agent, so the token carries only a window the agent
-        // alone wrote. Every other checkpoint goes out under this server's OAuth
-        // client and states who is acting. The captured peer cookie is never
-        // replayed onto a write.
-        const agentCarrier = asAgent && identity?.token !== undefined && agentOnly(window, { user: identity.user, uid: identity.uid, via: identity.via ?? null })
-        const carrier = agentCarrier ? identity : await collabCommitIdentity()
-        const owed = Object.keys(window.blocks).length > 0
-        // Whoever triggered this is who it acts as; one nobody triggered acts as
-        // the human the window elected.
-        const payload = agentCarrier ? undefined : sessionPayload(window, identity?.uid ?? null)
-        const result = await commitDocument(hp, documentName, {
-          trigger,
-          // A caller that brought its own credential authenticated on this very
-          // request; only the replayed session needs re-verifying.
-          precondition: identity ? undefined : () => sessionStillValid(documentName),
-          identity: carrier,
-          // A session's checkpoint is not its carrier's save: it carries the
-          // window's own accounting, and Drupal credits the peers it names and
-          // writes as the human it names. Nothing on an agent's, which is that
-          // token owner's ordinary save.
-          sessionWrite: payload,
-          // The agent's token carries only the blocks the agent wrote.
-          ...(agentCarrier ? { onlyBlocks: new Set(Object.keys(window.blocks)) } : {}),
-          // Fields and block ids ride the checkpoint payload.
-          hooks: mergeCommitHooks(
-            fieldsCommitHooks(fieldSource.fetchSpecs),
-            // Drupal takes page files from a session checkpoint only (ADR 0020):
-            // an agent's own write leaves them pending for the next one.
-            agentCarrier ? {} : filesCommitHooks(),
-            // Two reasons to write that the body hash cannot see.
-            //  - A window whose writers Drupal has not recorded yet: the text
-            //    may already be in Drupal (an agent wrote it) and the credit is
-            //    not durable until a checkpoint carries it. Drupal books it onto
-            //    blocks this write leaves alone.
-            //  - A stated sign-off: the checkpoint IS how a sign-off reaches
-            //    Drupal, and a reviewer clearing a block types nothing.
-            {
-              dirtyChecks: [
-                async () => payload !== undefined && (owed || payload.actions.length > 0),
-              ],
-            },
-            // The pass above resolved every shared id against what the blocks
-            // held before; the commit applies that rather than reading document
-            // order, which is the client's to choose.
-            blockIdCommitHooks(sharedIdKeepers(ledger.baseline)),
-            // The sidecar mirror is re-taken in the post-commit lane, with the
-            // other bookkeeping that writes to the doc: a doc write landing after
-            // the confirmed-checkpoint signal resurrects the y-indexeddb mirror
-            // the peers just cleared.
-            // The postCommit lane runs only after a PATCH Drupal accepted.
-            { postCommit: [async () => { await syncSidecarFromDrupal(documentName, true) }] },
-          ),
-        })
-        return { ledger, window, payload, result }
-      }
-      let { ledger, window, payload, result } = await attempt(true)
-      // The agent's token credits every changed block to the agent, so a body
-      // changing a block it did not write, such as a callout written closed,
-      // goes out as a session write: that block stays credited to nobody.
-      if (result.outcome === 'foreign-blocks') {
-        const sessionAttempt = await attempt(false)
-        ledger = sessionAttempt.ledger
-        window = sessionAttempt.window
-        payload = sessionAttempt.payload
-        result = sessionAttempt.result
-      }
+      // The ledger has to be complete before the window is read off it, and the
+      // pass is local work — no round trip, no race with the unload the commit
+      // below guards against.
+      accountFor(documentName)
+      settleSharedIds(documentName)
+      const ledger = ledgerFor(documentName)
+      // What this checkpoint carries, taken here rather than after the write:
+      // commitDocument serializes the body before its first await, and this is
+      // the accounting for exactly that body.
+      const window = sessionWindow(ledger, titleIsDirty(hp, documentName))
+      const owed = Object.keys(window.blocks).length > 0
+      // Whoever triggered this is who it acts as; one nobody triggered acts as
+      // the human the window elected. The captured peer cookie is never
+      // replayed onto a write.
+      const payload = collabWritePayload(window, identity?.uid ?? null)
+      const result = await commitDocument(hp, documentName, {
+        trigger,
+        // A caller's access was checked on its own request, an agent's when it
+        // entered the session; only the captured session needs re-verifying.
+        precondition: identity ? undefined : () => sessionStillValid(documentName),
+        identity: await collabCommitIdentity(),
+        // Drupal credits the peers the window names and writes as the human it
+        // names.
+        collabWrite: payload,
+        // Fields, page files and block ids ride the checkpoint payload.
+        hooks: mergeCommitHooks(
+          fieldsCommitHooks(fieldSource.fetchSpecs),
+          filesCommitHooks(),
+          // Two reasons to write that the body hash cannot see.
+          //  - A window whose writers Drupal has not recorded yet: the text
+          //    may already be in Drupal (a lost response) and the credit is
+          //    not durable until a checkpoint carries it. Drupal books it onto
+          //    blocks this write leaves alone.
+          //  - A stated sign-off: the checkpoint IS how a sign-off reaches
+          //    Drupal, and a reviewer clearing a block types nothing.
+          {
+            dirtyChecks: [
+              async () => owed || payload.actions.length > 0,
+            ],
+          },
+          // The pass above resolved every shared id against what the blocks
+          // held before; the commit applies that rather than reading document
+          // order, which is the client's to choose.
+          blockIdCommitHooks(sharedIdKeepers(ledger.baseline)),
+          // The sidecar mirror is re-taken in the post-commit lane, with the
+          // other bookkeeping that writes to the doc: a doc write landing after
+          // the confirmed-checkpoint signal resurrects the y-indexeddb mirror
+          // the peers just cleared.
+          // The postCommit lane runs only after a PATCH Drupal accepted.
+          { postCommit: [async () => { await syncSidecarFromDrupal(documentName, true) }] },
+        ),
+      })
       // The window is owed until Drupal holds the bytes it accounts for. A
-      // checkpoint that wrote nothing, failed, hit a conflict — or carried no
-      // accounting at all — leaves its writer sets on the books to ride the
-      // next one that does. Discharge drops only the blocks whose content still
-      // equals what the window stated; a block edited while the PATCH was in
-      // flight keeps its set and is re-stated, idempotently.
+      // checkpoint that wrote nothing, failed or hit a conflict leaves its
+      // writer sets on the books to ride the next one that does. Discharge
+      // drops only the blocks whose content still equals what the window
+      // stated; a block edited while the PATCH was in flight keeps its set and
+      // is re-stated, idempotently.
       //
       // `adopted` is the other way Drupal comes to hold them: a PATCH that
       // landed and whose response was lost, discovered on the next checkpoint
@@ -1205,7 +1171,7 @@ export default defineNitroPlugin((nitroApp) => {
       // accounting rode that write, so the window is delivered — and what this
       // session believes Drupal stores has to advance with it, or a peer undoing
       // the delivered edit is measured against bytes Drupal replaced.
-      if ((result.committed || result.adopted) && payload) {
+      if (result.committed || result.adopted) {
         dischargeWindow(ledger, window)
         const held = hp.documents.get(documentName)
         if (held) {
@@ -1287,7 +1253,6 @@ export default defineNitroPlugin((nitroApp) => {
     fetchSpecs: fieldSource.fetchSpecs,
     validateValues: validateFieldValues,
     fetchBody: fetchDrupalBody,
-    captureCarrier: (documentName, identity) => sessionContext.set(documentName, identity),
     checkpoint,
   }
 

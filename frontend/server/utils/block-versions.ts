@@ -129,15 +129,6 @@ export function blockVersions(canonical: string): Record<string, string> {
   )
 }
 
-/** The ids of the blocks `after` adds, changes or removes against `before`. */
-export function changedBlockIds(before: string, after: string): string[] {
-  const old = blockSegments(before)
-  const next = blockSegments(after)
-  const changed = [...next].filter(([id, markdown]) => old.get(id) !== markdown).map(([id]) => id)
-  const removed = [...old.keys()].filter(id => !next.has(id))
-  return [...changed, ...removed]
-}
-
 /**
  * The body to write, with each block nobody edited in Drupal's stored bytes.
  *

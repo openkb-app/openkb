@@ -19,8 +19,8 @@ import type { CommitIdentity, CommitResult, CommitTrigger } from './commit'
 export interface CheckpointSchedulerOptions {
   quietMs: number
   maxDirtyMs: number
-  /** `identity` overrides the document's captured session credentials — an
-   *  agent commits under its own token, not under whoever authenticated last. */
+  /** `identity` is the caller the checkpoint acts as; without one it acts as
+   *  the human the window elects. */
   commit: (docName: string, trigger: CommitTrigger, identity?: CommitIdentity) => Promise<CommitResult>
   /** Injectable timers/clock for deterministic tests. */
   setTimer?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>
@@ -94,7 +94,7 @@ export class CheckpointScheduler {
   }
 
   /**
-   * Checkpoint this document now, under `identity`, and report the outcome.
+   * Checkpoint this document now, acting as `identity`, and report the outcome.
    *
    * Every caller-facing write comes through here (Save, Publish, Revert,
    * Approve, agent session end) and queues behind any running commit — two
@@ -102,8 +102,8 @@ export class CheckpointScheduler {
    * The wait is a loop: callers released together must re-check, since one
    * of them starts running before the others look.
    *
-   * No `identity` is this server writing as itself — what delivering an owed
-   * session statement after a caller's write needs.
+   * Without `identity` it acts as the human the window elects — what
+   * delivering an owed statement after a caller's write needs.
    */
   async checkpoint(
     docName: string,
@@ -147,11 +147,10 @@ export class CheckpointScheduler {
   }
 
   /** Both timers off, and no queued terminal run — disarm means disarm. */
-  private clearTimers(s: DocState, { keepUpload = false } = {}): void {
+  private clearTimers(s: DocState): void {
     if (s.quiet) { this.clearTimer(s.quiet); s.quiet = null }
     if (s.max) { this.clearTimer(s.max); s.max = null }
     s.terminal = false
-    if (keepUpload) return
     if (s.upload) { this.clearTimer(s.upload); s.upload = null }
     s.uploadPending = null
   }
@@ -190,10 +189,7 @@ export class CheckpointScheduler {
   ): Promise<CommitResult> {
     const s = this.state(docName)
     s.inFlight = true
-    // An agent's own run leaves page files to a session checkpoint (ADR 0020),
-    // so the upload timer stays armed for that one.
-    if (identity?.token !== undefined) this.clearTimers(s, { keepUpload: true })
-    else this.clearTimers(s)
+    this.clearTimers(s)
     const run = (async (): Promise<CommitResult> => {
       let result: CommitResult
       try {

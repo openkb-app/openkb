@@ -16,6 +16,7 @@ import {
   commitKbPageWithAuth,
 } from './drupal'
 import { commitDocument, contentHash, serializeYDoc, CommitValidationError } from './commit'
+import { commit, NO_WINDOW_WIRE } from '../test-support/commit'
 import {
   createRefTypeResolver,
   dirtyFieldKeys,
@@ -209,7 +210,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     doc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(doc)))
     doc.getMap('fields').set('type', 'adr')
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'disconnect',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -218,11 +219,12 @@ describe('fieldsCommitHooks through commitDocument', () => {
     expect(res.outcome).toBe('committed')
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'OpenKB commit (disconnect)', field_type: 'adr' },
     })
     // Baseline advanced by exactly the committed key → the next trigger is clean.
     expect((doc.getMap('_meta').get('fields_baseline') as FieldValues).type).toBe('adr')
-    const again = await commitDocument(hp('node:1', doc), 'node:1', {
+    const again = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'quiet',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -249,7 +251,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
       return { page: { titleHeading: '', id: 'uuid-1', nid: 1, changed: 100 } } as never
     })
 
-    const checkpoint = commitDocument(hp('node:1', doc), 'node:1', {
+    const checkpoint = commit(hp('node:1', doc), 'node:1', {
       trigger: 'agent',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -263,6 +265,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, bodyAtCheckpoint, {
       attributes: { revision_log: 'OpenKB commit (agent)', field_summary: 'A wrote this.' },
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
     })
     // B's value is still owed, and reaches Drupal under B's own checkpoint.
     expect(dirtyFieldKeys(doc)).toEqual(['summary'])
@@ -272,7 +275,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     const doc = sessionDoc({ title: 'T', type: 'article' })
     doc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(doc)))
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'quiet',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -287,7 +290,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     doc.getMap('fields').set('title', 'Renamed')
     doc.getMap('fields').set('owner', { id: 'uuid-marta', label: 'Marta' })
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -297,6 +300,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     expect(commitMock).toHaveBeenCalledOnce()
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'OpenKB commit (manual)', title: 'Renamed' },
       relationships: { field_owner: { data: { type: 'user--user', id: 'uuid-marta' } } },
     })
@@ -307,7 +311,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     const doc = sessionDoc({ title: 'T', owner: null })
     doc.getMap('fields').set('owner', { id: 'uuid-ghost', label: 'Ghost' })
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -330,7 +334,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     const doc = sessionDoc({ title: 'T', type: 'article' })
     doc.getMap('fields').set('type', 'adr')
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'disconnect',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(async () => null),
@@ -339,6 +343,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     expect(res.outcome).toBe('committed')
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'OpenKB commit (disconnect)' },
     })
     // Baseline NOT advanced — the field diff survives for the next commit.
@@ -358,7 +363,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     doc.getMap('fields').set('space', { id: 'uuid-space', label: 'General' })
     doc.getMap('fields').set('type', 'adr')
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -367,6 +372,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     expect(res.outcome).toBe('committed')
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'OpenKB commit (manual)', field_type: 'adr' },
     })
     expect(doc.getMap('fields').has('space')).toBe(false)
@@ -387,7 +393,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
       return {}
     })
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'disconnect',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -396,6 +402,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
     expect(res.outcome).toBe('committed')
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'OpenKB commit (disconnect)' },
       relationships: { field_tags: { data: [{ type: 'taxonomy_term--kb_tags', id: 'uuid-new' }] } },
     })
@@ -425,7 +432,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
       return { changed: 200, review: null }
     })
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),
@@ -451,7 +458,7 @@ describe('fieldsCommitHooks through commitDocument', () => {
       return { changed: 200, review: null }
     })
 
-    const res = await commitDocument(hp('node:1', doc), 'node:1', {
+    const res = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: fieldsCommitHooks(fetchSpecs),

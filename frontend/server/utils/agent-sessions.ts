@@ -166,26 +166,20 @@ export function agentSessionRemainingMs(key: string, now = Date.now()): number {
  *
  * Whoever wrote there before checks their work in first, under their own actor
  * — see {@link writers}.
- *
- * Answers whether the document changed hands *and* came out clean. It carries
- * only this session's work from here on, so the caller may point the document's
- * captured carrier at this writer too, and a timer-driven checkpoint is then
- * credited to the actor whose ops it serializes.
  */
-export async function claimAgentWrites(key: string): Promise<boolean> {
+export async function claimAgentWrites(key: string): Promise<void> {
   const entry = open.get(key)
-  if (!entry) return false
+  if (!entry) return
   const document = entry.session.documentName
   const held = writers.get(document)
-  if (held === key || held === null) return false
+  if (held === key || held === null) return
   if (held === undefined) {
     writers.set(document, key)
-    return false
+    return
   }
   const previous = open.get(held)
   const flushed = previous ? await previous.persist() : false
   writers.set(document, flushed ? key : null)
-  return flushed
 }
 
 /**

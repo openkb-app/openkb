@@ -252,7 +252,7 @@ describe('the session registry', () => {
     holdAgentSession('a', first)
     holdAgentSession('b', second)
 
-    expect(await claimAgentWrites('b')).toBe(true)
+    await claimAgentWrites('b')
 
     expect(first.persist).toHaveBeenCalledOnce()
     expect(second.persist).not.toHaveBeenCalled()
@@ -282,7 +282,7 @@ describe('the session registry', () => {
     holdAgentSession('a', first)
     holdAgentSession('b', second)
 
-    expect(await claimAgentWrites('b')).toBe(false)
+    await claimAgentWrites('b')
     await closeAgentSessions({})
 
     expect(second.persist).not.toHaveBeenCalled()
@@ -294,7 +294,7 @@ describe('the session registry', () => {
     holdAgentSession('a', here)
     holdAgentSession('b', elsewhere)
 
-    expect(await claimAgentWrites('b')).toBe(false)
+    await claimAgentWrites('b')
     expect(here.persist).not.toHaveBeenCalled()
   })
 

@@ -8,7 +8,8 @@ vi.mock('./drupal', () => ({
   commitKbPageWithAuth: vi.fn(),
 }))
 import { fetchCeWorkingCopy, commitKbPageWithAuth } from './drupal'
-import { commitDocument, mergeCommitHooks } from './commit'
+import { mergeCommitHooks } from './commit'
+import { commit } from '../test-support/commit'
 import { splitTitleHeading } from './title-heading'
 import { blockIdCommitHooks } from './commit-block-ids'
 import { writeBlockMeta, type PageBlock } from '#shared/page-blocks'
@@ -69,7 +70,7 @@ describe('block ids at commit', () => {
   it('re-mints a duplicated id, first occurrence keeping it', async () => {
     // What a split leaves behind on a client without the minter.
     const doc = docWith(body(['first half', 'b-dup'], ['second half', 'b-dup']))
-    const result = await commitDocument(hp('node:1', doc), 'node:1', {
+    const result = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })
     expect(result.outcome).toBe('committed')
@@ -85,7 +86,7 @@ describe('block ids at commit', () => {
     // move the block's id, and its whole review history with it, at every quiet
     // interval for as long as the document is open.
     const doc = docWith(body(['first half', 'b-dup'], ['second half', 'b-dup']))
-    const first = await commitDocument(hp('node:1', doc), 'node:1', {
+    const first = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })
     expect(first.outcome).toBe('committed')
@@ -93,7 +94,7 @@ describe('block ids at commit', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, path: '/kb/x', title: 'X', body: sent, changed: 100 } as never)
     commitMock.mockClear()
 
-    const second = await commitDocument(hp('node:1', doc), 'node:1', {
+    const second = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'quiet', identity: { token: 'collab' }, hooks: HOOKS,
     })
     expect(second.outcome).toBe('clean')
@@ -106,16 +107,16 @@ describe('block ids at commit', () => {
     // and a duplicate cannot carry another block's credit away with it.
     const doc = docWith(body(['typed into', 'b-dup'], ['a duplicate wearing its id', 'b-dup']))
     const window = { 'b-dup': [{ uid: 7, via: null }] }
-    const sessionWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: window }
-    await commitDocument(hp('node:1', doc), 'node:1', {
-      trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS, sessionWrite,
+    const collabWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: window }
+    await commit(hp('node:1', doc), 'node:1', {
+      trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS, collabWrite,
     })
 
     const ids = [...committedDocument().matchAll(/\{#([\w-]+)\}/g)].map(m => m[1])
     expect(ids).toEqual(['b-dup', 'b-dup-2'])
     // The duplicate reaches Drupal named by nobody, and is stamped unaccounted
     // for it. That is the block the client introduced, never the one it aimed at.
-    expect(commitMock.mock.calls[0]![3]?.session?.blocks).toEqual({ 'b-dup': [{ uid: 7, via: null }] })
+    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-dup': [{ uid: 7, via: null }] })
   })
 
   it('leaves the id on the block the accounting names, not on the first one', async () => {
@@ -125,17 +126,17 @@ describe('block ids at commit', () => {
     // sidecar tally, the comments and the sign-offs keyed on that id.
     const doc = docWith(body(['a duplicate wearing its id', 'b-dup'], ['typed into', 'b-dup']))
     const window = { 'b-dup': [{ uid: 7, via: null }] }
-    const sessionWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: window }
-    await commitDocument(hp('node:1', doc), 'node:1', {
+    const collabWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: window }
+    await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: mergeCommitHooks(blockIdCommitHooks(new Map([['b-dup', 1]]))),
-      sessionWrite,
+      collabWrite,
     })
 
     expect(committedDocument()).toBe('a duplicate wearing its id {#b-dup-2}\n\ntyped into {#b-dup}\n')
     // The window is untouched: it already names the block that keeps the id.
-    expect(commitMock.mock.calls[0]![3]?.session?.blocks).toEqual({ 'b-dup': [{ uid: 7, via: null }] })
+    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-dup': [{ uid: 7, via: null }] })
   })
 
   it('re-mints past an id the document already carries', async () => {
@@ -143,7 +144,7 @@ describe('block ids at commit', () => {
     // and landing the re-mint on it would merge two blocks' histories — the
     // very thing the pass exists to prevent.
     const doc = docWith(body(['first', 'b-dup'], ['second', 'b-dup'], ['a real b-dup-2', 'b-dup-2']))
-    await commitDocument(hp('node:1', doc), 'node:1', {
+    await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })
     const ids = [...committedDocument().matchAll(/\{#([\w-]+)\}/g)].map(m => m[1])
@@ -153,16 +154,16 @@ describe('block ids at commit', () => {
 
   it('leaves the payload alone when no id had to move', async () => {
     const doc = docWith(body(['only one', 'b-1']))
-    const sessionWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: { 'b-1': [{ uid: 7, via: null }] } }
-    await commitDocument(hp('node:1', doc), 'node:1', {
-      trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS, sessionWrite,
+    const collabWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: { 'b-1': [{ uid: 7, via: null }] } }
+    await commit(hp('node:1', doc), 'node:1', {
+      trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS, collabWrite,
     })
-    expect(commitMock.mock.calls[0]![3]?.session?.blocks).toEqual({ 'b-1': [{ uid: 7, via: null }] })
+    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-1': [{ uid: 7, via: null }] })
   })
 
   it('leaves an id-less block id-less — a save must not rewrite untouched content', async () => {
     const doc = docWith(body(['keyed', 'b-1'], ['never edited here', null]))
-    await commitDocument(hp('node:1', doc), 'node:1', {
+    await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })
     expect(committedDocument()).toBe('keyed {#b-1}\n\nnever edited here\n')
@@ -175,7 +176,7 @@ describe('block ids at commit', () => {
       'review:peer': { uid: 3, name: 'fago', at: 1000, vid: 1 },
     }
     writeBlockMeta(doc, { 'b-1': forged })
-    await commitDocument(hp('node:1', doc), 'node:1', {
+    await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })
     expect(commitMock.mock.calls[0]![3]?.attributes?.field_block_meta).toBeUndefined()
@@ -184,14 +185,14 @@ describe('block ids at commit', () => {
   it('a sidecar-only change is not a reason to write a revision', async () => {
     const doc = docWith(body(['hello', 'b-1']))
     // Body already committed as it stands.
-    const first = await commitDocument(hp('node:1', doc), 'node:1', {
+    const first = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })
     expect(first.outcome).toBe('committed')
     commitMock.mockClear()
 
     writeBlockMeta(doc, { 'b-1': { contributors: [{ uid: 3, via: null, name: 'fago', lastEdit: 2000 }] } })
-    const second = await commitDocument(hp('node:1', doc), 'node:1', {
+    const second = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })
     expect(second.outcome).toBe('clean')

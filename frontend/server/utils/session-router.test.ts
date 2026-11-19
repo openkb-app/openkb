@@ -233,7 +233,6 @@ describe('routeAgentEdit', () => {
       fetchSpecs: vi.fn(async () => SPECS),
       validateValues: vi.fn(async () => {}),
       fetchBody: vi.fn(async () => 'from drupal'),
-      captureCarrier: vi.fn(),
       checkpoint,
     } as unknown as RouterDeps
   })
@@ -318,10 +317,10 @@ describe('routeAgentEdit', () => {
       'Bearer tok-a': { uid: 7, name: 'ada', via: 'Claude', scopes: [AGENT_WRITE_SCOPE] },
       'Bearer tok-b': { uid: 9, name: 'bo', via: 'Codex', scopes: [AGENT_WRITE_SCOPE] },
     }
-    const signed: Array<{ user?: string, summary: unknown }> = []
+    const signed: Array<{ uid?: number, summary: unknown }> = []
     deps.fetchIdentity = vi.fn(async (auth: Record<string, string>) => identities[auth.Authorization!]!)
     deps.checkpoint = vi.fn(async (_document, _trigger, identity) => {
-      signed.push({ user: identity.user, summary: doc.getMap('fields').get('summary') })
+      signed.push({ uid: identity.uid, summary: doc.getMap('fields').get('summary') })
       return COMMITTED
     })
 
@@ -330,25 +329,9 @@ describe('routeAgentEdit', () => {
     await closeAgentSessions({})
 
     expect(signed).toEqual([
-      { user: 'ada', summary: 'A wrote 1.' },
-      { user: 'bo', summary: 'B wrote 2.' },
+      { uid: 7, summary: 'A wrote 1.' },
+      { uid: 9, summary: 'B wrote 2.' },
     ])
-  })
-
-  it('points a handed-over document\'s carrier at the writer that now owns it', async () => {
-    // The document's own checkpoints — the quiet timer, the max-dirty backstop
-    // — go out under its captured carrier. The handover left it clean, so what
-    // they serialize from here is the new writer's work.
-    deps.fetchIdentity = vi.fn(async (auth: Record<string, string>) => (
-      auth.Authorization === 'Bearer tok-b' ? { ...AGENT, uid: 9, name: 'bo', via: 'Codex' } : AGENT
-    ))
-    await routeAgentEdit(deps, { token: 'tok-a' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'a' } })
-    ;(deps.host.documents as Map<string, unknown>).set('node:1', doc)
-
-    await routeAgentEdit(deps, { token: 'tok-b' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'b' } })
-
-    expect(deps.captureCarrier)
-      .toHaveBeenLastCalledWith('node:1', { token: 'tok-b', user: 'bo', via: 'Codex' })
   })
 
   it('refuses a write onto a session that closed while the write was validated', async () => {
@@ -397,7 +380,7 @@ describe('routeAgentEdit', () => {
 
     await closeAgentSessions({})
 
-    expect(checkpoint).toHaveBeenCalledWith('node:1', 'agent', { token: 'tok', user: 'fago', via: 'Claude' })
+    expect(checkpoint).toHaveBeenCalledWith('node:1', 'agent', { uid: 7 })
     expect(disconnect).toHaveBeenCalledOnce()
   })
 
@@ -521,25 +504,6 @@ describe('routeAgentEdit', () => {
     // Restoration, not authorship: no tally, and the bytes go back unchanged.
     expect((doc.getMap('blockMeta').get('b-1') as { contributors: unknown[] }).contributors).toHaveLength(1)
     expect(await serializeYDoc(doc)).toBe('kept {#b-1}\n\nsecond {#b-2}')
-  })
-
-  it('hands a headless document its own carrier before it loads', async () => {
-    // Every Drupal read the document makes runs under the carrier captured for
-    // it, and on a moderated page the working copy is invisible to anonymous
-    // — so a session an agent starts has to contribute the agent's token, or it
-    // seeds from the published revision (or not at all) and commits the wrong
-    // body back.
-    await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { blocks: [{ id: SEED_BLOCK, markdown: 'after' }] })
-
-    expect(deps.captureCarrier).toHaveBeenCalledWith('node:1', { token: 'tok', user: 'fago', via: 'Claude' })
-  })
-
-  it('leaves a live document\'s carrier to the humans in it', async () => {
-    // Replacing it would run their next timer-driven checkpoint — and the
-    // revision it writes — under this agent.
-    ;(deps.host.documents as Map<string, unknown>).set('node:1', doc)
-    await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { blocks: [{ id: SEED_BLOCK, markdown: 'after' }] })
-    expect(deps.captureCarrier).not.toHaveBeenCalled()
   })
 
   it('never re-fills a body the writer is replacing anyway', async () => {

@@ -599,27 +599,11 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
 }
 
 /**
- * Whether a window holds only this one agent's work: the account `user` (uid
- * `uid`) writing through the label `via`. An agent's own token states nothing,
- * so a window with a sign-off in it, or a file someone else added, does not
- * qualify. An empty window does.
- */
-export function agentOnly(window: SessionWindow, agent: { user?: string, uid?: number, via: string | null }): boolean {
-  return Object.values(window.blocks).every(set => set.every(w => w.via === agent.via))
-    && window.coAuthors.every(a => a.via === agent.via && a.name === agent.user)
-    && window.actions.length === 0
-    && Object.values(window.files).every(uid => uid === agent.uid)
-}
-
-/**
  * The statement a checkpoint carries.
  *
- * Only a checkpoint going out over this server's own connection states one
- * (ADR 0001): Drupal reads a statement nowhere else, so an agent ending its
- * session under its own token sends text alone and the window it did not state
- * waits for the next checkpoint this server sends. Drupal credits from the
- * set, a `via` entry raising the agent step, so an agent-only session's writing
- * is stated here like anyone else's (ADR 0003).
+ * Every checkpoint states one, over this server's own connection (ADR 0001).
+ * Drupal credits from the set, a `via` entry raising the agent step, so an
+ * agent's writing is stated here like anyone else's (ADR 0003).
  *
  * `acting` is who the write is performed as: the peer who triggered it, or —
  * where nobody did — the human the window elected. Drupal switches to them, so
@@ -637,7 +621,7 @@ export function agentOnly(window: SessionWindow, agent: { user?: string, uid?: n
  * identified edit re-stamps them. Stating it keeps that text off the service
  * account.
  */
-export function sessionPayload(
+export function collabWritePayload(
   window: SessionWindow,
   acting: number | null,
 ): {

@@ -13,7 +13,7 @@ import {
   type KbPagePatchExtra,
 } from './drupal'
 import { storedBody } from './title-heading'
-import { changedBlockIds, keepStoredSpellingOfUntouchedBlocks } from './block-versions'
+import { keepStoredSpellingOfUntouchedBlocks } from './block-versions'
 import { actorLabel } from '#shared/utils/attribution'
 
 /**
@@ -23,13 +23,11 @@ import { actorLabel } from '#shared/utils/attribution'
  *   - manual RPC  (POST /api/node/:id/commit)
  *   - last-peer-disconnect and quiet/max-dirty auto-checkpoints
  *     (server/plugins/hocuspocus.ts)
- *   - agent session end (server/utils/session-router.ts, under the agent's
- *     own Bearer token)
+ *   - agent session end (server/utils/session-router.ts)
  *
- * The first two go out under this server's own Bearer token and name the human
- * acting through it, so text, credit and the publish they asked for are one
- * write ({@link SessionWrite}). An agent hands over its own token: no
- * statement, and the write is the token owner's.
+ * All go out under this server's own Bearer token and name the account acting
+ * through it, so text, credit and the publish they asked for are one write
+ * ({@link CollabWrite}).
  *
  * Flow: (e) lane captures → yDocToProsemirrorJSON('default') → (a) pre-serialize
  * transforms → Node.fromJSON(editorSchema) → serializeDocToMarkdown → dirty
@@ -64,22 +62,11 @@ import { actorLabel } from '#shared/utils/attribution'
 export type CommitTrigger = 'manual' | 'disconnect' | 'quiet' | 'max-dirty' | 'agent'
 
 export interface CommitIdentity {
-  /** A peer's Drupal session cookie, captured at the auth handshake. Read to
-   *  re-verify that session before a checkpoint; never a write carrier. */
-  cookie?: string
-  /** Agent Bearer token — the one carrier a caller brings (OKB-61). It writes
-   *  as the token's owner, capped by the token's scopes; everything else is
-   *  carried by the collaboration server. */
+  /** Bearer token carrying the write: this server's own. */
   token?: string
-  /** Drupal uid of the account acting. Stated to Drupal on a checkpoint the
-   *  collaboration server carries, which then writes as them. */
+  /** Drupal uid of the caller who triggered a checkpoint; stated to Drupal as
+   *  the account acting. */
   uid?: number
-  /** Account name captured at auth time. For a token this is still the human
-   *  account it acts as — an agent token acts as its owner (OKB-58). */
-  user?: string
-  /** Agent client's label ("Claude") when the carrier is an agent token —
-   *  what separates "fago" from "fago via Claude" in the revision log. */
-  via?: string
 }
 
 /**
@@ -93,15 +80,16 @@ export interface CoAuthor {
 }
 
 /**
- * A checkpoint's statement about itself: a shared session's write, who is
- * acting, and who wrote which part.
+ * A checkpoint's statement about itself: a collab write — written by the
+ * collaboration server with its own token — who is acting, and who wrote
+ * which part.
  *
  * Stated over the collaboration server's own connection and nowhere else,
  * since both the acting account and contributorship decide what the write may
  * do (ADR 0001). It is part of the write, not a second one, so credit cannot
  * fail separately.
  */
-export interface SessionWrite {
+export interface CollabWrite {
   /** The human this write is performed as — the peer who saved, or the
    *  session's majority editor of the dirty window when nobody did. Drupal
    *  becomes them, so their own rights decide what the write may do. Null
@@ -125,7 +113,7 @@ export interface SessionWrite {
   files?: Record<string, number>
 }
 
-/** The auth carrier of a commit — a Bearer token, this server's or an agent's. */
+/** The auth carrier of a commit — this server's Bearer token. */
 export function identityAuthHeaders(identity: CommitIdentity): Record<string, string> {
   return identity.token ? { Authorization: `Bearer ${identity.token}` } : {}
 }
@@ -144,7 +132,7 @@ export interface CommitContext {
    *  block ids (the OKB-42 sweep) must REPLACE the map here so it stays true
    *  of the payload — never the ledger's own window, which the discharge
    *  subtracts from and stays keyed on the live document's ids. */
-  sessionWrite?: SessionWrite
+  collabWrite: CollabWrite
 }
 
 /**
@@ -244,7 +232,6 @@ export type CommitOutcome =
   | 'conflict' // 409 — Drupal moved underneath the session
   | 'invalid' // 422 — Drupal rejected the payload
   | 'empty-body' // document holds nothing while Drupal holds a page
-  | 'foreign-blocks' // the body changes a block outside `onlyBlocks`
   | 'error' // anything else
 
 export interface CommitResult {
@@ -256,7 +243,7 @@ export interface CommitResult {
   /** On `conflict`: the session's last-known `changed` (what we expected). */
   expected?: number
   /** Drupal already stores exactly what this commit was going to write —
-   *  a write DID land (lost response, or an agent's), unlike plain `clean`.
+   *  a write DID land (a lost response), unlike plain `clean`.
    *  Its accounting counts as delivered; stating it again would double-book
    *  and measure undo against bytes Drupal no longer holds. */
   adopted?: boolean
@@ -276,28 +263,20 @@ function coAuthorLabel(peer: CoAuthor): string {
   return actorLabel(peer.name, peer.via)
 }
 
-/** The carrier as a one-name window, for a commit that states none. */
-function carrierCoAuthors(identity: CommitIdentity): CoAuthor[] {
-  return identity.user && identity.via ? [{ name: identity.user, via: identity.via }] : []
-}
-
 /**
  * Revision log message written with every commit.
  *
  * Two things Drupal cannot otherwise tell an editor reading the revision list.
  * First, *which path* produced the revision — a `disconnect`/`quiet`/
  * `max-dirty` checkpoint has no human behind the write at all. Second, that an
- * agent wrote it: an agent commit's `revision_uid` is the token's *owner*, so
+ * agent wrote it: an agent's writing is filed under its token's *owner*, so
  * the log line is the only place the agent appears.
  *
  * The names come from the checkpoint's own window, which is measured over the
- * text this revision carries. The carrier is not consulted while a window
- * exists: it authorizes the write, and on a document somebody else opened it
- * names them rather than the writer. A commit that states no window at all (no
- * collaboration secret) has only the carrier to go on.
+ * text this revision carries. A commit that states no window names nobody.
  */
-export function revisionLog(ctx: CommitContext, session?: SessionWrite): string {
-  const stated = session ? session.coAuthors : carrierCoAuthors(ctx.identity)
+export function revisionLog(ctx: CommitContext): string {
+  const stated = ctx.collabWrite.coAuthors
   // One name adds nothing to a revision `revision_uid` already attributes to
   // that person — unless it is an agent, which `revision_uid` cannot show at
   // all. On a shared session one name is a fraction of the answer, so the
@@ -377,15 +356,10 @@ export interface CommitOptions {
    */
   precondition?: () => Promise<true | CommitOutcome>
   /**
-   * Present when this commit is a collaborative session's checkpoint rather
-   * than one account's save. See {@link SessionWrite}.
+   * The statement a checkpoint carries as a collab write. See
+   * {@link CollabWrite}.
    */
-  sessionWrite?: SessionWrite
-  /**
-   * The blocks this write may change against Drupal's body. A body changing
-   * any other block is not written: the outcome is `foreign-blocks`.
-   */
-  onlyBlocks?: ReadonlySet<string>
+  collabWrite: CollabWrite
 }
 
 /**
@@ -438,7 +412,7 @@ export async function commitDocument(
     trigger: options.trigger,
     identity,
     doc,
-    ...(options.sessionWrite ? { sessionWrite: options.sessionWrite } : {}),
+    collabWrite: options.collabWrite,
   }
 
   // One instant, one revision. Each lane's read here and the body's snapshot
@@ -476,7 +450,7 @@ export async function commitDocument(
   const auth = identityAuthHeaders(identity)
   if (Object.keys(auth).length === 0) {
     // No token to write with: the collaboration server's consumer is
-    // unprovisioned, or an agent handed over nothing.
+    // unprovisioned.
     return { outcome: 'no-credentials', committed: false, markdown, hash }
   }
 
@@ -486,8 +460,7 @@ export async function commitDocument(
     // wrote — the one `_meta.drupal_changed` tracks — is the working copy. On
     // the published default the concurrency check below would see its own
     // draft as an external change and wedge the session at the second
-    // checkpoint. Both auth carriers need it: an agent's bearer-authenticated
-    // checkpoint drafts exactly like an editor's cookie session.
+    // checkpoint.
     const { page } = await fetchCeWorkingCopy(auth, nid)
 
     // A document that serializes to nothing while Drupal holds a page is
@@ -511,10 +484,6 @@ export async function commitDocument(
     }
 
     const body = await keepStoredSpellingOfUntouchedBlocks(page.body ?? '', markdown)
-    const onlyBlocks = options.onlyBlocks
-    if (onlyBlocks && changedBlockIds(page.body ?? '', body).some(id => !onlyBlocks.has(id))) {
-      return { outcome: 'foreign-blocks', committed: false, markdown, hash, changed: page.changed }
-    }
 
     // Extenders run before the concurrency verdict so the adopt branch below
     // can tell "nothing at all to write" from "body adopted, fields pending".
@@ -573,21 +542,17 @@ export async function commitDocument(
       // `expected` onto it.
       basedOnChanged: page.changed,
       attributes: {
-        revision_log: revisionLog(ctx, options.sessionWrite),
+        revision_log: revisionLog(ctx),
         ...(extra.attributes ?? {}),
       },
       // From the context, not the options: a pre-serialize seam may have
       // rewritten the map to follow a block whose id it re-minted.
-      ...(ctx.sessionWrite
-        ? {
-            session: {
-              acting_uid: ctx.sessionWrite.actingUid,
-              blocks: ctx.sessionWrite.blocks,
-              actions: ctx.sessionWrite.actions,
-              ...(ctx.sessionWrite.files ? { files: ctx.sessionWrite.files } : {}),
-            },
-          }
-        : {}),
+      collabWrite: {
+        acting_uid: ctx.collabWrite.actingUid,
+        blocks: ctx.collabWrite.blocks,
+        actions: ctx.collabWrite.actions,
+        ...(ctx.collabWrite.files ? { files: ctx.collabWrite.files } : {}),
+      },
     }
 
     // The title heading and the final newline belong to the stored body, not

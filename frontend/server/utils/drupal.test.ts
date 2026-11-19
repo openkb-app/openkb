@@ -403,7 +403,7 @@ describe('commitKbPageWithAuth', () => {
     })
 
     const written = await commitKbPageWithAuth({ Cookie: 'SESS=x' }, 7, '# Body', {
-      session: { actions: [{ item: 'b-1', step: 'peer', uid: 7 }] },
+      collabWrite: { actions: [{ item: 'b-1', step: 'peer', uid: 7 }] },
     })
 
     expect(written.review).toEqual(review)

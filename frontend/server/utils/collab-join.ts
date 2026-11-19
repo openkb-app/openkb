@@ -26,6 +26,14 @@ export interface JoinAnswer {
   account: JoinAccount | null
 }
 
+/**
+ * Whether the answer admits the account: update access, and no session field
+ * out of reach. A `denied` Drupal did not state is a refusal.
+ */
+export function admits(answer: Pick<JoinAnswer, 'update' | 'denied'>): boolean {
+  return answer.update && answer.denied !== null && answer.denied.length === 0
+}
+
 /** The URL the gate reads a node's join access from. */
 export function joinAccessUrl(drupalBaseUrl: string, nid: number): string {
   return `${drupalBaseUrl.replace(/\/$/, '')}/openkb/node/${nid}/join-access`

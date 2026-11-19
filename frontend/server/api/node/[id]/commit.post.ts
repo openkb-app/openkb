@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam, createError, getHeader } from 'h3'
-import { resolveActor } from '../../../utils/actor'
 import { useCheckpoint, useHocuspocus } from '../../../utils/hocuspocus'
+import { editingCaller } from '../../../utils/moderation-session'
 
 /**
  * POST /api/node/<nid>/commit  →  { nid, ok, committed, changed?, review? }
@@ -9,10 +9,10 @@ import { useCheckpoint, useHocuspocus } from '../../../utils/hocuspocus'
  * the commit pipeline plus the window's accounting in the same write, so a
  * shared burst saved by one peer still credits the others.
  *
- * The cookie identifies the caller and nothing else — it resolves their
- * account against Drupal here, and the checkpoint states that account and is
- * performed as it. The write itself goes out under the collaboration server's
- * token.
+ * The caller's carrier is checked with the session's join gate
+ * (`editingCaller`), which also names the account the checkpoint states. A
+ * token acts as its owner. The write itself goes out under the collaboration
+ * server's token.
  *
  * Outcomes map to HTTP so the editor's commit lane reacts as before:
  *   - conflict (409) → external-change banner (data: { expected, actual })
@@ -30,9 +30,11 @@ export default defineEventHandler(async (event) => {
   if (!cookie) {
     throw createError({ statusCode: 401, statusMessage: 'Authentication required — log in via /user/login' })
   }
-  const actor = await resolveActor(event)
-  if (!actor.uid) {
-    throw createError({ statusCode: 401, statusMessage: 'Authentication required — log in via /user/login' })
+  // The session's join gate: a caller it would not admit must not make the
+  // session's pending text durable.
+  const identity = await editingCaller(event, nid)
+  if (!identity) {
+    throw createError({ statusCode: 403, statusMessage: 'You do not have permission to make this change.' })
   }
 
   const hp = useHocuspocus()
@@ -52,7 +54,7 @@ export default defineEventHandler(async (event) => {
     const result = await useCheckpoint()(
       docName,
       'manual',
-      { uid: actor.uid, user: actor.name ?? undefined },
+      identity,
     )
     switch (result.outcome) {
       case 'committed':

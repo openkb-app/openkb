@@ -1,11 +1,12 @@
-import { getHeader, createError, type H3Event } from 'h3'
+import { createError, type H3Event } from 'h3'
 import type { Hocuspocus } from '@hocuspocus/server'
-import type * as Y from 'yjs'
-import { resolveActor } from './actor'
+import { forwardedAuthHeaders } from './actor'
+import { admits, joinAccessUrl, parseJoinAnswer } from './collab-join'
+import { COLLAB_DRUPAL_TIMEOUT_MS } from './collab-timing'
 import type { CommitIdentity } from './commit'
-import { dirtyFileKeys } from './commit-files'
+import { drupalBaseUrl } from './drupal'
 import { useCheckpoint } from './hocuspocus'
-import type { Violation } from './upstream'
+import { fetchUpstream, upstreamError, type Violation } from './upstream'
 
 /**
  * The live-session side of the moderation actions (OKB-84).
@@ -22,19 +23,28 @@ import type { Violation } from './upstream'
  */
 
 /**
- * Who a checkpoint triggered by this request acts as.
+ * Who a checkpoint triggered by this request acts as, if the caller may edit.
  *
- * An agent hands over a token; the write goes out under it, as its owner. A
- * person hands over a cookie, which is not a write carrier — resolve it to
- * their account, which the checkpoint states.
+ * Asks Drupal's join gate under the caller's carrier: a caller the session
+ * would not admit must not make its pending text durable either. A token acts
+ * as its owner, under its scope ceiling. The carrier names the account only;
+ * the checkpoint goes out under this server's token.
+ *
+ * - A carrier Drupal refuses (bad token, node not readable) throws its status.
+ * - No account behind the carrier throws 401.
+ * - Not admitted (see `admits()`) → null.
  */
-export async function requestIdentity(event: H3Event): Promise<CommitIdentity> {
-  const authorization = getHeader(event, 'authorization')
-  if (authorization && /^Bearer /i.test(authorization)) {
-    return { token: authorization.replace(/^Bearer\s+/i, '') }
+export async function editingCaller(event: H3Event, nid: number): Promise<CommitIdentity | null> {
+  const res = await fetchUpstream(joinAccessUrl(drupalBaseUrl(), nid), {
+    headers: { Accept: 'application/json', ...forwardedAuthHeaders(event) },
+    signal: AbortSignal.timeout(COLLAB_DRUPAL_TIMEOUT_MS),
+  })
+  if (!res.ok) throw await upstreamError(res, 'join access')
+  const answer = parseJoinAnswer(await res.json())
+  if (!answer.account?.uid) {
+    throw createError({ statusCode: 401, statusMessage: 'Authentication required' })
   }
-  const actor = await resolveActor(event)
-  return actor.uid ? { uid: actor.uid, user: actor.name ?? undefined } : {}
+  return admits(answer) ? { uid: answer.account.uid } : null
 }
 
 export type CheckpointOutcome =
@@ -59,16 +69,19 @@ export type CheckpointOutcome =
  */
 export async function checkpointLiveDocument(
   hp: Pick<Hocuspocus, 'documents'>,
-  docName: string,
+  nid: number,
   event: H3Event,
 ): Promise<CheckpointOutcome> {
-  if (!hp.documents.get(docName)) return { blocked: false }
-
-  // A cookie Drupal rejected names nobody: refuse before a revision is minted.
-  const identity = await requestIdentity(event)
-  if (!identity.token && !identity.uid) {
-    return { blocked: true, statusCode: 401, message: 'Authentication required — log in via /user/login' }
+  // Asked whether a session is live or not, so both answer the same and a
+  // caller learns nothing about who is editing. Refuses before a revision is
+  // minted.
+  const identity = await editingCaller(event, nid)
+  if (!identity) {
+    return { blocked: true, statusCode: 403, message: 'You do not have permission to make this change.' }
   }
+
+  const docName = `node:${nid}`
+  if (!hp.documents.get(docName)) return { blocked: false }
 
   const result = await useCheckpoint()(docName, 'manual', identity)
 
@@ -81,15 +94,8 @@ export async function checkpointLiveDocument(
     // edit any client typed (the commit itself refuses to write empty over
     // content), so there is nothing the action could lose: Drupal's working
     // copy is the whole truth, exactly as with no document at all.
-    case 'empty-body': {
-      // An agent's checkpoint leaves page files to the next session checkpoint
-      // (ADR 0020); acting before that one runs would leave them out.
-      const doc = hp.documents.get(docName) as unknown as Y.Doc | undefined
-      if (identity.token && doc && dirtyFileKeys(doc).length > 0) {
-        return { blocked: true, statusCode: 409, message: 'A file is still being added to this page — try again in a few seconds.' }
-      }
+    case 'empty-body':
       return { blocked: false }
-    }
     case 'conflict':
       return {
         blocked: true,

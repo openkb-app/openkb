@@ -24,7 +24,7 @@ import {
   holdAgentSession,
   keepAgentSessionAlive,
 } from './agent-sessions'
-import { joinAccessUrl, parseJoinAnswer } from './collab-join'
+import { admits, joinAccessUrl, parseJoinAnswer } from './collab-join'
 
 /**
  * Session router — the one way a write reaches OpenKB.
@@ -271,11 +271,10 @@ export async function authorizeSessionWrite(
   // Admission is write control, so the fields the session exposes are part of
   // it. A denial Drupal did not answer at all is refused the same way — see
   // ./collab-join.ts.
-  if (denied === null) {
-    throw new AgentJoinError('access', `The site did not answer the field-access check for ${subject.name}.`)
-  }
-  if (denied.length > 0) {
-    throw new AgentJoinError('access', `No edit access to ${denied.join(', ')} on ${subject.name}.`)
+  if (!admits({ update: allowed, denied })) {
+    throw new AgentJoinError('access', denied === null
+      ? `The site did not answer the field-access check for ${subject.name}.`
+      : `No edit access to ${denied.join(', ')} on ${subject.name}.`)
   }
   return actor
 }
@@ -357,11 +356,6 @@ export interface RouterDeps extends GateDeps {
   validateValues: (specs: FieldSpec[], values: FieldValues, auth: Record<string, string>) => Promise<void>
   /** Drupal's canonical body for a node, or null when unreachable. */
   fetchBody: (nid: number) => Promise<string | null>
-  /**
-   * Records the carrier a document's Drupal reads run under, before the
-   * document loads. See {@link captureHeadlessCarrier}.
-   */
-  captureCarrier: (documentName: string, identity: CommitIdentity) => void
   /** Persist the document now, under this identity. Deduped by the scheduler. */
   checkpoint: (docName: string, trigger: CommitTrigger, identity: CommitIdentity) => Promise<CommitResult>
 }
@@ -400,8 +394,7 @@ export interface AgentEditResult {
  * based on. On a moderated page (OKB-64) that is a forward draft whenever
  * one exists, and the published default is a different body: hydrating from it
  * would hand the commit the published text plus this write's ops, silently
- * reverting whatever the draft held. That read needs a carrier, which is what
- * {@link captureHeadlessCarrier} puts in place.
+ * reverting whatever the draft held. It reads as this server (ADR 0001).
  *
  * The hydration is not tagged as an agent op — it restores Drupal's own
  * content rather than authoring anything, and the resulting document
@@ -421,29 +414,6 @@ async function hydrateHeadlessBody(
   // A peer may have filled the fragment while the body was read and parsed.
   if (session.doc.getXmlFragment('default').length > 0) return
   applyBodyMarkdown(session.doc, parsed)
-}
-
-/**
- * Hands the document this writer's carrier before it loads, when the writer is
- * the one starting it.
- *
- * Every Drupal read the document makes — the seed lanes for body, `changed`,
- * fields and the provenance sidecar — runs under the carrier captured for it,
- * because those lanes have no request of their own. A document a human opened
- * has their session cookie from the WebSocket handshake; a document an agent
- * starts has nothing, and on a moderated page (OKB-64) "nothing" means
- * anonymous, which may not read a working copy at all: the session would be
- * seeded from the published revision, or not at all, and the write would commit
- * against the wrong body.
- *
- * Runs once, when the session opens, and only for a document nobody is in. In a
- * live session the carrier belongs to the humans editing it, and replacing it
- * would attribute their next timer-driven checkpoint to this agent.
- */
-function captureHeadlessCarrier(deps: RouterDeps, nid: number, identity: CommitIdentity): void {
-  const documentName = `node:${nid}`
-  if (deps.host.documents.has(documentName)) return
-  deps.captureCarrier(documentName, identity)
 }
 
 /**
@@ -469,9 +439,9 @@ function refuseWholeBody(ops: AgentOps): void {
   })
 }
 
-/** The actor as the commit layer names it. */
+/** The actor as the commit layer names it: the token's owner. */
 function commitIdentityOf(actor: AgentActor): CommitIdentity {
-  return { token: actor.token, user: actor.name, via: actor.via ?? undefined }
+  return { uid: actor.uid }
 }
 
 /** Session starts in flight per key, so parallel first calls share one. */
@@ -514,7 +484,6 @@ async function openHeldAgentSession(
   actor: AgentActor,
 ): Promise<AgentSession> {
   const identity = commitIdentityOf(actor)
-  captureHeadlessCarrier(deps, nid, identity)
   const session = await openAgentSession(deps.host, nid, actor)
   try {
     await hydrateHeadlessBody(deps, session, nid)
@@ -634,11 +603,7 @@ export async function routeAgentEdit(
   const session = held?.session ?? await startAgentSession(deps, key, nid, actor)
   // One revision, one author: whoever wrote here before checks their work in
   // under their own name before this session's ops join it in the document.
-  if (await claimAgentWrites(key)) {
-    // The handover left the document clean, so what a timer-driven checkpoint
-    // would serialize is this session's work — its credit follows.
-    deps.captureCarrier(session.documentName, commitIdentityOf(actor))
-  }
+  await claimAgentWrites(key)
   const applied = await session.apply(ops)
   return { nid, entry: session.entry, observers: session.humanPeers(), applied }
 }

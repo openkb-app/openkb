@@ -103,7 +103,7 @@ describe('CheckpointScheduler', () => {
     const commit = vi.fn().mockImplementation(() => new Promise<CommitResult>((r) => { release = () => r(ok) }))
     const s = make(commit)
 
-    const manual = s.checkpoint('node:1', 'manual', { cookie: 'SESS-ada' })
+    const manual = s.checkpoint('node:1', 'manual', { uid: 7 })
     await vi.advanceTimersByTimeAsync(0)
     s.onActivity('node:1')
     await vi.advanceTimersByTimeAsync(1000) // quiet fires into the running commit
@@ -122,7 +122,7 @@ describe('CheckpointScheduler', () => {
     const commit = vi.fn().mockImplementation(() => new Promise<CommitResult>((r) => { release = () => r(ok) }))
     const s = make(commit, 1000, 3000)
 
-    const manual = s.checkpoint('node:1', 'manual', { cookie: 'SESS-ada' })
+    const manual = s.checkpoint('node:1', 'manual', { uid: 7 })
     await vi.advanceTimersByTimeAsync(0)
     s.onActivity('node:1')
     for (let t = 0; t < 3000; t += 500) {
@@ -145,7 +145,7 @@ describe('CheckpointScheduler', () => {
     const commit = vi.fn().mockImplementation(() => new Promise<CommitResult>((r) => { release = () => r(ok) }))
     const s = make(commit)
 
-    const manual = s.checkpoint('node:1', 'manual', { cookie: 'SESS-ada' })
+    const manual = s.checkpoint('node:1', 'manual', { uid: 7 })
     await vi.advanceTimersByTimeAsync(0)
     s.onDisconnect('node:1', 0)
     s.disarm('node:1')
@@ -237,7 +237,7 @@ describe('CheckpointScheduler', () => {
     expect(commit).toHaveBeenCalledTimes(1)
 
     let done = false
-    const manual = s.checkpoint('node:1', 'manual', { cookie: 'SESS-ada' }).then(() => { done = true })
+    const manual = s.checkpoint('node:1', 'manual', { uid: 7 }).then(() => { done = true })
 
     for (let t = 0; t < 60_000; t += 500) {
       s.onActivity('node:1')
@@ -248,7 +248,7 @@ describe('CheckpointScheduler', () => {
 
     releases[0]!()
     await vi.advanceTimersByTimeAsync(0)
-    expect(commit).toHaveBeenLastCalledWith('node:1', 'manual', { cookie: 'SESS-ada' })
+    expect(commit).toHaveBeenLastCalledWith('node:1', 'manual', { uid: 7 })
 
     releases[1]!()
     await manual
@@ -263,8 +263,8 @@ describe('CheckpointScheduler', () => {
     )
     const s = make(commit)
 
-    const first = s.checkpoint('node:1', 'manual', { cookie: 'SESS-ada' })
-    const second = s.checkpoint('node:1', 'agent', { token: 'agent-token' })
+    const first = s.checkpoint('node:1', 'manual', { uid: 7 })
+    const second = s.checkpoint('node:1', 'agent', { uid: 8 })
     await vi.advanceTimersByTimeAsync(0)
     expect(commit).toHaveBeenCalledTimes(1)
 
@@ -275,7 +275,7 @@ describe('CheckpointScheduler', () => {
 
     releases[1]!()
     await second
-    expect(commit).toHaveBeenNthCalledWith(2, 'node:1', 'agent', { token: 'agent-token' })
+    expect(commit).toHaveBeenNthCalledWith(2, 'node:1', 'agent', { uid: 8 })
   })
 
   describe('upload', () => {
@@ -315,39 +315,7 @@ describe('CheckpointScheduler', () => {
       expect(commit).toHaveBeenCalledTimes(2)
     })
 
-    it('keeps the upload timer armed through an agent\'s own checkpoint', async () => {
-      const commit = vi.fn(async () => ({ outcome: 'clean', committed: false }) as CommitResult)
-      const scheduler = make(commit, 60_000, 600_000)
-
-      scheduler.onUpload('node:1', 2_500)
-      await vi.advanceTimersByTimeAsync(1_000)
-      await scheduler.checkpoint('node:1', 'agent', { token: 'agent-token' })
-      await vi.advanceTimersByTimeAsync(1_500)
-      expect(commit).toHaveBeenCalledTimes(2)
-      expect(commit).toHaveBeenLastCalledWith('node:1', 'quiet', undefined)
-    })
-
-    it('runs an upload that fired during an agent\'s checkpoint afterwards', async () => {
-      let release!: () => void
-      const commit = vi.fn()
-        .mockImplementationOnce(() => new Promise<CommitResult>((resolve) => {
-          release = () => resolve({ outcome: 'clean', committed: false })
-        }))
-        .mockResolvedValue(ok)
-      const scheduler = make(commit, 60_000, 600_000)
-
-      scheduler.onUpload('node:1', 2_500)
-      const agent = scheduler.checkpoint('node:1', 'agent', { token: 'agent-token' })
-      await vi.advanceTimersByTimeAsync(2_500)
-      expect(commit).toHaveBeenCalledTimes(1)
-      release()
-      await agent
-      await vi.advanceTimersByTimeAsync(2_500)
-      expect(commit).toHaveBeenCalledTimes(2)
-      expect(commit).toHaveBeenLastCalledWith('node:1', 'quiet', undefined)
-    })
-
-    it('a session checkpoint discharges the upload timer', async () => {
+    it('a collab write discharges the upload timer', async () => {
       const commit = vi.fn().mockResolvedValue(ok)
       const scheduler = make(commit, 60_000, 600_000)
 

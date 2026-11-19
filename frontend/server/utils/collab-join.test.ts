@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { joinAccessUrl, parseJoinAnswer } from './collab-join'
+import { admits, joinAccessUrl, parseJoinAnswer } from './collab-join'
 
 describe('joinAccessUrl', () => {
   it('points at the join gate for one node', () => {
@@ -37,5 +37,17 @@ describe('parseJoinAnswer', () => {
     expect(parseJoinAnswer({ update: true }).denied).toBeNull()
     expect(parseJoinAnswer({ update: 'yes', denied_fields: [] }).update).toBe(false)
     expect(parseJoinAnswer({ update: true, denied_fields: 'none' }).denied).toBeNull()
+  })
+})
+
+describe('admits', () => {
+  it('admits update access with no field out of reach', () => {
+    expect(admits({ update: true, denied: [] })).toBe(true)
+  })
+
+  it('refuses without update, with a denied field, or without a field answer', () => {
+    expect(admits({ update: false, denied: [] })).toBe(false)
+    expect(admits({ update: true, denied: ['field_owner'] })).toBe(false)
+    expect(admits({ update: true, denied: null })).toBe(false)
   })
 })

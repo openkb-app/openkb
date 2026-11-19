@@ -72,9 +72,8 @@ export async function fetchCsrfToken(cookie: string): Promise<string | null> {
  * Auth-carrying core of {@link drupalFetch}: `auth` is the forwarded carrier
  * ({ Authorization } or { Cookie }, empty for anonymous). Request handlers use
  * the event wrapper below; callers without an H3Event — the headless commit
- * service driven by auto-checkpoint triggers and by agent sessions
- * (server/utils/commit.ts) — pass this server's own Bearer token, or an
- * agent's. All share one implementation.
+ * service (server/utils/commit.ts) — pass this server's own Bearer token.
+ * All share one implementation.
  */
 export async function drupalFetchWithAuth<T = unknown>(
   auth: Record<string, string>,
@@ -465,9 +464,9 @@ export interface CommittedRevision {
 export interface KbPagePatchExtra {
   attributes?: Record<string, unknown>
   relationships?: Record<string, unknown>
-  /** Collab-session directives, read by the commit endpoint only on the
+  /** The collab write's statement, read by the commit endpoint only on the
    *  collaboration client's own OAuth connection (ADR 0001). */
-  session?: Record<string, unknown>
+  collabWrite?: Record<string, unknown>
   /** The working copy's `changed` this payload was assembled against. Drupal
    *  refuses the commit with 409 when the page has moved past it. */
   basedOnChanged?: number
@@ -519,7 +518,7 @@ export async function commitKbPageWithAuth(
           ...(extra.attributes ?? {}),
         },
         ...(extra.relationships ? { relationships: extra.relationships } : {}),
-        ...(extra.session ? { session: extra.session } : {}),
+        ...(extra.collabWrite ? { collab_write: extra.collabWrite } : {}),
         ...(extra.basedOnChanged ? { based_on_changed: extra.basedOnChanged } : {}),
       }),
     },

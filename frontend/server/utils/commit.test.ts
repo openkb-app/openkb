@@ -19,6 +19,7 @@ import {
   TERMINAL_PRECONDITION_TRIES,
   type CommitContext,
 } from './commit'
+import { commit, NO_WINDOW_WIRE } from '../test-support/commit'
 
 const readMock = vi.mocked(fetchCeWorkingCopy)
 
@@ -126,7 +127,7 @@ describe('commitDocument', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100 } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       now: () => 1234,
@@ -148,7 +149,7 @@ describe('commitDocument', () => {
     const meta = ydoc.getMap('_meta')
     meta.set('last_commit_hash', contentHash(await serializeYDoc(ydoc)))
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
       identity: { token: 'collab' },
     })
@@ -165,9 +166,9 @@ describe('commitDocument', () => {
     commitMock.mockResolvedValue({ changed: 200, review: null })
     const arg = { trigger: 'disconnect' as const, identity: { token: 'collab' } }
 
-    expect((await commitDocument(hp('node:1', ydoc), 'node:1', arg)).committed).toBe(true)
-    expect((await commitDocument(hp('node:1', ydoc), 'node:1', arg)).outcome).toBe('clean')
-    expect((await commitDocument(hp('node:1', ydoc), 'node:1', arg)).outcome).toBe('clean')
+    expect((await commit(hp('node:1', ydoc), 'node:1', arg)).committed).toBe(true)
+    expect((await commit(hp('node:1', ydoc), 'node:1', arg)).outcome).toBe('clean')
+    expect((await commit(hp('node:1', ydoc), 'node:1', arg)).outcome).toBe('clean')
     expect(commitMock).toHaveBeenCalledOnce()
   })
 
@@ -179,7 +180,7 @@ describe('commitDocument', () => {
     ydoc.getMap('_meta').set('drupal_changed', 100)
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: '# Real page\n' } as never)
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'disconnect',
       identity: { token: 'collab' },
     })
@@ -198,7 +199,7 @@ describe('commitDocument', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: '' } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
     })
@@ -214,7 +215,7 @@ describe('commitDocument', () => {
     const ydoc = seed(DOC_MARKS)
     readMock.mockRejectedValue(Object.assign(new Error('Forbidden'), { statusCode: 403 }))
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       now: () => 77,
@@ -229,7 +230,7 @@ describe('commitDocument', () => {
     ydoc.getMap('_meta').set('drupal_changed', 100)
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 200 } as never)
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       now: () => 77,
@@ -249,7 +250,7 @@ describe('commitDocument', () => {
     const markdown = await serializeYDoc(ydoc)
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 200, body: markdown } as never)
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       now: () => 77,
@@ -271,7 +272,7 @@ describe('commitDocument', () => {
     const ydoc = seed(DOC_MARKS)
     ydoc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(ydoc)))
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
       identity: { token: 'collab' },
     })
@@ -285,7 +286,7 @@ describe('commitDocument', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100 } as never)
     commitMock.mockRejectedValue({ statusCode: 500, data: { drupalStatus: 422 }, message: 'field_kb_body invalid' })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       now: () => 88,
@@ -310,7 +311,7 @@ describe('commitDocument', () => {
       },
     })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       now: () => 88,
@@ -324,18 +325,18 @@ describe('commitDocument', () => {
     })
   })
 
-  it('auto-trigger without a captured cookie cannot PATCH', async () => {
+  it('auto-trigger without a carrier cannot PATCH', async () => {
     const ydoc = seed(DOC_MARKS)
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'quiet' })
+    const res = await commit(hp('node:1', ydoc), 'node:1', { trigger: 'quiet' })
     expect(res.outcome).toBe('no-credentials')
     expect(readMock).not.toHaveBeenCalled()
   })
 
   it('a session that no longer holds writes nothing — logged-out ops neither apply nor attribute', async () => {
     const ydoc = seed(DOC_MARKS)
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
-      identity: { token: 'collab', cookie: 'SESS=stale' },
+      identity: { token: 'collab' },
       precondition: async () => 'unauthenticated',
     })
     expect(res.outcome).toBe('unauthenticated')
@@ -348,9 +349,9 @@ describe('commitDocument', () => {
 
   it('returns the precondition its own verdict — an unreachable Drupal is not a dead session', async () => {
     const ydoc = seed(DOC_MARKS)
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
-      identity: { token: 'collab', cookie: 'SESS=live' },
+      identity: { token: 'collab' },
       precondition: async () => 'error',
     })
     // Same skipped write, different meaning: 'unauthenticated' closes the
@@ -366,9 +367,9 @@ describe('commitDocument', () => {
     const ydoc = seed(DOC_MARKS)
     const precondition = vi.fn<() => Promise<true | 'error'>>().mockResolvedValue('error')
     const waits: number[] = []
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'disconnect',
-      identity: { token: 'collab', cookie: 'SESS=live' },
+      identity: { token: 'collab' },
       precondition,
       wait: async (ms) => { waits.push(ms) },
     })
@@ -386,9 +387,9 @@ describe('commitDocument', () => {
       .mockResolvedValueOnce('error')
       .mockResolvedValue(true)
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'disconnect',
-      identity: { token: 'collab', cookie: 'SESS=live' },
+      identity: { token: 'collab' },
       precondition,
       wait: async () => {},
     })
@@ -399,9 +400,9 @@ describe('commitDocument', () => {
   it('a refusal is an answer — a disconnect does not ask twice', async () => {
     const ydoc = seed(DOC_MARKS)
     const precondition = vi.fn<() => Promise<true | 'unauthenticated'>>().mockResolvedValue('unauthenticated')
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'disconnect',
-      identity: { token: 'collab', cookie: 'SESS=stale' },
+      identity: { token: 'collab' },
       precondition,
       wait: async () => {},
     })
@@ -412,9 +413,9 @@ describe('commitDocument', () => {
   it('a timer checkpoint asks once — the next one asks again', async () => {
     const ydoc = seed(DOC_MARKS)
     const precondition = vi.fn<() => Promise<true | 'error'>>().mockResolvedValue('error')
-    await commitDocument(hp('node:1', ydoc), 'node:1', {
+    await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
-      identity: { token: 'collab', cookie: 'SESS=live' },
+      identity: { token: 'collab' },
       precondition,
       wait: async () => {},
     })
@@ -426,9 +427,9 @@ describe('commitDocument', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100 } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'quiet',
-      identity: { token: 'collab', cookie: 'SESS=live' },
+      identity: { token: 'collab' },
       precondition: async () => true,
     })
     expect(res.outcome).toBe('committed')
@@ -436,7 +437,7 @@ describe('commitDocument', () => {
   })
 
   it('returns no-document when the doc is not loaded', async () => {
-    const res = await commitDocument({ documents: new Map() } as never, 'node:9', {
+    const res = await commit({ documents: new Map() } as never, 'node:9', {
       trigger: 'quiet',
       identity: { token: 'collab' },
     })
@@ -456,7 +457,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     const seen: string[] = []
     const contexts: CommitContext[] = []
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: {
@@ -474,6 +475,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     // the stored text is the document plus its final newline.
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, `${res.markdown}\n`, {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'OpenKB commit (manual)' },
     })
     for (const ctx of contexts) expect(ctx).toMatchObject({ docName: 'node:1', nid: 1, trigger: 'manual' })
@@ -489,7 +491,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
       if (ydoc.getMap('_meta').get('last_commit')) order.push('signal')
     })
 
-    await commitDocument(hp('node:1', ydoc), 'node:1', {
+    await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: {
@@ -507,7 +509,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     // The PATCH already landed; a bookkeeping failure must not make the
     // session believe it never checkpointed.
     const ydoc = seed(DOC_MARKS)
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: { postCommit: [() => { throw new Error('lane bookkeeping blew up') }] },
@@ -519,13 +521,14 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
 
   it('a payload extender can add attributes to the PATCH (OKB-9 seam)', async () => {
     const ydoc = seed(DOC_MARKS)
-    await commitDocument(hp('node:1', ydoc), 'node:1', {
+    await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: { payloadExtenders: [extra => ({ ...extra, attributes: { title: 'X' } })] },
     })
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { title: 'X', revision_log: 'OpenKB commit (manual)' },
     })
   })
@@ -533,36 +536,45 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
   it.each(['manual', 'disconnect', 'quiet', 'max-dirty'] as const)(
     'records the %s trigger in the revision log message',
     async (trigger) => {
-      await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+      await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
         trigger,
         identity: { token: 'collab' },
       })
       expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
         basedOnChanged: 100,
+        collabWrite: NO_WINDOW_WIRE,
         attributes: { revision_log: `OpenKB commit (${trigger})` },
       })
     },
   )
 
   it('names an agent in the revision log — its uid is the owner\'s', async () => {
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'agent',
-      identity: { token: 'tok', user: 'fago', via: 'Claude' },
+      identity: { token: 'collab' },
+      collabWrite: {
+        actingUid: 7,
+        coAuthors: [{ name: 'fago', via: 'Claude' }],
+        blocks: { 'b-1': [{ uid: 7, via: 'Claude' }] },
+        actions: [],
+      },
     })
     expect(commitMock).toHaveBeenCalledWith(
-      { Authorization: 'Bearer tok' }, 1, expect.any(String), {
-        basedOnChanged: 100,
+      { Authorization: 'Bearer collab' }, 1, expect.any(String),
+      expect.objectContaining({
         attributes: { revision_log: 'OpenKB commit (agent) — fago via Claude' },
-      })
+        collabWrite: expect.objectContaining({ acting_uid: 7 }),
+      }))
   })
 
   it('leaves a human commit\'s message alone — revision_uid already names them', async () => {
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'disconnect',
-      identity: { token: 'collab', user: 'admin' },
+      identity: { token: 'collab' },
     })
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'OpenKB commit (disconnect)' },
     })
   })
@@ -571,10 +583,10 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     // What a checkpoint states about itself: who wrote which block, and the
     // human to file the revision under. Both ride the write that carries the
     // text, and neither is a claim a browser may make.
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'quiet',
-      identity: { token: 'collab', user: 'admin' },
-      sessionWrite: {
+      identity: { token: 'collab' },
+      collabWrite: {
         actingUid: 7,
         coAuthors: [{ name: 'ada', via: null }, { name: 'fago', via: null }],
         blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] },
@@ -583,19 +595,19 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab' }, 1, expect.any(String), expect.objectContaining({
         attributes: { revision_log: 'OpenKB commit (quiet) — ada, fago' },
-        session: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] } },
+        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] } },
       }))
   })
 
   it('states who added each page file', async () => {
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'quiet',
-      identity: { token: 'collab', user: 'admin' },
-      sessionWrite: { actingUid: 7, coAuthors: [], blocks: {}, actions: [], files: { 'f-1': 3 } },
+      identity: { token: 'collab' },
+      collabWrite: { actingUid: 7, coAuthors: [], blocks: {}, actions: [], files: { 'f-1': 3 } },
     })
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab' }, 1, expect.any(String), expect.objectContaining({
-        session: { acting_uid: 7, blocks: {}, actions: [], files: { 'f-1': 3 } },
+        collabWrite: { acting_uid: 7, blocks: {}, actions: [], files: { 'f-1': 3 } },
       }))
   })
 
@@ -605,10 +617,10 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     // moment its author could have signed it off. A second write reappearing
     // here is what this refuses. The state the write lands in is not named at
     // all: a checkpoint is content, and Drupal decides what content lands as.
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab-token' },
-      sessionWrite: {
+      collabWrite: {
         actingUid: 7,
         coAuthors: [{ name: 'ada', via: null }, { name: 'fago', via: null }],
         blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] },
@@ -618,15 +630,15 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab-token' }, 1, expect.any(String), expect.objectContaining({
         attributes: expect.not.objectContaining({ moderation_state: expect.anything() }),
-        session: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] } },
+        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] } },
       }))
   })
 
   it('does not list a lone co-author — revision_uid already names them', async () => {
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'quiet',
-      identity: { token: 'collab', user: 'admin' },
-      sessionWrite: {
+      identity: { token: 'collab' },
+      collabWrite: {
         actingUid: 7,
         coAuthors: [{ name: 'admin', via: null }],
         blocks: { 'b-1': [{ uid: 7, via: null }] },
@@ -635,66 +647,47 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab' }, 1, expect.any(String), expect.objectContaining({
         attributes: { revision_log: 'OpenKB commit (quiet)' },
-        session: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }] } },
+        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }] } },
       }))
   })
 
-  it('names the window\'s writer, not the carrier the document was opened with', async () => {
-    // A document one agent started and another took over: the captured carrier
-    // still names the first, and a timer-driven checkpoint rides it. Drupal
-    // files the revision under the window's author, and the log is the only
-    // place an agent appears at all — so both have to name the same actor.
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
-      trigger: 'disconnect',
-      identity: { token: 'tok-a', user: 'agent-a', via: 'alpha' },
-      sessionWrite: {
-        actingUid: 9,
-        coAuthors: [{ name: 'agent-b', via: 'beta' }],
-        blocks: { 'b-1': [{ uid: 9, via: 'beta' }] },
-      },
-    })
-    expect(commitMock).toHaveBeenCalledWith(
-      { Authorization: 'Bearer tok-a' }, 1, expect.any(String),
-      expect.objectContaining({
-        attributes: { revision_log: 'OpenKB commit (disconnect) — agent-b via beta' },
-      }))
-  })
-
-  it('names no author on a session write whose window measured nobody', async () => {
+  it('names no author on a collab write whose window measured nobody', async () => {
     // Drupal then files it under the account that authenticated the request,
     // which is what the revision would have said anyway.
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'quiet',
       identity: { token: 'collab' },
-      sessionWrite: { actingUid: null, coAuthors: [], blocks: {} },
+      collabWrite: { actingUid: null, coAuthors: [], blocks: {} },
     })
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab' }, 1, expect.any(String), expect.objectContaining({
         attributes: { revision_log: 'OpenKB commit (quiet)' },
-        session: { acting_uid: null, blocks: {} },
+        collabWrite: { acting_uid: null, blocks: {} },
       }))
   })
 
   it('an extender can override the revision log message', async () => {
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'quiet',
       identity: { token: 'collab' },
       hooks: { payloadExtenders: [extra => ({ ...extra, attributes: { revision_log: 'custom' } })] },
     })
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { revision_log: 'custom' },
     })
   })
 
   it('extenders may be async', async () => {
-    await commitDocument(hp('node:1', seed(DOC_MARKS)), 'node:1', {
+    await commit(hp('node:1', seed(DOC_MARKS)), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: { payloadExtenders: [async extra => ({ ...extra, attributes: { title: 'async' } })] },
     })
     expect(commitMock).toHaveBeenCalledWith({ Authorization: 'Bearer collab' }, 1, expect.any(String), {
       basedOnChanged: 100,
+      collabWrite: NO_WINDOW_WIRE,
       attributes: { title: 'async', revision_log: 'OpenKB commit (manual)' },
     })
   })
@@ -704,10 +697,10 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     ydoc.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(ydoc)))
     const arg = { trigger: 'quiet' as const, identity: { token: 'collab' } }
 
-    expect((await commitDocument(hp('node:1', ydoc), 'node:1', {
+    expect((await commit(hp('node:1', ydoc), 'node:1', {
       ...arg, hooks: { dirtyChecks: [() => false] },
     })).outcome).toBe('clean')
-    expect((await commitDocument(hp('node:1', ydoc), 'node:1', {
+    expect((await commit(hp('node:1', ydoc), 'node:1', {
       ...arg, hooks: { dirtyChecks: [() => true] },
     })).outcome).toBe('committed')
   })
@@ -719,14 +712,14 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
 
     // Async because the collaboration server asks Drupal whether anything
     // stands to publish before turning a Save into a write.
-    expect((await commitDocument(hp('node:1', ydoc), 'node:1', {
+    expect((await commit(hp('node:1', ydoc), 'node:1', {
       ...arg, hooks: { dirtyChecks: [async () => true] },
     })).outcome).toBe('committed')
 
     const asked: string[] = []
     const fresh = seed(DOC_MARKS)
     fresh.getMap('_meta').set('last_commit_hash', contentHash(await serializeYDoc(fresh)))
-    expect((await commitDocument(hp('node:1', fresh), 'node:1', {
+    expect((await commit(hp('node:1', fresh), 'node:1', {
       ...arg,
       hooks: { dirtyChecks: [
         () => { asked.push('cheap'); return true },
@@ -738,7 +731,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
 
   it('a CommitValidationError from an extender blocks as invalid with per-field errors', async () => {
     const ydoc = seed(DOC_MARKS)
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       now: () => 55,
@@ -767,10 +760,10 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 200, body: markdown } as never)
     commitMock.mockResolvedValue({ changed: 300, review: null })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
-      sessionWrite: { actingUid: 3, coAuthors: [], blocks: {} },
+      collabWrite: { actingUid: 3, coAuthors: [], blocks: {} },
       hooks: { dirtyChecks: [async () => true] },
     })
 
@@ -787,7 +780,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
     // baseline must unblock the PATCH instead of dropping the field change.
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 200, body: markdown } as never)
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: { payloadExtenders: [extra => ({ ...extra, attributes: { title: 'X' } })] },
@@ -808,7 +801,7 @@ describe('a block nobody edited', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: '_One._ {#b-1}\n\n_Two._ {#b-2}\n' } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
+    const res = await commit(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
 
     expect(commitMock.mock.lastCall![2]).toBe('One, edited. {#b-1}\n\n_Two._ {#b-2}\n')
     // The dirty check stays on the canonical form.
@@ -821,39 +814,9 @@ describe('a block nobody edited', () => {
     readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: '::callout{#b-1}\n_Careful._\n' } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
+    await commit(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
 
     expect(commitMock.mock.lastCall![2]).toBe(`${written}\n`)
-  })
-})
-
-describe('a write limited to some blocks', () => {
-  beforeEach(() => {
-    readMock.mockReset()
-    commitMock.mockReset()
-  })
-
-  const STORED = '::callout{#b-1}\n_Careful._\n'
-  const WRITTEN = '::callout{type="info" #b-1}\n*Careful.*\n::\n\nAppended. {#b-2}'
-
-  it('is not written when the body changes another block', async () => {
-    const ydoc = seed(await parseMarkdownToJson(WRITTEN) as Json)
-    readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: STORED } as never)
-
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'agent' }, onlyBlocks: new Set(['b-2']) })
-
-    expect(res.outcome).toBe('foreign-blocks')
-    expect(commitMock).not.toHaveBeenCalled()
-  })
-
-  it('is written when the body changes only those blocks', async () => {
-    const ydoc = seed(await parseMarkdownToJson(WRITTEN) as Json)
-    readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: STORED } as never)
-    commitMock.mockResolvedValue({ changed: 200, review: null })
-
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'agent' }, onlyBlocks: new Set(['b-1', 'b-2']) })
-
-    expect(res.outcome).toBe('committed')
   })
 })
 
@@ -877,7 +840,7 @@ describe('the title heading', () => {
     } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
+    await commit(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
 
     expect(commitMock.mock.lastCall![2]).toBe('# Data model {#b-3a1c9e04}\n\nedited\n')
   })
@@ -893,7 +856,7 @@ describe('the title heading', () => {
     } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    await commitDocument(hp('node:1', ydoc), 'node:1', {
+    await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
       hooks: { payloadExtenders: [extra => ({ ...extra, attributes: { title: 'Domain model' } })] },
@@ -907,7 +870,7 @@ describe('the title heading', () => {
     readsPage({ titleHeading: '', title: 'Data model', id: 'uuid-1', nid: 1, changed: 100 } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', {
+    const res = await commit(hp('node:1', ydoc), 'node:1', {
       trigger: 'manual',
       identity: { token: 'collab' },
     })
@@ -935,7 +898,7 @@ describe('the title heading', () => {
     } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    const res = await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
+    const res = await commit(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
 
     // The writer leaves out an empty paragraph a document opens on.
     expect(res.markdown).toBe('edited')
@@ -954,7 +917,7 @@ describe('the title heading', () => {
     } as never)
     commitMock.mockResolvedValue({ changed: 200, review: null })
 
-    await commitDocument(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
+    await commit(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
 
     expect(commitMock.mock.lastCall![2]).toBe('# Data model {#b-3a1c9e04}\n\nedited\n')
   })

@@ -3,11 +3,10 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { editorSchema } from './editor-schema'
 import {
   adoptSnapshot,
-  agentOnly,
   ledgerSnapshot,
   blockPrints,
   creditWriter,
-  sessionPayload,
+  collabWritePayload,
   diffTouched,
   dischargeFieldWriters,
   dischargeWindow,
@@ -429,7 +428,7 @@ describe('sessionWindow', () => {
   })
 })
 
-describe('sessionPayload', () => {
+describe('collabWritePayload', () => {
   const windowOf = (id: string, ...writers: Wrote[]) => {
     const ledger = ledgerWith(ADA, FAGO)
     wrote(ledger, id, ...writers)
@@ -437,7 +436,7 @@ describe('sessionPayload', () => {
   }
 
   it('acts as the human the window elected when nobody triggered the write', () => {
-    const payload = sessionPayload(windowOf('b-1', { uid: ADA.uid, chars: 4 }), null)
+    const payload = collabWritePayload(windowOf('b-1', { uid: ADA.uid, chars: 4 }), null)
     expect(payload).toMatchObject({ actingUid: ADA.uid })
     expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, via: null }])
   })
@@ -445,13 +444,13 @@ describe('sessionPayload', () => {
   it('acts as whoever triggered it, however the window voted', () => {
     // The publish rides this write, and it is the person who asked for it whose
     // rights Drupal answers to — not the session's busiest typist.
-    const payload = sessionPayload(windowOf('b-1', { uid: ADA.uid, chars: 400 }), FAGO.uid)
+    const payload = collabWritePayload(windowOf('b-1', { uid: ADA.uid, chars: 400 }), FAGO.uid)
     expect(payload).toMatchObject({ actingUid: FAGO.uid })
     expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, via: null }])
   })
 
   it('carries the agent member with its via, so Drupal can raise the agent step', () => {
-    const payload = sessionPayload(windowOf('b-1', { uid: ADA.uid, via: CLAUDE, chars: 5 }), null)
+    const payload = collabWritePayload(windowOf('b-1', { uid: ADA.uid, via: CLAUDE, chars: 5 }), null)
     expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, via: CLAUDE }])
   })
 
@@ -460,55 +459,40 @@ describe('sessionPayload', () => {
     wrote(ledger, 'b-1', { uid: ADA.uid, chars: 4 })
 
     const carried = sessionWindow(ledger)
-    expect(sessionPayload(carried, null).blocks['b-1'])
+    expect(collabWritePayload(carried, null).blocks['b-1'])
       .toEqual([{ uid: ADA.uid, via: null }])
     dischargeWindow(ledger, carried)
     expect(ledger.sets.size).toBe(0)
   })
 
   it('an empty window is stated — the lost-accounting case', () => {
-    const payload = sessionPayload(sessionWindow(ledgerWith(ADA)), null)
+    const payload = collabWritePayload(sessionWindow(ledgerWith(ADA)), null)
     expect(payload).toMatchObject({ blocks: {} })
   })
 })
 
-describe('what an agent\'s own token may carry', () => {
-  const AGENT = { user: FAGO.name, uid: FAGO.uid, via: CLAUDE }
-
-  it('a window the agent alone wrote', () => {
+describe('an agent\'s window', () => {
+  it('is stated with the agent\'s label, acting as the token\'s owner', () => {
     const ledger = ledgerWith(FAGO)
     wrote(ledger, 'b-1', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
-    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(true)
-    expect(agentOnly(sessionWindow(ledgerWith(FAGO)), AGENT)).toBe(true)
+    const payload = collabWritePayload(sessionWindow(ledger), null)
+    expect(payload.actingUid).toBe(FAGO.uid)
+    expect(payload.blocks).toEqual({ 'b-1': [{ uid: FAGO.uid, via: CLAUDE }] })
+    expect(payload.coAuthors).toEqual([{ name: FAGO.name, via: CLAUDE }])
   })
 
-  it('not a window with a person\'s writing in it, their own included', () => {
-    const ledger = ledgerWith(FAGO)
-    wrote(ledger, 'b-1', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
-    wrote(ledger, 'b-1-2', { uid: FAGO.uid, chars: 7 })
-    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
-  })
-
-  it('not a window carrying a person\'s sign-off', () => {
-    const ledger = ledgerWith(FAGO, ADA)
-    wrote(ledger, 'b-1', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
-    ledger.actions.push({ item: 'b-1', step: 'peer', uid: ADA.uid, print: ledger.baseline.get('b-1')!.print })
-    expect(sessionWindow(ledger).actions).toHaveLength(1)
-    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
-  })
-
-  it('a file the agent\'s account added, not one someone else added', () => {
-    const ledger = ledgerWith(FAGO, ADA)
-    recordFileAdders(ledger, ['f-own'], { uid: FAGO.uid, via: CLAUDE })
-    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(true)
-    recordFileAdders(ledger, ['f-ada'], human(ADA.uid))
-    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
-  })
-
-  it('not another account\'s agent writing', () => {
-    const ledger = ledgerWith(FAGO, ADA)
-    wrote(ledger, 'b-1', { uid: ADA.uid, via: CLAUDE, chars: 4 })
-    expect(agentOnly(sessionWindow(ledger), AGENT)).toBe(false)
+  it('files a mixed window under the token\'s owner when the agent checkpoints it', () => {
+    // A human typed more, but the agent's session end triggered the write:
+    // the revision author is the owner, each block keeps its own writer.
+    const ledger = ledgerWith(ADA, FAGO)
+    wrote(ledger, 'b-1', { uid: ADA.uid, chars: 400 })
+    wrote(ledger, 'b-2', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
+    const payload = collabWritePayload(sessionWindow(ledger), FAGO.uid)
+    expect(payload.actingUid).toBe(FAGO.uid)
+    expect(payload.blocks).toEqual({
+      'b-1': [{ uid: ADA.uid, via: null }],
+      'b-2': [{ uid: FAGO.uid, via: CLAUDE }],
+    })
   })
 })
 
@@ -767,7 +751,7 @@ describe('who added a page file', () => {
     recordFileAdders(ledger, ['f-fago'], human(FAGO.uid))
     recordFileAdders(ledger, ['f-seed'], null)
 
-    const payload = sessionPayload(sessionWindow(ledger), FAGO.uid)
+    const payload = collabWritePayload(sessionWindow(ledger), FAGO.uid)
     expect(payload.actingUid).toBe(FAGO.uid)
     expect(payload.files).toEqual({ 'f-ada': ADA.uid, 'f-fago': FAGO.uid })
   })
@@ -924,7 +908,7 @@ describe('the sign-offs a checkpoint states', () => {
     signedOff(ledger, 'b-1', ADA.uid)
 
     expect(sessionWindow(ledger).actions).toEqual([{ item: 'b-1', step: 'peer', uid: ADA.uid }])
-    expect(sessionPayload(sessionWindow(ledger), ADA.uid).actions)
+    expect(collabWritePayload(sessionWindow(ledger), ADA.uid).actions)
       .toEqual([{ item: 'b-1', step: 'peer', uid: ADA.uid }])
   })
 

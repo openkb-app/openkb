@@ -34,7 +34,9 @@ async function save(stored: string, changed: number): Promise<string> {
   const ydoc = prosemirrorJSONToYDoc(editorSchema, doc.toJSON() as never, 'default')
   ydoc.getMap('_meta').set('drupal_changed', changed)
   const result = await commitDocument({ documents: new Map([['node:1', ydoc]]) } as never, 'node:1', {
-    trigger: 'manual', identity: { token: 'collab' },
+    trigger: 'manual',
+    identity: { token: 'collab' },
+    collabWrite: { actingUid: null, coAuthors: [], blocks: {}, actions: [] },
   })
   expect(result.outcome).toBe('committed')
   return vi.mocked(commitKbPageWithAuth).mock.calls.at(-1)![2] as unknown as string
