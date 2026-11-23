@@ -8,7 +8,7 @@
 # runs as given.
 #
 # OPENKB_AUTO_BOOT=0 turns the boot off, for a checkout whose site is installed
-# by `phapp init` (docker-compose.development.yml).
+# by `phapp install` (docker-compose.development.yml).
 set -e
 
 if [ "${OPENKB_AUTO_BOOT:-1}" = 1 ]; then

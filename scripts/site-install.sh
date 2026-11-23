@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 #
-# Site install for openkb. Invoked by `openkb-install` and by `phapp init`.
+# Site install for openkb. Invoked by `openkb-install` and `phapp install`;
+# `phapp init` invokes it with --init.
+#
+# --init builds the site from dumps/init.sql.gz instead of installing it: loads
+# the dump, sets passwords and keys from the environment (drush
+# openkb:reset-secrets), then runs scripts/site-update.sh. It applies no recipe
+# and no content: the dump holds them, the updates bring them up to date.
+# dumps/README.md says what the dump holds.
 #
 # Runs where Drupal's code is: the `drupal` container, or `cli` in development.
 #  - clear the stale config sync dir (a fresh drush si does not populate it
@@ -20,7 +27,8 @@
 #    with,
 #  - the page trees the recipes ship as outline.json, once their pages exist,
 #  - provision the collab server's OAuth client,
-#  - enable services_env_parameter, set the test-editor passwords,
+#  - on an install: the preview provider, services_env_parameter, the
+#    test-editor passwords; the init dump holds them,
 #  - wait for the sidecar, then re-feed the search indexes (the cron service
 #    pauses until this is done, so it cannot hold the index lock),
 #  - the install markers the cron service and the boot read: `.openkb-installing`
@@ -33,8 +41,17 @@
 # The collab snapshot store is left alone here — it belongs to `frontend`, which
 # this container cannot cycle. Reset it from the host with
 # scripts/reset-collab-store.sh.
-set -e
+set -e -o pipefail
 cd `dirname $0`/..
+
+INIT=
+if [ "${1:-}" = --init ]; then
+  INIT=dumps/init.sql.gz
+  if [ ! -f "$INIT" ]; then
+    echo "--init needs $INIT." >&2
+    exit 1
+  fi
+fi
 
 DRUSH="php -d memory_limit=512M ./vendor/drush/drush/drush.php --uri=${DRUPAL_BASE_URL:-http://localhost}"
 FRONTEND_URL=${DRUPAL_FRONTEND_BASE_URL:?DRUPAL_FRONTEND_BASE_URL must name the frontend URL}
@@ -101,14 +118,47 @@ touch "${PERSISTENT_FILES_DIR:-files}/.openkb-holding"
 touch "${PERSISTENT_FILES_DIR:-files}/.openkb-installing"
 rm -f "${PERSISTENT_FILES_DIR:-files}/.openkb-installed"
 $DRUSH sql-create -y
-echo "  recipe: $RECIPE"
 # The admin password is handed to the installer, so drush keeps the one it
 # would otherwise generate and print out of the log.
 if [ -z "${ADMIN_PASSWORD:-}" ]; then
   ADMIN_PASSWORD=$(head -c 18 /dev/urandom | base64 | tr -d '/+=')
   echo "  ADMIN_PASSWORD is unset. Generated password for admin: $ADMIN_PASSWORD"
 fi
-$DRUSH si -y --site-name='OpenKB' --account-pass="$ADMIN_PASSWORD" "$RECIPE"
+# The seeded test accounts of the environment recipes. Their password defaults
+# to the shared dev secret every development stack has in `dotenv/app.env`.
+TEST_ACCOUNTS=
+case "$RECIPE" in
+  *openkb_recipe_dev*|*openkb_recipe_ci*)
+    TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-${APP_SECRET:-yKCE5gSqOk2z7WmLO7__gAqv}}
+    TEST_ACCOUNTS="editor1 editor2 siteadmin"
+    ;;
+esac
+if [ -n "$INIT" ]; then
+  echo "  dump: $INIT"
+  zcat "$INIT" | $($DRUSH sql:connect)
+  # The dump holds no password hash, private key or cron key.
+  accounts=admin=ADMIN_PASSWORD
+  for account in $TEST_ACCOUNTS; do
+    accounts=$accounts,$account=TEST_USER_PASSWORD
+  done
+  ADMIN_PASSWORD=$ADMIN_PASSWORD TEST_USER_PASSWORD=$TEST_USER_PASSWORD \
+    $DRUSH openkb:reset-secrets --accounts="$accounts"
+  ./scripts/site-update.sh
+  # site-update.sh marks the site installed; the steps below still run.
+  rm -f "${PERSISTENT_FILES_DIR:-files}/.openkb-installed"
+  # Step 2b dropped the chunk collection; an install creates it with the
+  # server, the dump's server exists already.
+  $DRUSH php:eval '
+    $config = \Drupal\search_api\Entity\Server::load("ai_chunks")->getBackendConfig();
+    $vdb = \Drupal::service("ai.vdb_provider");
+    if (!$vdb->ensureCollectionExists($vdb->createInstance($config["database"]), $config)) {
+      throw new \RuntimeException("Could not create the chunk collection.");
+    }
+  '
+else
+  echo "  recipe: $RECIPE"
+  $DRUSH si -y --site-name='OpenKB' --account-pass="$ADMIN_PASSWORD" "$RECIPE"
+fi
 
 # Rebuilds the container and caches from the installed module list before the
 # hold lifts.
@@ -124,57 +174,57 @@ $DRUSH state:set openkb.cron_paused 1
 # is indexed without its body until step 6 re-feeds the index.
 echo "Configuring frontend URL..."
 $DRUSH config:set lupus_decoupled_ce_api.settings frontend_base_url "$FRONTEND_URL" -y
-$DRUSH config:set lupus_decoupled_ce_api.settings preview_provider "nuxt" -y
 
-# 5. The content every site starts with, where the image ships it as a recipe
-# of its own. After the frontend URL, which the import reads.
-if [ -n "$CONTENT_RECIPE" ] && [ -f "$CONTENT_RECIPE/recipe.yml" ]; then
-  echo "Applying $CONTENT_RECIPE..."
-  $DRUSH recipe "$CONTENT_RECIPE" -y
+# The init dump holds the preview provider, the content and the page trees
+# already.
+if [ -z "$INIT" ]; then
+  $DRUSH config:set lupus_decoupled_ce_api.settings preview_provider "nuxt" -y
+
+  # 5. The content every site starts with, where the image ships it as a
+  # recipe of its own. After the frontend URL, which the import reads.
+  if [ -n "$CONTENT_RECIPE" ] && [ -f "$CONTENT_RECIPE/recipe.yml" ]; then
+    echo "Applying $CONTENT_RECIPE..."
+    $DRUSH recipe "$CONTENT_RECIPE" -y
+  fi
+
+  # 5a. Page trees. An outline names its pages by id, so it cannot ride the
+  # content YAML the importer validates; a recipe carries it as outline.json
+  # next to its content/, written here once the pages exist. A space or page
+  # that is not there is logged and skipped.
+  for outline in "$RECIPES_DIR"/*/outline.json; do
+    [ -f "$outline" ] || continue
+    echo "Applying $outline..."
+    $DRUSH php:eval "\Drupal\openkb_space\Seed\SpaceOutline::applyFile('$outline');"
+  done
 fi
-
-# 5a. Page trees. An outline names its pages by id, so it cannot ride the
-# content YAML the importer validates; a recipe carries it as outline.json next
-# to its content/, written here once the pages exist. A space or page that is
-# not there is logged and skipped.
-for outline in "$RECIPES_DIR"/*/outline.json; do
-  [ -f "$outline" ] || continue
-  echo "Applying $outline..."
-  $DRUSH php:eval "\Drupal\openkb_space\Seed\SpaceOutline::applyFile('$outline');"
-done
 
 # 5b. The collaboration server's own OAuth client. After the install, which
 # ships the scope and the role it is capped at.
 ./scripts/setup-collab-oauth.sh
 
-echo "Enabling services_env_parameter..."
-$DRUSH en services_env_parameter -y
+# The init dump has services_env_parameter enabled already; --init set the
+# passwords before the updates.
+if [ -z "$INIT" ]; then
+  echo "Enabling services_env_parameter..."
+  $DRUSH en services_env_parameter -y
 
-# 5c. Passwords for the seeded test accounts. Only where an environment recipe
-# brought them: production installs no demo content and has no such accounts.
-#
-# The accounts themselves come from openkb_recipe_demo_pages' content, which
-# cannot carry a password — content YAML would hold a hash. They are the manual-
-# testing accounts: `admin` answers every access question with "yes", so a
-# space roster, a moderated space or a non-member's 404 can only be exercised
-# as someone else. `TEST_USER_PASSWORD` defaults to the shared dev secret every
-# development stack already has in `dotenv/app.env`.
-case "$RECIPE" in
-  *openkb_recipe_dev*|*openkb_recipe_ci*)
-    TEST_USER_PASSWORD=${TEST_USER_PASSWORD:-${APP_SECRET:-yKCE5gSqOk2z7WmLO7__gAqv}}
-    for account in editor1 editor2 siteadmin; do
-      echo "Setting $account password..."
-      $DRUSH user:password "$account" "$TEST_USER_PASSWORD"
-    done
-    ;;
-esac
+  # 5c. Passwords for the seeded test accounts. They come from
+  # openkb_recipe_demo_pages' content, which cannot carry a password: content
+  # YAML would hold a hash.
+  for account in $TEST_ACCOUNTS; do
+    echo "Setting $account password..."
+    $DRUSH user:password "$account" "$TEST_USER_PASSWORD"
+  done
+fi
 
 # 6. Re-feed the search index once the sidecar can actually enrich items.
 #
 # The sidecar cuts the chunks, and an item it cannot answer for stays queued,
 # so the indexing batch would retry it until the time limit. Wait for the
 # sidecar, then reset the tracker so every item is queued again and re-enriched.
-if $DRUSH search-api:list 2>/dev/null | grep -q kb_chunks; then
+# A failing search-api:list stops the install.
+SEARCH_INDEXES=$($DRUSH search-api:list 2>/dev/null)
+if grep -q kb_chunks <<< "$SEARCH_INDEXES"; then
   echo "Waiting for the Nuxt sidecar at $FRONTEND_URL..."
   # The key goes in a file, so it never shows in a process list.
   SIDECAR_HEADERS=$(mktemp)

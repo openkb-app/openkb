@@ -27,7 +27,7 @@ x-drupal-development:
       XDG_DATA_HOME: /tmp/.local/share
       COMPOSER_CACHE_DIR: /cache/composer
       COMPOSER_MEMORY_LIMIT: -1
-      # A checkout's site is installed by `phapp init`, so the entrypoint must
+      # A checkout's site is installed by `phapp install`, so the entrypoint must
       # not install one of its own.
       OPENKB_AUTO_BOOT: "0"
       # Development ini on top of the image's: docker/drupal/dev/php.ini.

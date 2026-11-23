@@ -34,6 +34,11 @@ $settings['trusted_host_patterns'][] = '^127\.0\.0\.1$';
 if ($opensearch_url = getenv('OPENSEARCH_URL')) {
   $config['ai_vdb_provider_opensearch.settings']['connector_config']['url'] = $opensearch_url;
 }
+// A site that must not write to the cluster it shares with another, like
+// scripts/update-path-test.sh's: the chunk index neither indexes nor deletes.
+if (getenv('OKB_SEARCH_READ_ONLY')) {
+  $config['search_api.index.kb_chunks']['read_only'] = TRUE;
+}
 
 // Outgoing mail. The installed php_mail plugin needs an MTA, which the image
 // lacks. MAILER_DSN switches to core's Symfony mailer with that transport,

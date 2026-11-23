@@ -66,6 +66,7 @@ package-lock.json
 *.7z
 *.dmg
 *.gz
+!dumps/init.sql.gz
 *.bz2
 *.iso
 *.jar
