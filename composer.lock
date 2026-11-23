@@ -3877,7 +3877,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "00bacb06e3a1a4af51927b6fa8e8a74555ce24c5"
+                "reference": "b665c071fa17444aa74f3dc2ae3352fc499c81e9"
             },
             "require": {
                 "drupal/ai": "^1.5.2",
@@ -3941,7 +3941,7 @@
                         "OKB-270: Show a login flood block as a form error on custom elements requests. Core answers it with a bare 403 HTML page, which a frontend cannot show, so the reader never learns the account or IP is blocked. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_decoupled-user-form-flood-error.patch"
                     },
                     "drupal/mail_login": {
-                        "OKB-646: Let the login field take a whole email address. The login form keeps core's 60-character limit for a user name, so an email longer than that is cut in the field and refused on submit, while the password reset form already takes 254. While email login is enabled, the field takes the longer of both limits, as user_pass does. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mail_login-login-field-email-length.patch"
+                        "#3640965, OKB-646: Let the login field take a whole email address. The login form keeps core's 60-character limit for a user name, so an email longer than that is cut in the field and refused on submit, while the password reset form already takes 254. While email login is enabled, the field takes the longer of both limits, as user_pass does. Pending upstream as MR !28; swap for its merge commit once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mail_login-login-field-email-length.patch"
                     },
                     "drupal/mcp_server": {
                         "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call or completion/complete that loads an entity is answered as text/event-stream instead of application/json. src/ part of MR !69, against 2.0.0-beta5; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-fiber-shield.patch"
@@ -3960,7 +3960,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-23T13:56:45+00:00"
+            "time": "2026-11-23T14:33:05+00:00"
         },
         {
             "name": "drupal/pathauto",
