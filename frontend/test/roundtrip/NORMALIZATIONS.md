@@ -34,7 +34,7 @@ the saved markdown; everything else is pure re-formatting.
 | F17 | A list item's paragraph tight after a nested block (`- a\n  ## H\n  b`) | A blank line before the paragraph — as F4, looseness never reaches the editor |
 | F18 | `text{#id}` on a paragraph or heading | `text {#id}` — comark reads both as the block's id |
 | F19 | Spaces and tabs at a textblock's edge, at a line start or around a hard break | Dropped: the parser drops them or, from a tab or four spaces on, reads the line as code |
-| F20 | Empty paragraphs | A line holding one no-break space (U+00A0), between blocks and inside a quote or callout. The empty paragraphs a document opens on, and those a document or a container ends on, are not written |
+| F20 | Empty paragraphs | A line holding one no-break space (U+00A0), between blocks and inside a quote or callout. The ones a container (callout, infobox, quote) ends on, the ones a quote starts on, and every one inside a list item, are written `&nbsp;`: comark's writers trim a raw no-break space there. A container holding no other block writes none. The empty paragraphs a document opens or ends on are not written |
 | F21 | Code fence line ranges (`{1-3}`) | Listed (`{1,2,3}`): comark expands the range. The rest of the info string (`[file.ts]`, `title`) is kept |
 | F22 | A link or image destination holding `(`, `)`, whitespace, `<` or `>` | In angle brackets (`[t](</a)b>)`). A space, `<` and `>` read back percent-encoded (`%20`, `%3C`, `%3E`) |
 | F23 | A relative link whose text is its href (`[/foo](/foo)`) | Kept as an inline link: the angle form `</foo>` is an HTML tag |
@@ -72,7 +72,6 @@ the saved markdown; everything else is pure re-formatting.
 | L16 | A list nested under a marker wider than three characters (`10.`) | Indented by three; the next load moves it out of the item, later blocks become code |
 | L17 | An ordered list starting at 0 | Written starting at 1 |
 | L18 | An ordered list starting at another number than 1 right after a list item's paragraph | Written on the next line; the next load reads it as the paragraph's text |
-| L19 | An empty paragraph inside a list item | Not written |
 | L20 | An empty task item | `- [x]` or `- [ ]`; the next load reads a plain bullet item |
 | L21 | A `#name` line inside a component | Written bare; the next load reads a slot and the component's content is gone |
 | L22 | A hard break in a table cell | Written as spaces; the break is gone |

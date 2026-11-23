@@ -22,6 +22,8 @@ And between two.
 
 - An item.
 
+  &nbsp;
+
   The same item, after an empty paragraph.
 
 > A quote.
@@ -29,3 +31,18 @@ And between two.
 >  
 >
 > Its second paragraph.
+
+::callout{type="info"}
+Ends on an empty paragraph.
+
+&nbsp;
+::
+
+> A quote ending on an empty paragraph.
+>
+> &nbsp;
+
+- An item ending on an empty paragraph.
+
+  &nbsp;
+- Next item.

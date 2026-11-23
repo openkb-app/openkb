@@ -4,7 +4,7 @@
  */
 import type { State } from 'comark/render'
 import type { ComarkNode } from '#shared/utils/comark-tree'
-import { textContentOf } from './pm-mapper'
+import { NBSP_ENTITY_TAG, textContentOf } from './pm-mapper'
 import type { ComarkElement } from './pm-mapper'
 
 type Handler = (node: ComarkElement, state: State, parent?: ComarkElement) => string | Promise<string>
@@ -153,6 +153,8 @@ export const renderHandlers: Record<string, Handler> = {
   ...Object.fromEntries(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table'].map(tag => [tag, renderInInlineContext(tag)])),
   /** Writes a bare `{` the mapper marked, escaped, so it opens no attribute list. */
   [BARE_BRACE_TAG]: () => escapeWhatComarkMisses('{', 'text'),
+  /** Writes the no-break space of an empty paragraph the mapper marked as its entity. */
+  [NBSP_ENTITY_TAG]: () => '&nbsp;',
   a: renderLink,
   img: renderImage,
   code: renderInlineCode,

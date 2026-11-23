@@ -294,9 +294,9 @@ export function marginAnchor(control: HTMLElement, inside: boolean): HTMLElement
 
 /**
  * The blocks Drupal reads as text outside identified blocks: no id, and
- * something in them. An empty paragraph serializes to nothing, so it holds
- * nothing back — counting it would put a hold on every blank line an editor
- * leaves behind.
+ * something in them. An empty paragraph is stored without an id and shows no
+ * text, so it holds nothing back — counting it would put a hold on every blank
+ * line an editor leaves behind.
  */
 export function unidentifiedBlocks(doc: PMNode): AddressableBlock[] {
   return addressableBlocks(doc).filter(block => !block.id && !holdsNothing(block.node))

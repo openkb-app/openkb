@@ -31,3 +31,18 @@ And between two.
 > &nbsp;
 >
 > Its second paragraph.
+
+::callout{type="info"}
+Ends on an empty paragraph.
+
+&nbsp;
+::
+
+> A quote ending on an empty paragraph.
+>
+> &nbsp;
+
+- An item ending on an empty paragraph.
+
+  &nbsp;
+- Next item.

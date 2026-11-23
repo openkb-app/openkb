@@ -29,6 +29,13 @@ export const BLOCK_WRAPPER_TAG = 'block'
 
 const NBSP = '\u00A0'
 
+/**
+ * Marks an empty paragraph written `&nbsp;`. comark 0.8.1's writers `trim()` a
+ * raw no-break space where they trim: a box's or list item's end, both ends of
+ * a quote, and every empty paragraph in a list item.
+ */
+export const NBSP_ENTITY_TAG = 'okb-nbsp-entity'
+
 /** Marks a file component written inline (`:image{…}`), not as a fence. */
 const INLINE = { $: { block: 0 } }
 
@@ -400,12 +407,42 @@ export function pmToComark(doc: JSONContent): ComarkElement[] {
 
 /**
  * Maps blocks to comark, each empty paragraph between two of them as a
- * no-break space; the empty paragraphs a container ends on are not written.
+ * no-break space; the empty paragraphs they end on are not written.
  */
 function writeEmptyParagraphsBetween(nodes: JSONContent[], map: (node: JSONContent) => ComarkElement): ComarkElement[] {
+  return nodes.slice(0, endOfLastFilledBlock(nodes)).map(node => isEmptyParagraph(node) ? ['p', {}, NBSP] : map(node))
+}
+
+/**
+ * Where a container's writer trims a raw no-break space, so its empty
+ * paragraphs there are written `&nbsp;`.
+ * - `end`: after its last filled block.
+ * - `both-ends`: before its first and after its last filled block.
+ * - `everywhere`: every empty paragraph.
+ */
+type TrimmedEdges = 'end' | 'both-ends' | 'everywhere'
+
+/**
+ * Maps a container's blocks to comark, each empty paragraph as a no-break
+ * space, or as `&nbsp;` where the container's writer trims. A container
+ * holding no other block writes none.
+ */
+function writeContainerBlocksWithEmptyParagraphs(nodes: JSONContent[], map: (node: JSONContent) => ComarkElement, trimmed: TrimmedEdges): ComarkElement[] {
+  const end = endOfLastFilledBlock(nodes)
+  if (end === 0) return []
+  const start = trimmed === 'both-ends' ? nodes.findIndex(node => !isEmptyParagraph(node)) : 0
+  return nodes.map((node, index): ComarkElement => {
+    if (!isEmptyParagraph(node)) return map(node)
+    const asEntity = trimmed === 'everywhere' || index < start || index >= end
+    return ['p', {}, asEntity ? [NBSP_ENTITY_TAG, {}] : NBSP]
+  })
+}
+
+/** The index after the last block that is not an empty paragraph. */
+function endOfLastFilledBlock(nodes: JSONContent[]): number {
   let end = nodes.length
   while (end > 0 && isEmptyParagraph(nodes[end - 1]!)) end--
-  return nodes.slice(0, end).map(node => isEmptyParagraph(node) ? ['p', {}, NBSP] : map(node))
+  return end
 }
 
 /** Whether a node is a paragraph holding nothing. */
@@ -431,9 +468,9 @@ function blockIdOf(node: JSONContent): string | null {
   return typeof id === 'string' && id !== '' ? id : null
 }
 
-/** Maps a container's blocks to comark. */
+/** Maps a box's blocks to comark. */
 function mapPmBlocks(nodes: JSONContent[] | undefined): ComarkElement[] {
-  return writeEmptyParagraphsBetween(nodes ?? [], mapPmBlock)
+  return writeContainerBlocksWithEmptyParagraphs(nodes ?? [], mapPmBlock, 'end')
 }
 
 /** Maps one editor block to a comark element. */
@@ -457,7 +494,7 @@ function mapPmBlock(node: JSONContent): ComarkElement {
         return element
       })]
     case 'blockquote':
-      return ['blockquote', {}, ...mapPmBlocks(node.content)]
+      return ['blockquote', {}, ...writeContainerBlocksWithEmptyParagraphs(node.content ?? [], mapPmBlock, 'both-ends')]
     case 'codeBlock':
       return ['pre', dropUnsetProps({ language: attrs.language, meta: attrs.language ? attrs.meta : null }), ['code', {}, (node.content ?? []).map(t => t.text ?? '').join('')]]
     case 'horizontalRule':
@@ -480,11 +517,15 @@ function mapPmBlock(node: JSONContent): ComarkElement {
   }
 }
 
-/** Maps a list item to an `li`; an empty lead paragraph before another block is the schema's and not written. */
+/**
+ * Maps a list item to an `li`; an empty lead paragraph before another block
+ * is the schema's and not written. Every other empty paragraph is `&nbsp;`:
+ * comark's list item writer trims a raw no-break space.
+ */
 function mapListItemElement(item: JSONContent, props: ComarkProps): ComarkElement {
   const [lead, next, ...rest] = item.content ?? []
   const schemaLead = lead && next && isEmptyParagraph(lead) && next.type !== 'paragraph'
-  return ['li', props, ...mapPmBlocks(schemaLead ? [next, ...rest] : item.content)]
+  return ['li', props, ...writeContainerBlocksWithEmptyParagraphs(schemaLead ? [next, ...rest] : item.content ?? [], mapPmBlock, 'everywhere')]
 }
 
 /** Maps a table cell to one line: the text of its blocks at any depth joined by a space, code as inline code. */

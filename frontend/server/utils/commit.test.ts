@@ -4,6 +4,7 @@ import { Node as PMNode } from '@tiptap/pm/model'
 import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import { editorSchema } from './editor-schema'
 import { parseMarkdownToJson, serializeDocToMarkdown } from '../../app/comark/markdown-engine'
+import { blockVersions } from './block-versions'
 
 vi.mock('./drupal', () => ({
   fetchCeWorkingCopy: vi.fn(),
@@ -817,6 +818,34 @@ describe('a block nobody edited', () => {
     await commit(hp('node:1', ydoc), 'node:1', { trigger: 'manual', identity: { token: 'collab' } })
 
     expect(commitMock.mock.lastCall![2]).toBe(`${written}\n`)
+  })
+})
+
+describe('a box whose empty last line Drupal does not hold', () => {
+  beforeEach(() => {
+    readMock.mockReset()
+    commitMock.mockReset()
+  })
+
+  it('is written on the next checkpoint: one revision, only that block changed', async () => {
+    const stored = '::infobox{title="T" #b-1}\na\n::\n\nb {#b-2}'
+    const json = await parseMarkdownToJson(stored) as { content: Json[] }
+    const box = json.content[0] as { content: Json[] }
+    box.content.push({ type: 'paragraph' })
+    const ydoc = seed(json as Json)
+    ydoc.getMap('_meta').set('last_commit_hash', contentHash(stored))
+    readsPage({ titleHeading: '', id: 'uuid-1', nid: 1, changed: 100, body: `${stored}\n` } as never)
+    commitMock.mockResolvedValue({ changed: 200, review: null })
+
+    const res = await commit(hp('node:1', ydoc), 'node:1', { trigger: 'disconnect', identity: { token: 'collab' } })
+
+    expect(res.outcome).toBe('committed')
+    const body = commitMock.mock.lastCall![2] as string
+    expect(body).toBe('::infobox{title="T" #b-1}\na\n\n&nbsp;\n::\n\nb {#b-2}\n')
+    const before = blockVersions(stored)
+    const after = blockVersions(body)
+    expect(after['b-1']).not.toBe(before['b-1'])
+    expect(after['b-2']).toBe(before['b-2'])
   })
 })
 
