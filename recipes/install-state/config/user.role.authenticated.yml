@@ -21,6 +21,7 @@ dependencies:
     - simple_oauth
     - simple_oauth_personal_consumers
     - system
+    - userprotect
     - vercel_ai_sdk
 id: authenticated
 label: 'Authenticated user'
@@ -47,6 +48,8 @@ permissions:
   - 'use text format basic_html'
   - 'use text format comark'
   - 'use vercel ai sdk chat'
+  - userprotect.account.edit
+  - userprotect.pass.edit
   - 'view any unpublished content'
   - 'view kb_page revisions'
   - 'view latest version'
