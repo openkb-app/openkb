@@ -139,7 +139,7 @@ const inViewport = useElementVisibility(wrapper)
           @input="storeSummaryText"
         >
       </template>
-      <NodeViewContent :id="bodyId" class="okb-prose-compact" />
+      <NodeViewContent :id="bodyId" class="okb-prose-box" />
     </Details>
     <ComponentSettingsMenu
       v-if="inViewport"

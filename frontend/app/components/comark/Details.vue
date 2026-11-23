@@ -45,7 +45,7 @@ const slots = useSlots()
       <!-- Without a summary it reads "Details", as the native element does. -->
       <span class="min-w-0 flex-1"><slot name="summary">{{ summary || 'Details' }}</slot></span>
     </component>
-    <div v-show="open || !slots.marker" class="okb-box-body okb-prose-compact mt-2">
+    <div v-show="open || !slots.marker" class="okb-box-body okb-prose-box mt-2">
       <slot />
     </div>
   </component>

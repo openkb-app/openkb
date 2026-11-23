@@ -53,7 +53,7 @@ const inViewport = useElementVisibility(wrapper)
         >
       </template>
       <template v-if="declaration.slot" #default>
-        <NodeViewContent class="okb-prose-compact" />
+        <NodeViewContent class="okb-prose-box" />
       </template>
     </component>
     <component

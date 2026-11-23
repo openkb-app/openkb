@@ -13,10 +13,14 @@ const HOSTS: Record<string, string[]> = {
     '../../components/chat/ChatPanel.vue',
     '../../pages/search.vue',
   ],
-  'okb-prose-compact': [
+  'okb-prose-box': [
     '../../components/comark/Callout.vue',
     '../../components/comark/Infobox.vue',
+    '../../components/comark/Details.vue',
+    '../../components/comark/Details.editor.vue',
     '../../components/ComponentNodeView.vue',
+  ],
+  'okb-prose-compact': [
     '../../components/AnswerMarkdown.vue',
   ],
 }
@@ -50,10 +54,17 @@ describe('page typography', () => {
     }
   })
 
-  test('a box stays flush with its edges even when a heading opens it', () => {
-    // The box's heading classes are important, so the resets must be too —
-    // otherwise importance, not specificity, decides the box's first block.
-    const box = utility('okb-prose-compact')
-    for (const cls of ['*:first:mt-0!', '*:last:mb-0!']) expect(box).toContain(cls)
+  test('a component body takes the type scale of the content around it', () => {
+    const box = utility('okb-prose-box')
+    expect(box.filter(cls => /(^|:)(text|leading)-/.test(cls))).toEqual([])
+  })
+
+  const FLUSH = ['okb-prose-compact', 'okb-prose-box']
+
+  test.each(FLUSH)('%s stays flush with its edges even when a heading opens it', (name) => {
+    // The answer's heading classes are important, so the resets must be too —
+    // otherwise importance, not specificity, decides the first block.
+    const classes = utility(name)
+    for (const cls of ['*:first:mt-0!', '*:last:mb-0!']) expect(classes).toContain(cls)
   })
 })

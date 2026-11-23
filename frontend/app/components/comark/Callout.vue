@@ -48,7 +48,7 @@ const tone = computed(() => {
     <UIcon :name="tone.icon" class="mt-0.5 size-5 shrink-0 in-[.ProseMirror]:invisible" />
     <!-- The body needs a box of its own, or every block in it becomes a flex
          item beside the icon. -->
-    <div class="okb-box-body okb-prose-compact min-w-0 flex-1">
+    <div class="okb-box-body okb-prose-box min-w-0 flex-1">
       <slot />
     </div>
   </div>

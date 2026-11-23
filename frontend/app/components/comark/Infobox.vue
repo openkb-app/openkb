@@ -35,7 +35,7 @@ const slots = useSlots()
     </h3>
     <!-- The body needs a box of its own: the title is a sibling, so without one
          the first block is never `:first-child` and keeps its top margin. -->
-    <div class="okb-box-body okb-prose-compact">
+    <div class="okb-box-body okb-prose-box">
       <slot />
     </div>
   </section>

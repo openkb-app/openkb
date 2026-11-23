@@ -287,11 +287,18 @@
   @apply [&_:is(li,blockquote,th,td)_p]:my-0;
 }
 
-/* A prose body in a box — a callout, an infobox, an assistant answer — one
-   step down from the page content's scale. It sits inside an `okb-prose` root, so
-   every class naming an element that root also names is important: two
-   descendant variants of equal specificity are ordered by Tailwind, not by
-   this file. */
+/* A component's slotted body: the page rhythm, flush with the box's edges.
+   - No type scale: the body takes the size of the content around it.
+   - Edge resets are important: inside an answer, `okb-prose-compact` states
+     heading margins as important. */
+@utility okb-prose-box {
+  @apply *:my-5 *:first:mt-0! *:last:mb-0!;
+}
+
+/* An assistant answer, one step down from the page content's scale. It sits
+   inside an `okb-prose` root, so every class naming an element that root also
+   names is important: two descendant variants of equal specificity are
+   ordered by Tailwind, not by this file. */
 @utility okb-prose-compact {
   @apply text-sm/6;
   /* The edge resets are important too, or a box opening or closing on a
