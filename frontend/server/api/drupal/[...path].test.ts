@@ -69,6 +69,20 @@ describe('/api/drupal/[...path]', () => {
     readRawBody.mockReset().mockResolvedValue('{"space":"product"}')
   })
 
+  it('passes a bodiless 204 on, as a JSON:API delete answers', async () => {
+    fetchUpstream.mockResolvedValue(answer(undefined, { status: 204, type: '' }))
+    readRawBody.mockResolvedValue(undefined)
+    const deleted = event(
+      { 'cookie': 'SESS=1', 'accept': 'application/vnd.api+json', 'x-csrf-token': 't' },
+      { method: 'DELETE', path: 'jsonapi/openkb_invite/openkb_invite/1b4e28ba-2fa1-11d2-883f-0016d3cca427' },
+    )
+    expect(await handler(deleted)).toBeNull()
+    expect(fetchUpstream).toHaveBeenCalledWith(
+      'http://drupal.test/jsonapi/openkb_invite/openkb_invite/1b4e28ba-2fa1-11d2-883f-0016d3cca427',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
   it('forwards to Drupal under the caller\'s own carrier and returns its JSON', async () => {
     expect(await handler(event())).toEqual({ nid: 7 })
     expect(fetchUpstream).toHaveBeenCalledWith(

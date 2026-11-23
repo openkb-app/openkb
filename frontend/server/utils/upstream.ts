@@ -1,4 +1,5 @@
 import { createError, appendResponseHeader, type H3Event } from 'h3'
+import { loggablePath } from '#shared/utils/loggable-path'
 
 /**
  * Error mapping for every server route that talks to Drupal.
@@ -69,9 +70,17 @@ export async function fetchUpstream(url: string, init?: RequestInit): Promise<Re
     return await fetch(url, init)
   }
   catch (e) {
-    console.error(`[upstream] unreachable: ${url}`, e)
+    console.error(`[upstream] unreachable: ${loggableUrl(url)}`, e)
     throw createError({ statusCode: 503, statusMessage: UPSTREAM_UNAVAILABLE })
   }
+}
+
+/**
+ * The path of an upstream URL as the server log may print it: no query, no
+ * one-time login hash.
+ */
+function loggableUrl(url: string): string {
+  return URL.canParse(url) ? loggablePath(new URL(url).pathname) : '(invalid URL)'
 }
 
 /** The two timestamps a 409's first error carries, when it carries them. */

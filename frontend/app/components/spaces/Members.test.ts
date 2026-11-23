@@ -8,8 +8,9 @@ import type { KbSpaceDetail } from '#shared/utils/kb-spaces'
  * The members form in a bare Vue app, Nuxt UI stubbed to plain elements.
  *
  * Asserted: the pending invites come from their own request when the form
- * mounts and after an invite, a failing one leaves the roster as usable as
- * before, and a refused invite shows Drupal's sentence.
+ * mounts and after an invite or cancel, a failing one leaves the roster as
+ * usable as before, a refused invite shows Drupal's sentence, and a roster
+ * write keeps who joined since the form loaded.
  */
 
 const SPACE: KbSpaceDetail = {
@@ -97,7 +98,10 @@ describe('SpaceMembers — invites', () => {
   })
 
   it('keeps the roster usable when the listing fails', async () => {
-    fetchMock.mockRejectedValue(Object.assign(new Error('Forbidden'), { statusCode: 403 }))
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === '/api/spaces/engineering') return SPACE
+      throw Object.assign(new Error('Forbidden'), { statusCode: 403 })
+    })
     mount()
     await flush()
     expect(byTestId('space-member-ada')).not.toBeNull()
@@ -109,6 +113,34 @@ describe('SpaceMembers — invites', () => {
     expect(csrfFetchMock).toHaveBeenCalledWith('/api/spaces/engineering', expect.objectContaining({
       method: 'PATCH',
       body: { managers: ['user-m'], members: [], viewers: [] },
+    }))
+  })
+
+  it('cancels a pending invite and lists the pending ones again', async () => {
+    fetchMock.mockResolvedValueOnce({ data: [{ id: 'invite-1', attributes: { mail: 'grace@example.com', role: 'viewer' } }] })
+    csrfFetchMock.mockResolvedValue(null)
+    mount()
+    await flush()
+    fetchMock.mockResolvedValueOnce({ data: [] })
+    byTestId('space-invite-cancel-grace@example.com')!.click()
+    await flush()
+    await flush()
+    expect(csrfFetchMock).toHaveBeenCalledWith('/api/drupal/jsonapi/openkb_invite/openkb_invite/invite-1', expect.objectContaining({ method: 'DELETE' }))
+    expect(byTestId('space-invite-pending-grace@example.com')).toBeNull()
+    expect(byTestId('space-members-error')).toBeNull()
+  })
+
+  it('keeps a member who joined since the form loaded when writing the roster', async () => {
+    const joined = { ...SPACE, members: [...SPACE.members, { id: 'user-g', uid: 5, name: 'grace' }] }
+    fetchMock.mockImplementation(async (url: string) => (url === '/api/spaces/engineering' ? joined : { data: [] }))
+    mount()
+    await flush()
+    byTestId('space-member-remove-ada')!.click()
+    await flush()
+    await flush()
+    expect(csrfFetchMock).toHaveBeenCalledWith('/api/spaces/engineering', expect.objectContaining({
+      method: 'PATCH',
+      body: { managers: ['user-m'], members: ['user-g'], viewers: [] },
     }))
   })
 

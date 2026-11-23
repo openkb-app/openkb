@@ -75,6 +75,8 @@ export default defineEventHandler(async (event) => {
   })
   relaySetCookie(event, res)
   if (!res.ok) throw await upstreamError(res, `drupal ${method} /${path}`)
+  // A delete answers with no body; null passes the 204 on.
+  if (res.status === 204) return null
 
   const answered = res.headers.get('content-type')
   if (!isJson(answered ?? undefined)) {

@@ -106,6 +106,9 @@ export default defineNuxtConfig({
     // The Canvas page builder is not part of this app, so the component
     // preview endpoint and its component-index build step are off.
     enableComponentPreview: false,
+    // No request or error log of its own: both print the full URL, and
+    // one-time login paths and `pass-reset-token` carry secrets.
+    serverLogLevel: false,
   },
 
   runtimeConfig: {

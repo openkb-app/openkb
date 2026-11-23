@@ -41,6 +41,14 @@ export async function loadSpacePendingInvites(space: KbSpaceDetail): Promise<KbP
   return data.map(invite => ({ id: invite.id, mail: invite.attributes.mail ?? null, role: invite.attributes.role }))
 }
 
+/** Cancels a pending invite: Drupal deletes it, and its never-used account. */
+export async function cancelSpaceInvite(inviteId: string): Promise<void> {
+  await csrfFetch(`${INVITES_URL}/${inviteId}`, {
+    method: 'DELETE',
+    headers: { Accept: JSON_API },
+  })
+}
+
 /** Invites the email onto the space's roster with the role. */
 export async function inviteToSpaceByEmail(space: KbSpaceDetail, email: string, role: KbSpaceRole): Promise<void> {
   await csrfFetch(INVITES_URL, {

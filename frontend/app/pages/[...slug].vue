@@ -6,6 +6,8 @@
  * a page renders through `NodeKbPage`, a history through
  * `NodeRevisionHistory`, each of which brings its own navbar and `<main>`.
  */
+import { loggablePath } from '#shared/utils/loggable-path'
+
 const route = useRoute()
 const { fetchPage, renderCustomElementsToVNodes } = useDrupalCe()
 
@@ -25,11 +27,13 @@ if (route.path.startsWith('/api/')) {
 // user-facing copy from the status class anyway.
 const page = await fetchPage(route.path, { query: route.query }, (error) => {
   const statusCode = Number(error.value?.statusCode) || 503
-  console.error(`[kb-page] ${route.path} → ${statusCode}: ${error.value?.message ?? ''}`)
+  // No query: its `pass-reset-token` sets a password without the current one.
+  console.error(`[kb-page] ${loggablePath(route.path)} → ${statusCode}`)
   throw createError({
     statusCode,
     statusMessage: statusCode === 404 ? 'Not found' : 'Page unavailable',
-    fatal: true,
+    // Fatal on the server makes Nitro log the full URL, hash and token included.
+    fatal: import.meta.client,
   })
 })
 

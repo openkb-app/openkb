@@ -6,22 +6,24 @@
  * (manage + write), `members` (write) and `viewers` (read only) —
  * and this form maps them onto one list of people with a role each: a user sits
  * in exactly one of the three, so changing a role moves the reference rather
- * than duplicating it. Every edit sends the whole roster in one PATCH
- * (`/api/spaces/<slug>`), which is what makes the space the aggregate root;
- * concurrent managers therefore overwrite each other, last write wins.
+ * than duplicating it. Every edit reloads the space, applies its one change to
+ * that roster and sends the whole roster in one PATCH (`/api/spaces/<slug>`),
+ * which is what makes the space the aggregate root; so a change made since the
+ * form loaded stays.
  *
  * Controls render only for a session Drupal would let manage the space
  * (`canManage`); everyone else sees the same list, read-only. A manager who
  * may invite users (`canInvite`) also invites people by email
  * (`space-invites`). The invitee joins the roster only by accepting; until
  * then the invite is listed as pending, loaded when the form mounts and after
- * each invite; none while loading or on failure.
+ * each invite or cancel; none while loading or on failure. Cancelling deletes
+ * the invite.
  *
  * Narrow containers wrap each form row, so it fits a phone.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { KB_SPACE_ROLES, type KbSpaceDetail, type KbSpaceMember, type KbSpaceRole } from '#shared/utils/kb-spaces'
-import { inviteToSpaceByEmail, loadSpacePendingInvites, type KbPendingInvite } from '~/utils/space-invites'
+import { cancelSpaceInvite, inviteToSpaceByEmail, loadSpacePendingInvites, type KbPendingInvite } from '~/utils/space-invites'
 
 const props = defineProps<{ space: KbSpaceDetail }>()
 const emit = defineEmits<{ updated: [KbSpaceDetail] }>()
@@ -34,9 +36,11 @@ const ROLE_LABELS: Record<KbSpaceRole, string> = { manager: 'Manager', member: '
 
 const ROLE_ITEMS = KB_SPACE_ROLES.map(value => ({ label: ROLE_LABELS[value], value }))
 
-// Ranks are exclusive; if a user appears on more than one field, the highest
-// wins, so nobody is listed twice.
-const rows = computed<RosterRow[]>(() => {
+/**
+ * The space's roster as one row per user. Ranks are exclusive; if a user
+ * appears on more than one field, the highest wins, so nobody is listed twice.
+ */
+function rosterRows(space: KbSpaceDetail): RosterRow[] {
   const seen = new Set<string>()
   /** The users not listed yet, as rows of the role. */
   const rank = (users: KbSpaceMember[], role: KbSpaceRole) =>
@@ -46,21 +50,28 @@ const rows = computed<RosterRow[]>(() => {
       return true
     }).map(user => ({ ...user, role }))
   return [
-    ...rank(props.space.managers, 'manager'),
-    ...rank(props.space.members, 'member'),
-    ...rank(props.space.viewers, 'viewer'),
+    ...rank(space.managers, 'manager'),
+    ...rank(space.members, 'member'),
+    ...rank(space.viewers, 'viewer'),
   ]
-})
+}
+
+const rows = computed(() => rosterRows(props.space))
 
 const saving = ref(false)
 const error = ref<string | null>(null)
 
-/** Sends `next` as the complete roster and adopts the space the server returns. */
-async function save(next: RosterRow[]) {
+/**
+ * Applies `change` to the roster as it now stands and sends the result as the
+ * complete roster; adopts the space the server returns.
+ */
+async function saveRosterChange(change: (current: RosterRow[]) => RosterRow[]) {
   if (saving.value) return
   saving.value = true
   error.value = null
   try {
+    const current = await $fetch<KbSpaceDetail>(`/api/spaces/${props.space.slug}`)
+    const next = change(rosterRows(current))
     const updated = await csrfFetch<KbSpaceDetail>(`/api/spaces/${props.space.slug}`, {
       method: 'PATCH',
       body: {
@@ -86,12 +97,12 @@ async function save(next: RosterRow[]) {
 
 /** Moves the member to another roster. */
 function setRole(member: KbSpaceMember, role: KbSpaceRole) {
-  save(rows.value.map(row => (row.id === member.id ? { ...row, role } : row)))
+  saveRosterChange(current => current.map(row => (row.id === member.id ? { ...row, role } : row)))
 }
 
 /** Takes the member off the space's roster. */
-function remove(member: KbSpaceMember) {
-  save(rows.value.filter(row => row.id !== member.id))
+function removeMember(member: KbSpaceMember) {
+  saveRosterChange(current => current.filter(row => row.id !== member.id))
 }
 
 // --- add form -------------------------------------------------------------
@@ -155,6 +166,25 @@ async function showPendingInvites() {
 
 onMounted(showPendingInvites)
 
+const cancelling = ref<string | null>(null)
+
+/** Cancels the pending invite, then lists the pending ones again. */
+async function cancelInvite(pending: KbPendingInvite) {
+  if (cancelling.value) return
+  cancelling.value = pending.id
+  error.value = null
+  try {
+    await cancelSpaceInvite(pending.id)
+  }
+  catch {
+    error.value = 'Cancelling the invitation failed. Please try again.'
+  }
+  finally {
+    cancelling.value = null
+  }
+  await showPendingInvites()
+}
+
 const inviteEmail = ref('')
 const inviteRole = ref<KbSpaceRole>('member')
 const inviting = ref(false)
@@ -194,11 +224,15 @@ async function invite() {
   await showPendingInvites()
 }
 
-/** Adds the picked user to the roster with the chosen role. */
-async function add() {
+/** Adds the picked user to the roster with the chosen role, unless already on it. */
+async function addPickedUser() {
   const user = picked.value
   if (!user) return
-  await save([...rows.value, { ...user, role: newRole.value }])
+  const role = newRole.value
+  /** The roster with the picked user added, unless already on it. */
+  const addUnlessListed = (current: RosterRow[]) =>
+    current.some(row => row.id === user.id) ? current : [...current, { ...user, role }]
+  await saveRosterChange(addUnlessListed)
   picked.value = undefined
   searchTerm.value = ''
   candidates.value = []
@@ -266,7 +300,7 @@ async function add() {
             :disabled="saving"
             :aria-label="`Remove ${row.name}`"
             :data-testid="`space-member-remove-${row.name}`"
-            @click="remove(row)"
+            @click="removeMember(row)"
           />
         </div>
       </li>
@@ -296,6 +330,19 @@ async function add() {
           <UBadge color="neutral" variant="subtle" size="sm" class="ml-auto shrink-0">
             {{ ROLE_LABELS[pending.role] }}
           </UBadge>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            class="shrink-0"
+            :loading="cancelling === pending.id"
+            :disabled="!!cancelling"
+            :aria-label="`Cancel the invitation of ${pending.mail ?? 'a person invited by another manager'}`"
+            :data-testid="`space-invite-cancel-${pending.mail ?? pending.id}`"
+            @click="cancelInvite(pending)"
+          >
+            Cancel
+          </UButton>
         </li>
       </ul>
     </div>
@@ -304,7 +351,7 @@ async function add() {
       v-if="space.canManage"
       data-testid="space-members-add"
       class="mt-3 flex flex-wrap items-center gap-2 border-t border-(--ui-border) pt-3 @md/members:flex-nowrap"
-      @submit.prevent="add"
+      @submit.prevent="addPickedUser"
     >
       <div data-testid="space-members-search" class="w-full @md/members:w-auto @md/members:min-w-0 @md/members:flex-1">
         <UInputMenu

@@ -5,6 +5,7 @@ import { enrichCePage, type CePage } from '../../utils/drupal-ce-enrich'
 import { bodyAllowedHtml } from '../../utils/comark-allowed-html'
 import { forwardedAuthHeaders } from '../../utils/actor'
 import { drupalPath } from '../../utils/drupal-proxy'
+import { loggablePath } from '#shared/utils/loggable-path'
 
 /**
  * Overrides nuxtjs-drupal-ce's built-in /api/drupal-ce/** passthrough.
@@ -31,7 +32,7 @@ export default defineEventHandler(async (event) => {
   const auth = forwardedAuthHeaders(event)
   const res = await fetchUpstream(url, { headers: { Accept: 'application/json', ...auth } })
   relaySetCookie(event, res)
-  if (!res.ok) throw await upstreamError(res, `CE-API ${path}`)
+  if (!res.ok) throw await upstreamError(res, `CE-API ${loggablePath(path)}`)
   const page = (await res.json()) as CePage
   return enrichCePage(page, auth, await bodyAllowedHtml())
 })

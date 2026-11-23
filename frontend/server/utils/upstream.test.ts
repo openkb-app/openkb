@@ -37,6 +37,17 @@ describe('fetchUpstream', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 404 })))
     await expect(fetchUpstream('http://drupal.test/x')).resolves.toMatchObject({ status: 404 })
   })
+
+  it('logs the path without query or one-time login hash', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')))
+    await fetchUpstream('http://drupal.test/ce-api/user/reset/2/1794988539/hash').catch(() => {})
+    await fetchUpstream('http://drupal.test/ce-api/user/2/edit?pass-reset-token=token').catch(() => {})
+    const logged = vi.mocked(console.error).mock.calls.map(call => String(call[0]))
+    expect(logged).toEqual([
+      '[upstream] unreachable: /ce-api/user/reset/2/…',
+      '[upstream] unreachable: /ce-api/user/2/edit',
+    ])
+  })
 })
 
 describe('upstreamError', () => {

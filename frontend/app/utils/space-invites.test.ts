@@ -4,7 +4,7 @@ import type { KbSpaceDetail } from '#shared/utils/kb-spaces'
 
 /**
  * The invites of a space as Drupal's JSON:API resource: the pending ones of
- * the space, and the create document an invite sends.
+ * the space and the create document an invite sends.
  */
 
 const SPACE = { id: 'space-uuid', internalId: 4 } as KbSpaceDetail
