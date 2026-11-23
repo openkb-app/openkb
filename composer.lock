@@ -3213,17 +3213,17 @@
         },
         {
             "name": "drupal/lupus_decoupled",
-            "version": "1.6.0",
+            "version": "1.7.0",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/lupus_decoupled.git",
-                "reference": "1.6.0"
+                "reference": "1.7.0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/lupus_decoupled-1.6.0.zip",
-                "reference": "1.6.0",
-                "shasum": "08b98f5f83d5d7ba1a6803863607384d5f07278e"
+                "url": "https://ftp.drupal.org/files/projects/lupus_decoupled-1.7.0.zip",
+                "reference": "1.7.0",
+                "shasum": "846b20b35bbc319994f79ed6d0073b7317e49c0c"
             },
             "require": {
                 "drunomics/service-utils": "*",
@@ -3271,8 +3271,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.6.0",
-                    "datestamp": "1791447333",
+                    "version": "1.7.0",
+                    "datestamp": "1794585996",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
@@ -3285,16 +3285,16 @@
             ],
             "authors": [
                 {
-                    "name": "arthur_lorenz",
-                    "homepage": "https://www.drupal.org/user/3529915"
-                },
-                {
                     "name": "fago",
                     "homepage": "https://www.drupal.org/user/16747"
                 },
                 {
                     "name": "useernamee",
                     "homepage": "https://www.drupal.org/user/3542704"
+                },
+                {
+                    "name": "utor.io",
+                    "homepage": "https://www.drupal.org/user/3529915"
                 }
             ],
             "description": "Ready-to-go Decoupled Drupal with Nuxt.js!",
@@ -3877,7 +3877,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "581f73030e33232b1b41a25099d0483136ffeafa"
+                "reference": "53538fb57999ba12a6e8d9010a254f91cebc597f"
             },
             "require": {
                 "drupal/ai": "^1.5.2",
@@ -3887,7 +3887,7 @@
                 "drupal/jsonapi_role_access": "^2.0.2",
                 "drupal/key": "^1.22.0",
                 "drupal/lupus_ce_renderer": "^2.8.1",
-                "drupal/lupus_decoupled": "^1.6.0",
+                "drupal/lupus_decoupled": "^1.7.0",
                 "drupal/mail_login": "^4.2.2",
                 "drupal/mcp_server": "2.0.0-beta5",
                 "drupal/mcp_server_tool_bridge": "1.0.0-beta3",
@@ -3908,6 +3908,7 @@
             "default-branch": true,
             "type": "drupal-module",
             "extra": {
+                "composer-exit-on-patch-failure": true,
                 "patches": {
                     "drupal/ai": {
                         "OKB-309: Embed nothing for a lexical_only query. The ai_search backend embeds the query's keys before every search and only reaches a provider's vectorSearch() when it holds a vector, so a search that wants the lexical arm alone still costs an embeddings call. The option is passed through instead, and the provider answers it off the index's own text fields. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai_search-lexical-only-skips-the-embedding.patch",
@@ -3937,7 +3938,6 @@
                         "OKB-270: Keep a CE redirect to the destination query parameter relative. Core resolves the destination against the backend host, so a form submitted from the frontend with ?destination= sends the reader to the backend. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_ce_renderer-destination-relative.patch"
                     },
                     "drupal/lupus_decoupled": {
-                        "#3466974: Answer configured permissions for the current user in /api/site-info, so a frontend can ask whether it may offer an action instead of rendering a page to read roles off it. Varies by the user.permissions cache context; anonymous stays one shared entry. Pending upstream, swap for its patch once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_decoupled-3466974-site-info-permissions.patch",
                         "OKB-270: Show a login flood block as a form error on custom elements requests. Core answers it with a bare 403 HTML page, which a frontend cannot show, so the reader never learns the account or IP is blocked. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_decoupled-user-form-flood-error.patch"
                     },
                     "drupal/mail_login": {
@@ -3960,7 +3960,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-23T16:41:40+00:00"
+            "time": "2026-11-23T16:42:48+00:00"
         },
         {
             "name": "drupal/pathauto",
