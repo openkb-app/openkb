@@ -9,8 +9,10 @@ import type { KbSpaceDetail } from '#shared/utils/kb-spaces'
  *
  * Asserted: the pending invites come from their own request when the form
  * mounts and after an invite or cancel, a failing one leaves the roster as
- * usable as before, a refused invite shows Drupal's sentence, and a roster
- * write keeps who joined since the form loaded.
+ * usable as before, a refused invite shows Drupal's sentence, an email
+ * without a domain name is refused before sending, a stale row cancels into
+ * a reload while any other refused cancel keeps the rows, each list has its own add row, and a roster write keeps who
+ * joined since the form loaded.
  */
 
 const SPACE: KbSpaceDetail = {
@@ -153,12 +155,93 @@ describe('SpaceMembers — invites', () => {
     mount()
     await flush()
     const email = byTestId('space-members-invite-email') as HTMLInputElement
-    email.value = 'ada@'
+    email.value = 'ada@example.com'
     email.dispatchEvent(new Event('input'))
     await flush()
     byTestId('space-members-invite')!.dispatchEvent(new Event('submit'))
     await flush()
     expect(csrfFetchMock).toHaveBeenCalledWith('/api/drupal/jsonapi/openkb_invite/openkb_invite', expect.anything())
     expect(byTestId('space-members-invite-error')?.textContent?.trim()).toBe('This value is not a valid email address.')
+  })
+
+  it('refuses an email without a domain name before sending', async () => {
+    fetchMock.mockResolvedValue({ data: [] })
+    mount()
+    await flush()
+    const email = byTestId('space-members-invite-email') as HTMLInputElement
+    email.value = 'ada@localhost'
+    email.dispatchEvent(new Event('input'))
+    await flush()
+    byTestId('space-members-invite')!.dispatchEvent(new Event('submit'))
+    await flush()
+    expect(csrfFetchMock).not.toHaveBeenCalled()
+    expect(byTestId('space-members-invite-error')?.textContent?.trim()).toBe('Enter a valid email address, such as name@example.com.')
+  })
+
+  it.each([
+    [403, 'accepted', { data: { attributes: { accepted: '2026-11-23T15:00:00+00:00' } } }],
+    [404, 'gone', Object.assign(new Error('Not found'), { statusCode: 404 })],
+  ])('clears a stale row whose cancel answers %i, the invite %s, and reloads the roster', async (statusCode, _state, invite) => {
+    const joined = { ...SPACE, members: [...SPACE.members, { id: 'user-g', uid: 5, name: 'grace' }] }
+    const listed = { data: [{ id: 'invite-1', attributes: { mail: 'grace@example.com', role: 'member' } }] }
+    fetchMock.mockImplementation(async (url: string) => (url === '/api/spaces/engineering' ? joined : listed))
+    csrfFetchMock.mockRejectedValue(Object.assign(new Error('Stale'), { statusCode }))
+    mount()
+    await flush()
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === '/api/spaces/engineering') return joined
+      if (url.includes('/invite-1?')) {
+        if (invite instanceof Error) throw invite
+        return invite
+      }
+      return { data: [] }
+    })
+    byTestId('space-invite-cancel-grace@example.com')!.click()
+    await flush()
+    await flush()
+    expect(byTestId('space-invite-pending-grace@example.com')).toBeNull()
+    expect(byTestId('space-members-pending')).toBeNull()
+    expect(byTestId('space-members-error')).toBeNull()
+    expect(byTestId('space-members-invite-notice')?.textContent?.trim()).toBe('That invitation was no longer pending: it was accepted or has expired.')
+    expect(fetchMock).toHaveBeenCalledWith('/api/spaces/engineering')
+  })
+
+  it.each([
+    ['still pending', async () => ({ data: { attributes: { accepted: null } } })],
+    ['unreadable', async () => { throw Object.assign(new Error('Forbidden'), { statusCode: 403 }) }],
+  ])('keeps the rows when a refused cancel finds the invite %s', async (_state, readInvite) => {
+    const listed = { data: [{ id: 'invite-1', attributes: { mail: 'grace@example.com', role: 'member' } }] }
+    fetchMock.mockImplementation(async (url: string) => (url.includes('/invite-1?') ? readInvite() : listed))
+    csrfFetchMock.mockRejectedValue(Object.assign(new Error('Forbidden'), { statusCode: 403 }))
+    mount()
+    await flush()
+    fetchMock.mockImplementation(async (url: string) => (url.includes('/invite-1?') ? readInvite() : { data: [] }))
+    byTestId('space-invite-cancel-grace@example.com')!.click()
+    await flush()
+    await flush()
+    expect(byTestId('space-invite-pending-grace@example.com')).not.toBeNull()
+    expect(byTestId('space-members-invite-notice')).toBeNull()
+    expect(byTestId('space-members-error')?.getAttribute('description')).toBe('You may not cancel this invitation. Please sign in again.')
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/spaces/engineering')
+  })
+})
+
+describe('SpaceMembers — layout', () => {
+  it('shows no pending heading without pending invites', async () => {
+    fetchMock.mockResolvedValue({ data: [] })
+    mount()
+    await flush()
+    expect(byTestId('space-members-pending')).toBeNull()
+    expect(document.body.textContent).not.toContain('Pending invitations')
+    expect(byTestId('space-members-invite')).not.toBeNull()
+  })
+
+  it('puts each add row under its own list', async () => {
+    fetchMock.mockResolvedValue({ data: [{ id: 'invite-1', attributes: { mail: 'grace@example.com', role: 'viewer' } }] })
+    mount()
+    await flush()
+    const order = [...document.querySelectorAll<HTMLElement>('[data-testid="space-member-ada"], [data-testid="space-members-add"], [data-testid="space-members-pending"], [data-testid="space-members-invite"]')]
+      .map(node => node.dataset.testid)
+    expect(order).toEqual(['space-member-ada', 'space-members-add', 'space-members-pending', 'space-members-invite'])
   })
 })

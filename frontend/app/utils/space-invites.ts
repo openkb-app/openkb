@@ -41,6 +41,25 @@ export async function loadSpacePendingInvites(space: KbSpaceDetail): Promise<KbP
   return data.map(invite => ({ id: invite.id, mail: invite.attributes.mail ?? null, role: invite.attributes.role }))
 }
 
+/**
+ * Whether the invite is still pending: false once accepted or gone (404).
+ *
+ * Throws on any other refusal, e.g. a session that may not view it.
+ */
+export async function isSpaceInvitePending(inviteId: string): Promise<boolean> {
+  try {
+    const { data } = await $fetch<{ data: { attributes: { accepted?: string | null } } }>(
+      `${INVITES_URL}/${inviteId}?fields[${INVITE_TYPE}]=accepted`,
+      { headers: { Accept: JSON_API } },
+    )
+    return !data.attributes.accepted
+  }
+  catch (e: unknown) {
+    if ((e as { statusCode?: number })?.statusCode === 404) return false
+    throw e
+  }
+}
+
 /** Cancels a pending invite: Drupal deletes it, and its never-used account. */
 export async function cancelSpaceInvite(inviteId: string): Promise<void> {
   await csrfFetch(`${INVITES_URL}/${inviteId}`, {

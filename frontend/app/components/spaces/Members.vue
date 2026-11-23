@@ -17,13 +17,18 @@
  * (`space-invites`). The invitee joins the roster only by accepting; until
  * then the invite is listed as pending, loaded when the form mounts and after
  * each invite or cancel; none while loading or on failure. Cancelling deletes
- * the invite.
+ * the invite. A row gone stale (accepted or expired since the form loaded)
+ * cancels into a reload of both lists and a note; any other refusal keeps
+ * the rows.
  *
- * Narrow containers wrap each form row, so it fits a phone.
+ * Each list has its own add row: "Add a person" under the people,
+ * "Invite by email" under the pending invitations. The pending heading shows
+ * only with pending invites. Narrow containers wrap each form row, so it fits
+ * a phone.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { KB_SPACE_ROLES, type KbSpaceDetail, type KbSpaceMember, type KbSpaceRole } from '#shared/utils/kb-spaces'
-import { cancelSpaceInvite, inviteToSpaceByEmail, loadSpacePendingInvites, type KbPendingInvite } from '~/utils/space-invites'
+import { cancelSpaceInvite, inviteToSpaceByEmail, isSpaceInvitePending, loadSpacePendingInvites, type KbPendingInvite } from '~/utils/space-invites'
 
 const props = defineProps<{ space: KbSpaceDetail }>()
 const emit = defineEmits<{ updated: [KbSpaceDetail] }>()
@@ -168,21 +173,47 @@ onMounted(showPendingInvites)
 
 const cancelling = ref<string | null>(null)
 
-/** Cancels the pending invite, then lists the pending ones again. */
+/** Adopts the space as stored, e.g. with an invitee who accepted; keeps the shown one on failure. */
+async function reloadSpace() {
+  try {
+    emit('updated', await $fetch<KbSpaceDetail>(`/api/spaces/${props.space.slug}`))
+  }
+  catch { /* keep the roster shown */ }
+}
+
+/**
+ * Cancels the pending invite, then lists the pending ones again.
+ *
+ * A refused cancel (403/404) asks Drupal whether the invite is still pending:
+ * - gone or accepted: a stale row; both lists reload, with a note;
+ * - still pending or unreadable (e.g. a lapsed session): the rows stay, with an error.
+ */
 async function cancelInvite(pending: KbPendingInvite) {
   if (cancelling.value) return
   cancelling.value = pending.id
   error.value = null
+  inviteNotice.value = null
   try {
     await cancelSpaceInvite(pending.id)
+    await showPendingInvites()
   }
-  catch {
-    error.value = 'Cancelling the invitation failed. Please try again.'
+  catch (e: unknown) {
+    const status = (e as { statusCode?: number })?.statusCode
+    const refused = status === 403 || status === 404
+    if (refused && !(await isSpaceInvitePending(pending.id).catch(() => true))) {
+      inviteNotice.value = 'That invitation was no longer pending: it was accepted or has expired.'
+      await reloadSpace()
+      await showPendingInvites()
+    }
+    else {
+      error.value = refused
+        ? 'You may not cancel this invitation. Please sign in again.'
+        : 'Cancelling the invitation failed. Please try again.'
+    }
   }
   finally {
     cancelling.value = null
   }
-  await showPendingInvites()
 }
 
 const inviteEmail = ref('')
@@ -203,13 +234,20 @@ function inviteErrorMessage(e: unknown): string {
   return 'Sending the invitation failed. Please try again.'
 }
 
+/** An email whose domain has a name and a top-level part, as Drupal requires. */
+const MAIL_PATTERN = /^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$/
+
 /** Invites `inviteEmail` onto the roster and lists the invite as pending. */
 async function invite() {
   const email = inviteEmail.value.trim()
   if (!email || inviting.value) return
-  inviting.value = true
   inviteError.value = null
   inviteNotice.value = null
+  if (!MAIL_PATTERN.test(email)) {
+    inviteError.value = 'Enter a valid email address, such as name@example.com.'
+    return
+  }
+  inviting.value = true
   try {
     await inviteToSpaceByEmail(props.space, email, inviteRole.value)
     inviteNotice.value = `Invitation sent to ${email}.`
@@ -310,43 +348,6 @@ async function addPickedUser() {
       No members yet.
     </p>
 
-    <div
-      v-if="pendingInvites.length"
-      data-testid="space-members-pending"
-      class="mt-3 border-t border-(--ui-border) pt-3"
-    >
-      <h3 class="text-[12.5px] font-semibold text-muted">
-        Pending invitations
-      </h3>
-      <ul class="flex flex-col divide-y divide-(--ui-border)">
-        <li
-          v-for="pending in pendingInvites"
-          :key="pending.id"
-          :data-testid="`space-invite-pending-${pending.mail ?? pending.id}`"
-          class="flex items-center gap-3 py-2"
-        >
-          <UIcon name="i-lucide-mail" class="size-[13px] shrink-0 text-muted" />
-          <span class="min-w-0 break-all text-[13.5px] text-toned">{{ pending.mail ?? 'Invited by another manager' }}</span>
-          <UBadge color="neutral" variant="subtle" size="sm" class="ml-auto shrink-0">
-            {{ ROLE_LABELS[pending.role] }}
-          </UBadge>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            class="shrink-0"
-            :loading="cancelling === pending.id"
-            :disabled="!!cancelling"
-            :aria-label="`Cancel the invitation of ${pending.mail ?? 'a person invited by another manager'}`"
-            :data-testid="`space-invite-cancel-${pending.mail ?? pending.id}`"
-            @click="cancelInvite(pending)"
-          >
-            Cancel
-          </UButton>
-        </li>
-      </ul>
-    </div>
-
     <form
       v-if="space.canManage"
       data-testid="space-members-add"
@@ -396,6 +397,43 @@ async function addPickedUser() {
         Add
       </UButton>
     </form>
+
+    <div
+      v-if="pendingInvites.length"
+      data-testid="space-members-pending"
+      class="mt-3 border-t border-(--ui-border) pt-3"
+    >
+      <h3 class="text-[12.5px] font-semibold text-muted">
+        Pending invitations
+      </h3>
+      <ul class="flex flex-col divide-y divide-(--ui-border)">
+        <li
+          v-for="pending in pendingInvites"
+          :key="pending.id"
+          :data-testid="`space-invite-pending-${pending.mail ?? pending.id}`"
+          class="flex items-center gap-3 py-2"
+        >
+          <UIcon name="i-lucide-mail" class="size-[13px] shrink-0 text-muted" />
+          <span class="min-w-0 break-all text-[13.5px] text-toned">{{ pending.mail ?? 'Invited by another manager' }}</span>
+          <UBadge color="neutral" variant="subtle" size="sm" class="ml-auto shrink-0">
+            {{ ROLE_LABELS[pending.role] }}
+          </UBadge>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            class="shrink-0"
+            :loading="cancelling === pending.id"
+            :disabled="!!cancelling"
+            :aria-label="`Cancel the invitation of ${pending.mail ?? 'a person invited by another manager'}`"
+            :data-testid="`space-invite-cancel-${pending.mail ?? pending.id}`"
+            @click="cancelInvite(pending)"
+          >
+            Cancel
+          </UButton>
+        </li>
+      </ul>
+    </div>
 
     <form
       v-if="space.canInvite"
