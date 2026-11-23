@@ -1422,17 +1422,17 @@
         },
         {
             "name": "drupal/ai",
-            "version": "1.5.2",
+            "version": "1.5.3",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/ai.git",
-                "reference": "1.5.2"
+                "reference": "1.5.3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/ai-1.5.2.zip",
-                "reference": "1.5.2",
-                "shasum": "b47b8a1bdc0ee719766cdd337cbfddd6eb0e8c70"
+                "url": "https://ftp.drupal.org/files/projects/ai-1.5.3.zip",
+                "reference": "1.5.3",
+                "shasum": "aa97498ca57273483491dc418de99037236ea8cf"
             },
             "require": {
                 "drupal/ai_content_suggestions": "^1.5",
@@ -1472,8 +1472,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.5.2",
-                    "datestamp": "1793214802",
+                    "version": "1.5.3",
+                    "datestamp": "1795101176",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
@@ -1504,6 +1504,10 @@
                 {
                     "name": "anjaliprasannan",
                     "homepage": "https://www.drupal.org/user/3637917"
+                },
+                {
+                    "name": "breidert",
+                    "homepage": "https://www.drupal.org/user/135619"
                 },
                 {
                     "name": "b_sharpe",
@@ -1568,9 +1572,14 @@
             ],
             "description": "AI module for Drupal",
             "homepage": "https://www.drupal.org/project/ai",
+            "keywords": [
+                "Actively maintained",
+                "Automation"
+            ],
             "support": {
                 "source": "https://git.drupalcode.org/project/ai"
-            }
+            },
+            "published-time": "2026-11-19T15:12:35+00:00"
         },
         {
             "name": "drupal/ai-ai_search",
@@ -3531,21 +3540,21 @@
         },
         {
             "name": "drupal/mcp_server",
-            "version": "2.0.0-beta5",
+            "version": "2.0.0-beta7",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/mcp_server.git",
-                "reference": "2.0.0-beta5"
+                "reference": "2.0.0-beta7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/mcp_server-2.0.0-beta5.zip",
-                "reference": "2.0.0-beta5",
-                "shasum": "31ab95bf2dcbd58688a0cafbfc0f206d2c9ba1fd"
+                "url": "https://ftp.drupal.org/files/projects/mcp_server-2.0.0-beta7.zip",
+                "reference": "2.0.0-beta7",
+                "shasum": "d90959d604f3afd97edde033156f776643ca86b7"
             },
             "require": {
                 "drupal/core": "^10 || ^11",
-                "mcp/sdk": "^0.7.1 || ^0.8",
+                "mcp/sdk": "^0.9",
                 "php": "^8.3",
                 "psr/simple-cache": "^3.0"
             },
@@ -3560,8 +3569,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "2.0.0-beta5",
-                    "datestamp": "1790174303",
+                    "version": "2.0.0-beta7",
+                    "datestamp": "1793290857",
                     "security-coverage": {
                         "status": "not-covered",
                         "message": "Beta releases are not covered by Drupal security advisories."
@@ -3611,33 +3620,34 @@
             "support": {
                 "source": "https://drupal.org/project/mcp_server",
                 "issues": "https://drupal.org/project/issues/mcp_server"
-            }
+            },
+            "published-time": "2026-10-29T16:20:36+00:00"
         },
         {
             "name": "drupal/mcp_server_tool_bridge",
-            "version": "1.0.0-beta3",
+            "version": "1.0.0-beta5",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/mcp_server_tool_bridge.git",
-                "reference": "1.0.0-beta3"
+                "reference": "1.0.0-beta5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/mcp_server_tool_bridge-1.0.0-beta3.zip",
-                "reference": "1.0.0-beta3",
-                "shasum": "c45f8d1134cc3eaa375bf244a19298ac989c8f41"
+                "url": "https://ftp.drupal.org/files/projects/mcp_server_tool_bridge-1.0.0-beta5.zip",
+                "reference": "1.0.0-beta5",
+                "shasum": "5bf94b101ab7c3bbfaac8cd55278c4c1d6da1244"
             },
             "require": {
                 "drupal/core": "^10 || ^11",
                 "drupal/mcp_server": "^2.0.0-beta5",
-                "drupal/tool": "^1.0.0-beta8",
+                "drupal/tool": "^1.0.0-beta12",
                 "php": "^8.3"
             },
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.0.0-beta3",
-                    "datestamp": "1790174604",
+                    "version": "1.0.0-beta5",
+                    "datestamp": "1792606656",
                     "security-coverage": {
                         "status": "not-covered",
                         "message": "Beta releases are not covered by Drupal security advisories."
@@ -3665,9 +3675,14 @@
             ],
             "description": "Bridges Drupal Tool API tools into the MCP protocol via McpToolConfig entities.",
             "homepage": "https://www.drupal.org/project/mcp_server_tool_bridge",
+            "keywords": [
+                "Actively maintained",
+                "Artificial Intelligence (AI)"
+            ],
             "support": {
                 "source": "https://git.drupalcode.org/project/mcp_server_tool_bridge"
-            }
+            },
+            "published-time": "2026-10-21T18:17:16+00:00"
         },
         {
             "name": "drupal/metatag",
@@ -3877,10 +3892,10 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "53538fb57999ba12a6e8d9010a254f91cebc597f"
+                "reference": "3e58195a0b3ec72fadfa60c8c3c06f23c27e90c3"
             },
             "require": {
-                "drupal/ai": "^1.5.2",
+                "drupal/ai": "^1.5.3",
                 "drupal/ai_vdb_provider_opensearch": "1.1.0-alpha2",
                 "drupal/consumers": "^1.24.0",
                 "drupal/custom_elements": "3.5.0-beta1",
@@ -3889,13 +3904,13 @@
                 "drupal/lupus_ce_renderer": "^2.8.1",
                 "drupal/lupus_decoupled": "^1.7.0",
                 "drupal/mail_login": "^4.2.2",
-                "drupal/mcp_server": "2.0.0-beta5",
-                "drupal/mcp_server_tool_bridge": "1.0.0-beta3",
+                "drupal/mcp_server": "2.0.0-beta7",
+                "drupal/mcp_server_tool_bridge": "1.0.0-beta5",
                 "drupal/pathauto": "^1.15.0",
                 "drupal/search_api": "^1.41.0",
                 "drupal/search_api_opensearch": "^2.5.0",
                 "drupal/simple_oauth": "^6.1.4",
-                "drupal/tool": "1.0.0-beta9",
+                "drupal/tool": "1.0.0-beta12",
                 "drupal/userprotect": "^1.4.0",
                 "php": ">=8.3"
             },
@@ -3911,8 +3926,8 @@
                 "composer-exit-on-patch-failure": true,
                 "patches": {
                     "drupal/ai": {
-                        "OKB-309: Embed nothing for a lexical_only query. The ai_search backend embeds the query's keys before every search and only reaches a provider's vectorSearch() when it holds a vector, so a search that wants the lexical arm alone still costs an embeddings call. The option is passed through instead, and the provider answers it off the index's own text fields. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai_search-lexical-only-skips-the-embedding.patch",
-                        "OKB-451: Type a topic guardrail's llm_config like ai.provider_config's config (ignore). The settings form is the ai_provider_configuration element and stores the selected provider's configuration there (reasoning_effort, temperature, ...); the empty mapping makes every key missing schema. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai-guardrail-llm-config-schema.patch"
+                        "OKB-309: Embed nothing for a lexical_only query. The ai_search backend embeds the query's keys before every search and only reaches a provider's vectorSearch() when it holds a vector, so a search that wants the lexical arm alone still costs an embeddings call. The option is passed through instead, and the provider answers it off the index's own text fields. Against 1.5.3. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai_search-lexical-only-skips-the-embedding.patch",
+                        "OKB-451: Type a topic guardrail's llm_config like ai.provider_config's config (ignore). The settings form is the ai_provider_configuration element and stores the selected provider's configuration there (reasoning_effort, temperature, ...); the empty mapping makes every key missing schema. Against 1.5.3. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai-guardrail-llm-config-schema.patch"
                     },
                     "drupal/ai_provider_openai": {
                         "OKB-451: Treat gpt-6 models as reasoning models. isReasoningModel() matches gpt-5* and the o-series only, so reasoning_effort is never sent for a gpt-6 model and the API applies its own default, medium. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai_provider_openai-gpt-6-reasoning-model.patch"
@@ -3943,12 +3958,8 @@
                     "drupal/mail_login": {
                         "#3640965, OKB-646: Let the login field take a whole email address. The login form keeps core's 60-character limit for a user name, so an email longer than that is cut in the field and refused on submit, while the password reset form already takes 254. While email login is enabled, the field takes the longer of both limits, as user_pass does. Pending upstream as MR !28; swap for its merge commit once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mail_login-login-field-email-length.patch"
                     },
-                    "drupal/mcp_server": {
-                        "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call or completion/complete that loads an entity is answered as text/event-stream instead of application/json. src/ part of MR !69, against 2.0.0-beta5; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-fiber-shield.patch"
-                    },
                     "drupal/mcp_server_tool_bridge": {
-                        "OKB-201: Invalidate the tool plugin cache when an mcp_tool_config is saved or deleted. The entity invalidates mcp_server:discovery, but mcp_server's tool plugin manager caches the derived definitions under mcp_server:tools — so switching a tool on or off has no effect until the plugin caches are cleared by hand. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-invalidate-the-tool-plugin-cache.patch",
-                        "OKB-506: Pass a tool's description to its MCP definition as Markup, so the @text placeholder does not HTML-escape the quotes and angle brackets an agent reads in tools/list. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-plain-text-tool-descriptions.patch"
+                        "OKB-506: Pass a tool's description to its MCP definition as Markup, so the @text placeholder does not HTML-escape the quotes and angle brackets an agent reads in tools/list. Against 1.0.0-beta5. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-plain-text-tool-descriptions.patch"
                     }
                 }
             },
@@ -3960,7 +3971,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-23T16:42:48+00:00"
+            "time": "2026-11-23T19:57:07+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -4497,17 +4508,17 @@
         },
         {
             "name": "drupal/tool",
-            "version": "1.0.0-beta9",
+            "version": "1.0.0-beta12",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/tool.git",
-                "reference": "1.0.0-beta9"
+                "reference": "1.0.0-beta12"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/tool-1.0.0-beta9.zip",
-                "reference": "1.0.0-beta9",
-                "shasum": "d1393ead0787a548914ede4439fdc654933ce523"
+                "url": "https://ftp.drupal.org/files/projects/tool-1.0.0-beta12.zip",
+                "reference": "1.0.0-beta12",
+                "shasum": "cb3fa3b0aab7d3ee59c4c09cfd8b68cc04f7cd48"
             },
             "require": {
                 "drupal/core": "^10.5 || ^11",
@@ -4520,8 +4531,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "1.0.0-beta9",
-                    "datestamp": "1789702096",
+                    "version": "1.0.0-beta12",
+                    "datestamp": "1792530025",
                     "security-coverage": {
                         "status": "not-covered",
                         "message": "Beta releases are not covered by Drupal security advisories."
@@ -4564,10 +4575,15 @@
             ],
             "description": "Provides a tool plugin for creating well defined actions.",
             "homepage": "https://www.drupal.org/project/tool",
+            "keywords": [
+                "Actively maintained",
+                "Administration tools"
+            ],
             "support": {
                 "source": "https://drupal.org/project/tool",
                 "issues": "https://drupal.org/project/issues/tool"
-            }
+            },
+            "published-time": "2026-10-20T21:00:04+00:00"
         },
         {
             "name": "drupal/trash",
@@ -6738,16 +6754,16 @@
         },
         {
             "name": "mcp/sdk",
-            "version": "v0.7.1",
+            "version": "v0.9.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/modelcontextprotocol/php-sdk.git",
-                "reference": "785fc3b9b7006ecc8a73322c939d96a4a7154345"
+                "reference": "be71c78bc3bce25f50d6a7e592017b8af6a2120f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/modelcontextprotocol/php-sdk/zipball/785fc3b9b7006ecc8a73322c939d96a4a7154345",
-                "reference": "785fc3b9b7006ecc8a73322c939d96a4a7154345",
+                "url": "https://api.github.com/repos/modelcontextprotocol/php-sdk/zipball/be71c78bc3bce25f50d6a7e592017b8af6a2120f",
+                "reference": "be71c78bc3bce25f50d6a7e592017b8af6a2120f",
                 "shasum": ""
             },
             "require": {
@@ -6765,7 +6781,11 @@
                 "psr/http-server-handler": "^1.0",
                 "psr/http-server-middleware": "^1.0",
                 "psr/log": "^1.0 || ^2.0 || ^3.0",
+                "symfony/deprecation-contracts": "^2.5 || ^3.0",
                 "symfony/uid": "^5.4 || ^6.4 || ^7.3 || ^8.0"
+            },
+            "conflict": {
+                "phpstan/phpstan": "2.3.0"
             },
             "require-dev": {
                 "composer/semver": "^3.0",
@@ -6779,15 +6799,20 @@
                 "phpdocumentor/shim": "^3",
                 "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^10.5",
+                "psr/cache": "^1.0 || ^2.0 || ^3.0",
                 "psr/simple-cache": "^2.0 || ^3.0",
                 "symfony/cache": "^5.4 || ^6.4 || ^7.3 || ^8.0",
                 "symfony/console": "^5.4 || ^6.4 || ^7.3 || ^8.0",
                 "symfony/finder": "^5.4 || ^6.4 || ^7.3 || ^8.0",
                 "symfony/http-client": "^5.4 || ^6.4 || ^7.3 || ^8.0",
+                "symfony/lock": "^5.4 || ^6.4 || ^7.3 || ^8.0",
                 "symfony/process": "^5.4 || ^6.4 || ^7.3 || ^8.0"
             },
             "suggest": {
-                "symfony/finder": "Required for file-based discovery."
+                "firebase/php-jwt": "Required for the JwtTokenValidator.",
+                "psr/cache-implementation": "Required for JwtTokenValidator::fromIssuer() to cache metadata and keys.",
+                "symfony/finder": "Required for file-based discovery.",
+                "symfony/lock": "Required for the SymfonyLockSessionLock."
             },
             "type": "library",
             "autoload": {
@@ -6816,9 +6841,10 @@
             "description": "Model Context Protocol SDK for Client and Server applications in PHP",
             "support": {
                 "issues": "https://github.com/modelcontextprotocol/php-sdk/issues",
-                "source": "https://github.com/modelcontextprotocol/php-sdk/tree/v0.7.1"
+                "source": "https://github.com/modelcontextprotocol/php-sdk/tree/v0.9.0"
             },
-            "time": "2026-08-10T20:09:23+00:00"
+            "time": "2026-10-18T14:29:29+00:00",
+            "published-time": "2026-10-18T14:45:02+00:00"
         },
         {
             "name": "monolog/monolog",
