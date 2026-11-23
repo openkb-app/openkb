@@ -3478,6 +3478,58 @@
             "time": "2026-10-07T13:20:30+00:00"
         },
         {
+            "name": "drupal/mail_login",
+            "version": "4.2.2",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/mail_login.git",
+                "reference": "4.2.2"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/mail_login-4.2.2.zip",
+                "reference": "4.2.2",
+                "shasum": "520995b5819ceffe2c051f7ab4aa3a919326a95b"
+            },
+            "require": {
+                "drupal/core": "^10.3 || ^11"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "4.2.2",
+                    "datestamp": "1752318596",
+                    "security-coverage": {
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0+"
+            ],
+            "authors": [
+                {
+                    "name": "Mohammad AlQanneh",
+                    "homepage": "https://www.drupal.org/u/mqanneh",
+                    "role": "Maintainer"
+                }
+            ],
+            "description": "This module enables users to login by email address.",
+            "homepage": "https://www.drupal.org/project/mail_login",
+            "keywords": [
+                "drupal",
+                "php",
+                "user"
+            ],
+            "support": {
+                "source": "https://git.drupalcode.org/project/mail_login",
+                "issues": "http://drupal.org/project/issues/mail_login",
+                "email": "mqanneh@gmail.com"
+            }
+        },
+        {
             "name": "drupal/mcp_server",
             "version": "2.0.0-beta5",
             "source": {
@@ -3825,7 +3877,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "6001fe7135913d34c75e9360a573abec97f56902"
+                "reference": "5d164342914285c5363ffe14579686ab2984f5de"
             },
             "require": {
                 "drupal/ai": "^1.5.2",
@@ -3836,6 +3888,7 @@
                 "drupal/key": "^1.22.0",
                 "drupal/lupus_ce_renderer": "^2.8.1",
                 "drupal/lupus_decoupled": "^1.6.0",
+                "drupal/mail_login": "^4.2.2",
                 "drupal/mcp_server": "2.0.0-beta5",
                 "drupal/mcp_server_tool_bridge": "1.0.0-beta3",
                 "drupal/pathauto": "^1.15.0",
@@ -3843,6 +3896,7 @@
                 "drupal/search_api_opensearch": "^2.5.0",
                 "drupal/simple_oauth": "^6.1.4",
                 "drupal/tool": "1.0.0-beta9",
+                "drupal/userprotect": "^1.4.0",
                 "php": ">=8.3"
             },
             "require-dev": {
@@ -3886,6 +3940,9 @@
                         "#3466974: Answer configured permissions for the current user in /api/site-info, so a frontend can ask whether it may offer an action instead of rendering a page to read roles off it. Varies by the user.permissions cache context; anonymous stays one shared entry. Pending upstream, swap for its patch once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_decoupled-3466974-site-info-permissions.patch",
                         "OKB-270: Show a login flood block as a form error on custom elements requests. Core answers it with a bare 403 HTML page, which a frontend cannot show, so the reader never learns the account or IP is blocked. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_decoupled-user-form-flood-error.patch"
                     },
+                    "drupal/mail_login": {
+                        "OKB-646: Let the login field take a whole email address. The login form keeps core's 60-character limit for a user name, so an email longer than that is cut in the field and refused on submit, while the password reset form already takes 254. While email login is enabled, the field takes the longer of both limits, as user_pass does. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mail_login-login-field-email-length.patch"
+                    },
                     "drupal/mcp_server": {
                         "#3585917, OKB-241: The SDK reads every suspension of a request handler's fiber as a payload addressed to the client, but fibers are process-wide and Drupal suspends the running one for its own scheduling, so a tools/call or completion/complete that loads an entity is answered as text/event-stream instead of application/json. src/ part of MR !69, against 2.0.0-beta5; drop once the fix is released upstream.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server-fiber-shield.patch"
                     },
@@ -3903,7 +3960,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-19T12:19:21+00:00"
+            "time": "2026-11-23T13:13:33+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -4620,6 +4677,62 @@
             "homepage": "https://www.drupal.org/project/trusted_redirect",
             "support": {
                 "source": "https://git.drupalcode.org/project/trusted_redirect"
+            }
+        },
+        {
+            "name": "drupal/userprotect",
+            "version": "1.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/userprotect.git",
+                "reference": "8.x-1.4"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/userprotect-8.x-1.4.zip",
+                "reference": "8.x-1.4",
+                "shasum": "fec856255469590aa61882e6051891939f1391f4"
+            },
+            "require": {
+                "drupal/core": "^8.8 || ^9 || ^10 || ^11"
+            },
+            "require-dev": {
+                "drupal/role_delegation": "^1.0"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "8.x-1.4",
+                    "datestamp": "1772647193",
+                    "security-coverage": {
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0+"
+            ],
+            "authors": [
+                {
+                    "name": "karschsp",
+                    "homepage": "https://www.drupal.org/user/138216"
+                },
+                {
+                    "name": "megachriz",
+                    "homepage": "https://www.drupal.org/user/654114"
+                }
+            ],
+            "description": "Allows admins to protect users from being edited or cancelled, on a per-user basis.",
+            "homepage": "https://www.drupal.org/project/userprotect",
+            "keywords": [
+                "Drupal",
+                "User Management"
+            ],
+            "support": {
+                "source": "https://git.drupalcode.org/project/userprotect",
+                "issues": "https://www.drupal.org/project/issues/userprotect"
             }
         },
         {
