@@ -3892,7 +3892,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "8424a59c4e1a4bdbc263c81ab0ed0f8d406c279d"
+                "reference": "0e702748e1e8eb4c7552176f8363801f45a8f445"
             },
             "require": {
                 "drupal/ai": "^1.5.3",
@@ -3971,7 +3971,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-23T20:22:45+00:00"
+            "time": "2026-11-23T21:57:40+00:00"
         },
         {
             "name": "drupal/pathauto",
