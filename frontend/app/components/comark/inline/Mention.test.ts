@@ -3,16 +3,16 @@ import { describe, it, expect, vi } from 'vitest'
 import { Suspense, createApp, h, nextTick, shallowRef } from 'vue'
 import { MarkdownDocument } from '@comark/vue'
 import { markdownToTree } from '#shared/utils/comark-tree'
-import CustomMention from './CustomMention.vue'
+import Mention from './Mention.vue'
 
-describe('CustomMention', () => {
+describe('Mention', () => {
   it('follows a re-rendered tree with a new label', async () => {
     const nodes = shallowRef(await markdownToTree('Ping :mention[alice]{uid="2"}'))
     const root = document.createElement('div')
     // `MarkdownDocument` sets up async; Nuxt's app root is the Suspense for it.
     createApp({
       render: () => h(Suspense, null, () =>
-        h(MarkdownDocument, { value: { nodes: nodes.value }, components: { mention: CustomMention } })),
+        h(MarkdownDocument, { value: { nodes: nodes.value }, components: { mention: Mention } })),
     }).mount(root)
     await vi.waitFor(() => expect(root.querySelector('.mention')?.getAttribute('data-label')).toBe('alice'))
 

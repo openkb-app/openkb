@@ -797,7 +797,7 @@ onMounted(() => {
             class="ai-summary__answer okb-prose"
             data-test="ai-summary-answer"
           >
-            <ComarkAnswer
+            <AnswerMarkdown
               :text="summaryText"
               :citation-chips="summaryCitations"
               :streaming="summaryStatus === 'streaming' && lastAssistant === streamed"

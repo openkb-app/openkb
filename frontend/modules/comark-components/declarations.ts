@@ -1,9 +1,14 @@
-import { existsSync, readdirSync } from 'node:fs'
+/**
+ * The comark component declarations: the component files of every layer, their
+ * props and slots read with vue-component-meta, the macro's argument merged in,
+ * and the generated `#okb-comark-*` modules.
+ */
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { addServerTemplate, addTemplate, addTypeTemplate, defineNuxtModule, updateTemplates } from '@nuxt/kit'
 import { createCheckerByJson } from 'vue-component-meta'
 import type { ComponentMeta, PropertyMeta } from 'vue-component-meta'
-import type { ComarkComponentDeclaration, ComarkPropDeclaration } from '../shared/utils/comark-components'
+import type { ComarkComponentDeclaration, ComarkComponentMeta, ComarkPropDeclaration, ComarkPropMeta } from '../../shared/utils/comark-components.ts'
+import { COMARK_COMPONENT_MACRO, readComarkComponentMacro } from './macro.ts'
 
 /** One comark component file found in a layer: its tag, file and whether it is a chip. */
 export interface ComarkComponentFile {
@@ -13,26 +18,38 @@ export interface ComarkComponentFile {
   editorFile: string | null
 }
 
-/** Turns `CustomDocLink.vue` into the comark tag `doc-link`. */
+/** Turns `DocLink.vue` into the comark tag `doc-link`. */
 export function comarkTagOfComponentFile(file: string): string {
-  return basename(file, '.vue').replace(/^Custom/, '').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+  return basename(file, '.vue').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
 }
 
 /**
- * The `Custom<Name>.vue` files under `<srcDir>/components/comark/` of every
- * layer, and under its `inline/` folder for chips. The first layer wins on a
- * shared tag.
+ * The `<Name>.vue` files under `<srcDir>/components/comark/` of every layer,
+ * and under its `inline/` folder for chips; a file with a second dot
+ * (`.editor.vue`) is not one. The first layer wins on a shared tag;
+ * a block and a chip of the same name in one layer fail.
  */
 export function collectComarkComponentFiles(srcDirs: string[]): ComarkComponentFile[] {
   const files = new Map<string, ComarkComponentFile>()
   for (const srcDir of srcDirs) {
+    const layer = new Map<string, ComarkComponentFile>()
     for (const [dir, inline] of [[join(srcDir, 'components/comark'), false], [join(srcDir, 'components/comark/inline'), true]] as const) {
-      if (!existsSync(dir)) continue
-      for (const name of readdirSync(dir).filter(name => /^Custom[A-Z]\w*\.vue$/.test(name)).sort()) {
+      if (!existsSync(dir)) {
+        continue
+      }
+      for (const name of readdirSync(dir).filter(name => /^[A-Z]\w*\.vue$/.test(name)).sort()) {
         const tag = comarkTagOfComponentFile(name)
-        if (files.has(tag)) continue
+        const clash = layer.get(tag)
+        if (clash) {
+          throw new Error(`${join(dir, name)}: the tag "${tag}" is taken by ${clash.file}; a component's name is unique across components/comark/ and its inline/ folder`)
+        }
         const editorFile = join(dir, name.replace(/\.vue$/, '.editor.ts'))
-        files.set(tag, { tag, file: join(dir, name), inline, editorFile: existsSync(editorFile) ? editorFile : null })
+        layer.set(tag, { tag, file: join(dir, name), inline, editorFile: existsSync(editorFile) ? editorFile : null })
+      }
+    }
+    for (const [tag, entry] of layer) {
+      if (!files.has(tag)) {
+        files.set(tag, entry)
       }
     }
   }
@@ -41,7 +58,9 @@ export function collectComarkComponentFiles(srcDirs: string[]): ComarkComponentF
 
 /** The JSON value of a prop default as vue-component-meta prints it, or undefined for an expression. */
 function parsePropDefault(value: string | undefined): string | number | boolean | undefined {
-  if (value === undefined) return undefined
+  if (value === undefined) {
+    return undefined
+  }
   try {
     const parsed = JSON.parse(value.replace(/^'(.*)'$/, '"$1"'))
     return ['string', 'number', 'boolean'].includes(typeof parsed) ? parsed : undefined
@@ -58,19 +77,58 @@ export function declarePropOfComponent(component: string, prop: PropertyMeta): C
     .filter(option => option !== 'undefined')
   const declaration: ComarkPropDeclaration = { kind: 'string' }
   const fallback = parsePropDefault(prop.default)
-  if (fallback !== undefined) declaration.default = fallback
-  if (prop.tags.some(tag => tag.name === 'notIndexed')) declaration.notIndexed = true
+  if (fallback !== undefined) {
+    declaration.default = fallback
+  }
+  if (prop.tags.some(tag => tag.name === 'notIndexed')) {
+    declaration.notIndexed = true
+  }
   if (options.length > 0 && options.every(option => typeof option === 'string' && /^".*"$/.test(option))) {
     return { ...declaration, kind: 'enum', values: options.map(option => JSON.parse(option as string) as string) }
   }
-  if (options.length === 1 && (options[0] === 'string' || options[0] === 'number')) return { ...declaration, kind: options[0] }
-  if (options.length === 2 && options.includes('true') && options.includes('false')) return { ...declaration, kind: 'boolean' }
-  if (options.length === 1 && options[0] === 'boolean') return { ...declaration, kind: 'boolean' }
+  if (options.length === 1 && (options[0] === 'string' || options[0] === 'number')) {
+    return { ...declaration, kind: options[0] }
+  }
+  if (options.length === 2 && options.includes('true') && options.includes('false')) {
+    return { ...declaration, kind: 'boolean' }
+  }
+  if (options.length === 1 && options[0] === 'boolean') {
+    return { ...declaration, kind: 'boolean' }
+  }
   throw new Error(`${component}: prop "${prop.name}" has type ${prop.type}; a stored prop is a string, an enum, a number or a boolean (mark a prop the server fills with @render)`)
 }
 
-/** Builds a component's declaration from what vue-component-meta read off its `defineProps` and slots. */
-export function declareComarkComponent(entry: ComarkComponentFile, meta: ComponentMeta): ComarkComponentDeclaration {
+/** The keys the macro's argument takes. */
+const COMPONENT_META_KEYS: string[] = ['label', 'description', 'icon', 'placeholder', 'props'] satisfies (keyof ComarkComponentMeta)[]
+
+/** The keys each prop's metadata takes. */
+const PROP_META_KEYS: string[] = ['label', 'example', 'enumLabels', 'enumIcons'] satisfies (keyof ComarkPropMeta)[]
+
+/**
+ * Throws, naming the component, on a key the macro does not take: on the
+ * argument, a prop that is not stored, or on a prop's metadata.
+ * No type check runs over the SFCs, so this is what catches a misspelt key.
+ */
+function assertKnownMacroKeys(component: string, macro: ComarkComponentMeta, props: Record<string, ComarkPropDeclaration>): void {
+  const unknownKeys = Object.keys(macro).filter(key => !COMPONENT_META_KEYS.includes(key))
+  for (const [name, meta] of Object.entries(macro.props ?? {})) {
+    if (!props[name]) {
+      unknownKeys.push(`props.${name}`)
+      continue
+    }
+    const unknownPropKeys = Object.keys(meta).filter(key => !PROP_META_KEYS.includes(key))
+    unknownKeys.push(...unknownPropKeys.map(key => `props.${name}.${key}`))
+  }
+  if (unknownKeys.length > 0) {
+    throw new Error(`${component}: ${COMARK_COMPONENT_MACRO}() has the unknown key "${unknownKeys[0]}"; it takes ${COMPONENT_META_KEYS.join(', ')}, and ${PROP_META_KEYS.join(', ')} per stored prop`)
+  }
+}
+
+/**
+ * Builds a component's declaration from what vue-component-meta read off its
+ * `defineProps` and slots, and from its `defineComarkComponent()` argument.
+ */
+export function declareComarkComponent(entry: ComarkComponentFile, meta: ComponentMeta, macro: ComarkComponentMeta | null = null): ComarkComponentDeclaration {
   const component = basename(entry.file, '.vue')
   const declaration: ComarkComponentDeclaration = {
     tag: entry.tag,
@@ -85,6 +143,16 @@ export function declareComarkComponent(entry: ComarkComponentFile, meta: Compone
   declaration.propsEditedInPlace = meta.slots
     .map(slot => slot.name)
     .filter(name => declaration.props[name]?.kind === 'string')
+  if (!macro) {
+    return declaration
+  }
+
+  assertKnownMacroKeys(component, macro, declaration.props)
+  const { props: propsMeta, ...componentMeta } = macro
+  Object.assign(declaration, componentMeta)
+  for (const [name, propMeta] of Object.entries(propsMeta ?? {})) {
+    declaration.props[name] = { ...declaration.props[name]!, ...propMeta } as ComarkPropDeclaration
+  }
   return declaration
 }
 
@@ -111,7 +179,10 @@ export function readComarkComponentDeclarations(rootDir: string, entries: Comark
       },
     },
   }, { schema: true, noDeclarations: true })
-  return entries.map(entry => declareComarkComponent(entry, checker.getComponentMeta(entry.file)))
+  return entries.map((entry) => {
+    const macro = readComarkComponentMacro(readFileSync(entry.file, 'utf8'), entry.file)
+    return declareComarkComponent(entry, checker.getComponentMeta(entry.file), macro)
+  })
 }
 
 /** The `#okb-comark-components` module: the declarations, as plain data. */
@@ -136,7 +207,7 @@ export function renderEditorPartsModule(entries: ComarkComponentFile[]): string 
   ].join('\n')
 }
 
-/** The `#okb-comark-vue-components` module: each `Custom<Name>.vue`, by tag. */
+/** The `#okb-comark-vue-components` module: each `<Name>.vue`, by tag. */
 export function renderVueComponentsModule(entries: ComarkComponentFile[]): string {
   return [
     ...entries.map((entry, i) => `import c${i} from ${JSON.stringify(entry.file)}`),
@@ -146,63 +217,3 @@ export function renderVueComponentsModule(entries: ComarkComponentFile[]): strin
     `}`,
   ].join('\n')
 }
-
-/**
- * Collects the comark components (shared/utils/comark-components.ts) from
- * `app/components/comark/` in every layer. On a shared tag the app's own wins,
- * then the layers in `extends` order.
- *
- * - `#okb-comark-components`: the declarations, for the app and the server.
- * - `#okb-comark-vue-components`: every `Custom<Name>.vue`, for the app.
- * - `#okb-comark-editor-parts`: every `Custom<Name>.editor.ts`, for the app.
- */
-export default defineNuxtModule({
-  meta: { name: 'okb-comark-components' },
-  setup(_, nuxt) {
-    const srcDirs = nuxt.options._layers.map(layer => layer.config.srcDir || join(layer.config.rootDir, 'app'))
-    const collect = () => {
-      const entries = collectComarkComponentFiles(srcDirs)
-      return { entries, declarations: readComarkComponentDeclarations(nuxt.options.rootDir, entries) }
-    }
-    let collected = collect()
-    nuxt.hook('builder:watch', async (_event, path) => {
-      if (!path.includes('components/comark/')) return
-      collected = collect()
-      await updateTemplates({ filter: template => template.filename.startsWith('okb-comark-') })
-    })
-
-    const declarations = addTemplate({
-      filename: 'okb-comark-components.mjs',
-      write: true,
-      getContents: () => renderDeclarationsModule(collected.declarations),
-    })
-    const editorParts = addTemplate({
-      filename: 'okb-comark-editor-parts.mjs',
-      write: true,
-      getContents: () => renderEditorPartsModule(collected.entries),
-    })
-    const vueComponents = addTemplate({
-      filename: 'okb-comark-vue-components.mjs',
-      write: true,
-      getContents: () => renderVueComponentsModule(collected.entries),
-    })
-    nuxt.options.alias['#okb-comark-components'] = declarations.dst
-    nuxt.options.alias['#okb-comark-editor-parts'] = editorParts.dst
-    nuxt.options.alias['#okb-comark-vue-components'] = vueComponents.dst
-
-    addServerTemplate({
-      filename: '#okb-comark-components',
-      getContents: () => renderDeclarationsModule(collected.declarations),
-    })
-
-    const types = 'import(\'~~/shared/utils/comark-components\')'
-    addTypeTemplate({
-      filename: 'types/okb-comark-components.d.ts',
-      getContents: () => [
-        `declare module '#okb-comark-components' { export const comarkComponentDeclarations: Record<string, ${types}.ComarkComponentDeclaration> }`,
-        `declare module '#okb-comark-editor-parts' { export const comarkEditorParts: Record<string, ${types}.ComarkEditorPart> }`,
-        `declare module '#okb-comark-vue-components' { export const comarkVueComponents: Record<string, import('vue').Component> }`,
-      ].join('\n'),
-    }, { nuxt: true, nitro: true, shared: true, node: true })
-  },
-})

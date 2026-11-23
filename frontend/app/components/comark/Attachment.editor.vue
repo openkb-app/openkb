@@ -3,7 +3,7 @@ import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { sessionDoc } from '~/editor/page-file-insert'
 
 /**
- * The attachment's editor part (`CustomAttachment.editor.ts`): the node view
+ * The attachment's editor part (`Attachment.editor.ts`): the node view
  * of `::attachment{file}` and the inline `:attachment[Label]{file}`
  * (app/editor/nodes/attachment.ts), the same file card the read page shows,
  * resolved through /api/files/resolve. Only the UUID and the optional

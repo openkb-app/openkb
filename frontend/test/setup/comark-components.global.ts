@@ -6,7 +6,7 @@ import {
   renderDeclarationsModule,
   renderEditorPartsModule,
   renderVueComponentsModule,
-} from '../../modules/comark-components'
+} from '../../modules/comark-components/declarations'
 
 /** Where the generated `#okb-comark-*` modules land for the suites (gitignored). */
 export const GENERATED_DIR = fileURLToPath(new URL('../.generated/', import.meta.url))

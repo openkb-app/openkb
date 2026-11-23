@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { labelOfComarkName } from '#shared/utils/comark-components'
-import type { ComarkComponentDeclaration, ComarkPropControl, ComarkPropDeclaration } from '#shared/utils/comark-components'
+import { labelOfComarkComponent, labelOfComarkProp, listEnumItemsOfComarkProp } from '#shared/utils/comark-components'
+import type { ComarkComponentDeclaration, ComarkPropDeclaration } from '#shared/utils/comark-components'
 
 /**
  * The default settings menu of a block component: a gear in the block's
@@ -12,20 +12,10 @@ const props = defineProps<{
   /** The props the menu edits: the stored props less those edited in place. */
   menuProps: Record<string, ComarkPropDeclaration>
   values: Record<string, unknown>
-  controls?: Record<string, ComarkPropControl>
 }>()
 const emit = defineEmits<{ change: [name: string, value: unknown] }>()
 
-const componentLabel = labelOfComarkName(props.declaration.tag)
-
-/** The select's items of an enum prop: each value with its label and the icon the component's editor part gives it. */
-function enumItemsOfProp(name: string, prop: ComarkPropDeclaration) {
-  return (prop.values ?? []).map(value => ({
-    label: labelOfComarkName(value),
-    value,
-    ...(props.controls?.[name]?.icons?.[value] ? { icon: props.controls[name].icons[value] } : {}),
-  }))
-}
+const componentLabel = labelOfComarkComponent(props.declaration)
 
 /** Emits a text or number field's value; an empty number field is unset. */
 function emitFieldValue(name: string, prop: ComarkPropDeclaration, value: string | number) {
@@ -48,13 +38,13 @@ function emitFieldValue(name: string, prop: ComarkPropDeclaration, value: string
           <UFormField
             v-for="(prop, name) in menuProps"
             :key="name"
-            :label="controls?.[name]?.label ?? labelOfComarkName(String(name))"
+            :label="labelOfComarkProp(String(name), prop)"
             :name="String(name)"
           >
             <USelect
               v-if="prop.kind === 'enum'"
               :model-value="String(values[name] ?? prop.default ?? '')"
-              :items="enumItemsOfProp(String(name), prop)"
+              :items="listEnumItemsOfComarkProp(prop)"
               value-key="value"
               class="w-full"
               @update:model-value="(value: string) => emit('change', String(name), value)"

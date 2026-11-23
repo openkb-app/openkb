@@ -9,9 +9,9 @@ import Text from '@tiptap/extension-text'
 import { computed, createApp, defineComponent, h } from 'vue'
 import type { Component } from 'vue'
 import { comarkComponentDeclarations } from '#shared/utils/comark-components'
-import CustomCitation from '~/components/comark/inline/CustomCitation.vue'
-import CustomDoc from '~/components/comark/inline/CustomDoc.vue'
-import CustomMention from '~/components/comark/inline/CustomMention.vue'
+import Citation from '~/components/comark/inline/Citation.vue'
+import Doc from '~/components/comark/inline/Doc.vue'
+import Mention from '~/components/comark/inline/Mention.vue'
 import { createChipNode, createComponentNode } from './component-node'
 import { OkbMention } from './mention'
 
@@ -62,14 +62,14 @@ describe('a chip in the editor and on the read page', () => {
     // Tiptap's own: the trigger character the mention was typed with.
     editorChip.removeAttribute('data-mention-suggestion-char')
     expect(dataAttributesOf(editorChip)).toMatchObject({ 'data-type': 'mention', 'data-id': '3', 'data-label': 'bob' })
-    expectSameClassAndData(editorChip, readChipElement(CustomMention, { uid: '3', label: 'bob' }, 'bob'))
+    expectSameClassAndData(editorChip, readChipElement(Mention, { uid: '3', label: 'bob' }, 'bob'))
   })
 
   it('a document link', () => {
     const editorChip = editorChipElement(createChipNode(comarkComponentDeclarations.doc!), { type: 'docLink', attrs: { nid: 42, block: 'b-4f2a', label: 'Rollback' } })
     expect(dataAttributesOf(editorChip)).toEqual({ 'data-type': 'doc-link', 'data-nid': '42', 'data-block': 'b-4f2a' })
     expect(editorChip.textContent).toBe('Rollback')
-    expectSameClassAndData(editorChip, readChipElement(CustomDoc, { href: '/a#b-4f2a', nid: 42, block: 'b-4f2a' }, 'Rollback'))
+    expectSameClassAndData(editorChip, readChipElement(Doc, { href: '/a#b-4f2a', nid: 42, block: 'b-4f2a' }, 'Rollback'))
   })
 
   it('a citation', () => {
@@ -78,7 +78,7 @@ describe('a chip in the editor and on the read page', () => {
     expect(dataAttributesOf(editorChip)).toEqual({ 'data-type': 'citation', 'data-nid': '42', 'data-block': 'b-4f2a', 'data-v': 'e0ff367d5ce8' })
 
     // The read tree passes no stored prop (`citeNode` in comark-tree.ts): a paste keeps the link.
-    const readChip = readChipElement(CustomCitation, { n: '1', title: 'Rollback', path: '/a#b-4f2a', state: 'stale' })!
+    const readChip = readChipElement(Citation, { n: '1', title: 'Rollback', path: '/a#b-4f2a', state: 'stale' })!
     // No editor chip markers: the editor's citation styles stay off the pasted link.
     expect(readChip.matches('.okb-cite, [data-type]')).toBe(false)
     const element = document.createElement('div')

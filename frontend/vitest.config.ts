@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
+import { comarkComponentMacroVitePlugin } from './modules/comark-components/macro.ts'
 
 // Two projects split the suites by what they need to run:
 //
@@ -18,8 +19,9 @@ import { defineConfig } from 'vitest/config'
 // non-zero, so a mis-wired stage fails loudly instead of passing empty.
 export default defineConfig({
   // The vue plugin lets tests import the comark components and the editor's
-  // node views.
-  plugins: [vue()],
+  // node views; the macro plugin removes `defineComarkComponent()` as the app
+  // build does.
+  plugins: [comarkComponentMacroVitePlugin(), vue()],
   test: {
     environment: 'node',
     // Both projects inherit this. On CI the suites share an executor with the
@@ -69,7 +71,7 @@ export default defineConfig({
       { find: '#components', replacement: fileURLToPath(new URL('./test/stubs/nuxt-components.ts', import.meta.url)) },
       // `modules/fences.ts` generates these from the `fences/` scan.
       { find: /^#okb-(fences|fence-components|fence-servers)$/, replacement: fileURLToPath(new URL('./test/stubs/okb-fences.ts', import.meta.url)) },
-      // `modules/comark-components.ts` generates these; the global setup writes them with its collector.
+      // `modules/comark-components/` generates these; the global setup writes them with its collector.
       { find: /^#(okb-comark-(components|editor-parts|vue-components))$/, replacement: fileURLToPath(new URL('./test/.generated/$1.mjs', import.meta.url)) },
     ],
   },

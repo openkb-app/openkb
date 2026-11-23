@@ -2,7 +2,7 @@
  * The component set a comark body mounts, for `@comark/vue`'s renderer.
  *
  * One map for both surfaces — the page read view and a chat answer — so a
- * `::callout` in an answer is the same `CustomCallout` a published page
+ * `::callout` in an answer is the same `Callout` a published page
  * gets. The tree passes (`#shared/utils/comark-tree`) have already rewritten
  * every component tag to one this map has, `unknown` included.
  */

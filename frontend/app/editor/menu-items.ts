@@ -8,8 +8,8 @@ import { recordLinkSelection } from '~/editor/doc-link-selection'
 import { BUBBLE_REQUEST_KEY } from '~/editor/link-target'
 import { comarkEditorParts } from '#okb-comark-editor-parts'
 import { CITATION_TAG } from '#shared/utils/citations'
-import { defaultAttributeOfProp, insertedComponentMeta, labelOfComarkName, listBlockComponentDeclarations } from '#shared/utils/comark-components'
-import type { ComarkComponentDeclaration, ComarkMenuEntry } from '#shared/utils/comark-components'
+import { defaultAttributeOfProp, insertedComponentMeta, labelOfComarkComponent, listBlockComponentDeclarations } from '#shared/utils/comark-components'
+import type { ComarkComponentDeclaration } from '#shared/utils/comark-components'
 import { FENCES, fenceFor } from '#shared/utils/fences'
 
 interface ComponentCmd { component?: string }
@@ -246,36 +246,28 @@ export const comarkHandlers: Record<string, EditorHandler> = {
   },
 }
 
-/** The menu entry of a block component: its editor part's, or one named after the component. */
-function menuEntryOfComponent(declaration: ComarkComponentDeclaration): ComarkMenuEntry | null {
-  const menu = comarkEditorParts[declaration.tag]?.menu
-  return menu === false ? null : menu ?? {}
-}
-
-/** The node a block component is inserted as: the props' defaults, the entry's attributes and body. */
+/** The node a block component is inserted as: each prop's example or default, and the placeholder as its body. */
 function insertedComponentNode(declaration: ComarkComponentDeclaration) {
-  const entry = menuEntryOfComponent(declaration) ?? {}
-  const defaults = Object.fromEntries(Object.entries(declaration.props).map(([name, prop]) => [name, defaultAttributeOfProp(prop)]))
+  const attrs = Object.fromEntries(Object.entries(declaration.props).map(([name, prop]) => [name, prop.example ?? defaultAttributeOfProp(prop)]))
+  const body = declaration.placeholder ? [{ type: 'text', text: declaration.placeholder }] : undefined
   return {
     type: declaration.tag,
-    attrs: { ...defaults, ...entry.attrs },
-    ...(declaration.slot ? { content: entry.content ?? [{ type: 'paragraph' }] } : {}),
+    attrs,
+    ...(declaration.slot ? { content: [{ type: 'paragraph', ...(body ? { content: body } : {}) }] } : {}),
   }
 }
 
-/** The slash-menu rows of the block components, in tag order. */
+/** The slash-menu rows of the block components, in tag order; an editor part's `menu: false` leaves one out. */
 function componentMenuItems() {
-  return listBlockComponentDeclarations().flatMap((declaration) => {
-    const entry = menuEntryOfComponent(declaration)
-    if (!entry) return []
-    return [{
+  return listBlockComponentDeclarations()
+    .filter(declaration => comarkEditorParts[declaration.tag]?.menu !== false)
+    .map(declaration => ({
       kind: 'comarkComponent',
       component: declaration.tag,
-      label: entry.label ?? labelOfComarkName(declaration.tag),
-      icon: entry.icon ?? 'i-lucide-box',
-      description: entry.description ?? '',
-    }]
-  })
+      label: labelOfComarkComponent(declaration),
+      icon: declaration.icon ?? 'i-lucide-box',
+      description: declaration.description ?? '',
+    }))
 }
 
 /**

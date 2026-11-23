@@ -1,31 +1,60 @@
 /**
  * Comark components: a `::name{…}` fence or `:name[…]{…}` chip that renders as
- * the Vue component `Custom<Name>.vue` in `app/components/comark/` (chips in
- * its `inline/` folder), on the read page, in chat answers and in the editor.
+ * the Vue component `<Name>.vue` in `app/components/comark/` (chips in its
+ * `inline/` folder), on the read page, in chat answers and in the editor.
  *
- * `modules/comark-components.ts` reads each component's `defineProps` and
- * slots into a {@link ComarkComponentDeclaration} (ADR 0025). See
- * docs/comark-components.md.
+ * The build (`modules/comark-components/`) reads each component's `defineProps`,
+ * slots and `defineComarkComponent()` call into a {@link ComarkComponentDeclaration}
+ * (ADR 0025). This file holds the types and the runtime helpers.
+ * See docs/comark-components.md.
  */
-import type { AnyExtension, JSONContent } from '@tiptap/core'
+import type { AnyExtension } from '@tiptap/core'
 import type { Component } from 'vue'
 import { comarkComponentDeclarations as generatedDeclarations } from '#okb-comark-components'
 
 /** The kinds a stored prop may have. */
 export type ComarkPropKind = 'string' | 'enum' | 'number' | 'boolean'
 
-/** One stored prop: an attribute of the markdown and of the editor node. */
-export interface ComarkPropDeclaration {
+/** The editor-facing metadata of one prop, from `defineComarkComponent()`. */
+export interface ComarkPropMeta<T = unknown> {
+  /** The settings menu's field label. */
+  label?: string
+  /** The value the prop starts with when the component is inserted. */
+  example?: string | number | boolean
+  /** A label per enum value. */
+  enumLabels?: Partial<Record<Extract<NonNullable<T>, string>, string>>
+  /** An icon per enum value, shown beside its label. */
+  enumIcons?: Partial<Record<Extract<NonNullable<T>, string>, string>>
+}
+
+/**
+ * The argument of `defineComarkComponent()`: a component's editor-facing
+ * metadata. `P` is the component's `Props`.
+ */
+export interface ComarkComponentMeta<P = Record<string, unknown>> {
+  /** The slash-menu label; the tag in words without it. */
+  label?: string
+  description?: string
+  icon?: string
+  /** The body text a component with a slot is inserted with. */
+  placeholder?: string
+  props?: { [K in keyof P]?: ComarkPropMeta<P[K]> }
+}
+
+/** One stored prop: an attribute of the markdown and of the editor node, with its editor metadata. */
+export interface ComarkPropDeclaration extends ComarkPropMeta<string> {
   kind: ComarkPropKind
   /** The enum's values. */
   values?: string[]
   default?: string | number | boolean
   /** The prop carries the JSDoc tag `@notIndexed`: its value stays out of the search index. */
   notIndexed?: true
+  enumLabels?: Record<string, string>
+  enumIcons?: Record<string, string>
 }
 
-/** What the build reads off one `Custom<Name>.vue`. */
-export interface ComarkComponentDeclaration {
+/** What the build reads off one `<Name>.vue`. */
+export interface ComarkComponentDeclaration extends Omit<ComarkComponentMeta, 'props'> {
   /** The comark tag, e.g. `callout`. */
   tag: string
   /** The stored props, by name. */
@@ -38,35 +67,14 @@ export interface ComarkComponentDeclaration {
   inline: boolean
 }
 
-/** A slash-menu entry of a block component. */
-export interface ComarkMenuEntry {
-  label?: string
-  icon?: string
-  description?: string
-  /** The node's attributes on insert; the props' defaults fill the rest. */
-  attrs?: Record<string, unknown>
-  /** The body a component with a slot is inserted with; one empty paragraph without it. */
-  content?: JSONContent[]
-}
-
-/** How the settings menu's field of one prop looks. */
-export interface ComarkPropControl {
-  /** The field's label; the prop's name by default. */
-  label?: string
-  /** An icon per enum value, shown beside its label. */
-  icons?: Record<string, string>
-}
-
-/** What a `Custom<Name>.editor.ts` default-exports: everything editor-specific of the component. */
+/** What a `<Name>.editor.ts` default-exports: the component's editor code. */
 export interface ComarkEditorPart {
-  /** The slash-menu entry; `false` for a component inserted by another command. */
-  menu?: ComarkMenuEntry | false
-  /** Settings of the default settings menu's fields, by prop. */
-  controls?: Record<string, ComarkPropControl>
+  /** `false` keeps the component out of the slash menu, for one inserted by another command. */
+  menu?: false
   /**
    * The component's own settings menu, rendered in place of the default one.
    * Props: `declaration`, `menuProps` (the stored props less those edited in
-   * place), `values`, `controls`; it emits `change(name, value)`.
+   * place), `values`; it emits `change(name, value)`.
    */
   settingsMenu?: Component
   /** The component's own node view, rendered in place of the generic one. */
@@ -81,7 +89,7 @@ export const insertedComponentMeta = 'okbInsertedComponent'
 /** Every comark component's declaration, by tag. */
 export const comarkComponentDeclarations: Record<string, ComarkComponentDeclaration> = generatedDeclarations
 
-/** Types a `Custom<Name>.editor.ts` default export. */
+/** Types a `<Name>.editor.ts` default export. */
 export function defineComarkEditorPart(part: ComarkEditorPart): ComarkEditorPart {
   return part
 }
@@ -99,6 +107,25 @@ export function listChipComponentDeclarations(): ComarkComponentDeclaration[] {
 /** A tag or enum value in the editor's words: `callout` → `Callout`, `doc-link` → `Doc link`. */
 export function labelOfComarkName(tag: string): string {
   return `${tag.charAt(0).toUpperCase()}${tag.slice(1).replace(/-/g, ' ')}`
+}
+
+/** A component's label: its declared one, or its tag in words. */
+export function labelOfComarkComponent(declaration: ComarkComponentDeclaration): string {
+  return declaration.label ?? labelOfComarkName(declaration.tag)
+}
+
+/** A prop's label: its declared one, or its name in words. */
+export function labelOfComarkProp(name: string, prop: ComarkPropDeclaration): string {
+  return prop.label ?? labelOfComarkName(name)
+}
+
+/** The select items of an enum prop: each value with its label and icon. */
+export function listEnumItemsOfComarkProp(prop: ComarkPropDeclaration): { label: string, value: string, icon?: string }[] {
+  return (prop.values ?? []).map(value => ({
+    label: prop.enumLabels?.[value] ?? labelOfComarkName(value),
+    value,
+    ...(prop.enumIcons?.[value] ? { icon: prop.enumIcons[value] } : {}),
+  }))
 }
 
 /** A stored prop's default as a node attribute: the declared default, or null. */

@@ -14,10 +14,10 @@ const HOSTS: Record<string, string[]> = {
     '../../pages/search.vue',
   ],
   'okb-prose-compact': [
-    '../../components/comark/CustomCallout.vue',
-    '../../components/comark/CustomInfobox.vue',
+    '../../components/comark/Callout.vue',
+    '../../components/comark/Infobox.vue',
     '../../components/ComponentNodeView.vue',
-    '../../components/ComarkAnswer.vue',
+    '../../components/AnswerMarkdown.vue',
   ],
 }
 

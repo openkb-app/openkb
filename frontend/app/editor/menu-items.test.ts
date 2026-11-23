@@ -94,8 +94,14 @@ describe('the callout insert', () => {
     const meta: Record<string, unknown> = {}
     const chain = {
       focus: () => chain,
-      insertContent: (content: unknown) => (inserted.push(content), chain),
-      setMeta: (key: string, value: unknown) => ((meta[key] = value), chain),
+      insertContent: (content: unknown) => {
+        inserted.push(content)
+        return chain
+      },
+      setMeta: (key: string, value: unknown) => {
+        meta[key] = value
+        return chain
+      },
     }
     comarkHandlers.comarkComponent!.execute({ chain: () => chain } as unknown as Editor, { component: 'callout' })
     expect(inserted).toEqual([{
@@ -104,6 +110,28 @@ describe('the callout insert', () => {
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New callout — type here.' }] }],
     }])
     expect(meta).toEqual({ [insertedComponentMeta]: 'callout' })
+  })
+})
+
+describe('the infobox insert', () => {
+  it('takes its row and starting values from its defineComarkComponent() call, with no .editor.ts', () => {
+    expect(slashItems.flat().find(item => 'component' in item && item.component === 'infobox'))
+      .toMatchObject({ kind: 'comarkComponent', label: 'Infobox', icon: 'i-lucide-square', description: 'Titled bordered box' })
+    const inserted: unknown[] = []
+    const chain = {
+      focus: () => chain,
+      insertContent: (content: unknown) => {
+        inserted.push(content)
+        return chain
+      },
+      setMeta: () => chain,
+    }
+    comarkHandlers.comarkComponent!.execute({ chain: () => chain } as unknown as Editor, { component: 'infobox' })
+    expect(inserted).toEqual([{
+      type: 'infobox',
+      attrs: { title: 'Info' },
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New infobox — set a title above and edit text here.' }] }],
+    }])
   })
 })
 
@@ -140,7 +168,13 @@ describe('the block inserts', () => {
 describe('a fence component insert', () => {
   it('is a code block in its language, started from its template', () => {
     const inserted: unknown[] = []
-    const chain = { focus: () => chain, insertContent: (content: unknown) => (inserted.push(content), chain) }
+    const chain = {
+      focus: () => chain,
+      insertContent: (content: unknown) => {
+        inserted.push(content)
+        return chain
+      },
+    }
     const editor = { chain: () => chain } as unknown as Editor
     const row = slashItems.flat().find(entry => 'kind' in entry && entry.kind === 'fence' && entry.fence === 'stub')!
     expect(row).toMatchObject({ label: 'Sketch', icon: 'i-lucide-pencil', description: 'A test fence' })

@@ -28,7 +28,7 @@ describe('pasting a callout', () => {
   })
 
   it('keeps the words but not the callout when the read page is pasted', () => {
-    // The read page renders CustomCallout's own root, so nothing on the
+    // The read page renders Callout's own root, so nothing on the
     // clipboard says "callout" — the fence has to be re-applied by hand.
     const rendered = '<div class="my-4 rounded-lg ring-1 px-4 py-3 flex gap-3">'
       + '<div class="okb-box-body"><p>Mind the gap.</p></div></div>'

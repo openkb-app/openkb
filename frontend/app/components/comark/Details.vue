@@ -10,6 +10,15 @@ interface Props {
   open?: boolean
 }
 withDefaults(defineProps<Props>(), { open: false })
+
+defineComarkComponent<Props>({
+  label: 'Collapsible section',
+  icon: 'i-lucide-chevrons-down-up',
+  description: 'A titled section readers open and close',
+  props: {
+    open: { label: 'Open by default' },
+  },
+})
 const slots = useSlots()
 </script>
 

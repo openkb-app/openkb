@@ -24,7 +24,7 @@ export interface ImageAttrs {
  *   value resolved at render time and never stored.
  * - `file` unset → `![alt](src "title")` for plain/external URLs.
  *
- * Vue-free — the image's editor part (`CustomImage.editor.ts`) adds the node
+ * Vue-free — the image's editor part (`Image.editor.ts`) adds the node
  * view in app/editor/extensions.ts.
  */
 export const OkbImage = Image.extend({

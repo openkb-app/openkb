@@ -6,6 +6,23 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), { type: 'info' })
 
+defineComarkComponent<Props>({
+  label: 'Callout',
+  icon: 'i-lucide-info',
+  description: 'Info box — switch the type inside',
+  placeholder: 'New callout — type here.',
+  props: {
+    type: {
+      enumIcons: {
+        info: 'i-lucide-info',
+        warning: 'i-lucide-alert-triangle',
+        success: 'i-lucide-check-circle',
+        danger: 'i-lucide-octagon-alert',
+      },
+    },
+  },
+})
+
 const tone = computed(() => {
   switch (props.type) {
     case 'warning':

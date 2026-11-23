@@ -6,7 +6,7 @@ import { computed, useTemplateRef } from 'vue'
 import ComponentSettingsMenu from './ComponentSettingsMenu.vue'
 import { comarkEditorParts } from '#okb-comark-editor-parts'
 import { comarkVueComponents } from '#okb-comark-vue-components'
-import { comarkComponentDeclarations, labelOfComarkName } from '#shared/utils/comark-components'
+import { comarkComponentDeclarations, labelOfComarkComponent } from '#shared/utils/comark-components'
 
 /**
  * The editor's node view of every block component (ADR 0025): the read
@@ -19,7 +19,7 @@ const declaration = comarkComponentDeclarations[props.node.type.name]!
 const component = comarkVueComponents[declaration.tag]
 const editorPart = comarkEditorParts[declaration.tag]
 const settingsMenu = editorPart?.settingsMenu ?? ComponentSettingsMenu
-const componentLabel = labelOfComarkName(declaration.tag)
+const componentLabel = labelOfComarkComponent(declaration)
 const menuProps = Object.fromEntries(Object.entries(declaration.props).filter(([name]) => !declaration.propsEditedInPlace.includes(name)))
 const hasSettingsMenu = Object.keys(menuProps).length > 0
 
@@ -62,7 +62,6 @@ const inViewport = useElementVisibility(wrapper)
       :declaration="declaration"
       :menu-props="menuProps"
       :values="componentProps"
-      :controls="editorPart?.controls"
       @change="(name: string, value: unknown) => updateAttributes({ [name]: value })"
     />
   </NodeViewWrapper>

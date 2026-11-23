@@ -21,6 +21,18 @@ vi.mock('#okb-comark-components', async (importOriginal) => {
         propsEditedInPlace: ['title'],
         inline: false,
       },
+      // The same props with the labels a `defineComarkComponent()` call gives them.
+      gadget: {
+        tag: 'gadget',
+        label: 'Handy gadget',
+        props: {
+          size: { kind: 'enum', values: ['small', 'large'], default: 'small', label: 'Dimensions', enumLabels: { small: 'Compact' }, enumIcons: { large: 'i-lucide-maximize' } },
+          count: { kind: 'number', label: 'How many' },
+        },
+        slot: true,
+        propsEditedInPlace: [],
+        inline: false,
+      },
     },
   }
 })
@@ -32,8 +44,8 @@ vi.mock('#okb-comark-vue-components', () => ({
   },
 }))
 vi.mock('#okb-comark-editor-parts', async () => {
-  const { default: settingsMenu } = await import('./comark/CustomCallout.settings.vue')
-  return { comarkEditorParts: { callout: { settingsMenu, controls: { type: { icons: { info: 'i-lucide-info' } } } } } }
+  const { default: settingsMenu } = await import('./comark/Callout.settings.vue')
+  return { comarkEditorParts: { callout: { settingsMenu } } }
 })
 
 const { default: ComponentNodeView } = await import('./ComponentNodeView.vue')
@@ -48,7 +60,7 @@ const USelect = defineComponent({
     'aria-label': attrs['aria-label'],
     'value': props.modelValue,
     'onChange': (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
-  }, (props.items as Array<{ label: string, value: string }>).map(item => h('option', { value: item.value }, item.label))),
+  }, (props.items as Array<{ label: string, value: string, icon?: string }>).map(item => h('option', { 'value': item.value, 'data-icon': item.icon }, item.label))),
 })
 /** Nuxt UI's switch, as a checkbox. */
 const USwitch = defineComponent({
@@ -156,6 +168,18 @@ describe('the default settings menu', () => {
     toggle.checked = false
     toggle.dispatchEvent(new Event('change'))
     expect(change).toHaveBeenLastCalledWith('open', false)
+  })
+
+  it('takes the component, field and enum labels and the enum icons from the declaration', async () => {
+    const gadget = comarkComponentDeclarations.gadget!
+    const root = mount(ComponentSettingsMenu, { declaration: gadget, menuProps: gadget.props, values: {} })
+    expect(root.querySelector('button')!.getAttribute('aria-label')).toBe('Handy gadget settings')
+    root.querySelector('button')!.click()
+    await nextTick()
+    const form = root.querySelector('[data-test="component-settings-form"]')!
+    expect([...form.querySelectorAll('label')].map(label => label.firstChild?.textContent)).toEqual(['Dimensions', 'How many'])
+    expect([...form.querySelector('select')!.options].map(option => option.textContent)).toEqual(['Compact', 'Large'])
+    expect([...form.querySelector('select')!.options].map(option => option.dataset.icon)).toEqual([undefined, 'i-lucide-maximize'])
   })
 })
 

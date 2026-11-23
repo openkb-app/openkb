@@ -330,7 +330,7 @@ body {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter;
 }
 
-/* Mention chips: the editor's mention node, the read page's CustomMention
+/* Mention chips: the editor's mention node, the read page's Mention
    and comment bodies. */
 .mention {
   display: inline-block;
@@ -412,7 +412,7 @@ body {
 /* Citations. The stored node carries a target and no words, so the chip the
    editor draws is its number — handed out per distinct target in document
    order by the decoration in app/editor/cite-numbers.ts. The read page renders
-   the same badge as a real link (CustomCitation.vue). */
+   the same badge as a real link (Citation.vue). */
 .ProseMirror .okb-cite::after {
   content: attr(data-n);
   display: inline-flex;

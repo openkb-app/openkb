@@ -3,7 +3,7 @@ import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { sessionDoc } from '~/editor/page-file-insert'
 
 /**
- * The embed's editor part (`CustomEmbed.editor.ts`): the node view of
+ * The embed's editor part (`Embed.editor.ts`): the node view of
  * `::embed{file title}`, the frame the read page shows, resolved through /api/files/resolve. The title is
  * edited below it while the embed is selected or has one.
  */

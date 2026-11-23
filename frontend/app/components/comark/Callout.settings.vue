@@ -1,23 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { labelOfComarkName } from '#shared/utils/comark-components'
-import type { ComarkComponentDeclaration, ComarkPropControl, ComarkPropDeclaration } from '#shared/utils/comark-components'
+import { listEnumItemsOfComarkProp } from '#shared/utils/comark-components'
+import type { ComarkComponentDeclaration, ComarkPropDeclaration } from '#shared/utils/comark-components'
 
-/** The callout's settings menu (`CustomCallout.editor.ts`): its type as a select over the block's corner, taking no height. */
+/** The callout's settings menu (`Callout.editor.ts`): its type as a select over the block's corner, taking no height. */
 const props = defineProps<{
   declaration: ComarkComponentDeclaration
   menuProps: Record<string, ComarkPropDeclaration>
   values: Record<string, unknown>
-  controls?: Record<string, ComarkPropControl>
 }>()
 const emit = defineEmits<{ change: [name: string, value: unknown] }>()
 
 /** Each type with its label and icon. */
-const typeItems = computed(() => (props.menuProps.type?.values ?? []).map(value => ({
-  label: labelOfComarkName(value),
-  value,
-  ...(props.controls?.type?.icons?.[value] ? { icon: props.controls.type.icons[value] } : {}),
-})))
+const typeItems = computed(() => (props.menuProps.type ? listEnumItemsOfComarkProp(props.menuProps.type) : []))
 </script>
 
 <template>

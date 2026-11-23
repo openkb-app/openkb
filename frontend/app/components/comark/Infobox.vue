@@ -5,6 +5,16 @@ interface Props {
   title?: string
 }
 defineProps<Props>()
+
+defineComarkComponent<Props>({
+  label: 'Infobox',
+  icon: 'i-lucide-square',
+  description: 'Titled bordered box',
+  placeholder: 'New infobox — set a title above and edit text here.',
+  props: {
+    title: { example: 'Info' },
+  },
+})
 const slots = useSlots()
 </script>
 

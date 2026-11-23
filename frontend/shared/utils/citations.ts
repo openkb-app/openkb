@@ -18,7 +18,7 @@
 /**
  * The comark component name a citation is stored as, authored and resolved
  * alike: the body writes `:citation{nid …}`, the tree pass renders it as the
- * numbered chip the chat's answers already carry (`CustomCitation`). What a
+ * numbered chip the chat's answers already carry (`Citation`). What a
  * node carries says which it is — an authored one names a source, a chip a
  * number — and the two never meet in one tree.
  */

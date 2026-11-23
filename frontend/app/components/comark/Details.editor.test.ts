@@ -10,7 +10,7 @@ import { createApp, h, nextTick } from 'vue'
 import type { App } from 'vue'
 import { comarkComponentDeclarations, insertedComponentMeta } from '#shared/utils/comark-components'
 import { createComponentNode } from '~/editor/nodes/component-node'
-import CustomDetailsEditor from './CustomDetails.editor.vue'
+import DetailsEditor from './Details.editor.vue'
 
 let editor: Editor | undefined
 let app: App | undefined
@@ -22,7 +22,7 @@ afterEach(() => {
 })
 
 const Details = createComponentNode(comarkComponentDeclarations.details!).extend({
-  addNodeView: () => VueNodeViewRenderer(CustomDetailsEditor),
+  addNodeView: () => VueNodeViewRenderer(DetailsEditor),
 })
 
 /** Mounts an editor holding a paragraph, a closed section and an open one, its node views placed. */

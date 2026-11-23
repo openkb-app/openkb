@@ -6,15 +6,15 @@ const loadPhotoSwipe = vi.fn(async () => {})
 const openLightbox = vi.fn(async () => {})
 vi.mock('~/utils/image-lightbox', () => ({ loadPhotoSwipe, openLightbox }))
 
-const { default: CustomImage } = await import('./CustomImage.vue')
+const { default: ImageComponent } = await import('./Image.vue')
 
 function mount(props: Record<string, unknown>): HTMLElement {
   const root = document.createElement('div')
-  createApp({ render: () => h(CustomImage, props) }, {}).component('UIcon', { render: () => null }).mount(root)
+  createApp({ render: () => h(ImageComponent, props) }, {}).component('UIcon', { render: () => null }).mount(root)
   return root
 }
 
-describe('CustomImage', () => {
+describe('Image', () => {
   it('links the image to its file and loads PhotoSwipe only on interaction', async () => {
     const link = mount({ src: '/system/files/images/a.png', alt: 'A chart' }).querySelector('a')!
     expect(link.getAttribute('href')).toBe('/system/files/images/a.png')

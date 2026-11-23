@@ -5,8 +5,6 @@
  */
 import { defineComponent, h } from 'vue'
 
-export { default as CustomMention } from '~/components/comark/inline/CustomMention.vue'
-
 export const NuxtLink = defineComponent({
   name: 'NuxtLink',
   props: { to: { type: [String, Object], default: undefined } },

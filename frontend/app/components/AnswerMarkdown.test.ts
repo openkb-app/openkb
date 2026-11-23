@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Suspense, computed, createApp, h, nextTick, ref, shallowRef, watch } from 'vue'
-import ComarkAnswer from './ComarkAnswer.vue'
+import AnswerMarkdown from './AnswerMarkdown.vue'
 
 // Native tags only: the answers here mount no comark component.
 vi.mock('~/comark/components', async () => {
@@ -23,7 +23,7 @@ function mount(text: string, streaming: boolean) {
   const props = ref({ text, streaming })
   const root = document.createElement('div')
   // `MarkdownDocument` sets up async; Nuxt's app root is the Suspense for it.
-  createApp({ render: () => h(Suspense, null, () => h(ComarkAnswer, props.value)) }).mount(root)
+  createApp({ render: () => h(Suspense, null, () => h(AnswerMarkdown, props.value)) }).mount(root)
   return { root, props }
 }
 
@@ -34,7 +34,7 @@ async function rendered(root: HTMLElement, text: string) {
   return root.textContent
 }
 
-describe('ComarkAnswer', () => {
+describe('AnswerMarkdown', () => {
   const NESTED = 'Some **b***i* text.'
 
   /** A finished `NESTED`: its marks as elements, no marker left as text. */

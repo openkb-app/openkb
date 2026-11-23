@@ -43,11 +43,10 @@ export default defineNuxtConfig({
     { path: '~/components/view', prefix: 'View' },
     { path: '~/components/spaces', prefix: 'Space' },
     { path: '~/components/kb', prefix: 'Kb' },
+    // The comark components load by tag through `#okb-comark-*` only
+    // (modules/comark-components/).
     { path: '~/components', pathPrefix: false, ignore: ['comark/**'] },
     { path: '~/components/global', global: true, pathPrefix: false },
-    // The comark components (modules/comark-components.ts); their editor
-    // parts load through `#okb-comark-editor-parts` only.
-    { path: '~/components/comark', global: true, pathPrefix: false, extensions: ['vue'], ignore: ['**/*.*.vue'] },
     { path: '~/editor/components', prefix: 'Editor' },
   ],
 

@@ -8,7 +8,7 @@ import { Selection, type Transaction } from '@tiptap/pm/state'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import { useElementVisibility } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
-import CustomDetails from './CustomDetails.vue'
+import Details from './Details.vue'
 import ComponentSettingsMenu from '../ComponentSettingsMenu.vue'
 import { comarkComponentDeclarations, insertedComponentMeta } from '#shared/utils/comark-components'
 
@@ -23,7 +23,6 @@ import { comarkComponentDeclarations, insertedComponentMeta } from '#shared/util
 const props = defineProps(nodeViewProps)
 const declaration = comarkComponentDeclarations.details!
 const menuProps = { open: declaration.props.open! }
-const controls = { open: { label: 'Open by default' } }
 const bodyId = `okb-details-body-${++bodyIds}`
 
 /** This user's open state; null shows the stored one. */
@@ -114,7 +113,7 @@ const inViewport = useElementVisibility(wrapper)
 
 <template>
   <NodeViewWrapper ref="wrapper" class="okb-component-node-view relative">
-    <CustomDetails :summary="node.attrs.summary ?? undefined" :open="isOpen">
+    <Details :summary="node.attrs.summary ?? undefined" :open="isOpen">
       <template #marker>
         <button
           type="button"
@@ -141,13 +140,12 @@ const inViewport = useElementVisibility(wrapper)
         >
       </template>
       <NodeViewContent :id="bodyId" class="okb-prose-compact" />
-    </CustomDetails>
+    </Details>
     <ComponentSettingsMenu
       v-if="inViewport"
       :declaration="declaration"
       :menu-props="menuProps"
       :values="values"
-      :controls="controls"
       @change="(name: string, value: unknown) => updateAttributes({ [name]: value })"
     />
   </NodeViewWrapper>

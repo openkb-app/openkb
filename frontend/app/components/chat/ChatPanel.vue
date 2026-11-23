@@ -440,7 +440,7 @@ const strayQuestion = computed(() => {
             class="chat__answer okb-prose"
             @click="onAnswerClick"
           >
-            <ComarkAnswer
+            <AnswerMarkdown
               :text="textFor(message)"
               :citation-chips="citationsFor(message)"
               :streaming="status === 'streaming' && message.id === lastMessageId"

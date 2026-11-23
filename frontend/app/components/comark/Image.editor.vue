@@ -2,7 +2,7 @@
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 
 /**
- * The image's editor part (`CustomImage.editor.ts`): the node view of the
+ * The image's editor part (`Image.editor.ts`): the node view of the
  * image node (app/editor/nodes/image.ts). Page-file images (`file`, ADR 0020) carry only the file UUID in
  * the document; the display URL is resolved through /api/files/resolve and
  * kept local — it must never enter the collab doc or the stored markdown.
