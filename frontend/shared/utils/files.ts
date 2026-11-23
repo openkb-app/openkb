@@ -16,12 +16,14 @@ export interface ResolvedFile {
   created: string | null
 }
 
-/**
- * The URL that downloads a file: Drupal answers `?download` with an
- * attachment. The `download` attribute alone does nothing cross-origin.
- */
-export function fileDownloadUrl(url: string): string {
-  return `${url}${url.includes('?') ? '&' : '?'}download`
+/** The URL that downloads a file under its name on the page, via Drupal's `?download=<name>`. */
+export function fileDownloadUrl(file: Pick<ResolvedFile, 'url' | 'name'>): string {
+  return `${file.url}${file.url.includes('?') ? '&' : '?'}download=${encodeURIComponent(file.name)}`
+}
+
+/** The URL a file's name links to: images and PDFs open, any other file downloads. */
+export function fileNameLinkUrl(file: Pick<ResolvedFile, 'url' | 'name' | 'mime'>): string {
+  return file.mime.startsWith('image/') || file.mime === 'application/pdf' ? file.url : fileDownloadUrl(file)
 }
 
 /** One entry of the read page's attachments list. */

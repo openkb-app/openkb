@@ -15,7 +15,7 @@ import { PAGE_FILE_FIELDS, type PageFileKey } from '#shared/utils/files'
  *   than a chunk in memory.
  * - Drupal's extension and size refusals pass through as 413 / 422.
  *
- * Answers the new file's UUID.
+ * Answers the new file's UUID and the name Drupal stored it under.
  */
 
 /** `filename="…"` out of a Content-Disposition header. */

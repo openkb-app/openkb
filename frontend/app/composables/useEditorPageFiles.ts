@@ -38,6 +38,7 @@ export interface EditorPageFiles {
   attachments: Ref<PageFileChoice[]>
 }
 
+/** The page's file lists and their undoable edits, live from the editor session. */
 export function useEditorPageFiles(ydoc: Y.Doc, editor: () => Editor | undefined): EditorPageFiles {
   const arrays = PAGE_FILE_KEYS.map(key => fileArray(ydoc, key))
   const hiddenMap = hiddenFileMap(ydoc)
@@ -83,7 +84,7 @@ export function useEditorPageFiles(ydoc: Y.Doc, editor: () => Editor | undefined
   const fileNames = computed(() => Object.fromEntries(Object.keys(names.value).flatMap(uuid => own.value[uuid] ? [[uuid, own.value[uuid].name]] : [])))
   const attachments = computed<PageFileChoice[]>(() => lists.value.attachments.flatMap((uuid) => {
     const file = resolved.value[uuid]
-    return file ? [{ uuid, name: file.name, size: file.size, url: file.url }] : []
+    return file ? [{ uuid, name: file.name, size: file.size, url: file.url, mime: file.mime }] : []
   }))
 
   const remove = (uuid: string) => {

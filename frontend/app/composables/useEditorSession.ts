@@ -45,6 +45,7 @@ import type { FieldValidationApi } from '~/composables/useFieldValidation'
 import { TITLE_KEY, type FieldValue } from '~~/server/utils/entity-fields'
 import { FALLBACK_COLOR, FALLBACK_NAME, claimsByBlock, collabColor, presenceFromStates, readableInkOn, samePresence, type AwarenessUser, type PresencePeer } from '#shared/utils/presence'
 import { PAGE_FILE_KEYS, fileArray, fileNameMap, hiddenFileMap } from '#shared/utils/page-files'
+import { fileDownloadUrl } from '#shared/utils/files'
 
 export interface Page {
   id: string
@@ -1334,7 +1335,8 @@ export async function useEditorSession(
   const embedBubbleItems = computed(() => {
     if (!acceptsInput.value) return []
     const embed = embedSelection.value
-    const url = embed?.file ? editorPageFiles.resolved.value[embed.file]?.url : undefined
+    const file = embed?.file ? editorPageFiles.resolved.value[embed.file] : undefined
+    const url = file ? fileDownloadUrl(file) : undefined
     const editor = () => editorRef.value?.editor
     return [
       [

@@ -26,7 +26,7 @@ import {
   type PageFileSource,
 } from '~/editor/link-target'
 import { showAndPositionBubbleMenu } from '~/editor/show-bubble-menu'
-import { formatFileSize } from '#shared/utils/files'
+import { fileNameLinkUrl, formatFileSize } from '#shared/utils/files'
 import { CITE_STATE_NOTE, citeState, citeTarget, citeUrlTitle } from '#shared/utils/citations'
 
 /**
@@ -89,7 +89,7 @@ watch(() => page.value && `${page.value.nid}#${page.value.block ?? ''}`, async (
 const isNewLink = computed(() => target.value?.kind === 'link' && !target.value.attrs.href)
 const href = computed(() => {
   if (!target.value) return ''
-  return openHref(target.value, target.value.kind === 'attachment' ? linkedFile.value?.url ?? null : resolved.value?.path || null)
+  return openHref(target.value, target.value.kind === 'attachment' ? (linkedFile.value ? fileNameLinkUrl(linkedFile.value) : null) : resolved.value?.path || null)
 })
 
 /** What the bubble says about the target: a heading, a detail line, and a note. */

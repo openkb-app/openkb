@@ -18,8 +18,17 @@ const FILE = '66666666-7777-4888-9999-000000000000'
 
 const shot = () => new File(['png'], 'shot.png', { type: 'image/png' })
 
-/** XHRs sent so far, with their headers; `answer()` finishes one with FILE, `refuse()` with a 422. */
-const sent: Array<{ headers: Record<string, string>, answer: (id?: string) => void, refuse: () => void }> = []
+/**
+ * XHRs sent so far, with their headers.
+ * - `answer()` finishes one with FILE, stored under the name sent.
+ * - `refuse()` finishes one with a 422.
+ */
+const sent: Array<{ headers: Record<string, string>, answer: (id?: string, filename?: string) => void, refuse: () => void }> = []
+
+/** The file name an upload's Content-Disposition header carries. */
+function sentFileName(headers: Record<string, string>): string {
+  return decodeURIComponent(/filename="([^"]*)"/.exec(headers['Content-Disposition'] ?? '')?.[1] ?? '')
+}
 
 /** Toasts shown, by id; removed ones are dropped. */
 const toasts = new Map<string, { title?: string, description?: string, color?: string }>()
@@ -42,9 +51,9 @@ class FakeXhr {
   send() {
     sent.push({
       headers: this.headers,
-      answer: (id = FILE) => {
+      answer: (id = FILE, filename = sentFileName(this.headers)) => {
         this.status = 201
-        this.responseText = JSON.stringify({ id })
+        this.responseText = JSON.stringify({ id, filename })
         this.events.dispatchEvent(new Event('load'))
       },
       refuse: () => {
@@ -160,6 +169,23 @@ describe('uploadIntoEditor', () => {
     sent[0]!.answer()
     await done
     expect(blocks()).toEqual(['First.', `image:${FILE}`, `image:${second}`, 'Second.'])
+  })
+
+  it('names an upload on the page as picked where Drupal stored it under another name, in the upload\'s undo step', async () => {
+    const second = '66666666-7777-4888-9999-000000000002'
+    await mountShared('First.')
+    const plan = new File(['%PDF'], 'Pläne.pdf', { type: 'application/pdf' })
+    const done = uploadIntoEditor(editor, 'file', [plan, shot()], editor.state.doc.content.size)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    sent[0]!.answer(FILE, 'Plane.pdf')
+    sent[1]!.answer(second)
+    await done
+    expect(liveFileNames(sessionYDoc())).toEqual({ [FILE]: 'Pläne.pdf' })
+
+    undo(editor.state)
+    undo(editor.state)
+    expect(blocks()).toEqual(['First.'])
+    expect(liveFileNames(sessionYDoc())).toEqual({})
   })
 
   it('puts the caret after the last embed of a multi-file upload', async () => {

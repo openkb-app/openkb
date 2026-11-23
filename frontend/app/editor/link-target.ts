@@ -32,6 +32,7 @@ export interface PageFileChoice {
   name: string
   size: number
   url: string
+  mime: string
 }
 
 /** This page's files for the bubble: the list, and the file picker. */

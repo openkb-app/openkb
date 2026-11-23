@@ -6,7 +6,7 @@ import { parseMarkdownToJson, serializeDocToMarkdown } from '~/comark/markdown-e
 import { PageFileLinks } from './page-file-links'
 
 const FILE = '11111111-2222-4333-8444-555555555555'
-const files = [{ uuid: FILE, name: 'plan.pdf', size: 10, url: 'http://drupal.test/system/files/attachments/plan%20v2.pdf' }]
+const files = [{ uuid: FILE, name: 'plan.pdf', size: 10, url: 'http://drupal.test/system/files/attachments/plan%20v2.pdf', mime: 'application/pdf' }]
 
 let editor: Editor
 

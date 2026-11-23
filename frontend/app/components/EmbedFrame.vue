@@ -69,7 +69,7 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
         data-test="embed-open"
       >Open full</a>
       <a
-        :href="fileDownloadUrl(file.url)"
+        :href="fileDownloadUrl(file)"
         download
         target="_blank"
         rel="noopener"

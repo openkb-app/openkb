@@ -48,10 +48,10 @@ afterEach(() => {
 
 describe('POST /api/files/upload', () => {
   it('streams the body to the field\'s JSON:API upload under the caller\'s carrier', async () => {
-    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'f-uuid' } }), { status: 201 }))
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'f-uuid', attributes: { filename: 'Q3-report.csv' } } }), { status: 201 }))
     vi.stubGlobal('fetch', fetch)
 
-    await expect(handler(event)).resolves.toEqual({ id: 'f-uuid' })
+    await expect(handler(event)).resolves.toEqual({ id: 'f-uuid', filename: 'Q3-report.csv' })
     const [url, init] = fetch.mock.calls[0]!
     expect(url).toBe('http://drupal.test/jsonapi/node/kb_page/field_kb_attachments')
     expect(init.method).toBe('POST')
@@ -61,6 +61,26 @@ describe('POST /api/files/upload', () => {
       'Content-Type': 'application/octet-stream',
       'Content-Disposition': 'file; filename="Q3 report.csv"',
     })
+  })
+
+  it('passes a non-ASCII name to Drupal as UTF-8, for core to sanitize', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'f-uuid' } }), { status: 201 }))
+    vi.stubGlobal('fetch', fetch)
+    headers['content-disposition'] = `file; filename="${encodeURIComponent('日本語 "Plän"\n.txt')}"`
+
+    await handler(event)
+    const value = fetch.mock.calls[0]![1].headers['Content-Disposition']
+    expect(() => new Headers({ 'Content-Disposition': value })).not.toThrow()
+    expect(Buffer.from(value, 'latin1').toString()).toBe('file; filename="日本語 "Plän".txt"')
+  })
+
+  it('sends `file` for a name of only control characters', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { id: 'f-uuid' } }), { status: 201 }))
+    vi.stubGlobal('fetch', fetch)
+    headers['content-disposition'] = `file; filename="${encodeURIComponent('\u0001\u007f')}"`
+
+    await handler(event)
+    expect(fetch.mock.calls[0]![1].headers['Content-Disposition']).toBe('file; filename="file"')
   })
 
   it('refuses an unknown field and a missing name before reaching Drupal', async () => {
@@ -104,7 +124,7 @@ describe('POST /api/files/upload', () => {
       await new Response(init.body).arrayBuffer()
       return new Response(JSON.stringify({ data: { id: 'f-uuid' } }), { status: 201 })
     }))
-    await expect(handler(event)).resolves.toEqual({ id: 'f-uuid' })
+    await expect(handler(event)).resolves.toMatchObject({ id: 'f-uuid' })
   })
 
   it('answers an oversized chunked upload with 413, not a reset', async () => {
@@ -154,7 +174,7 @@ describe('POST /api/files/upload', () => {
       await new Promise(resolve => setTimeout(resolve, 20))
       return new Response(JSON.stringify({ data: { id: 'f-uuid' } }), { status: 201 })
     }))
-    await expect(handler(event)).resolves.toEqual({ id: 'f-uuid' })
+    await expect(handler(event)).resolves.toMatchObject({ id: 'f-uuid' })
     expect(pulled).toBeLessThanOrEqual(2)
   })
 

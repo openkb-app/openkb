@@ -218,7 +218,11 @@ describe('LinkTargetBubble', () => {
 describe('LinkTargetBubble: links to this page\'s files', () => {
   const FILE = '11111111-2222-4333-8444-555555555555'
   const NEW = '66666666-7777-4888-9999-000000000000'
-  const files = [{ uuid: FILE, name: 'plan.pdf', size: 2048, url: 'http://drupal.test/system/files/attachments/plan.pdf' }]
+  const NOTES = '22222222-3333-4444-8555-666666666666'
+  const files = [
+    { uuid: FILE, name: 'plan.pdf', size: 2048, url: 'http://drupal.test/system/files/attachments/plan.pdf', mime: 'application/pdf' },
+    { uuid: NOTES, name: 'Annual report', size: 10, url: 'http://drupal.test/system/files/attachments/notes.txt', mime: 'text/plain' },
+  ]
 
   async function mountFiles(markdown: string, select: (doc: Editor['state']['doc']) => Selection, source: PageFileSource): Promise<void> {
     editor = new Editor({ extensions: [...buildCommitSchemaExtensions(), LinkTargetKeys], content: await parseMarkdownToJson(markdown) })
@@ -338,6 +342,14 @@ describe('LinkTargetBubble: links to this page\'s files', () => {
     expect(root.querySelector('[aria-label="Open in a new tab"]')?.getAttribute('href')).toBe(files[0]!.url)
     root.querySelector<HTMLButtonElement>('[aria-label="Remove file link"]')!.click()
     expect(await markdown()).toBe('See the plan here.')
+  })
+
+  it('opens a file that does not open inline as a download under its page name', async () => {
+    await mountFiles(`See :attachment[the notes]{file="${NOTES}"} here.`, doc => NodeSelection.create(doc, find(doc, 'attachmentInline')), source())
+    await nextTick()
+    const url = 'http://drupal.test/system/files/attachments/notes.txt?download=Annual%20report'
+    expect(root.querySelector('[aria-label="Open in a new tab"]')?.getAttribute('href')).toBe(url)
+    expect(root.querySelector('[data-testid="link-target"]')?.getAttribute('href')).toBe(url)
   })
 })
 

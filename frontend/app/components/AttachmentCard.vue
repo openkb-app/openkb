@@ -10,7 +10,7 @@
  * not readable for this reader (yet — a peer's fresh upload, until the next
  * checkpoint).
  */
-import { fileDownloadUrl, fileIcon, formatFileSize, type ResolvedFile } from '#shared/utils/files'
+import { fileDownloadUrl, fileIcon, fileNameLinkUrl, formatFileSize, type ResolvedFile } from '#shared/utils/files'
 
 const props = defineProps<{
   file: ResolvedFile | null
@@ -34,7 +34,7 @@ const size = computed(() => formatFileSize(props.file?.size))
 <template>
   <a
     v-if="file && inline"
-    :href="file.url"
+    :href="fileNameLinkUrl(file)"
     target="_blank"
     rel="noopener"
     class="inline-flex items-baseline gap-1"
@@ -55,7 +55,7 @@ const size = computed(() => formatFileSize(props.file?.size))
     <UIcon v-else :name="fileIcon(file.mime)" class="size-6 shrink-0 text-muted" aria-hidden="true" />
     <div class="min-w-0 flex-1">
       <slot name="name">
-        <a :href="file.url" target="_blank" rel="noopener" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
+        <a :href="fileNameLinkUrl(file)" target="_blank" rel="noopener" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
       </slot>
       <slot name="description">
         <p v-if="description" class="text-sm text-muted" data-test="attachment-description">
@@ -68,7 +68,7 @@ const size = computed(() => formatFileSize(props.file?.size))
     </div>
     <span v-if="size" class="shrink-0 text-sm text-muted">{{ size }}</span>
     <a
-      :href="fileDownloadUrl(file.url)"
+      :href="fileDownloadUrl(file)"
       download
       target="_blank"
       rel="noopener"

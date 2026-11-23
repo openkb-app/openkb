@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { embedFrameHeight, fileDownloadUrl, fileIcon, formatFileSize, isFileUuid } from './files'
+import { embedFrameHeight, fileDownloadUrl, fileIcon, fileNameLinkUrl, formatFileSize, isFileUuid } from './files'
 
 describe('page file helpers', () => {
-  it('asks Drupal for a download with ?download', () => {
-    expect(fileDownloadUrl('https://cms.example/system/files/a.html')).toBe('https://cms.example/system/files/a.html?download')
-    expect(fileDownloadUrl('https://cms.example/system/files/a.pdf?itok=x')).toBe('https://cms.example/system/files/a.pdf?itok=x&download')
+  it('asks Drupal for a download under the file\'s name with ?download=<name>', () => {
+    expect(fileDownloadUrl({ url: 'https://cms.example/system/files/a.html', name: 'a.html' })).toBe('https://cms.example/system/files/a.html?download=a.html')
+    expect(fileDownloadUrl({ url: 'https://cms.example/system/files/a.pdf?itok=x', name: 'Q3 [draft] & plän' })).toBe('https://cms.example/system/files/a.pdf?itok=x&download=Q3%20%5Bdraft%5D%20%26%20pl%C3%A4n')
+  })
+
+  it('opens images and PDFs from their name, and downloads any other file', () => {
+    const url = 'https://cms.example/system/files/a'
+    expect(fileNameLinkUrl({ url, name: 'Chart', mime: 'image/png' })).toBe(url)
+    expect(fileNameLinkUrl({ url, name: 'Plan', mime: 'application/pdf' })).toBe(url)
+    expect(fileNameLinkUrl({ url, name: 'Notes', mime: 'text/plain' })).toBe(`${url}?download=Notes`)
   })
 
   it('formats sizes for people and nothing for a non-size', () => {

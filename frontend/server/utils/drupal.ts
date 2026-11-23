@@ -741,31 +741,32 @@ export async function deleteKbPageWithAuth(
 }
 
 /**
- * A file name as a header value core's parser reads back unchanged: ASCII,
- * no quote, backslash or control character. Core takes no `filename*`.
+ * A UTF-8 file name as the byte-string `filename="…"` of core's upload
+ * header, without control characters, `file` if empty.
+ * @see https://www.drupal.org/i/3276349 (core refuses `filename*`)
  */
-export function headerFilename(name: string): string {
-  const safe = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]|["\\]/g, '_').trim()
-  return safe || 'file'
+export function uploadFilenameHeaderValue(name: string): string {
+  return Buffer.from(name.replace(/[\x00-\x1f\x7f]/g, '') || 'file').toString('latin1')
 }
 
 /**
  * Streams one file into core's JSON:API file upload for a page file field
  * (ADR 0020). The result is a temporary file owned by the carrier's account;
  * the checkpoint that names it in the field makes it permanent. Size and
- * extension refusals come back as Drupal's 413 / 422.
+ * extension refusals come back as Drupal's 413 / 422. Answers the file's UUID
+ * and the name Drupal stored it under.
  */
 export async function uploadPageFileWithAuth(
   auth: Record<string, string>,
   field: string,
   filename: string,
   body: ReadableStream<Uint8Array> | Uint8Array,
-): Promise<{ id: string }> {
+): Promise<{ id: string, filename: string }> {
   const path = `/jsonapi/node/kb_page/${field}`
   const headers = {
     Accept: 'application/vnd.api+json',
     'Content-Type': 'application/octet-stream',
-    'Content-Disposition': `file; filename="${headerFilename(filename)}"`,
+    'Content-Disposition': `file; filename="${uploadFilenameHeaderValue(filename)}"`,
     ...auth,
   }
   const res = await fetchUpstream(`${drupalBaseUrl()}${path}`, {
@@ -776,9 +777,9 @@ export async function uploadPageFileWithAuth(
     ...({ duplex: 'half' } as RequestInit),
   })
   if (!res.ok) throw await upstreamError(res, `POST ${path}`)
-  const doc = await res.json() as { data?: { id?: string } }
+  const doc = await res.json() as { data?: { id?: string, attributes?: { filename?: string } } }
   if (!doc.data?.id) throw await upstreamError(new Response(null, { status: 502 }), `POST ${path}: no file id`)
-  return { id: doc.data.id }
+  return { id: doc.data.id, filename: doc.data.attributes?.filename ?? '' }
 }
 
 export function deleteKbPage(event: H3Event, id: string): Promise<void> {
