@@ -1,0 +1,43 @@
+{
+  "about": "Stored messages and the threads they fold to. Run by frontend/shared/block-comments.test.ts and by InlineCommentTest (InlineCommentManager::foldThreads()).",
+  "cases": [
+    {
+      "name": "a reply after resolving reopens nothing but is the last word",
+      "messages": [
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-1", "uid": 2, "data": { "text": "is this true?", "at": 1000 } },
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-2", "uid": 3, "data": { "resolved": true, "at": 2000 } },
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-3", "uid": 3, "data": { "text": "fixed it", "at": 3000 } }
+      ],
+      "threads": [
+        { "blockId": "b-1", "threadId": "c-1", "resolved": true, "assignee": null, "assignedBy": null, "text": "fixed it", "lastBy": { "uid": 3, "via": null }, "openedAt": 1000, "lastAt": 3000 }
+      ]
+    },
+    {
+      "name": "the latest assignment wins, null unassigns, an agent keeps its via",
+      "messages": [
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-4", "uid": 2, "data": { "assignee": null, "at": 4000 } },
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-1", "uid": 2, "data": { "text": "take this", "at": 1000 } },
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-2", "uid": 2, "data": { "assignee": { "uid": 3 }, "at": 2000 } },
+        { "anchor": "b-1", "thread_id": "c-2", "msg_id": "m-5", "uid": 2, "data": { "text": "for your agent", "at": 5000 } },
+        { "anchor": "b-1", "thread_id": "c-2", "msg_id": "m-6", "uid": 2, "data": { "assignee": { "uid": 2, "via": "claude" }, "at": 5000 } },
+        { "anchor": "b-1", "thread_id": "c-2", "msg_id": "m-7", "uid": 2, "data": { "text": "done", "via": "claude", "at": 6000 } }
+      ],
+      "threads": [
+        { "blockId": "b-1", "threadId": "c-1", "resolved": false, "assignee": null, "assignedBy": 2, "text": "take this", "lastBy": { "uid": 2, "via": null }, "openedAt": 1000, "lastAt": 4000 },
+        { "blockId": "b-1", "threadId": "c-2", "resolved": false, "assignee": { "uid": 2, "via": "claude" }, "assignedBy": 2, "text": "done", "lastBy": { "uid": 2, "via": "claude" }, "openedAt": 5000, "lastAt": 6000 }
+      ]
+    },
+    {
+      "name": "a thread with nothing said is no thread; a clock tie orders by message id",
+      "messages": [
+        { "anchor": "b-2", "thread_id": "c-9", "msg_id": "m-1", "uid": 2, "data": { "resolved": true, "at": 1000 } },
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-b", "uid": 3, "data": { "text": "second", "at": 1000 } },
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-a", "uid": 2, "data": { "text": "first", "at": 1000 } },
+        { "anchor": "b-1", "thread_id": "c-1", "msg_id": "m-c", "uid": 2, "data": { "resolved": false, "at": 1000 } }
+      ],
+      "threads": [
+        { "blockId": "b-1", "threadId": "c-1", "resolved": false, "assignee": null, "assignedBy": null, "text": "second", "lastBy": { "uid": 3, "via": null }, "openedAt": 1000, "lastAt": 1000 }
+      ]
+    }
+  ]
+}

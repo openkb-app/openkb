@@ -23,7 +23,8 @@ export const OkbMention = Mention.configure({
     return [
       'span',
       mergeAttributes({ 'data-type': 'mention' }, options.HTMLAttributes),
-      `${node.attrs.mentionSuggestionChar ?? '@'}${node.attrs.label ?? node.attrs.id}`,
+      // Its own element, so the editor can draw the account's current name instead (app/editor/mention-names.ts).
+      ['span', { class: 'mention__label' }, `${node.attrs.mentionSuggestionChar ?? '@'}${node.attrs.label ?? node.attrs.id}`],
     ]
   },
 })

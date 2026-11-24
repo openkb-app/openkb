@@ -21,6 +21,7 @@ import { HiddenCaretKeys } from './hidden-caret'
 import { PageFileDropHandler } from './drop-files'
 import { LinkOpen } from './link-open'
 import { LinkTargetKeys } from './link-target'
+import { MentionNames } from './mention-names'
 import { PageImageFileHandler } from './paste-image'
 import { SelectionKeydownSync } from './selection-sync'
 
@@ -77,6 +78,7 @@ export function buildEditorExtensions() {
     PageImageFileHandler,
     PageFileDropHandler,
     CiteNumbers,
+    MentionNames,
     HiddenCaretKeys,
     BlockId,
     ...buildComarkComponentEditorExtensions(),

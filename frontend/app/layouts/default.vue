@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { VIEWER_UID } from '~/composables/useAccountNames'
+
 /**
  * The shell: the rail, and one panel for the page. The page brings its own
  * header and, under it, the row that holds its body and the side pane
@@ -9,6 +11,10 @@
  * page renders. It is visually hidden until it takes focus.
  */
 useAppShortcuts()
+
+// Mention chips read the viewer's uid. Only the shell provides it: the sign-in
+// pages (`bare`) must not read the session, or it eats their status message.
+provide(VIEWER_UID, useCurrentUser().uid)
 
 // The shell arms the flag every `wide` reads, so the pane and the controls that
 // follow it arrive in one render rather than twelve.

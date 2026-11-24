@@ -87,6 +87,16 @@ describe('seedComments', () => {
     expect(threads[0]!.messages[0]!.text).toBe('said in an earlier session')
   })
 
+  it('takes Drupal\'s text for a message both hold, as an update rewrote it', () => {
+    const doc = new Y.Doc()
+    seedComments(doc, OWNER, [])
+    said(doc, 'b-1', 'c-1', 'm-1', 'ask @editor1')
+
+    seedComments(doc, OWNER, [stored('b-1', 'c-1', 'm-1', 'ask :mention[editor1]{uid="3"}')])
+
+    expect(readThreads(doc)[0]!.messages[0]).toMatchObject({ text: 'ask :mention[editor1]{uid="3"}', at: AT })
+  })
+
   it('keeps a message Drupal does not hold, so the next statement carries it', () => {
     const doc = new Y.Doc()
     seedComments(doc, OWNER, [])

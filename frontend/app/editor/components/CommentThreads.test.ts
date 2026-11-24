@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach, beforeEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { createApp, h, nextTick, reactive } from 'vue'
 import CommentThreads from './CommentThreads.vue'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
@@ -24,6 +24,34 @@ interface PickerProps {
 
 const ADAS_AGENT: CommentAssignee = { uid: 7, name: 'Ada', via: 'Claude' }
 const DRAFT: CommentDraft = { blockId: 'b-1', anchor: null, label: 'Image: Probe chart' }
+
+/** The accounts the name lookup answers, by uid. */
+const currentNames = new Map<number, string>([[7, 'Ada'], [3, 'Bob']])
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const uids = new URL(url, 'http://localhost').searchParams.get('uid')?.split(',').map(Number) ?? []
+    const users = uids.filter(uid => currentNames.has(uid)).map(uid => ({ uid, name: currentNames.get(uid) }))
+    return new Response(JSON.stringify({ users }))
+  }))
+})
+afterEach(() => { vi.unstubAllGlobals() })
+
+/** Waits until a send has written the draft as stored text and emitted it. */
+async function sent(): Promise<void> {
+  for (let round = 0; round < 3; round++) {
+    await import('comark/render')
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+}
+
+/** Waits until message texts are parsed and drawn. */
+async function drawn(): Promise<void> {
+  await import('comark')
+  for (let round = 0; round < 3; round++) {
+    await new Promise(resolve => setTimeout(resolve, 0))
+    await nextTick()
+  }
+}
 
 /** What a press on the stubbed picker picks; null is its "Nobody" row. */
 let nextPick: CommentAssignee | null = ADAS_AGENT
@@ -253,6 +281,7 @@ describe('the comment composer', () => {
     expect(picker(root).getAttribute('data-selected')).toBe(JSON.stringify(ADAS_AGENT))
 
     root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    await sent()
     expect(posted).toEqual([{ text: 'x', assignee: ADAS_AGENT }])
   })
 
@@ -281,6 +310,7 @@ describe('the comment composer', () => {
 
     expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
     root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    await sent()
     expect(posted).toEqual([{ text: 'no mention left', assignee: ADAS_AGENT }])
   })
 
@@ -355,6 +385,7 @@ describe('the comment composer', () => {
 
     expect(assigneeButton(root).textContent?.trim()).toBe('Ada via Claude')
     root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    await sent()
     expect(posted).toEqual([{ text: 'x', assignee: ADAS_AGENT }])
   })
 
@@ -378,6 +409,7 @@ describe('the comment composer', () => {
 
     expect(assigneeButton(root).textContent?.trim()).toBe('Nobody')
     root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    await sent()
     expect(posted).toEqual([{ text: 'x', assignee: null }])
   })
 
@@ -393,6 +425,7 @@ describe('the comment composer', () => {
     expect(assigneeButton(root).textContent?.trim()).toBe('AI assistant')
     await type(root, 'x')
     root.querySelector<HTMLElement>('[data-testid="comment-post"]')!.click()
+    await sent()
     expect(posted).toEqual([{ text: 'x', assignee: assistant }])
 
     live.draft = { ...DRAFT, blockId: 'b-2' }
@@ -457,6 +490,7 @@ describe('handing a thread on from a reply', () => {
     press(field, 'ctrlKey')
 
     expect(assigned).toEqual([{ blockId: 'b-1', threadId: 'c-1', assignee: ADAS_AGENT }])
+    await sent()
     expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
   })
 
@@ -468,7 +502,8 @@ describe('handing a thread on from a reply', () => {
     press(field, 'ctrlKey')
 
     expect(assigned).toEqual([{ blockId: 'b-1', threadId: 'c-1', assignee: ADAS_AGENT }])
-    expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'over to @Ada via Claude now' }])
+    await sent()
+    expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'over to :mention[Ada via Claude]{uid="7" via="Claude"} now' }])
   })
 
   it('leaves the thread where it is when the reply leaves the selection alone', async () => {
@@ -481,6 +516,7 @@ describe('handing a thread on from a reply', () => {
     press(field, 'ctrlKey')
 
     expect(assigned).toEqual([])
+    await sent()
     expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
   })
 
@@ -551,6 +587,7 @@ describe('handing a thread on from a reply', () => {
     press(field, 'ctrlKey')
 
     expect(assigned).toEqual([])
+    await sent()
     expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
   })
 
@@ -600,36 +637,49 @@ describe('handing a thread on from a reply', () => {
 describe('a message, read', () => {
   const said: CommentThreadView = {
     ...THREAD,
-    messages: [{ id: 'm-a', uid: 7, name: 'Ada', via: null, at: AT, text: 'over to @Claude now' }],
+    messages: [{ id: 'm-a', uid: 7, name: 'Ada', via: null, at: AT, text: 'over to :mention[Claude]{uid="7" via="Claude"} now' }],
   }
   const body = (root: HTMLElement) => root.querySelector('[data-testid="comment-message-m-a"]')!
 
-  it('names a mentioned agent the way the chips around it do', async () => {
+  it('draws a stored mention as the page body\'s chip, in the agent colour', async () => {
     const { root } = mount(CANDIDATES, [said], null, { uid: 7, name: 'Ada' })
+    await drawn()
+
     expect(body(root).textContent).toBe('over to @Claude now')
-
-    const { root: theirs } = mount(CANDIDATES, [said], null, { uid: 3, name: 'Bob' })
-    expect(body(theirs).textContent).toBe('over to @Ada via Claude now')
+    expect([...body(root).querySelectorAll('.mention')].map(chip => chip.textContent)).toEqual(['@Claude'])
+    expect(body(root).querySelector('.mention')!.classList).toContain('mention--agent')
   })
 
-  it('names an agent it cannot be handed to, off the thread it is on', () => {
-    // A reader with no agent of their own: nobody else's is in their picker.
-    const others = assigneeCandidates([peer(1, 'Bob', 3)], [])
-    const agent = { uid: 7, name: 'Ada', via: 'Claude' }
-    const handed: CommentThreadView = { ...said, assignee: agent, assignedTo: [agent] }
-    const { root } = mount(others, [handed], null, { uid: 3, name: 'Bob' })
+  it('names a mentioned agent by its owner, except to the owner', async () => {
+    const { root } = mount(CANDIDATES, [said], null, { uid: 3, name: 'Bob' })
+    await drawn()
 
     expect(body(root).textContent).toBe('over to @Ada via Claude now')
   })
 
-  it('keeps naming it after the thread has moved on to somebody else', () => {
-    const others = assigneeCandidates([peer(1, 'Bob', 3)], [])
-    const agent = { uid: 7, name: 'Ada', via: 'Claude' }
-    const bob = { uid: 3, name: 'Bob', via: null }
-    const moved: CommentThreadView = { ...said, assignee: bob, assignedTo: [agent, bob] }
-    const { root } = mount(others, [moved], null, { uid: 3, name: 'Bob' })
+  it('names a mentioned account, and an author, as they are called now', async () => {
+    currentNames.set(11, 'Grace')
+    const renamed: CommentThreadView = {
+      ...THREAD,
+      messages: [{ id: 'm-a', uid: 11, name: 'grace-old', via: null, at: AT, text: 'ask :mention[grace-old]{uid="11"}' }],
+    }
+    const { root } = mount(CANDIDATES, [renamed], null, { uid: 3, name: 'Bob' })
+    await drawn()
 
-    expect(body(root).textContent).toBe('over to @Ada via Claude now')
+    expect(body(root).textContent).toBe('ask @Grace')
+    expect(body(root).previousElementSibling!.querySelector('span')!.textContent).toBe('Grace')
+  })
+
+  it('reads a mention of an account it cannot name as plain text', async () => {
+    const gone: CommentThreadView = {
+      ...THREAD,
+      messages: [{ id: 'm-a', uid: 7, name: 'Ada', via: null, at: AT, text: 'ask :mention[Admin]{uid="99"} or :mention[x]{uid="0"}' }],
+    }
+    const { root } = mount(CANDIDATES, [gone], null, { uid: 3, name: 'Bob' })
+    await drawn()
+
+    expect(body(root).textContent).toBe('ask @Admin or @x')
+    expect(body(root).querySelector('.mention')).toBeNull()
   })
 
   it('names an agent\'s message by its owner, except to the owner', () => {
@@ -641,14 +691,6 @@ describe('a message, read', () => {
 
     expect(author(mount(CANDIDATES, [answered], null, { uid: 7, name: 'Ada' }).root)).toBe('Claude')
     expect(author(mount(CANDIDATES, [answered], null, { uid: 3, name: 'Bob' }).root)).toBe('Ada via Claude')
-  })
-
-  it('sets the mention off as one, in the agent colour', () => {
-    const { root } = mount(CANDIDATES, [said], null, { uid: 7, name: 'Ada' })
-
-    expect([...body(root).querySelectorAll('.mention')].map(chip => chip.textContent))
-      .toEqual(['@Claude'])
-    expect(body(root).querySelector('.mention')!.classList).toContain('mention--agent')
   })
 })
 
@@ -674,6 +716,7 @@ describe('posting with the keyboard', () => {
     expect(replied).toEqual([])
 
     press(field, 'ctrlKey')
+    await sent()
     expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
   })
 
@@ -682,6 +725,7 @@ describe('posting with the keyboard', () => {
     const field = await replyBox(root)
 
     press(field, 'metaKey')
+    await sent()
     expect(replied).toEqual([{ blockId: 'b-1', threadId: 'c-1', text: 'Agreed.' }])
   })
 })

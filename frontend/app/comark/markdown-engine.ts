@@ -53,6 +53,14 @@ export async function serializeDocToMarkdown(doc: ProseNode | JSONContent): Prom
   return markdown.replace(/\n+$/, '')
 }
 
+/** Writes comark nodes as markdown with comark's renderer, attributes on one line. */
+export async function renderComarkNodesToMarkdown(nodes: ComarkNode[]): Promise<string> {
+  if (nodes.length === 0) return ''
+  const { renderMarkdown } = await import('comark/render')
+  const markdown = await renderMarkdown({ nodes } as never, { maxInlineAttributes: Infinity } as never)
+  return markdown.replace(/\n+$/, '')
+}
+
 /**
  * Drops the empty paragraphs a document ends on: they show nothing, and the
  * editor's trailing node adds one to every page ending in another block, so

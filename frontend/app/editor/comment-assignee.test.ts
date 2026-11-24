@@ -5,12 +5,12 @@ import {
   assignedCounts,
   assignableOwnAgents,
   defaultAssigneeForNextNewComment,
+  draftToComark,
   isSameAssignee,
   draftRuns,
   filterThreads,
   insertMention,
   mentionName,
-  messageRuns,
 } from './comment-assignee'
 import { actorLabel, ownedLabel } from '#shared/utils/attribution'
 import type { CommentThread } from '#shared/block-comments'
@@ -273,26 +273,17 @@ describe('setting a mention off from the prose', () => {
   })
 })
 
-describe('a posted message, read', () => {
-  const agents = assigneeCandidates([peer(1, 'editor1', 3), peer(2, 'editor1', 3, 'claude')], [])
-  const stored = 'Please take this over, @claude'
+describe('a draft, as stored text', () => {
+  const people = assigneeCandidates([peer(1, 'editor1', 3), peer(2, 'editor1', 3, 'claude')], [])
 
-  it('names an agent the way the reader is shown it everywhere else', () => {
-    expect(messageRuns(stored, agents, 3).map(run => run.text))
-      .toEqual(['Please take this over, ', '@claude'])
-    expect(messageRuns(stored, agents, 9).map(run => run.text))
-      .toEqual(['Please take this over, ', '@editor1 via claude'])
+  it('writes each mention by uid, an agent with its via', async () => {
+    expect(await draftToComark('cc @editor1 and @claude, please', people, 3))
+      .toBe('cc :mention[editor1]{uid="3"} and :mention[claude]{uid="3" via="claude"}, please')
   })
 
-  it('reads the long form too, whoever typed it', () => {
-    const runs = messageRuns('over to @editor1 via claude now', agents, 3)
-
-    expect(runs.map(run => run.text)).toEqual(['over to ', '@claude', ' now'])
-    expect(runs[1]!.mention?.via).toBe('claude')
-  })
-
-  it('leaves the words that name nobody alone', () => {
-    expect(messageRuns('@nobody at all', agents, 3).map(run => run.mention)).toEqual([null])
+  it('escapes what is not a mention and keeps paragraphs', async () => {
+    expect(await draftToComark('a *star* and @nobody\n\n  second  ', people, 3))
+      .toBe('a \\*star\\* and @nobody\n\nsecond')
   })
 })
 

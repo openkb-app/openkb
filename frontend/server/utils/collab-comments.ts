@@ -3,6 +3,7 @@ import {
   chronological,
   clearComments,
   commentsRoot,
+  messageKey,
   parseMessageKey,
   readMessages,
   readThreads,
@@ -221,6 +222,19 @@ function markCommentsSynced(doc: Y.Doc): void {
   doc.transact(() => { doc.getMap('_meta').set(META_COMMENTS_SYNCED, true) })
 }
 
+/** Sets each stored message's text on the document where it reads differently. */
+function takeStoredTexts(doc: Y.Doc, stored: readonly InlineCommentRecord[]): void {
+  const root = commentsRoot(doc)
+  doc.transact(() => {
+    for (const record of stored) {
+      const key = messageKey(record.anchor, record.thread_id, record.msg_id)
+      const held = root.get(key)
+      if (!isRecord(held) || typeof record.data.text !== 'string' || held.text === record.data.text) continue
+      root.set(key, { ...held, text: record.data.text })
+    }
+  })
+}
+
 /** What a reconcile did about the document's conversations. */
 export type CommentsOutcome =
   | 'seeded' // the document now holds what Drupal holds
@@ -243,6 +257,9 @@ export type CommentsOutcome =
  * pages minting the same block, thread and message id would otherwise keep
  * the foreign copy. `owner` is the uuid of the node holding the id now; a
  * document that cannot be shown to belong here is emptied before it is seeded.
+ *
+ * A message's text is Drupal's where the two differ: an update on the Drupal
+ * side rewrites stored text, and the snapshot has to read the same.
  */
 export function seedComments(
   doc: Y.Doc,
@@ -253,6 +270,7 @@ export function seedComments(
   const foreign = meta.get(META_NODE_UUID) !== owner && commentsRoot(doc).size > 0
   if (foreign) clearComments(doc)
   writeComments(doc, stored)
+  takeStoredTexts(doc, stored)
   doc.transact(() => { meta.set(META_NODE_UUID, owner) })
   markCommentsSynced(doc)
   return foreign ? 'dropped' : 'seeded'

@@ -10,8 +10,11 @@ import {
   readThreads,
   recordCommentMessage,
   resolveAnchor,
+  writeComments,
   type CommentMessage,
+  type InlineCommentRecord,
 } from './block-comments'
+import threadFoldFixture from './fixtures/comment-thread-fold.json'
 import { readBlockMeta, recordContribution, serializeBlockMeta } from './page-blocks'
 
 const AT = 1_700_000_000_000
@@ -271,4 +274,30 @@ describe('a comment is not gate data', () => {
     expect(readThreads(doc).map(t => t.blockId)).toEqual(['b-1'])
     expect([...commentsRoot(doc).keys()]).toHaveLength(1)
   })
+})
+
+describe('the thread fold fixture shared with Drupal', () => {
+  /** What both suites compare a folded thread by. */
+  function foldedThread(thread: ReturnType<typeof readThreads>[number]) {
+    const last = thread.messages.at(-1)!
+    return {
+      blockId: thread.blockId,
+      threadId: thread.threadId,
+      resolved: thread.resolved,
+      assignee: thread.assignee ? { uid: thread.assignee.uid, via: thread.assignee.via ?? null } : null,
+      assignedBy: thread.assignedBy?.uid ?? null,
+      text: last.text,
+      lastBy: { uid: last.uid, via: last.via ?? null },
+      openedAt: thread.openedAt,
+      lastAt: thread.lastAt,
+    }
+  }
+
+  for (const { name, messages, threads } of threadFoldFixture.cases) {
+    it(name, () => {
+      const doc = new Y.Doc()
+      writeComments(doc, messages as InlineCommentRecord[])
+      expect(readThreads(doc).map(foldedThread)).toEqual(threads)
+    })
+  }
 })

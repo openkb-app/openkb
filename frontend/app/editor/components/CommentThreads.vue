@@ -1,25 +1,26 @@
 <script setup lang="ts">
 // Explicit, not auto-imported: the component is rendered by its own vitest
 // suite outside a Nuxt app.
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, provide, ref, watch } from 'vue'
 import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
 import {
   addedMention,
   assignedCounts,
-  assigneeKey,
+  draftToComark,
   filterThreads,
   insertMention,
   isSameAssignee,
   mentionName,
-  messageRuns,
   readerStanding,
   type AssigneeCandidate,
   type ThreadFilter,
 } from '../comment-assignee'
 import EditorMentionTextarea from './MentionTextarea.vue'
+import EditorCommentText from './CommentText.vue'
 import type { CommentAssignee } from '#shared/block-comments'
 import { handlingLive } from '#shared/utils/chat-agent'
 import { ownedLabel } from '#shared/utils/attribution'
+import { VIEWER_UID, withCurrentName } from '../../composables/useAccountNames'
 
 /**
  * The comment half of the review drawer (OKB-121) — every conversation open on
@@ -72,6 +73,9 @@ const EMPTY: Record<ThreadFilter, string> = {
 
 /** What the list shows; the whole conversation by default. */
 const filter = ref<ThreadFilter>('all')
+
+provide(VIEWER_UID, computed(() => props.me?.uid))
+
 const counts = computed(() => assignedCounts(props.threads, props.me))
 /** Whether this reader has an agent at all — the agents tab is theirs alone. */
 const hasAgents = computed(() =>
@@ -250,26 +254,33 @@ function submitOn(event: KeyboardEvent, submit: () => void): void {
   submit()
 }
 
+/** The draft as stored text: its mentions name their account by uid. */
+function storedText(draft: string): Promise<string> {
+  return draftToComark(draft, props.candidates, props.me?.uid)
+}
+
 /** Posts the draft as a new thread, assigned to the form's choice. */
-function post() {
-  if (!draftText.value.trim()) return
+async function post() {
+  const draft = draftText.value
+  if (!draft.trim()) return
   const to = draftAssignee.value
-  emit('post', { text: draftText.value, assignee: to ? plainAssignee(to) : null })
   draftText.value = ''
+  emit('post', { text: await storedText(draft), assignee: to ? plainAssignee(to) : null })
 }
 
 // --- threads ---------------------------------------------------------------
 
 /** Posts the reply, handing the thread on when the reader chose another assignee. */
-function reply(thread: CommentThreadView) {
-  if (!replyText.value.trim()) return
+async function reply(thread: CommentThreadView) {
+  const draft = replyText.value
+  if (!draft.trim()) return
   const to = replyAssignee.value
   if (to !== undefined) {
     assign(thread, to ? plainAssignee(to) : null)
   }
-  emit('reply', { blockId: thread.blockId, threadId: thread.threadId, text: replyText.value })
   replyText.value = ''
   replyingTo.value = null
+  emit('reply', { blockId: thread.blockId, threadId: thread.threadId, text: await storedText(draft) })
 }
 
 /** Opens the reply box on a thread, or closes the one open on it. */
@@ -286,32 +297,6 @@ function assign(thread: CommentThreadView, who: CommentAssignee | null) {
     return
   }
   emit('assign', { blockId: thread.blockId, threadId: thread.threadId, assignee: who })
-}
-
-/**
- * Everybody a thread's messages can name: the picker's candidates, plus the
- * people and agents the thread itself has named — everyone it has been handed
- * to, and everyone who has written in it. An agent the reader cannot assign
- * work to still has to read by the name its chip shows, and it keeps that name
- * after the thread moves on to somebody else.
- */
-function known(thread: CommentThreadView): AssigneeCandidate[] {
-  const seen = new Set(props.candidates.map(assigneeKey))
-  const all = [...props.candidates]
-  for (const who of [...thread.assignedTo, ...thread.messages]) {
-    if (who.uid == null || seen.has(assigneeKey(who))) continue
-    seen.add(assigneeKey(who))
-    all.push({ uid: who.uid, name: who.name || 'Someone', via: who.via ?? null, present: false })
-  }
-  return all
-}
-
-/**
- * A posted message's words, with the mentions in it named the way this reader
- * is shown that person or agent everywhere else on the page.
- */
-function read(text: string, thread: CommentThreadView) {
-  return messageRuns(text, known(thread), props.me?.uid ?? null)
 }
 
 /** Whether this reader is the one expected to act on the thread. */
@@ -336,7 +321,7 @@ function assignLine(thread: CommentThreadView): string {
   const by = thread.assignedBy
   if (!by) return ''
   return thread.assignee
-    ? `${who(by)} assigned this to ${ownedLabel(thread.assignee, props.me?.uid)}`
+    ? `${who(by)} assigned this to ${ownedLabel(withCurrentName(thread.assignee), props.me?.uid)}`
     : `${who(by)} unassigned this`
 }
 
@@ -353,7 +338,8 @@ function excerpt(text: string): string {
 
 /** Who said it, named as the presence strip names them. */
 function who(message: { uid?: number | null, name?: string | null, via?: string | null }): string {
-  return ownedLabel({ ...message, name: message.name || 'Someone' }, props.me?.uid)
+  const named = withCurrentName(message)
+  return ownedLabel({ ...named, name: named.name || 'Someone' }, props.me?.uid)
 }
 
 function when(at: number): string {
@@ -494,7 +480,7 @@ function when(at: number): string {
             allow-unassign
             @pick="assign(thread, $event)"
           >
-            <EditorAssigneeChip :assignee="thread.assignee" :viewer-uid="me?.uid ?? null" />
+            <EditorAssigneeChip :assignee="withCurrentName(thread.assignee)" :viewer-uid="me?.uid ?? null" />
           </EditorAssigneePicker>
           <span
             v-if="myAgentLine(thread)"
@@ -508,7 +494,7 @@ function when(at: number): string {
             :data-testid="`comment-handling-${thread.threadId}`"
           >
             <UIcon name="i-lucide-loader-circle" class="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-            {{ ownedLabel(thread.assignee!, me?.uid) }} is working on this
+            {{ ownedLabel(withCurrentName(thread.assignee!), me?.uid) }} is working on this
           </span>
           <template v-if="isMine(thread)">
             <span
@@ -534,13 +520,11 @@ function when(at: number): string {
               <span class="font-medium text-highlighted">{{ who(message) }}</span>
               <time class="ml-1">{{ when(message.at) }}</time>
             </p>
-            <p class="whitespace-pre-wrap text-toned" :data-testid="`comment-message-${message.id}`">
-              <span
-                v-for="(run, at) in read(message.text ?? '', thread)"
-                :key="at"
-                :class="run.mention ? ['mention', run.mention.via ? 'mention--agent' : ''] : undefined"
-              >{{ run.text }}</span>
-            </p>
+            <EditorCommentText
+              class="whitespace-pre-wrap text-toned"
+              :text="message.text ?? ''"
+              :data-testid="`comment-message-${message.id}`"
+            />
           </li>
         </ol>
 
@@ -626,11 +610,9 @@ function when(at: number): string {
           <p class="truncate text-xs italic text-muted">
             “{{ subject(thread) }}”
           </p>
-          <p class="whitespace-pre-wrap text-toned">
-            {{ thread.messages[thread.messages.length - 1]?.text }}
-          </p>
+          <EditorCommentText class="whitespace-pre-wrap text-toned" :text="thread.messages[thread.messages.length - 1]?.text ?? ''" />
           <div v-if="thread.assignee" class="mt-2">
-            <EditorAssigneeChip :assignee="thread.assignee" :viewer-uid="me?.uid ?? null" />
+            <EditorAssigneeChip :assignee="withCurrentName(thread.assignee)" :viewer-uid="me?.uid ?? null" />
           </div>
           <p
             v-if="thread.assignedBy"

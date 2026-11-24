@@ -43,7 +43,11 @@ export function commentOnBlockTool(): KbTool {
             'The thread to answer, from `comments`. Leave it off to open a new '
             + 'thread on the block.',
         },
-        text: { type: 'string', description: 'What to say.' },
+        text: {
+          type: 'string',
+          description: 'What to say, as comark text. Mention a person as `:mention[name]{uid="N"}`, '
+            + 'the same syntax a page body and the threads you read use; a plain `@name` is just text.',
+        },
       },
       required: ['blockId', 'text'],
       additionalProperties: false,

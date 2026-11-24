@@ -352,6 +352,22 @@ body {
   background-color: color-mix(in oklab, var(--color-primary-900) 40%, transparent);
   color: var(--color-primary-200);
 }
+/* The editor's chip names the account as it is called now, once known
+   (app/editor/mention-names.ts); the stored label shows until then. */
+.ProseMirror .mention[data-current-label] > .mention__label {
+  display: none;
+}
+.ProseMirror .mention[data-current-label]::before {
+  content: "@" attr(data-current-label);
+}
+/* A mention of an account the lookup does not know reads as plain text,
+   as the read page's Mention.vue draws it. */
+.ProseMirror .mention.mention--unknown {
+  padding: 0;
+  background-color: transparent;
+  color: inherit;
+  font-weight: inherit;
+}
 /* A mention of an agent wears the agent colour, the way its avatar does. */
 .mention--agent {
   background-color: var(--color-agent-100);

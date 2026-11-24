@@ -17,7 +17,8 @@ import { PATH_DESCRIPTION } from './schemas'
 import { readThreads, type CommentThread } from '#shared/block-comments'
 import { actorLabel } from '#shared/utils/attribution'
 import { sessionRefusal, writeRefusal } from './write'
-import { projectThread, THREAD_SCHEMA } from './comment-threads'
+import { fetchAccountNames } from '../account-names'
+import { nameThreadCurrently, projectThread, threadAccountUids, THREAD_SCHEMA } from './comment-threads'
 import { answered, type JsonSchema, type KbTool, type ToolResult } from './types'
 
 /** Longest one call may wait, whatever it asks for. */
@@ -133,7 +134,7 @@ export function waitForChangesTool(): KbTool {
           : []
         if (owedNow.length > 0) {
           const standing = changesSince(watch, cursor, kinds.kinds, reader)
-          return reportEvents(subject.name, withThreads(standing, owedNow))
+          return await reportEvents(subject.name, withThreads(standing, owedNow))
         }
         const answer = await awaitChanges(
           watch,
@@ -148,7 +149,7 @@ export function waitForChangesTool(): KbTool {
         // The wait is over. Whatever the log witnessed, the document is asked
         // again: a thread it carries and the answer does not is one the log
         // missed, and the caller is told about it rather than never.
-        return reportEvents(subject.name, kinds.kinds.includes('comments')
+        return await reportEvents(subject.name, kinds.kinds.includes('comments')
           ? withThreads(answer, owed(readThreads(session.doc), reader, at => isAfterCursor(watch, cursor, at)))
           : answer)
       }
@@ -256,9 +257,13 @@ function eventLine(event: ChangeEvent): string {
   }
 }
 
-/** The wait's answer: the events, projected, plus where to resume. */
-function reportEvents(name: string, answer: ChangeAnswer): ToolResult {
-  const { events, cursor, restarted, dropped, editors } = answer
+/** The wait's answer: the events, projected and named as accounts are called now, plus where to resume. */
+async function reportEvents(name: string, answer: ChangeAnswer): Promise<ToolResult> {
+  const { cursor, restarted, dropped, editors } = answer
+  const names = await fetchAccountNames(answer.events.flatMap(event => event.kind === 'comments' ? threadAccountUids(event.thread) : []))
+  const events = answer.events.map(event => event.kind === 'comments'
+    ? { ...event, thread: nameThreadCurrently(event.thread, names) }
+    : event)
   const projected = events.map((event) => {
     if (event.kind === 'comments') return { ...event, thread: projectThread(event.thread) }
     // A settled block's content is read by a model, so it is decoded like any

@@ -1,6 +1,7 @@
 import { getKbPage, type KbPage } from '../kb-read'
 import { PATH_DESCRIPTION, toProjectionSchema } from './schemas'
-import { projectThreads, THREAD_SCHEMA } from './comment-threads'
+import { fetchAccountNames } from '../account-names'
+import { nameThreadCurrently, projectThreads, threadAccountUids, THREAD_SCHEMA } from './comment-threads'
 import { answered, refused, type JsonSchema, type KbTool } from './types'
 
 /**
@@ -188,7 +189,10 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
       }
       if (!page) return refused(`No page found at path "${path}".`)
       const { comments, parent, ...rest } = page
-      const threads = comments ? projectThreads(comments, args.includeResolved === true) : undefined
+      const names = comments ? await fetchAccountNames(comments.flatMap(threadAccountUids)) : new Map<number, string>()
+      const threads = comments
+        ? projectThreads(comments.map(thread => nameThreadCurrently(thread, names)), args.includeResolved === true)
+        : undefined
       return answered(page.markdown, {
         ...rest,
         parent: parent ?? { path: '', nid: 0 },

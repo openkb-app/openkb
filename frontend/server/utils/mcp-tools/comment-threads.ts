@@ -54,6 +54,56 @@ export function projectThread(thread: CommentThread): ProjectedThread {
   }
 }
 
+/** A mention in comark text: its label and its attributes. */
+const MENTION = /:mention\[((?:\\.|[^\]\\])*)\]\{([^}]*)\}/g
+
+/** The account a mention's attributes name; 0 for none. */
+function mentionUid(attributes: string): number {
+  return Number(/(?:^|\s)uid="(\d+)"/.exec(attributes)?.[1] ?? 0)
+}
+
+/** Every account a thread names: its authors, its assignee and its mentions. */
+export function threadAccountUids(thread: CommentThread): number[] {
+  const uids = [
+    ...thread.messages.map(message => message.uid ?? 0),
+    thread.assignee?.uid ?? 0,
+    ...thread.messages.flatMap(message => [...(message.text ?? '').matchAll(MENTION)].map(match => mentionUid(match[2]!))),
+  ]
+  return uids.filter(uid => uid > 0)
+}
+
+/** The agent label a mention's attributes name; comark quotes a value with the quote it does not hold. */
+function mentionVia(attributes: string): string | null {
+  const match = /(?:^|\s)via=(?:"([^"]*)"|'([^']*)')/.exec(attributes)
+  return match ? (match[1] ?? match[2] ?? null) : null
+}
+
+/** The text with each mention of a known account labeled by its current name; an agent's reads `name via label`. */
+export function relabelMentions(text: string, names: ReadonlyMap<number, string>): string {
+  return text.replace(MENTION, (whole, _label: string, attributes: string) => {
+    const name = names.get(mentionUid(attributes))
+    if (name === undefined) return whole
+    const via = mentionVia(attributes)
+    const label = via === null ? name : `${name} via ${via}`
+    return `:mention[${label.replace(/([\\[\]])/g, '\\$1')}]{${attributes}}`
+  })
+}
+
+/** A thread with its authors, assignee and mentions named as they are called now. */
+export function nameThreadCurrently(thread: CommentThread, names: ReadonlyMap<number, string>): CommentThread {
+  /** `who`'s current name where it is known. */
+  const current = <T extends { uid?: number | null, name?: string | null }>(who: T): T =>
+    who.uid != null && names.has(who.uid) ? { ...who, name: names.get(who.uid)! } : who
+  return {
+    ...thread,
+    messages: thread.messages.map(message => ({
+      ...current(message),
+      ...(message.text === undefined ? {} : { text: relabelMentions(message.text, names) }),
+    })),
+    assignee: thread.assignee ? current(thread.assignee) : null,
+  }
+}
+
 /** Threads a reader asked for: open ones, plus the resolved on request. */
 export function projectThreads(threads: CommentThread[], includeResolved: boolean): ProjectedThread[] {
   return threads.filter(thread => includeResolved || !thread.resolved).map(projectThread)

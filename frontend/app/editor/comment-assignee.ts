@@ -1,12 +1,14 @@
 import type { CommentAssignee, CommentThread } from '#shared/block-comments'
 import type { PresencePeer } from '#shared/utils/presence'
-import { actorLabel, ownedLabel } from '#shared/utils/attribution'
+import { ownedLabel } from '#shared/utils/attribution'
 import { CHAT_AGENT_LABEL } from '#shared/utils/chat-agent'
+import type { ComarkNode } from '#shared/utils/comark-tree'
+import { renderComarkNodesToMarkdown } from '../comark/markdown-engine'
 
 /**
  * Who a comment thread can be handed to, and which threads are mine.
  *
- * Pure over its inputs, so the picker's order, the mention parsing and the
+ * Pure over its inputs, so the picker's order, the draft's mentions and the
  * "is this mine" test are pinned without a browser.
  */
 
@@ -245,14 +247,10 @@ interface MentionForm {
 }
 
 /**
- * `text` split on the `@name`s in `forms`, each mention run named by `as`.
- * Longest name first, so `@editor10` is not read as a mention of `editor1`.
+ * `text` split on the `@name`s in `forms`. Longest name first, so `@editor10`
+ * is not read as a mention of `editor1`.
  */
-function splitMentions(
-  text: string,
-  forms: readonly MentionForm[],
-  as: (form: MentionForm) => string,
-): DraftRun[] {
+function splitMentions(text: string, forms: readonly MentionForm[]): DraftRun[] {
   const named = [...forms].sort((one, other) => other.name.length - one.name.length)
   const runs: DraftRun[] = []
   let plain = ''
@@ -268,7 +266,7 @@ function splitMentions(
     }
     if (plain) runs.push({ text: plain, mention: null })
     plain = ''
-    runs.push({ text: `@${as(hit)}`, mention: hit.candidate })
+    runs.push({ text: `@${hit.name}`, mention: hit.candidate })
     at += hit.name.length + 1
   }
   if (plain) runs.push({ text: plain, mention: null })
@@ -293,36 +291,47 @@ export function draftRuns(
     ...candidates.filter(candidate => !candidate.via),
   ]
   const forms = ordered.map(candidate => ({ name: mentionName(candidate, viewerUid), candidate }))
-  return splitMentions(text, forms, form => form.name)
+  return splitMentions(text, forms)
 }
 
 /**
- * Every name a mention of somebody may stand under in stored text: a person by
- * their account name, an agent by its bare label (its owner's wording) or by
- * its owner too (everybody else's).
+ * A draft as stored comment text: comark, with each mention in it written as
+ * `:mention[name]{uid="N"}` (`via` added for an agent), so the stored text
+ * names the account by uid. Everything else is plain text, escaped by comark's
+ * renderer; a blank line starts a new paragraph.
  */
-function mentionForms(candidate: AssigneeCandidate): MentionForm[] {
-  if (!candidate.via) return [{ name: candidate.name, candidate }]
-  return [
-    { name: candidate.via, candidate },
-    { name: actorLabel(candidate.name, candidate.via), candidate },
-  ]
-}
-
-/**
- * A stored message split the same way, with every mention named the way this
- * reader is shown that person or agent everywhere else. The text is kept as it
- * was typed, and the author's wording is not every reader's: an agent its owner
- * mentioned `@claude` reads `@editor1 via claude` to the rest, which is what
- * the chip beside it says.
- */
-export function messageRuns(
+export async function draftToComark(
   text: string,
   candidates: readonly AssigneeCandidate[],
   viewerUid?: number | null,
-): DraftRun[] {
-  const forms = candidates.flatMap(mentionForms)
-  return splitMentions(text, forms, form => mentionName(form.candidate, viewerUid))
+): Promise<string> {
+  type Inline = string | [string, Record<string, string>, string]
+  const paragraphs: Inline[][] = [[]]
+  for (const run of draftRuns(text, candidates, viewerUid)) {
+    if (run.mention) {
+      const attributes: Record<string, string> = { uid: String(run.mention.uid) }
+      if (run.mention.via) attributes.via = run.mention.via
+      paragraphs.at(-1)!.push(['mention', attributes, run.text.slice(1)])
+      continue
+    }
+    const [first, ...rest] = run.text.split(/\n[ \t]*\n\s*/)
+    if (first) paragraphs.at(-1)!.push(first)
+    for (const part of rest) paragraphs.push(part ? [part] : [])
+  }
+  const nodes = paragraphs
+    .map(children => trimParagraphEdges(children))
+    .filter(children => children.length > 0)
+    .map((children): ComarkNode => ['p', {}, ...children])
+  return renderComarkNodesToMarkdown(nodes)
+}
+
+/** A paragraph's inline runs without the whitespace it starts or ends on. */
+function trimParagraphEdges<T extends string | unknown[]>(children: T[]): T[] {
+  const trimmed = [...children]
+  if (typeof trimmed[0] === 'string') trimmed[0] = (trimmed[0] as string).trimStart() as T
+  const last = trimmed.length - 1
+  if (typeof trimmed[last] === 'string') trimmed[last] = (trimmed[last] as string).trimEnd() as T
+  return trimmed.filter(child => child !== '')
 }
 
 /**

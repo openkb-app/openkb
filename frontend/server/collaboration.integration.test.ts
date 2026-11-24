@@ -650,7 +650,10 @@ describe('collaboration WS bridge', () => {
     // Filed under the connection's account: its name, and no via a person
     // cannot hold.
     const note = { uid: 1, at: 1, text: said, via: 'Claude', anchor }
-    const filed = { uid: 1, name: 'admin', at: 1, text: said, anchor }
+    // Drupal serves the author as the record's `uid`, not in its data; the
+    // document carries it in the message.
+    const served = { name: 'admin', at: 1, text: said, anchor }
+    const filed = { ...served, uid: 1 }
     const act = { uid: 1, at: 2, resolved: true }
     try {
       const session = await open(cookie, docName)
@@ -674,9 +677,9 @@ describe('collaboration WS bridge', () => {
         thread_id: 'c-1',
         msg_id: 'm-1',
         uid: 1,
-        data: filed,
+        data: served,
       })
-      expect(stored[1]).toMatchObject({ msg_id: 'm-2', data: act })
+      expect(stored[1]).toMatchObject({ msg_id: 'm-2', uid: 1, data: { at: 2, resolved: true } })
 
       // And the page itself carries no trace of it: a conversation is not
       // content and not gate data.
@@ -713,7 +716,7 @@ describe('collaboration WS bridge', () => {
         thread_id: 'c-2',
         msg_id: 'm-3',
         uid: 1,
-        data: { ...parting, name: 'admin' },
+        data: { at: 3, text: parting.text, name: 'admin' },
       })
 
       // And the whole conversation outlives the session that said it.
@@ -1378,7 +1381,7 @@ describe('collaboration multi-peer settle', () => {
           thread_id: 'c-2',
           msg_id: 'm-2',
           uid: peerB.uid,
-          data: { uid: peerB.uid, name: peerB.name, at: 2, text: 'said as myself' },
+          data: { name: peerB.name, at: 2, text: 'said as myself' },
         }])
         // The live document says the same, to every peer.
         await expect.poll(() => admin.doc.getMap('comments').has(forged)).toBe(false)
