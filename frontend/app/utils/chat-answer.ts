@@ -53,7 +53,8 @@ export interface SearchQuery {
 
 export interface Grounding {
   mode: string
-  state: GroundingState
+  /** Absent while the answer streams: what it cited is not known yet. */
+  state?: GroundingState
   /** How many sources the answer was offered. */
   retrieved?: number
   /** What was searched for; absent when the turn searched nothing. */
@@ -70,6 +71,16 @@ export function isReasoning(p: UIMessagePart): p is ReasoningUIPart {
 
 export function textFor(m: UIMessage): string {
   return m.parts.filter(isText).map(p => p.text).join('')
+}
+
+/**
+ * The text an assistant answer shows: none in the outage state.
+ *
+ * The outage state says what happened; the no-answer text sent with it would
+ * say nothing was found.
+ */
+export function answerTextFor(m: UIMessage): string {
+  return groundingFor(m)?.state === 'dependency_unavailable' ? '' : textFor(m)
 }
 
 /** The sources the answer cited, empty when it cited none. */

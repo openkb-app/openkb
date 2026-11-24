@@ -310,16 +310,19 @@ const streamed = computed<UIMessage | undefined>(() =>
 /** The answer on screen when a replacement was asked for. The SDK appends the
  *  new assistant message on the stream's start chunk, before any text, so the
  *  answer and its sources are read off this snapshot until the replacement
- *  streams. */
+ *  streams or says how it stands. */
 const replaced = ref<UIMessage | undefined>()
 
+/** The answer to show: the streamed one once it has text or a state, else the snapshot. */
 const lastAssistant = computed<UIMessage | undefined>(() =>
-  streamed.value && textFor(streamed.value) ? streamed.value : replaced.value ?? streamed.value,
+  streamed.value && (textFor(streamed.value) || groundingFor(streamed.value)?.state)
+    ? streamed.value
+    : replaced.value ?? streamed.value,
 )
 const reasoningParts = computed<ReasoningUIPart[]>(() =>
   streamed.value?.parts.filter(isReasoning) ?? [],
 )
-const answerText = computed(() => lastAssistant.value ? textFor(lastAssistant.value) : '')
+const answerText = computed(() => lastAssistant.value ? answerTextFor(lastAssistant.value) : '')
 const answerCitations = computed(() => lastAssistant.value ? citationsFor(lastAssistant.value) : [])
 /** The same, minus the sources a row could not lead to. */
 const answerSources = computed(() => lastAssistant.value ? linkedCitationsFor(lastAssistant.value) : [])

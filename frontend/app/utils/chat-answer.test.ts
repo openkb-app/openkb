@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { UIMessage, UIMessagePart } from 'ai'
-import { announce, toolRunsFor, toolRunsLabel, UNGROUNDED_EXPLANATION } from './chat-answer'
+import { announce, answerTextFor, toolRunsFor, toolRunsLabel, UNGROUNDED_EXPLANATION } from './chat-answer'
 import type { GroundingState, ToolRun } from './chat-answer'
 
 function grounding(state: GroundingState, retrieved?: number) {
@@ -47,6 +47,20 @@ describe('announce', () => {
 
   it('says nothing about an answer nothing grounded', () => {
     expect(announce(null, 0)).toBe('')
+  })
+})
+
+describe('answerTextFor', () => {
+  const text = { type: 'text', text: 'I found nothing on that.' }
+
+  it('shows no text in the outage state', () => {
+    expect(answerTextFor(turn(text, { type: 'data-grounding', data: grounding('dependency_unavailable') }))).toBe('')
+  })
+
+  it('shows the text in every other state, and while the answer streams', () => {
+    expect(answerTextFor(turn(text, { type: 'data-grounding', data: grounding('insufficient_evidence') }))).toBe(text.text)
+    expect(answerTextFor(turn({ type: 'data-grounding', data: { mode: 'grounded', retrieved: 1 } }, text))).toBe(text.text)
+    expect(answerTextFor(turn(text))).toBe(text.text)
   })
 })
 

@@ -441,7 +441,7 @@ const strayQuestion = computed(() => {
             @click="onAnswerClick"
           >
             <AnswerMarkdown
-              :text="textFor(message)"
+              :text="answerTextFor(message)"
               :citation-chips="citationsFor(message)"
               :streaming="status === 'streaming' && message.id === lastMessageId"
             />
