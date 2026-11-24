@@ -43,11 +43,21 @@ export const UNGROUNDED_LABEL = 'From AI knowledge'
 export const UNGROUNDED_EXPLANATION
   = 'This answer comes from the AI model\'s general knowledge, not from any page in your knowledge base.'
 
+/** What a turn searched for, as its query step wrote it. */
+export interface SearchQuery {
+  /** The exact words a section had to hold; '' when it named none. */
+  terms: string
+  /** The question matched by meaning. */
+  question: string
+}
+
 export interface Grounding {
   mode: string
   state: GroundingState
   /** How many sources the answer was offered. */
   retrieved?: number
+  /** What was searched for; absent when the turn searched nothing. */
+  query?: SearchQuery
 }
 
 function isText(p: UIMessagePart): p is TextUIPart {

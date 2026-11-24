@@ -19,7 +19,7 @@ function mount(
     scopeName?: string | null
     error?: string | null
     loginHref?: string | null
-    surface?: 'chat' | 'summary'
+    surface?: 'chat' | 'answer'
   },
   handlers: Record<string, () => void> = {},
 ) {
@@ -272,52 +272,40 @@ describe('ChatAnswerState', () => {
     expect(onRephrase).toHaveBeenCalledOnce()
   })
 
-  describe('on the search summary', () => {
+  describe('on the search page\'s AI answer', () => {
     it('does not badge an answer that cited nothing', () => {
       const root = mount({
         grounding: grounding('ungrounded', 3),
         cited: 0,
-        query: 'who are you?',
-        surface: 'summary',
+        surface: 'answer',
       })
 
       expect(root.querySelector('[data-test="answer-ungrounded"]')).toBeNull()
       expect(root.textContent?.trim()).toBe('')
     })
 
-    it('does not say what was searched when the search found nothing', () => {
-      const root = mount({
-        grounding: grounding('ungrounded', 0),
-        cited: 0,
-        query: 'sourdough',
-        surface: 'summary',
-      })
-
-      expect(root.querySelector('[data-test="answer-ungrounded"]')).toBeNull()
-      expect(root.querySelector('[data-test="answer-searched-note"]')).toBeNull()
-      expect(root.querySelector('[data-test="answer-rephrase"]')).toBeNull()
-    })
-
-    it('keeps a refusal, and the ways on it offers', () => {
+    it('says it found nothing, offers rephrase and new page, no search link', () => {
       const root = mount({
         grounding: grounding('insufficient_evidence'),
         cited: 0,
-        query: 'sourdough',
-        surface: 'summary',
+        surface: 'answer',
       })
       const block = root.querySelector('[data-test="answer-no-answer"]')
 
-      expect(block?.textContent).toContain('pages you can read')
+      expect(block?.textContent).toContain('Nothing in your knowledge base answered this.')
+      // The panel names what was searched for below the block.
+      expect(block?.textContent).not.toContain('Searched')
       expect(root.querySelector('[data-test="answer-rephrase"]')).not.toBeNull()
       expect(root.querySelector('[data-testid="new-page-cta"]')).not.toBeNull()
+      // The results of the same search are beside it.
+      expect(root.querySelector('[data-test="answer-search"]')).toBeNull()
     })
 
     it('keeps an outage, and its retry', () => {
       const root = mount({
         grounding: grounding('dependency_unavailable'),
         cited: 0,
-        query: 'sourdough',
-        surface: 'summary',
+        surface: 'answer',
       })
 
       expect(root.querySelector('[data-test="answer-no-answer"]')?.textContent)
@@ -330,7 +318,7 @@ describe('ChatAnswerState', () => {
         grounding: null,
         cited: 0,
         error: 'The AI backend is unavailable right now.',
-        surface: 'summary',
+        surface: 'answer',
       })
       expect(failed.querySelector('[data-test="answer-error"]')).not.toBeNull()
       expect(failed.querySelector('[data-test="answer-retry"]')).not.toBeNull()
@@ -340,7 +328,7 @@ describe('ChatAnswerState', () => {
         cited: 0,
         error: 'Log in to ask OpenKnowledgebase.',
         loginHref: 'https://backend.example/user/login',
-        surface: 'summary',
+        surface: 'answer',
       })
       expect(refused.querySelector<HTMLAnchorElement>('[data-test="answer-login"]')?.href)
         .toBe('https://backend.example/user/login')

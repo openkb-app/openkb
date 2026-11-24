@@ -17,7 +17,7 @@ export const REQUEST_ERROR = 'OpenKnowledgebase could not take that question as 
 
 /**
  * One conversation's worth of state. Every caller that wants a thread of its
- * own — the search page's AI summary — calls this; the chat panel asks for
+ * own — the search page's AI answer — calls this; the chat panel asks for
  * the shared one below.
  *
  * All of them talk to the same endpoint and owe the reader the same three

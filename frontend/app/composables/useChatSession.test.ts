@@ -198,7 +198,7 @@ describe('useChatSession', () => {
    * belongs to the app rather than to the component. A caller that asks for a
    * conversation of its own still gets one.
    */
-  it('hands every chat panel one thread, and the search summary its own', () => {
+  it('hands every chat panel one thread, and the search AI answer its own', () => {
     expect(useChatPanelSession()).toBe(useChatPanelSession())
     expect(useChatSession()).not.toBe(useChatPanelSession())
   })

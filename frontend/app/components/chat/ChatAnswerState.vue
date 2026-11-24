@@ -21,11 +21,12 @@ const props = defineProps<{
   /**
    * Which surface renders the state.
    *
-   * The chat panel shows every state. The summary leaves out the ungrounded
-   * badge and the searched note; it keeps the error, the refusal and the
-   * outage, which replace the answer.
+   * The chat panel shows every state. The search page's AI answer leaves out
+   * the ungrounded badge, the searched note and the link to a search, and
+   * names what was searched for itself; it keeps the error, the refusal and
+   * the outage, which replace the answer.
    */
-  surface?: 'chat' | 'summary'
+  surface?: 'chat' | 'answer'
 }>()
 
 const emit = defineEmits<{
@@ -40,7 +41,7 @@ const emit = defineEmits<{
 const hasError = computed(() => !!props.error)
 
 const isUngrounded = computed(() =>
-  !hasError.value && props.surface !== 'summary' && props.grounding?.state === 'ungrounded',
+  !hasError.value && props.surface !== 'answer' && props.grounding?.state === 'ungrounded',
 )
 const isNoAnswer = computed(() => !hasError.value && props.grounding?.state === 'insufficient_evidence')
 const isUnavailable = computed(() => !hasError.value && props.grounding?.state === 'dependency_unavailable')
@@ -96,6 +97,11 @@ const stateLabel = computed(() =>
   isUnavailable.value
     ? 'Search unavailable'
     : 'Nothing in your knowledge base answered this',
+)
+
+/** The no-answer block's sentence: the AI answer names its search below it. */
+const noAnswerDescription = computed(() =>
+  props.surface === 'answer' ? `${stateLabel.value}.` : searched.value,
 )
 </script>
 
@@ -175,7 +181,7 @@ const stateLabel = computed(() =>
     :icon="isUnavailable ? 'i-lucide-plug-zap' : 'i-lucide-search-x'"
     :description="isUnavailable
       ? 'Search is unavailable right now, so there was nothing to answer from.'
-      : searched"
+      : noAnswerDescription"
     :ui="{ description: 'break-words' }"
   >
     <template #actions>
@@ -201,7 +207,9 @@ const stateLabel = computed(() =>
           :ui="WRAPPING_LABEL"
           @click="emit('rephrase')"
         />
+        <!-- The AI answer sits beside the search results already. -->
         <UButton
+          v-if="surface !== 'answer'"
           data-test="answer-search"
           color="neutral"
           variant="outline"

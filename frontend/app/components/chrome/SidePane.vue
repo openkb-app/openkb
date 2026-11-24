@@ -14,7 +14,7 @@ const LABEL: Record<SidePaneContent, string> = {
   outline: 'On this page',
   chat: 'Ask OpenKnowledgebase',
   comments: 'Review',
-  summary: 'AI summary',
+  answer: 'AI answer',
 }
 </script>
 

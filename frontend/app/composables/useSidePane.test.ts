@@ -123,21 +123,21 @@ describe('the side pane', () => {
   })
 
   /**
-   * A search's summary is the page's own surface, so an open chat covers it,
-   * and closing the chat shows it again.
+   * A search's AI answer is the page's own surface, so an open chat covers
+   * it, and closing the chat shows it again.
    */
-  it('keeps an open chat over the summary a search asks for', () => {
+  it('keeps an open chat over the AI answer a search asks for', () => {
     const pane = useSidePane()
     pane.request('outline')
     pane.openChat()
 
-    pane.request('summary')
+    pane.request('answer')
     expect(pane.content.value).toBe('chat')
 
     pane.closeChat()
-    expect(pane.content.value).toBe('summary')
+    expect(pane.content.value).toBe('answer')
 
-    // Leaving the search takes its summary with it.
+    // Leaving the search takes its AI answer with it.
     pane.request('outline')
     expect(pane.content.value).toBe('outline')
   })

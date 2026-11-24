@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { UIMessage, ReasoningUIPart } from 'ai'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { useDebounceFn } from '@vueuse/core'
 import { backendUrl } from '#shared/utils/user'
 import type { PageSearchResponse } from '#shared/utils/kb-search'
 import { rowLink, rowExcerptParts, excerptParts, subSections, sectionLabel, sectionsLabel, UPDATED_RANGES } from '#shared/utils/kb-search'
@@ -284,27 +283,28 @@ const crumbs = [
   { label: 'Search', icon: 'i-lucide-search' },
 ]
 
-// The AI summary — its own conversation, on the same endpoint as the chat
-// panel's.
+// The AI answer — its own conversation, on the same endpoint as the chat
+// panel's. It searches on its own, with the query its query step writes, so
+// its sources may differ from the result list.
 const {
-  chat: summaryChat,
-  messages: summaryMessages,
-  status: summaryStatus,
-  error: summaryError,
-  needsAuth: summaryNeedsAuth,
-  clear: clearSummary,
+  chat: answerChat,
+  messages: answerMessages,
+  status: answerStatus,
+  error: answerError,
+  needsAuth: answerNeedsAuth,
+  clear: clearAnswer,
 } = useChatSession()
 
-// A refused session is not retried away: the summary's error state points at
+// A refused session is not retried away: the answer's error state points at
 // the login page instead, as the chat panel's alert does.
-const summaryLoginHref = computed(() =>
-  summaryNeedsAuth.value
+const answerLoginHref = computed(() =>
+  answerNeedsAuth.value
     ? backendUrl(useRuntimeConfig().public.drupalBaseUrl as string | undefined, '/user/login')
     : null,
 )
 
 const streamed = computed<UIMessage | undefined>(() =>
-  [...summaryMessages.value].reverse().find(m => m.role === 'assistant'),
+  [...answerMessages.value].reverse().find(m => m.role === 'assistant'),
 )
 
 /** The answer on screen when a replacement was asked for. The SDK appends the
@@ -319,116 +319,105 @@ const lastAssistant = computed<UIMessage | undefined>(() =>
 const reasoningParts = computed<ReasoningUIPart[]>(() =>
   streamed.value?.parts.filter(isReasoning) ?? [],
 )
-const summaryText = computed(() => lastAssistant.value ? textFor(lastAssistant.value) : '')
-const summaryCitations = computed(() => lastAssistant.value ? citationsFor(lastAssistant.value) : [])
+const answerText = computed(() => lastAssistant.value ? textFor(lastAssistant.value) : '')
+const answerCitations = computed(() => lastAssistant.value ? citationsFor(lastAssistant.value) : [])
 /** The same, minus the sources a row could not lead to. */
-const summarySources = computed(() => lastAssistant.value ? linkedCitationsFor(lastAssistant.value) : [])
+const answerSources = computed(() => lastAssistant.value ? linkedCitationsFor(lastAssistant.value) : [])
 /** How the answer stands is published when a turn settles, so a replacement
  *  has none while it streams: the state row reads off the snapshot until the
  *  new turn has a grounding of its own. */
-const summaryGrounding = computed(() =>
+const answerGrounding = computed(() =>
   (streamed.value ? groundingFor(streamed.value) : null)
   ?? (replaced.value ? groundingFor(replaced.value) : null),
 )
+/** What the answer's own search ran on, as its query step wrote it. */
+const searchedFor = computed(() => answerGrounding.value?.query ?? null)
 
-const summaryPrompt = computed(() => {
-  const q = routeQuery.value.trim()
-  const titles = pages.value.slice(0, 5).map(p => `- "${p.title}" (${p.path})`).join('\n')
-  return [
-    `User search query: ${q || '(empty)'}.`,
-    titles ? `Top hits:\n${titles}` : 'No hits yet.',
-    'Write a 2-3 sentence summary that contextualises the results, with [n] citation chips referencing the seeded pages.',
-  ].join('\n')
-})
+/** Which query the answer on screen was asked for. */
+let asked: string | null = null
 
-/** Which search a summary belongs to: the prompt carries the pages, so a new
- *  window makes it stale like a new query. */
-let summarised: string | null = null
-
-/** The SDK reports `ready` for the whole gap between a send and its first
- *  token, so the page tracks the turn it asked for itself. */
-const summaryTurn = ref(false)
-const summaryBusy = computed(() =>
-  summaryTurn.value || summaryStatus.value === 'streaming' || summaryStatus.value === 'submitted',
+/**
+ * Whether the page's own turn is running.
+ *
+ * The SDK reports `ready` between a send and its first token.
+ */
+const answerTurn = ref(false)
+/** Whether an answer is being asked for or streamed. */
+const answerBusy = computed(() =>
+  answerTurn.value || answerStatus.value === 'streaming' || answerStatus.value === 'submitted',
 )
 
+/** Counts the turns asked, so only the latest one clears `answerTurn`. */
 let turn = 0
 
-// `summaryError` already carries the failure. Only the latest turn clears the
-// flag; a superseded one settles late.
+/** Asks the search assistant about the submitted query. */
 function ask() {
-  summarised = summaryPrompt.value
+  asked = routeQuery.value.trim()
   const id = ++turn
-  summaryTurn.value = true
-  // The summary's own assistant, which reasons less than the chat's.
-  void summaryChat.sendMessage({ text: summaryPrompt.value }, { body: { agentId: 'openkb_summary' } })
+  answerTurn.value = true
+  // The search page's own assistant: little reasoning, sources only.
+  // `answerError` carries the failure.
+  void answerChat.sendMessage({ text: asked }, { body: { agentId: 'openkb_summary' } })
     .catch(() => {})
-    .finally(() => { if (id === turn) summaryTurn.value = false })
+    .finally(() => { if (id === turn) answerTurn.value = false })
 }
 
-// Keeps the previous answer visible until the replacement streams. The thread
-// stays at one exchange: the transport posts every message in it back.
+/**
+ * Asks again, keeping the previous answer visible until the new one streams.
+ *
+ * The thread stays at one exchange: the transport posts every message back.
+ */
 function regenerate() {
-  if (summaryBusy.value) return
+  if (answerBusy.value) return
   replaced.value = lastAssistant.value
-  clearSummary()
+  clearAnswer()
   ask()
 }
 
-// Hands the question to the chat panel's composer, unsent.
+/** Hands the question to the chat panel's composer, unsent. */
 function openInChat() {
   openChat(routeQuery.value.trim())
 }
 
-/** How long the prompt must stay unchanged before it is worth a turn. */
-const SETTLED_MS = 600
-
-/** Whether there is a pane to put an answer in. Only ask when the summary pane
+/** Whether there is a pane to put an answer in. Only ask when the answer pane
  *  is actually rendered. */
-const summaryWanted = computed(
-  () => paneContent.value === 'summary' && !paneHidden.value && paneWide.value,
+const answerWanted = computed(
+  () => paneContent.value === 'answer' && !paneHidden.value && paneWide.value,
 )
 
-// One summary per search, held until that search has landed, since the prompt
-// carries the hits.
-function summariseIfDue() {
-  if (!summaryWanted.value || pending.value) return
-  if (!routeQuery.value.trim() || summaryPrompt.value === summarised) return
+/**
+ * Whether the result list of the current query is on screen, or failed.
+ *
+ * A new query sets `pending` before the previous error clears.
+ */
+const listSettled = computed(() =>
+  !pending.value && (results.value?.query === routeQuery.value.trim() || !!searchError.value),
+)
+
+/** Asks once per submitted query, after its result list has settled. */
+function answerIfDue() {
+  if (!answerWanted.value || !listSettled.value) return
+  const q = routeQuery.value.trim()
+  if (!q || q === asked) return
   // One thread per search: the pane shows the last answer.
   replaced.value = undefined
-  clearSummary()
+  clearAnswer()
   ask()
 }
 
-// The debounce timer must not outlive the page.
-const summariseWhenSettled = useDebounceFn(summariseIfDue, SETTLED_MS)
-onScopeDispose(() => summariseWhenSettled.cancel())
-
-/** A query the page loaded with is already settled, so it skips the
- *  debounce; a later one waits for its hits to land. */
-let unasked = !!routeQuery.value.trim()
-
-// Client-only: the debounce is a browser timer, and the server render has no
-// pane to put an answer in.
+// Client-only: the server render has no pane to put an answer in. Waits for
+// the pane: the layout sets `wide` in its own mounted hook, after this one.
 onMounted(() => {
-  // Waits for the pane, not for the debounce: the layout sets `wide` in its own
-  // mounted hook, after this one.
-  watch([summaryWanted, pending], () => {
-    if (!unasked || !summaryWanted.value || pending.value) return
-    unasked = false
-    summariseIfDue()
-  }, { immediate: true })
-
-  watch([summaryPrompt, summaryWanted, pending], summariseWhenSettled)
+  watch([answerWanted, listSettled, routeQuery], answerIfDue, { immediate: true })
 })
 </script>
 
 <template>
   <ChromeAppNavbar :crumbs="crumbs" />
 
-  <!-- With nothing searched for there is nothing to summarise, so the page
+  <!-- With nothing searched for there is nothing to answer, so the page
        asks for no pane at all. -->
-  <ChromePageBody :pane="routeQuery.trim() ? 'summary' : undefined">
+  <ChromePageBody :pane="routeQuery.trim() ? 'answer' : undefined">
     <main id="main-content" tabindex="-1" class="mx-auto w-full max-w-[1100px] px-4 py-6 focus:outline-none sm:px-6 sm:py-8">
       <h1 class="mb-1 text-[24px] font-bold text-highlighted">
         Search
@@ -787,41 +776,51 @@ onMounted(() => {
     <!-- The pane header names the surface, so the tile carries no title of its
          own. `agent-tile` marks the answer as written by an agent. -->
     <template #pane>
-      <div data-test="ai-summary" class="agent-tile p-3 text-[12.5px] text-(--ui-text-toned)">
+      <div data-test="ai-answer" class="agent-tile p-3 text-[12.5px] text-(--ui-text-toned)">
         <template v-if="lastAssistant">
-          <div v-if="summaryStatus === 'streaming' && reasoningParts.length" class="mb-2 italic text-(--ui-text-muted)">
+          <div v-if="answerStatus === 'streaming' && reasoningParts.length" class="mb-2 italic text-(--ui-text-muted)">
             {{ reasoningParts[reasoningParts.length - 1]?.text }}
           </div>
 
           <div
-            class="ai-summary__answer okb-prose"
-            data-test="ai-summary-answer"
+            class="ai-answer__text okb-prose"
+            data-test="ai-answer-text"
           >
             <AnswerMarkdown
-              :text="summaryText"
-              :citation-chips="summaryCitations"
-              :streaming="summaryStatus === 'streaming' && lastAssistant === streamed"
+              :text="answerText"
+              :citation-chips="answerCitations"
+              :streaming="answerStatus === 'streaming' && lastAssistant === streamed"
             />
           </div>
 
           <ChatAnswerState
-            surface="summary"
-            :grounding="summaryGrounding"
-            :cited="summaryCitations.length"
-            :query="routeQuery.trim()"
-            :error="summaryError"
-            :login-href="summaryLoginHref"
+            surface="answer"
+            :grounding="answerGrounding"
+            :cited="answerCitations.length"
+            :error="answerError"
+            :login-href="answerLoginHref"
             @rephrase="openInChat"
             @retry="regenerate"
           />
 
+          <p
+            v-if="searchedFor"
+            class="mt-2 text-[11.5px] text-(--ui-text-muted)"
+            data-test="ai-answer-searched-for"
+          >
+            Searched for:
+            <span v-if="searchedFor.terms" class="font-mono text-(--ui-text-toned)" data-test="ai-answer-terms">{{ searchedFor.terms }}</span>
+            <span v-if="searchedFor.terms && searchedFor.question"> · </span>
+            <span v-if="searchedFor.question" class="italic" data-test="ai-answer-question">{{ searchedFor.question }}</span>
+          </p>
+
           <div
-            v-if="summarySources.length"
+            v-if="answerSources.length"
             class="mt-2 flex flex-col gap-1"
-            data-test="ai-summary-sources"
+            data-test="ai-answer-sources"
           >
             <NuxtLink
-              v-for="c in summarySources"
+              v-for="c in answerSources"
               :key="c.n"
               :to="c.path"
               :aria-label="c.title || undefined"
@@ -848,7 +847,7 @@ onMounted(() => {
               color="neutral"
               variant="ghost"
               icon="i-lucide-refresh-cw"
-              :loading="summaryBusy"
+              :loading="answerBusy"
               @click="regenerate"
             >
               Re-generate
@@ -859,16 +858,16 @@ onMounted(() => {
         <!-- The turn failed before there was an answer, so the failure state is
              all the tile has to show. -->
         <ChatAnswerState
-          v-else-if="summaryError"
+          v-else-if="answerError"
           :grounding="null"
           :cited="0"
-          :error="summaryError"
-          :login-href="summaryLoginHref"
+          :error="answerError"
+          :login-href="answerLoginHref"
           @retry="regenerate"
         />
 
         <p v-else class="italic text-muted">
-          Synthesising answer…
+          Synthesizing answer…
         </p>
       </div>
     </template>

@@ -1,6 +1,6 @@
 import { useMediaQuery } from '@vueuse/core'
 
-export type SidePaneContent = 'outline' | 'chat' | 'comments' | 'summary'
+export type SidePaneContent = 'outline' | 'chat' | 'comments' | 'answer'
 
 /** A year: the pane is a working preference, not a session detail. */
 const REMEMBER_FOR = 60 * 60 * 24 * 365
