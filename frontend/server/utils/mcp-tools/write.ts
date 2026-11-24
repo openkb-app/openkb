@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { resolveWriteSubject, routeWrite } from '../agent-write'
 import { AgentJoinError, AgentOpsError, type AgentEditResult } from '../session-router'
-import { DuplicatedBlockError, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError, UnknownThreadError, UnlistedFileError, type AgentOps } from '../agent-peer'
+import { DuplicatedBlockError, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError, UnknownThreadError, UnlistedFileError, type AgentOps, type NotAcceptedFile } from '../agent-peer'
 import { answered, refused, type ToolResult } from './types'
 
 /**
@@ -46,12 +46,14 @@ export function writeRefusal(message: string, errors: Record<string, string[]> =
 /**
  * An applied write, reported in the shape WRITE_OUTPUT_SCHEMA declares.
  *
- * A call whose replaced blocks all came out unchanged, with nothing else
- * applied, is a refusal: an answer reading as success lets the model report a
- * change it never made.
+ * - A call whose replaced blocks all came out unchanged, with nothing else
+ *   applied, is a refusal: an answer reading as success lets the model report
+ *   a change it never made.
+ * - Added files the session did not add are named with the way forward. Not
+ *   an error; `ok` is false when nothing else was applied.
  */
 function writeResult(result: AgentEditResult): ToolResult {
-  const { unchanged, removed, ...rest } = result.applied
+  const { unchanged, removed, notAccepted = [], ...rest } = result.applied
   const applied = { ...rest, ...(removed.length ? { removed } : {}) }
   const blocks = Object.entries(applied.blocks)
   const changed = [
@@ -61,6 +63,11 @@ function writeResult(result: AgentEditResult): ToolResult {
     removed.length ? `removed blocks: ${removed.join(', ')}` : null,
     applied.comment ? `comment in thread ${applied.comment.threadId}` : null,
   ].filter(Boolean).join('; ')
+  const notAcceptedNote = notAccepted.length ? ` ${describeNotAcceptedFiles(notAccepted)}` : ''
+  if (!changed && notAccepted.length) {
+    const message = `Nothing changed.${notAcceptedNote}`
+    return answered(message, { ok: false, message, nid: result.nid, notAccepted, ...(unchanged.length ? { unchanged } : {}) })
+  }
   if (!changed && unchanged.length) {
     const message = `Nothing changed: ${describeUnchangedBlocks(unchanged)}. If you meant to change it, send the changed markdown.`
     return refused(message, { ok: false, message, nid: result.nid, unchanged })
@@ -72,12 +79,21 @@ function writeResult(result: AgentEditResult): ToolResult {
     observers: result.observers,
     applied,
     ...(unchanged.length ? { unchanged } : {}),
+    ...(notAccepted.length ? { notAccepted } : {}),
   }
   const persisted = result.observers > 0
     ? `left to the live session (${result.observers} editor(s) connected)`
     : 'left to your open session, which persists it'
   const unchangedNote = unchanged.length ? ` Not changed: ${describeUnchangedBlocks(unchanged)}.` : ''
-  return answered(`Updated node ${result.nid} — ${changed || 'nothing changed'}; ${persisted}.${unchangedNote}`, data)
+  return answered(`Updated node ${result.nid} — ${changed || 'nothing changed'}; ${persisted}.${unchangedNote}${notAcceptedNote}`, data)
+}
+
+/** Names the files not added, and how to add a file of one's own. */
+function describeNotAcceptedFiles(files: NotAcceptedFile[]): string {
+  const named = files.map(({ list, file }) => `${file} (${list})`).join(', ')
+  return `Not accepted: ${named}. Only files you uploaded yourself may be added to a page, `
+    + 'unless the page holds them now. Upload the file yourself with tool_api__file_upload_url '
+    + 'or tool_api__upload_attachment, then add the UUID that upload answers.'
 }
 
 /** Names unchanged blocks: "block b-1 already holds exactly this markdown". */

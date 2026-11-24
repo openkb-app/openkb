@@ -20,6 +20,7 @@ interface JsonApiFile {
     created?: string
     uri?: { url?: string }
   }
+  relationships?: { uid?: { data?: { meta?: { drupal_internal__target_id?: number } } | null } }
 }
 
 interface JsonApiFileDoc {
@@ -27,21 +28,49 @@ interface JsonApiFileDoc {
   included?: Array<{ id: string, attributes?: { display_name?: string, name?: string } }>
 }
 
-async function resolveFile(auth: Record<string, string>, uuid: string): Promise<ResolvedFile | null> {
+/** Requests to Drupal in flight at once, per call. */
+const PARALLEL = 6
+
+/** Bound on one owner lookup, ahead of an agent write. */
+const OWNER_LOOKUP_TIMEOUT_MS = 10_000
+
+/**
+ * One file's JSON:API document, with its owner. Null for a file the caller
+ * may not download, or that does not exist.
+ */
+async function fetchFileDoc(
+  auth: Record<string, string>,
+  uuid: string,
+  init: RequestInit = {},
+): Promise<JsonApiFileDoc | null> {
   const params = new DrupalJsonApiParams()
     .addInclude(['uid'])
     .addFields('file--file', ['filename', 'filesize', 'filemime', 'created', 'uri', 'uid'])
     .addFields('user--user', ['display_name'])
-  let doc: JsonApiFileDoc
+  const path = `/jsonapi/file/file/${uuid}?${params.getQueryString()}`
   try {
-    doc = await drupalFetchWithAuth<JsonApiFileDoc>(auth, `/jsonapi/file/file/${uuid}?${params.getQueryString()}`)
+    return await drupalFetchWithAuth<JsonApiFileDoc>(auth, path, init)
   }
   catch (err) {
     const status = (err as { statusCode?: number })?.statusCode
     if (status === 403 || status === 404) return null
     throw err
   }
-  const file = doc.data
+}
+
+/** Runs `lookup` for each UUID, {@link PARALLEL} at a time. */
+async function lookUpEach<T>(uuids: string[], lookup: (uuid: string) => Promise<T>): Promise<Array<readonly [string, T]>> {
+  const found: Array<readonly [string, T]> = []
+  for (let start = 0; start < uuids.length; start += PARALLEL) {
+    const batch = uuids.slice(start, start + PARALLEL)
+    found.push(...await Promise.all(batch.map(async uuid => [uuid, await lookup(uuid)] as const)))
+  }
+  return found
+}
+
+/** The file a JSON:API document describes, as the browser shows it. */
+function toResolvedFile(doc: JsonApiFileDoc | null): ResolvedFile | null {
+  const file = doc?.data
   const url = file?.attributes?.uri?.url
   if (!file || typeof url !== 'string') return null
   const owner = doc.included?.[0]?.attributes
@@ -57,19 +86,27 @@ async function resolveFile(auth: Record<string, string>, uuid: string): Promise<
   }
 }
 
-/** Requests to Drupal in flight at once, per call. */
-const PARALLEL = 6
-
 export async function resolveFileUuids(
   auth: Record<string, string>,
   uuids: string[],
 ): Promise<Record<string, ResolvedFile>> {
-  const resolved: Array<readonly [string, ResolvedFile | null]> = []
-  for (let start = 0; start < uuids.length; start += PARALLEL) {
-    const batch = uuids.slice(start, start + PARALLEL)
-    resolved.push(...await Promise.all(batch.map(async uuid => [uuid, await resolveFile(auth, uuid)] as const)))
-  }
+  const resolved = await lookUpEach(uuids, async uuid => toResolvedFile(await fetchFileDoc(auth, uuid)))
   return Object.fromEntries(resolved.filter((entry): entry is readonly [string, ResolvedFile] => entry[1] !== null))
+}
+
+/**
+ * File UUIDs → the uid of each file's owner. Null for a file the caller may
+ * not download, or that does not exist.
+ */
+export async function fetchFileOwnerUids(
+  auth: Record<string, string>,
+  uuids: string[],
+): Promise<Record<string, number | null>> {
+  const owners = await lookUpEach(uuids, async (uuid) => {
+    const doc = await fetchFileDoc(auth, uuid, { signal: AbortSignal.timeout(OWNER_LOOKUP_TIMEOUT_MS) })
+    return doc?.data?.relationships?.uid?.data?.meta?.drupal_internal__target_id ?? null
+  })
+  return Object.fromEntries(owners)
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { embedFrameSrcPolicy, resolveFileUuids } from './files'
+import { embedFrameSrcPolicy, fetchFileOwnerUids, resolveFileUuids } from './files'
 
 const A = '11111111-2222-4333-8444-555555555555'
 const B = '66666666-7777-4888-9999-000000000000'
@@ -41,6 +41,27 @@ describe('resolveFileUuids', () => {
   it('fails on an unreachable backend rather than reporting the file gone', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 502 })))
     await expect(resolveFileUuids({}, [A])).rejects.toMatchObject({ statusCode: 503 })
+  })
+})
+
+describe('fetchFileOwnerUids', () => {
+  it('reads each owner under the caller\'s carrier, null for a file it may not download', async () => {
+    const fetch = vi.fn(async (url: string, _init?: RequestInit) => url.includes(A)
+      ? new Response(JSON.stringify({
+          data: { id: A, attributes: { uri: { url: '/system/files/a.pdf' } }, relationships: { uid: { data: { meta: { drupal_internal__target_id: 3 } } } } },
+        }), { status: 200 })
+      : new Response('{"errors":[]}', { status: 403 }))
+    vi.stubGlobal('fetch', fetch)
+
+    expect(await fetchFileOwnerUids({ Authorization: 'Bearer tok' }, [A, B])).toEqual({ [A]: 3, [B]: null })
+    const init = fetch.mock.calls[0]![1]
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer tok' })
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('fails closed on an unreachable backend', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 502 })))
+    await expect(fetchFileOwnerUids({}, [A])).rejects.toMatchObject({ statusCode: 503 })
   })
 })
 

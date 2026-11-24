@@ -7,9 +7,18 @@ import type { JsonSchema, KbTool } from './types'
 
 const UUID_LIST = { type: 'array', items: { type: 'string', format: 'uuid' } }
 
+/**
+ * Files one list may add per call.
+ *
+ * Each one is looked up in Drupal before the write.
+ */
+const MAX_ADDED_FILES = 50
+
 const FILES_DESCRIPTION = 'File UUIDs to add to and remove from the page\'s file lists, per list: '
-  + '"attachments" and "images", each {add, remove, names}. A file no revision of the page holds is kept '
-  + 'only if the agent owner owns it: their fresh upload, or a permanent file they may still download. '
+  + '"attachments" and "images", each {add, remove, names}. Only files you uploaded yourself may be '
+  + 'added: your upload with tool_api__file_upload_url or tool_api__upload_attachment, or a file of '
+  + 'yours you may still download. A file the page does not hold and you did not upload is not '
+  + 'added; the answer names it in `notAccepted`. '
   + '"names" maps a file UUID on the list to its name on this page, at most 255 characters; an empty '
   + 'name shows the file\'s own again. The file itself keeps its name.'
 
@@ -47,7 +56,7 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
       + 'page open sees it arrive live. It does not publish — read it back with '
       + 'getPageForEditing. `files` adds file UUIDs to and removes them from the '
       + 'page\'s file lists (attachments, images) and names them on this page; '
-      + 'files you do not name stay.',
+      + 'files you do not name stay. Only files you uploaded yourself may be added.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -60,7 +69,7 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
           properties: Object.fromEntries(Object.keys(PAGE_FILE_FIELDS).map(key => [key, {
             type: 'object',
             properties: {
-              add: UUID_LIST,
+              add: { ...UUID_LIST, maxItems: MAX_ADDED_FILES },
               remove: UUID_LIST,
               names: { type: 'object', additionalProperties: { type: 'string', maxLength: FILE_NAME_MAX_LENGTH } },
             },
@@ -87,6 +96,14 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
         Object.values(change.names ?? {}).some(name => Array.from(name).length > FILE_NAME_MAX_LENGTH))
       if (long.length > 0) {
         return writeRefusal(`A file name is at most ${FILE_NAME_MAX_LENGTH} characters.`, Object.fromEntries(long.map(([key]) => [key, [`A name in "names" is longer than ${FILE_NAME_MAX_LENGTH} characters.`]])))
+      }
+      const many = Object.entries(files).filter(([, change]) =>
+        (change.add?.length ?? 0) > MAX_ADDED_FILES)
+      if (many.length > 0) {
+        const message = `One call adds at most ${MAX_ADDED_FILES} files per list.`
+        const perList = [`"add" holds more than ${MAX_ADDED_FILES} files.`]
+        const errors = Object.fromEntries(many.map(([key]) => [key, perList]))
+        return writeRefusal(message, errors)
       }
       return runWrite(event, args, {
         fields: fields as FieldValues,

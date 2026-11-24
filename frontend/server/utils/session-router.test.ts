@@ -234,6 +234,7 @@ describe('routeAgentEdit', () => {
       validateValues: vi.fn(async () => {}),
       fetchBody: vi.fn(async () => 'from drupal'),
       checkpoint,
+      fetchFileOwners: vi.fn(async () => ({})),
     } as unknown as RouterDeps
   })
 
@@ -264,6 +265,31 @@ describe('routeAgentEdit', () => {
     // Nothing was written to Drupal, and the peer is still in the room.
     expect(checkpoint).not.toHaveBeenCalled()
     expect(disconnect).not.toHaveBeenCalled()
+  })
+
+  it('adds only the files the writer owns, and names the others', async () => {
+    const OWN = '11111111-2222-4333-8444-000000000001'
+    const FOREIGN = '11111111-2222-4333-8444-000000000002'
+    const UNREADABLE = '11111111-2222-4333-8444-000000000003'
+    deps.fetchFileOwners = vi.fn(async () => ({ [OWN]: AGENT.uid, [FOREIGN]: 9, [UNREADABLE]: null }))
+
+    const result = await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, {
+      files: { attachments: { add: [OWN, FOREIGN] }, images: { add: [UNREADABLE] } },
+    })
+
+    expect(deps.fetchFileOwners).toHaveBeenCalledWith({ Authorization: 'Bearer tok' }, [OWN, FOREIGN, UNREADABLE])
+    expect(result.applied.fields).toEqual(['attachments'])
+    expect(result.applied.notAccepted).toEqual([
+      { list: 'attachments', file: FOREIGN },
+      { list: 'images', file: UNREADABLE },
+    ])
+    expect(doc.getArray('files.attachments').toArray()).toEqual([OWN])
+    expect(doc.getArray('files.images').toArray()).toEqual([])
+  })
+
+  it('asks Drupal about no file when the write adds none', async () => {
+    await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'a summary' } })
+    expect(deps.fetchFileOwners).not.toHaveBeenCalled()
   })
 
   it('reuses the open session for the next write, and asks Drupal nothing', async () => {

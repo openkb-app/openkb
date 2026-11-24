@@ -27,6 +27,12 @@ vi.mock('../hocuspocus', () => hocuspocusMock)
 vi.mock('../drupal-tools', () => drupalToolsMock)
 vi.mock('../tool-manifest', () => toolManifestMock)
 
+/** The text of a tool result's first content item. */
+function firstText(result: object): string {
+  const [first] = (result as { content: Array<{ text?: string }> }).content
+  return first?.text ?? ''
+}
+
 describe('updateFields', () => {
   beforeEach(resetMocks)
 
@@ -122,13 +128,63 @@ describe('updateFields', () => {
     expect(routeAgentEdit).not.toHaveBeenCalled()
   })
 
+  it('updateFields refuses more than 50 added files per list', async () => {
+    const uuids = Array.from({ length: 51 }, (_, index) => `11111111-2222-4333-8444-${String(index).padStart(12, '0')}`)
+    const { client } = await connect()
+    const many = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { attachments: { add: uuids } } } })
+
+    expect(many.isError).toBe(true)
+    expect(routeAgentEdit).not.toHaveBeenCalled()
+  })
+
+  it('updateFields names a file it did not add, with the way forward, and reports the rest', async () => {
+    const OWN = '11111111-2222-4333-8444-555555555555'
+    const FOREIGN = '11111111-2222-4333-8444-666666666666'
+    routeAgentEdit.mockResolvedValue({
+      nid: 7,
+      entry: 'started',
+      observers: 0,
+      applied: { fields: ['attachments'], body: false, blocks: {}, unchanged: [], removed: [], notAccepted: [{ list: 'attachments', file: FOREIGN }] },
+    })
+    const { client } = await connect()
+    const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { attachments: { add: [OWN, FOREIGN] } } } })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.structuredContent).toMatchObject({
+      ok: true,
+      applied: { fields: ['attachments'] },
+      notAccepted: [{ list: 'attachments', file: FOREIGN }],
+    })
+    const text = firstText(res)
+    expect(text).toContain(`Not accepted: ${FOREIGN} (attachments)`)
+    expect(text).toContain('Only files you uploaded yourself may be added')
+    expect(text).toContain('tool_api__file_upload_url')
+    expect(text).toContain('tool_api__upload_attachment')
+  })
+
+  it('updateFields answers a call that only adds files it may not add as a state, not an error', async () => {
+    const FOREIGN = '11111111-2222-4333-8444-666666666666'
+    routeAgentEdit.mockResolvedValue({
+      nid: 7,
+      entry: 'started',
+      observers: 0,
+      applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: [], notAccepted: [{ list: 'images', file: FOREIGN }] },
+    })
+    const { client } = await connect()
+    const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { images: { add: [FOREIGN] } } } })
+
+    expect(res.isError).toBeFalsy()
+    expect(res.structuredContent).toMatchObject({ ok: false, nid: 7, notAccepted: [{ list: 'images', file: FOREIGN }] })
+    expect(firstText(res)).toContain(`Not accepted: ${FOREIGN} (images)`)
+  })
+
   it('updateFields refuses a name for a file not on the list', async () => {
     const A = '11111111-2222-4333-8444-555555555555'
     routeAgentEdit.mockRejectedValue(new UnlistedFileError('images', A))
     const { client } = await connect()
     const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { images: { names: { [A]: 'Chart' } } } } })
     expect(res.isError).toBe(true)
-    expect((res.content as any[])[0].text).toContain(`File "${A}" is not on the page's images`)
+    expect(firstText(res)).toContain(`File "${A}" is not on the page's images`)
   })
 
   it('an unknown field key is answered per field, not refused as an undeclared argument', async () => {
@@ -157,7 +213,7 @@ describe('updateFields', () => {
     // Structured, not prose: the agent can act on the per-field messages, and
     // the client validates them against the tool's declared output schema.
     expect(res.structuredContent).toMatchObject({ ok: false, errors: { summary: ['Too long.'] } })
-    expect((res.content as any[])[0].text).toContain('nothing was written')
+    expect(firstText(res)).toContain('nothing was written')
   })
 
   it('a refused join is a tool result, not a transport failure', async () => {
@@ -167,7 +223,7 @@ describe('updateFields', () => {
 
     expect(res.isError).toBe(true)
     expect((res.structuredContent as any).ok).toBe(false)
-    expect((res.content as any[])[0].text).toContain('agent_write')
+    expect(firstText(res)).toContain('agent_write')
   })
 
   it('an unknown path is refused without touching the router', async () => {
@@ -176,7 +232,7 @@ describe('updateFields', () => {
     const res = await client.callTool({ name: 'updateFields', arguments: { path: 'nope', fields: {} } })
 
     expect(res.isError).toBe(true)
-    expect((res.content as any[])[0].text).toContain('Page not found')
+    expect(firstText(res)).toContain('Page not found')
     expect(routeAgentEdit).not.toHaveBeenCalled()
   })
 })

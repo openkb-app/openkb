@@ -360,6 +360,8 @@ export interface RouterDeps extends GateDeps {
   fetchBody: (nid: number) => Promise<string | null>
   /** Persist the document now, under this identity. Deduped by the scheduler. */
   checkpoint: (docName: string, trigger: CommitTrigger, identity: CommitIdentity) => Promise<CommitResult>
+  /** File UUIDs → owner uid under the carrier; null where it may not download the file. */
+  fetchFileOwners: (auth: Record<string, string>, uuids: string[]) => Promise<Record<string, number | null>>
 }
 
 export interface AgentEditResult {
@@ -547,6 +549,18 @@ export async function joinAgentSession(
 }
 
 /**
+ * The files the ops add that the writer does not own, or may not download.
+ * Only own uploads may be added to a page; the session withholds these unless
+ * the page holds them already.
+ */
+async function filesNotOwnedBy(deps: RouterDeps, carrier: WriteCarrier, actor: AgentActor, ops: AgentOps): Promise<string[]> {
+  const added = [...new Set(Object.values(ops.files ?? {}).flatMap(change => change?.add ?? []))]
+  if (added.length === 0) return []
+  const owners = await deps.fetchFileOwners(carrierAuthHeaders(carrier), added)
+  return added.filter(uuid => owners[uuid] !== actor.uid)
+}
+
+/**
  * Routes one edit: authorize → validate → join/start → apply.
  *
  * ## The session outlives the call
@@ -602,10 +616,11 @@ export async function routeAgentEdit(
     }
   }
 
+  const foreignFiles = await filesNotOwnedBy(deps, carrier, actor, ops)
   const session = held?.session ?? await startAgentSession(deps, key, nid, actor)
   // One revision, one author: whoever wrote here before checks their work in
   // under their own name before this session's ops join it in the document.
   await claimAgentWrites(key)
-  const applied = await session.apply(ops)
+  const applied = await session.apply(ops, foreignFiles)
   return { nid, entry: session.entry, observers: session.humanPeers(), applied }
 }

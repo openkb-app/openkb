@@ -1,6 +1,7 @@
 import { createError } from 'h3'
-import { changePageFiles, embeddedFiles, liveFileLists, setFileHidden, type PageFileChange } from '#shared/utils/page-files'
+import { changePageFiles, embeddedFiles, liveFileLists, PAGE_FILE_KEYS, setFileHidden, type PageFileChange } from '#shared/utils/page-files'
 import type { PageFileKey } from '#shared/utils/files'
+import { filesBaseline } from './commit-files'
 import * as Y from 'yjs'
 import { removeAwarenessStates } from 'y-protocols/awareness'
 import { initProseMirrorDoc, updateYFragment } from '@tiptap/y-tiptap'
@@ -674,6 +675,39 @@ export function refuseUnlistedFileNames(doc: Y.Doc, files: Partial<Record<PageFi
   }
 }
 
+/**
+ * Takes the files of `foreign` that the page does not hold off the adds, with
+ * their names: only own uploads may be added to a page. The page holds a file
+ * on its live lists or in the last checkpoint's.
+ */
+export function withholdForeignFiles(
+  doc: Y.Doc,
+  files: Partial<Record<PageFileKey, PageFileChange>>,
+  foreign: string[],
+): { files: Partial<Record<PageFileKey, PageFileChange>>, notAccepted: NotAcceptedFile[] } {
+  const baseline = filesBaseline(doc)
+  const live = liveFileLists(doc)
+  const held = new Set(PAGE_FILE_KEYS.flatMap(key => [...live[key], ...baseline?.[key] ?? []]))
+  const withheld = new Set(foreign.filter(uuid => !held.has(uuid)))
+  const notAccepted: NotAcceptedFile[] = []
+  const kept: Partial<Record<PageFileKey, PageFileChange>> = {}
+  for (const [key, change] of Object.entries(files) as Array<[PageFileKey, PageFileChange]>) {
+    for (const uuid of change.add ?? []) {
+      if (withheld.has(uuid)) notAccepted.push({ list: key, file: uuid })
+    }
+    const keptChange: PageFileChange = { ...change }
+    if (change.add) {
+      keptChange.add = change.add.filter(uuid => !withheld.has(uuid))
+    }
+    if (change.names) {
+      const keptNames = Object.entries(change.names).filter(([uuid]) => !withheld.has(uuid))
+      keptChange.names = Object.fromEntries(keptNames)
+    }
+    kept[key] = keptChange
+  }
+  return { files: kept, notAccepted }
+}
+
 /** What an agent asks a session to apply. Every lane is optional. */
 export interface AgentOps {
   /** Frontmatter keys (plus `title`) → new values. */
@@ -706,6 +740,14 @@ export interface AgentOpsResult {
   removed: string[]
   /** The thread the message landed in, and the message's own id. */
   comment?: { threadId: string, msgId: string }
+  /** Added files the writer did not upload and the page does not hold: not added. */
+  notAccepted?: NotAcceptedFile[]
+}
+
+/** An added file the session did not add. */
+export interface NotAcceptedFile {
+  list: PageFileKey
+  file: string
 }
 
 /**
@@ -768,8 +810,11 @@ export interface AgentSession {
   actor: AgentActor
   /** Browser peers currently connected (the agent itself is not one). */
   humanPeers: () => number
-  /** Apply ops in one tagged transaction; a 409 once the session has left. */
-  apply: (ops: AgentOps) => Promise<AgentOpsResult>
+  /**
+   * Apply ops in one tagged transaction; a 409 once the session has left.
+   * `foreignFiles`: added files the writer does not own, see {@link withholdForeignFiles}.
+   */
+  apply: (ops: AgentOps, foreignFiles?: string[]) => Promise<AgentOpsResult>
   /** Drop the "editing" claim on the blocks last written; presence stays. */
   releaseClaim: () => void
   /** Withdraw presence and close the direct connection. */
@@ -872,7 +917,7 @@ export async function openAgentSession(
      * @throws {StaleBlockError}
      *   When a block moved since the version an op expects. Nothing is written.
      */
-    async apply(ops: AgentOps): Promise<AgentOpsResult> {
+    async apply(ops: AgentOps, foreignFiles: string[] = []): Promise<AgentOpsResult> {
       const body = ops.body !== undefined ? await parseMarkdownToJson(ops.body) : undefined
       const parsed = await Promise.all((ops.blocks ?? []).map(op => parseMarkdownToJson(op.markdown)))
       const result: AgentOpsResult = { fields: [], body: false, blocks: {}, unchanged: [], removed: [] }
@@ -885,10 +930,15 @@ export async function openAgentSession(
           // Before anything in this transaction is written: a stale write must
           // leave the document exactly as it found it, fields included.
           if (segments) refuseStaleBlocks(segments, ops.blocks ?? [])
-          if (ops.files) refuseUnlistedFileNames(document, ops.files)
+          const noFiles = { files: {}, notAccepted: [] }
+          const files = ops.files ? withholdForeignFiles(document, ops.files, foreignFiles) : noFiles
+          if (files.notAccepted.length > 0) {
+            result.notAccepted = files.notAccepted
+          }
+          refuseUnlistedFileNames(document, files.files)
           const embedded = embeddedFiles(document)
           if (ops.fields) result.fields = applyFieldValues(document, ops.fields)
-          for (const [key, change] of Object.entries(ops.files ?? {}) as Array<[PageFileKey, PageFileChange]>) {
+          for (const [key, change] of Object.entries(files.files) as Array<[PageFileKey, PageFileChange]>) {
             if (changePageFiles(document, key, change)) result.fields.push(key)
           }
           if (body) {

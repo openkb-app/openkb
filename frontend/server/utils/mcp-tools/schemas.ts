@@ -159,6 +159,24 @@ export const WRITE_OUTPUT_SCHEMA: JsonSchema = {
       additionalProperties: { type: 'array', items: { type: 'string' } },
       description: 'Per-field messages on a validation refusal. Nothing was written.',
     },
+    notAccepted: {
+      type: 'array',
+      description:
+        'Files you added that you did not upload and the page does not hold: '
+        + 'they were not added; the rest of the call was. Only files you uploaded '
+        + 'yourself may be added to a page. Upload the file yourself with '
+        + 'tool_api__file_upload_url or tool_api__upload_attachment, then add '
+        + 'the UUID that upload answers.',
+      items: {
+        type: 'object',
+        properties: {
+          list: { type: 'string', enum: ['attachments', 'images'] },
+          file: { type: 'string', description: 'The file UUID.' },
+        },
+        required: ['list', 'file'],
+        additionalProperties: false,
+      },
+    },
     conflicts: {
       type: 'array',
       description:

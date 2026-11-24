@@ -3892,7 +3892,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "e00b4f69fb4a62c65807427adba86550e45f4353"
+                "reference": "79a742d2c3c04daef9cb8c47bc83d9b74cb3c817"
             },
             "require": {
                 "drupal/ai": "^1.5.3",
@@ -3964,7 +3964,7 @@
                         "OKB-506: Pass a tool's description to its MCP definition as Markup, so the @text placeholder does not HTML-escape the quotes and angle brackets an agent reads in tools/list. Against 1.0.0-beta5. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-plain-text-tool-descriptions.patch"
                     },
                     "drupal/tool_belt": {
-                        "OKB-615: Add tool_belt_file: a single-use upload URL an agent sends a local file to with curl, so the bytes never pass through the tool call. MR !82 of https://www.drupal.org/project/tool_belt/issues/3616238 without its phpstan.neon and cspell hunks. Against 1.0.0-alpha7.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/tool_belt-file-upload-url.patch"
+                        "OKB-615: Add tool_belt_file: a single-use upload URL an agent sends a local file to with curl, so the bytes never pass through the tool call. MR !82 of https://git.drupalcode.org/project/tool_belt/-/work_items/3616238 without its phpstan.neon and cspell hunks. Against 1.0.0-alpha7.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/tool_belt-file-upload-url.patch"
                     }
                 }
             },
@@ -3976,7 +3976,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-24T21:56:03+00:00"
+            "time": "2026-11-24T22:08:20+00:00"
         },
         {
             "name": "drupal/pathauto",

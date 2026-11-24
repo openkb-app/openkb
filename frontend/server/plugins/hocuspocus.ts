@@ -12,6 +12,7 @@ import { drupalGateDeps, validateFieldValues, type RouterDeps } from '../utils/s
 import { closeAgentSessions } from '../utils/agent-sessions'
 import { dirtyFieldKeys, fieldsCommitHooks } from '../utils/commit-fields'
 import { ceFileLists, filesCommitHooks, hasNewFile } from '../utils/commit-files'
+import { fetchFileOwnerUids } from '../utils/files'
 import { fileArray, PAGE_FILE_KEYS, type PageFileLists } from '#shared/utils/page-files'
 import { blockIdCommitHooks } from '../utils/commit-block-ids'
 import { seedBlockMeta, seedFromDrupal, type SeedDeps, type SeedOutcome } from '../utils/doc-seed'
@@ -1254,6 +1255,7 @@ export default defineNitroPlugin((nitroApp) => {
     validateValues: validateFieldValues,
     fetchBody: fetchDrupalBody,
     checkpoint,
+    fetchFileOwners: fetchFileOwnerUids,
   }
 
   // Settle path (OKB-97): the delete route stands this server down for one

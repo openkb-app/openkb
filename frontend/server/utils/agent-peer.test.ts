@@ -25,6 +25,7 @@ import {
   refuseStaleBlocks,
   StaleBlockError,
   validateFieldOps,
+  withholdForeignFiles,
   type AgentActor,
   type BlockOp,
   type AgentPeerHost,
@@ -34,7 +35,8 @@ import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
 import type { FieldSpec } from './entity-fields'
 import type { ProseMirrorJSON } from './commit'
 import { readBlockMeta } from '#shared/page-blocks'
-import { liveFileLists, liveFileNames, liveHiddenFiles, setFileHidden } from '#shared/utils/page-files'
+import { liveFileLists, liveFileNames, liveHiddenFiles, setFileHidden, setPageFiles } from '#shared/utils/page-files'
+import { seedFiles } from './commit-files'
 import { readThreads } from '#shared/block-comments'
 import { collabColor } from '#shared/utils/presence'
 
@@ -155,6 +157,32 @@ describe('applyFieldValues', () => {
     doc.getMap('fields').set('title', 'Kept')
     applyFieldValues(doc, { summary: 'set' })
     expect(doc.getMap('fields').get('title')).toBe('Kept')
+  })
+})
+
+describe('withholdForeignFiles', () => {
+  const OWN = '11111111-2222-4333-8444-000000000001'
+  const FOREIGN = '11111111-2222-4333-8444-000000000002'
+  const LISTED = '11111111-2222-4333-8444-000000000003'
+  const CHECKPOINTED = '11111111-2222-4333-8444-000000000004'
+
+  it('withholds a foreign file the page does not hold, with its name, and keeps the rest', () => {
+    const doc = new Y.Doc()
+    seedFiles(doc, { attachments: [CHECKPOINTED], images: [] })
+    // Taken off the live list since the last checkpoint: the page still holds it.
+    setPageFiles(doc, 'attachments', [])
+    setPageFiles(doc, 'images', [LISTED])
+
+    const { files, notAccepted } = withholdForeignFiles(doc, {
+      attachments: { add: [OWN, FOREIGN, CHECKPOINTED], names: { [OWN]: 'Own', [FOREIGN]: 'Foreign' } },
+      images: { add: [LISTED], remove: [] },
+    }, [FOREIGN, LISTED, CHECKPOINTED])
+
+    expect(notAccepted).toEqual([{ list: 'attachments', file: FOREIGN }])
+    expect(files).toEqual({
+      attachments: { add: [OWN, CHECKPOINTED], names: { [OWN]: 'Own' } },
+      images: { add: [LISTED], remove: [] },
+    })
   })
 })
 
