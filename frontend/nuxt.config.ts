@@ -54,6 +54,7 @@ export default defineNuxtConfig({
   // declares both faces itself, so there is no font package and no CDN.
   css: [
     '~/assets/css/main.css',
+    '~/assets/css/print.css',
   ],
 
   // `@nuxt/fonts` (a Nuxt UI dependency) auto-provisions every family it finds

@@ -368,6 +368,19 @@ const cardEnforcedSteps = computed<readonly ReviewStep[] | null>(() => {
 const { wide } = useSidePane()
 
 useChatCommentHandler(session, myUid)
+
+// Print rules that need the page's data, as CSS strings (quotes, backslashes
+// and `<` escaped):
+// - the title in the top margin, where the browser prints margin boxes;
+// - no address after a link to this site, which is internal too.
+const o = cssString(useRequestURL().origin)
+useHead(() => ({
+  style: [{
+    key: 'okb-print-title',
+    innerHTML: `@page { @top-center { content: "${cssString(props.title ?? '')}"; font: 8pt 'Manrope Variable', sans-serif; color: #6b7280; } }`
+      + ` @media print { .okb-prose :is(a[href="${o}"], a[href^="${o}/"])::after { content: none !important } }`,
+  }],
+}))
 </script>
 
 <template>
@@ -543,6 +556,11 @@ useChatCommentHandler(session, myUid)
           >
             {{ title }}
           </h1>
+          <ViewPagePrintMeta
+            :space-name="pageSpace?.name"
+            :changed="changed"
+            :draft="!!moderationStatus && !moderationStatus.hasPublishedRevision"
+          />
 
           <NodeRevisionNotice v-if="revision" :revision="revision" />
 

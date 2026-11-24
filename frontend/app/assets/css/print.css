@@ -1,0 +1,189 @@
+/* Print: the page content alone, on A4, in the light scheme
+   (plugins/print-light.client.ts drops `.dark` for the print).
+
+   Two parts: the app chrome that never prints, then the content's own rules,
+   which only name content classes so an exported page can reuse them. */
+
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm;
+
+  /* Margin boxes print where the browser supports them; nothing depends on
+     them. The page title's box is added by the read page (NodeKbPage.vue). */
+  @bottom-right {
+    content: counter(page) ' / ' counter(pages);
+    font: 8pt 'Manrope Variable', sans-serif;
+    color: #6b7280;
+  }
+}
+
+@media print {
+  /* --- App chrome --------------------------------------------------------- */
+
+  /* Toasts, dialogs and popovers are teleported outside the app root. */
+  body > :not(#__nuxt) {
+    display: none !important;
+  }
+
+  /* Keep only the path down to the page's `<main>`; every box on it lets the
+     content flow over pages instead of scrolling inside a fixed viewport. */
+  #__nuxt :has(#main-content) {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+  }
+  #__nuxt :has(#main-content) > :not(:has(#main-content), #main-content) {
+    display: none !important;
+  }
+
+  /* Read-page tools around the text. Other routes print their main content. */
+  #main-content:has(article) > :not(:has(article)),
+  #main-content article > :not(h1, p, .okb-print-meta, .page-body, [data-test='page-attachments']),
+  .okb-block-margin,
+  .okb-block-link {
+    display: none !important;
+  }
+
+  /* Editor marks, when printed from edit mode. */
+  .inplace-editor :is(.okb-comment-badge, .okb-comment-start, .okb-review-pills, .okb-margin-gap, .collaboration-carets__caret, .collaboration-carets__label, [data-testid='block-gutter']) {
+    display: none !important;
+  }
+  .inplace-editor .okb-comment-range {
+    background: none !important;
+    border: 0 !important;
+  }
+
+  #main-content > div {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* --- Content ------------------------------------------------------------ */
+
+  html {
+    /* Every rem in the content scales from here. */
+    font-size: 10.5pt;
+    background: #fff !important;
+    color-scheme: light;
+  }
+  body {
+    background: #fff !important;
+    color: #000;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .okb-page-title {
+    font-size: 20pt !important;
+    margin-bottom: 4pt !important;
+  }
+  .okb-print-meta {
+    display: block !important;
+    margin: 0 0 14pt;
+    font-size: 9pt;
+    color: #4b5563;
+  }
+
+  .page-body {
+    max-width: none !important;
+  }
+
+  /* Interactive state never prints: the target outline, hover boards. */
+  .page-body [id^='b-'] {
+    outline: none !important;
+    background-image: none !important;
+  }
+
+  /* Page breaks: a block that fits on one page stays whole; a heading stays
+     with what follows it. */
+  .okb-prose :is(p, li, blockquote, pre, figure, img, tr, [data-test='callout'], [data-test='infobox'], [data-test^='embed-'], [data-test='attachment-card']) {
+    break-inside: avoid;
+  }
+  .okb-prose :is(h1, h2, h3, h4, h5, h6) {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  .okb-prose p {
+    orphans: 3;
+    widows: 3;
+  }
+  .okb-prose thead {
+    display: table-header-group;
+  }
+  .okb-prose table {
+    /* Rows may break across pages; the header repeats. */
+    break-inside: auto;
+  }
+  /* Columns sized by their content, so a cell wraps between words.
+     - The cap makes a word longer than a third of the paper break inside the
+       cell instead of running off the paper.
+     - Compact cells leave room for ten columns. */
+  .okb-prose table {
+    table-layout: auto !important;
+  }
+  .okb-prose :is(th, td) {
+    max-width: 60mm;
+    padding: 3pt 5pt !important;
+    font-size: 8.5pt !important;
+    line-height: 1.35 !important;
+    overflow-wrap: break-word;
+  }
+
+  /* Links: the text, and an external link's address after it. */
+  .okb-prose a {
+    color: inherit !important;
+    border: 0 !important;
+    text-decoration: underline;
+    text-decoration-color: #9ca3af;
+  }
+  /* A page file's link is not an address the reader types; its name says it. */
+  .okb-prose a[href^='http']:not([data-lightbox], [download], [data-test='attachment-link'], [data-test='attachment-card'] a)::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    font-weight: normal;
+    color: #4b5563;
+    word-break: break-all;
+  }
+
+  /* Code: wrapped so nothing is cut at the paper's edge, no copy button. */
+  .okb-code {
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    word-break: break-word;
+  }
+  .okb-code-tools {
+    display: none !important;
+  }
+
+  /* Diagrams: the drawing, no source toggle. */
+  .okb-fence-toggle {
+    display: none !important;
+  }
+
+  /* Images: scaled to the paper, never split. */
+  .okb-prose img {
+    max-height: 230mm;
+    object-fit: contain;
+  }
+
+  /* An embed's frame does not print its document; the card names the file. */
+  [data-test^='embed-'] iframe {
+    display: none !important;
+  }
+
+  /* File cards: the file name, no download control. */
+  [data-test='attachment-download'],
+  [data-test='embed-open'],
+  [data-test^='embed-'] a[download] {
+    display: none !important;
+  }
+  [data-test='attachment-card'] a {
+    white-space: normal !important;
+  }
+}

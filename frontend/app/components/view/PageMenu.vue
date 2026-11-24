@@ -5,9 +5,9 @@ import type { DropdownMenuItem } from '@nuxt/ui'
  * The page's own action menu — actions about the page rather than about its
  * text. One menu holds them all, so the navbar never grows a second kebab.
  *
- * Read and edit mode offer the same entries. Only Revert unsaved changes acts
- * on a live editing session and is edit-only; every other entry is gated on
- * its own signal, so the menu does not change shape with the mode.
+ * Read and edit mode offer the same entries, but two: Revert unsaved changes
+ * acts on a live editing session and is edit-only, Print / Save as PDF prints
+ * the read view and is read-only. Every other entry is gated on its own signal.
  *
  * Move and Delete carry separate signals because they are separate Drupal
  * permissions: under editorial moderation an editor who may update a page
@@ -87,6 +87,13 @@ const items = computed<DropdownMenuItem[][]>(() => {
       icon: 'i-lucide-file-code-2',
       to: props.markdownHref,
       target: '_blank',
+    })
+  }
+  if (!props.edit) {
+    docGroup.push({
+      label: 'Print / Save as PDF',
+      icon: 'i-lucide-printer',
+      onSelect: () => window.print(),
     })
   }
   groups.push(docGroup)
