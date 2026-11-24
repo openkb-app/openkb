@@ -19,6 +19,9 @@ export interface PeerIdentity {
   /** Agent client's label — "Claude". Null for the human themselves.
    *  One label per client: `waitForChanges` identifies a writer by it. */
   via: string | null
+  /** Agent client's UUID; null for the human themselves. The review sidecar
+   *  keys a contribution on it. */
+  agent?: string | null
 }
 
 /** A hocuspocus document, as a publisher sees it. */

@@ -122,6 +122,7 @@ export interface AgentIdentity {
   uid: number
   name: string
   via: string | null
+  agent: string | null
   scopes: string[]
 }
 
@@ -243,7 +244,7 @@ export async function authenticateWriter(
     )
   }
 
-  return { token: carrier.token, uid: identity.uid, name: identity.name, via: identity.via }
+  return { token: carrier.token, uid: identity.uid, name: identity.name, via: identity.via, agent: identity.agent }
 }
 
 /**
@@ -292,6 +293,7 @@ export function drupalGateDeps(): GateDeps {
         uid: Number(identity.uid) || 0,
         name: identity.name ?? '',
         via: identity.via ?? null,
+        agent: identity.agent ?? null,
         scopes: Array.isArray(identity.scopes) ? identity.scopes : [],
       }
     },

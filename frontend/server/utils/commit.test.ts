@@ -556,7 +556,7 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
       collabWrite: {
         actingUid: 7,
         coAuthors: [{ name: 'fago', via: 'Claude' }],
-        blocks: { 'b-1': [{ uid: 7, via: 'Claude' }] },
+        blocks: { 'b-1': [{ uid: 7, agent: 'c1a0de00-0000-4000-8000-000000000001' }] },
         actions: [],
       },
     })
@@ -590,13 +590,13 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
       collabWrite: {
         actingUid: 7,
         coAuthors: [{ name: 'ada', via: null }, { name: 'fago', via: null }],
-        blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] },
+        blocks: { 'b-1': [{ uid: 7, agent: null }, { uid: 3, agent: null }] },
       },
     })
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab' }, 1, expect.any(String), expect.objectContaining({
         attributes: { revision_log: 'OpenKB commit (quiet) — ada, fago' },
-        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] } },
+        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, agent: null }, { uid: 3, agent: null }] } },
       }))
   })
 
@@ -624,14 +624,14 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
       collabWrite: {
         actingUid: 7,
         coAuthors: [{ name: 'ada', via: null }, { name: 'fago', via: null }],
-        blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] },
+        blocks: { 'b-1': [{ uid: 7, agent: null }, { uid: 3, agent: null }] },
       },
     })
     expect(commitMock).toHaveBeenCalledTimes(1)
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab-token' }, 1, expect.any(String), expect.objectContaining({
         attributes: expect.not.objectContaining({ moderation_state: expect.anything() }),
-        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }, { uid: 3, via: null }] } },
+        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, agent: null }, { uid: 3, agent: null }] } },
       }))
   })
 
@@ -642,13 +642,13 @@ describe('commitDocument pipeline seams (no-op pass-through)', () => {
       collabWrite: {
         actingUid: 7,
         coAuthors: [{ name: 'admin', via: null }],
-        blocks: { 'b-1': [{ uid: 7, via: null }] },
+        blocks: { 'b-1': [{ uid: 7, agent: null }] },
       },
     })
     expect(commitMock).toHaveBeenCalledWith(
       { Authorization: 'Bearer collab' }, 1, expect.any(String), expect.objectContaining({
         attributes: { revision_log: 'OpenKB commit (quiet)' },
-        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, via: null }] } },
+        collabWrite: { acting_uid: 7, blocks: { 'b-1': [{ uid: 7, agent: null }] } },
       }))
   })
 

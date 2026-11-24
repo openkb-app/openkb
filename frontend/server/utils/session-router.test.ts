@@ -28,7 +28,7 @@ const SPECS: FieldSpec[] = [
   { key: 'tags', name: 'field_tags', multiple: true, reference: true, entityType: 'taxonomy_term', bundles: ['topic'] },
 ]
 
-const AGENT: AgentIdentity = { uid: 7, name: 'fago', via: 'Claude', scopes: ['agent_read', AGENT_WRITE_SCOPE] }
+const AGENT: AgentIdentity = { uid: 7, name: 'fago', via: 'Claude', agent: 'c1a0de00-0000-4000-8000-000000000001', scopes: ['agent_read', AGENT_WRITE_SCOPE] }
 
 const COMMITTED: CommitResult = { outcome: 'committed', committed: true, changed: 200 }
 
@@ -60,7 +60,7 @@ describe('authorizeAgentSession', () => {
   it('returns the acting agent when all three checks pass', async () => {
     const deps = gate(AGENT)
     await expect(authorizeSessionWrite(deps, { token: 'tok' }, SUBJECT)).resolves.toEqual({
-      token: 'tok', uid: 7, name: 'fago', via: 'Claude',
+      token: 'tok', uid: 7, name: 'fago', via: 'Claude', agent: 'c1a0de00-0000-4000-8000-000000000001',
     })
     expect(deps.checkNodeAccess).toHaveBeenCalledWith({ Authorization: 'Bearer tok' }, 12)
   })
@@ -71,7 +71,7 @@ describe('authorizeAgentSession', () => {
   })
 
   it('rejects a *token* that carries no agent scope — no `via`', async () => {
-    const human: AgentIdentity = { uid: 3, name: 'fago', via: null, scopes: [] }
+    const human: AgentIdentity = { uid: 3, name: 'fago', via: null, agent: null, scopes: [] }
     await expect(authorizeSessionWrite(gate(human), { token: 'tok' }, SUBJECT))
       .rejects.toMatchObject({ denial: 'unauthenticated' })
   })
@@ -314,8 +314,8 @@ describe('routeAgentEdit', () => {
     // signed is therefore handed over: the second writer checks the first one's
     // work in, under the first one, before its own ops join it.
     const identities: Record<string, AgentIdentity> = {
-      'Bearer tok-a': { uid: 7, name: 'ada', via: 'Claude', scopes: [AGENT_WRITE_SCOPE] },
-      'Bearer tok-b': { uid: 9, name: 'bo', via: 'Codex', scopes: [AGENT_WRITE_SCOPE] },
+      'Bearer tok-a': { uid: 7, name: 'ada', via: 'Claude', agent: 'c1a0de00-0000-4000-8000-000000000007', scopes: [AGENT_WRITE_SCOPE] },
+      'Bearer tok-b': { uid: 9, name: 'bo', via: 'Codex', agent: 'c0dec000-0000-4000-8000-000000000009', scopes: [AGENT_WRITE_SCOPE] },
     }
     const signed: Array<{ uid?: number, summary: unknown }> = []
     deps.fetchIdentity = vi.fn(async (auth: Record<string, string>) => identities[auth.Authorization!]!)

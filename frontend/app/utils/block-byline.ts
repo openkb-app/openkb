@@ -1,4 +1,4 @@
-import { REVIEW_STEPS, type BlockByline, type Contributor, type ReviewStep } from '#shared/page-blocks'
+import { REVIEW_STEPS, UNKNOWN_USER, type BlockByline, type NamedContributor, type ReviewStep } from '#shared/page-blocks'
 import { ownedLabel } from '#shared/utils/attribution'
 
 /**
@@ -39,11 +39,11 @@ export interface BylineView {
 
 /**
  * How a contributor is named, as the presence strip names a peer: an agent by
- * its owner, the viewer's own as theirs. An actor with no captured display name
- * is "Unknown" rather than blank — the contribution it stands for is real.
+ * its owner, the viewer's own as theirs. An account that is gone is "Unknown"
+ * rather than blank — the contribution it stands for is real.
  */
-export function contributorName(contributor: Contributor, viewerUid: number | null = null): string {
-  const name = contributor.name?.trim() || 'Unknown'
+export function contributorName(contributor: NamedContributor, viewerUid: number | null = null): string {
+  const name = contributor.name?.trim() || UNKNOWN_USER
   return ownedLabel({ uid: contributor.uid, name, via: contributor.via }, viewerUid)
 }
 
@@ -104,9 +104,9 @@ export function bylineView(
       continue
     }
     const signed = byline.review[step]!
-    steps.push({ step, state, label: `Reviewed by ${signed.name?.trim() || 'Unknown'} on ${signedOn(signed.at)}` })
+    steps.push({ step, state, label: `Reviewed by ${signed.name?.trim() || UNKNOWN_USER} on ${signedOn(signed.at)}` })
   }
-  return { contributors, steps, agentAuthored: byline.contributors.some(c => !!c.via) }
+  return { contributors, steps, agentAuthored: byline.contributors.some(c => !!c.agent) }
 }
 
 /**

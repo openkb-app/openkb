@@ -19,9 +19,11 @@ import { serializeCommitJSON, type ProseMirrorJSON } from './commit'
 import { parseMarkdownToDoc } from '../../app/comark/markdown-engine'
 import { fetchModerationStatus } from './moderation'
 import {
+  blockByline,
   contributorsSince,
   parseBlockMeta,
   TITLE_REVIEW_KEY,
+  type ActorNames,
   type PageBlock,
   type ReviewStep,
 } from '#shared/page-blocks'
@@ -184,7 +186,7 @@ export async function getKbPage(
       page.title,
       page.body,
       mapCeFieldValues(specs, props),
-      await pageStatus(event, options, found, page.blockMeta),
+      await pageStatus(event, options, found, page),
       undefined,
       parent,
     )
@@ -207,7 +209,7 @@ export async function getKbPage(
     draft.page.title,
     live?.body ?? draft.page.body,
     live ? { ...values, ...live.fields } : values,
-    await pageStatus(event, options, found, draft.page.blockMeta, draft.page.blockMeta),
+    await pageStatus(event, options, found, draft.page, draft.page),
     await pageComments(options, page.nid),
     parent,
   )
@@ -263,31 +265,31 @@ async function pageStatus(
   event: H3Event,
   options: KbPageOptions,
   read: CePageRead,
-  blockMeta: string,
+  sidecar: PageSidecar,
   /** The working copy's sidecar, where the caller already read it. */
-  workingCopyBlockMeta?: string,
+  workingCopySidecar?: PageSidecar,
 ): Promise<PageStatus | undefined> {
   const nid = read.page.nid
   if (!options.withStatus || !read.canEdit) return undefined
 
   const auth = forwardedAuthHeaders(event)
   let moderation: ModerationStatus
-  let workingCopy = workingCopyBlockMeta ?? blockMeta
+  let workingCopy = workingCopySidecar ?? sidecar
   try {
     moderation = await fetchModerationStatus(auth, nid)
     // Without a forward draft the working copy IS the revision just read.
-    if (workingCopyBlockMeta === undefined && moderation.hasUnpublishedChanges) {
-      workingCopy = (await fetchCeWorkingCopy(auth, nid, read)).page.blockMeta
+    if (workingCopySidecar === undefined && moderation.hasUnpublishedChanges) {
+      workingCopy = (await fetchCeWorkingCopy(auth, nid, read)).page
     }
   }
   catch {
     return undefined
   }
 
-  const meta = parseBlockMeta(workingCopy)
+  const meta = parseBlockMeta(workingCopy.blockMeta)
   const owed = awaitingReview(meta, moderation)
   const pending = Object.entries(owed).flatMap(([id, steps]) =>
-    steps.map(step => pendingItem(id, meta[id], step)))
+    steps.map(step => pendingItem(id, meta[id], step, workingCopy.blockMetaNames)))
 
   return {
     draft_exists: moderation.hasUnpublishedChanges,
@@ -297,18 +299,24 @@ async function pageStatus(
   }
 }
 
+/** A page's stored sidecar and the current names it refers to. */
+interface PageSidecar {
+  blockMeta: string
+  blockMetaNames: ActorNames
+}
+
 /**
  * One owed step, with the writers it waits on named from the contributors.
  * The agent step waits on what was written through an agent, so it names only
  * those contributions.
  */
-function pendingItem(id: string, block: PageBlock | undefined, step: ReviewStep): PendingItem {
+function pendingItem(id: string, block: PageBlock | undefined, step: ReviewStep, names: ActorNames): PendingItem {
   const change = id === TITLE_REVIEW_KEY
     ? 'renamed'
     : block?.deleted ? 'removed' : block?.added ? 'added' : block?.moved ? 'moved' : 'changed'
   // A uid can be credited twice: in person and through an agent.
   const by = contributorsSince(block, step).flatMap((uid) => {
-    const credited = (block?.contributors ?? []).filter(c => c.uid === uid && (step !== 'agent' || c.via))
+    const credited = blockByline(block, names).contributors.filter(c => c.uid === uid && (step !== 'agent' || c.agent))
     return credited.length === 0
       ? [{ uid }]
       : credited.map(c => ({ uid, ...(c.name ? { name: c.name } : {}), ...(c.via ? { via: c.via } : {}) }))

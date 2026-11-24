@@ -1,3 +1,4 @@
+import type { ActorNames } from '#shared/page-blocks'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import { fieldSpecs } from './entity-fields'
@@ -81,6 +82,7 @@ const CE_PAGE = {
     body: 'Body text. {#b-1}',
     changed: 1782000000,
     blockMeta: '',
+    blockMetaNames: { users: {}, agents: {} } as ActorNames,
     space: null,
   },
   props: {
@@ -93,6 +95,11 @@ const CE_PAGE = {
 }
 
 /** What {@link fetchCeWorkingCopy} answers: one CE read, either revision. */
+/** A sidecar as Drupal stores it. */
+function storedSidecar(blocks: Record<string, unknown>): string {
+  return JSON.stringify({ v: 1, blocks })
+}
+
 function workingCopy(
   page: Partial<typeof CE_PAGE.page> = {},
   props: Record<string, unknown> = {},
@@ -287,7 +294,7 @@ describe('getKbPage status', () => {
   }
 
   /** Two blocks awaiting a peer sign-off, one already signed off. */
-  const PENDING_META = JSON.stringify({
+  const PENDING_META = storedSidecar({
     'b-1': { 'pending:peer': { by: [3], ok: [] } },
     'b-2': { 'pending:peer': { by: [3], ok: [] } },
     'b-3': { 'review:peer': { uid: 4, at: 1782000000 } },
@@ -342,7 +349,7 @@ describe('getKbPage status', () => {
   it('lists a change no writer was witnessed for, whatever steps the space enforces', async () => {
     // What Drupal's gate refuses on in every space, and what the editor marks.
     fetchCeWorkingCopy.mockResolvedValue(workingCopy({
-      blockMeta: JSON.stringify({ 'b-1': { 'pending:peer': { by: [], ok: [] } } }),
+      blockMeta: storedSidecar({ 'b-1': { 'pending:peer': { by: [], ok: [] } } }),
     }))
     fetchModerationStatus.mockResolvedValue({ ...MODERATED, reviewSteps: ['agent'] })
 
@@ -361,7 +368,7 @@ describe('getKbPage status', () => {
 
   it('names an added block as added', async () => {
     fetchCeWorkingCopy.mockResolvedValue(workingCopy({
-      blockMeta: JSON.stringify({ 'b-1': { 'added': true, 'pending:peer': { by: [3], ok: [] } } }),
+      blockMeta: storedSidecar({ 'b-1': { 'added': true, 'pending:peer': { by: [3], ok: [] } } }),
     }))
     fetchModerationStatus.mockResolvedValue(MODERATED)
 
@@ -375,17 +382,18 @@ describe('getKbPage status', () => {
 
   it('names each writer a step waits on, and what kind of change it is', async () => {
     fetchCeWorkingCopy.mockResolvedValue(workingCopy({
-      blockMeta: JSON.stringify({
+      blockMeta: storedSidecar({
         'b-1': {
           'contributors': [
-            { uid: 3, via: null, name: 'editor1', lastEdit: 1 },
-            { uid: 3, via: 'Claude', name: 'editor1', lastEdit: 2 },
+            { uid: 3, agent: null, lastEdit: 1 },
+            { uid: 3, agent: 'c1a0de00-0000-4000-8000-000000000001', lastEdit: 2 },
           ],
           'deleted': true,
           'pending:agent': { by: [3], ok: [] },
         },
         'field:title': { 'pending:peer': { by: [4], ok: [] } },
       }),
+      blockMetaNames: { users: { 3: 'editor1' }, agents: { ['c1a0de00-0000-4000-8000-000000000001']: 'Claude' } },
     }))
     fetchModerationStatus.mockResolvedValue(MODERATED)
 
@@ -447,7 +455,7 @@ describe('getKbPage status', () => {
 
   it('reports a draft whose blocks are all signed off as ready to publish', async () => {
     fetchCeWorkingCopy.mockResolvedValue(workingCopy({
-      blockMeta: JSON.stringify({ 'b-1': { 'review:peer': { uid: 4, at: 1782000000 } } }),
+      blockMeta: storedSidecar({ 'b-1': { 'review:peer': { uid: 4, at: 1782000000 } } }),
     }))
     fetchModerationStatus.mockResolvedValue(MODERATED)
 

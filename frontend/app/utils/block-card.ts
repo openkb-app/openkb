@@ -1,4 +1,4 @@
-import { REVIEW_STEPS, type Approval, type BlockByline, type ReviewStep } from '#shared/page-blocks'
+import { REVIEW_STEPS, UNKNOWN_USER, type BlockByline, type NamedApproval, type ReviewStep } from '#shared/page-blocks'
 import { contributorName, signedOn, stepStateOf, type StepState } from './block-byline'
 
 /**
@@ -41,11 +41,13 @@ const STEP_TITLE: Record<ReviewStep, string> = {
   agent: 'Agent review',
 }
 
-function signedBy(approval: Approval): string {
-  return `${approval.name?.trim() || 'Unknown'} on ${signedOn(approval.at)}`
+/** Who signed a step off and when, as the card's detail line reads; a reviewer that is gone reads "Unknown". */
+function signedBy(approval: NamedApproval): string {
+  return `${approval.name?.trim() || UNKNOWN_USER} on ${signedOn(approval.at)}`
 }
 
-function detailFor(state: StepState, approval: Approval | undefined): string {
+/** The detail line under a step's title: what it waits on, or who signed it off. */
+function detailFor(state: StepState, approval: NamedApproval | undefined): string {
   if (state === 'awaiting') return 'Awaiting sign-off — publishing waits for it'
   return approval ? `Signed off by ${signedBy(approval)}` : 'Signed off'
 }

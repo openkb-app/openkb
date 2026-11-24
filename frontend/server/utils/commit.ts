@@ -99,11 +99,12 @@ export interface CollabWrite {
    *  Measured over the same window as {@link blocks}, so the names and the text
    *  are one statement taken at one instant. */
   coAuthors: CoAuthor[]
-  /** Block id => its writer set `[{uid, via}]` — membership only, for the window
-   *  this write carries (ADR 0002). `via` raises the agent step; no amounts are
-   *  carried. Exhaustive: every block the session changed is named, so a
-   *  changed block missing from it is text this write cannot account for. */
-  blocks: Record<string, Array<{ uid: number, via: string | null }>>
+  /** Block id => its writer set `[{uid, agent}]` — membership only, for the
+   *  window this write carries (ADR 0002). `agent`, the agent client's UUID,
+   *  raises the agent step; no amounts are carried. Exhaustive: every block the
+   *  session changed is named, so a changed block missing from it is text this
+   *  write cannot account for. */
+  blocks: Record<string, Array<{ uid: number, agent: string | null }>>
   /** The sign-offs peers made during this window, each under the uid of the
    *  connection it arrived on. Drupal decides what each one may record and
    *  answers per action; a refusal never refuses the commit. */

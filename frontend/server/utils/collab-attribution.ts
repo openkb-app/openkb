@@ -10,8 +10,8 @@ import type { CoAuthor } from './commit'
  * connection knows whose keystrokes it carries; no client says. A pass at each
  * writer boundary diffs content prints and adds the writer to each changed
  * block's set. The set is monotone within a block's open episode: re-adding a
- * writer is a no-op, agents are members like anyone else and carry their `via`
- * label, and the human who reworks an agent's block is added while the agent
+ * writer is a no-op, agents are members like anyone else and carry their
+ * `agent` client, and the human who reworks an agent's block is added while the agent
  * stays — so the agent step holds through the rework.
  *
  * A checkpoint states the whole set per changed block, and Drupal unions it in
@@ -25,19 +25,44 @@ import type { CoAuthor } from './commit'
 export interface AttributionPeer {
   uid: number
   name?: string
-  /** Agent client's label. Non-null marks an agent writer ("fago via Claude"). */
+  /** Agent client's UUID. Non-null marks an agent writer. */
+  agent?: string | null
+  /** Agent client's label, for display only ("fago via Claude"). */
   via?: string | null
 }
 
-/** The account and agent-label a block's writer set is keyed on. */
-export interface WriterRef {
+/** A block's writer, as the checkpoint states it to Drupal. */
+export interface StatedWriter {
   uid: number
+  /** Agent client's UUID; null for a direct write. */
+  agent: string | null
+}
+
+/** A block's writer: keyed on account and agent client, `via` for display. */
+export interface WriterRef extends StatedWriter {
   via: string | null
 }
 
 /** Stable identity of a writer — union membership is by this key. */
-export function writerKey(w: { uid: number, via?: string | null }): string {
-  return JSON.stringify([w.uid, w.via ?? null])
+export function writerKey(w: { uid: number, agent?: string | null }): string {
+  return JSON.stringify([w.uid, w.agent ?? null])
+}
+
+/** A writer as stored and stated: account and agent client only. */
+function statedWriter(w: StatedWriter): StatedWriter {
+  return { uid: w.uid, agent: w.agent ?? null }
+}
+
+/**
+ * A persisted writer back as a ledger entry, or null when it names nobody.
+ *
+ * An agent writer with a label and no client cannot raise the agent step, so it
+ * is dropped: its block lands unaccounted and waits for a sign-off (ADR 0004).
+ */
+function restoredWriter(w: Partial<WriterRef> | null | undefined): WriterRef | null {
+  if (typeof w?.uid !== 'number' || w.uid <= 0) return null
+  if (w.via && !w.agent) return null
+  return { uid: w.uid, agent: w.agent ?? null, via: w.via ?? null }
 }
 
 /** One block a writer touched, and by how much (feeds the author election). */
@@ -337,12 +362,12 @@ export interface LedgerSnapshot {
 export function ledgerSnapshot(ledger: Ledger): LedgerSnapshot {
   const sets: Record<string, WriterRef[]> = {}
   for (const [id, set] of ledger.sets) {
-    sets[id] = [...set.writers.values()].map(w => ({ uid: w.uid, via: w.via }))
+    sets[id] = [...set.writers.values()].map(w => ({ uid: w.uid, agent: w.agent, via: w.via }))
   }
   return {
     sets,
     committed: Object.fromEntries(ledger.committed),
-    fieldWriters: [...ledger.fieldWriters.values()].map(w => ({ uid: w.uid, via: w.via })),
+    fieldWriters: [...ledger.fieldWriters.values()].map(w => ({ uid: w.uid, agent: w.agent, via: w.via })),
     fileAdders: Object.fromEntries(ledger.fileAdders),
   }
 }
@@ -364,15 +389,15 @@ export function adoptSnapshot(ledger: Ledger, doc: PMNode, snap: LedgerSnapshot)
     if (!ledger.baseline.has(id) && !(id in snap.committed)) continue
     const set: BlockWriters = { writers: new Map() }
     for (const w of writers) {
-      if (typeof w?.uid === 'number' && w.uid > 0) set.writers.set(writerKey(w), { uid: w.uid, via: w.via ?? null })
+      const writer = restoredWriter(w)
+      if (writer) set.writers.set(writerKey(writer), writer)
     }
     if (set.writers.size > 0) ledger.sets.set(id, set)
   }
   ledger.fieldWriters = new Map()
   for (const w of snap.fieldWriters ?? []) {
-    if (typeof w?.uid === 'number' && w.uid > 0) {
-      ledger.fieldWriters.set(writerKey(w), { uid: w.uid, via: w.via ?? null })
-    }
+    const writer = restoredWriter(w)
+    if (writer) ledger.fieldWriters.set(writerKey(writer), writer)
   }
   ledger.fileAdders = new Map()
   for (const [uuid, uid] of Object.entries(snap.fileAdders ?? {})) {
@@ -389,7 +414,7 @@ export function adoptSnapshot(ledger: Ledger, doc: PMNode, snap: LedgerSnapshot)
  * has no writer, or nothing moved. Union semantics make the add idempotent: a
  * writer already in a block's set is unchanged, so a block reworked by several
  * passes of one peer accrues them once. Agents are seated like anyone else and
- * enter with their `via` (ADR 0003).
+ * enter with their `agent` (ADR 0003).
  */
 export function creditWriter(ledger: Ledger, doc: PMNode): { peer: AttributionPeer | null, touches: BlockTouch[] } {
   const current = blockPrints(doc, ledger.baseline)
@@ -401,14 +426,14 @@ export function creditWriter(ledger: Ledger, doc: PMNode): { peer: AttributionPe
   if (!peer || writer === null || touches.length === 0) return { peer: null, touches: [] }
 
   const key = writerKey(writer)
-  const ref: WriterRef = { uid: writer.uid, via: writer.via }
+  const ref: WriterRef = { uid: writer.uid, agent: writer.agent, via: writer.via }
   for (const { id, chars } of touches) {
     const set = ledger.sets.get(id) ?? { writers: new Map() }
     set.writers.set(key, ref)
     ledger.sets.set(id, set)
     ledger.totals.set(writer.uid, (ledger.totals.get(writer.uid) ?? 0) + chars)
   }
-  return { peer: { uid: peer.uid, name: peer.name, via: writer.via }, touches }
+  return { peer: { uid: peer.uid, name: peer.name, agent: writer.agent, via: writer.via }, touches }
 }
 
 /**
@@ -418,7 +443,7 @@ export function creditWriter(ledger: Ledger, doc: PMNode): { peer: AttributionPe
  * A client update carries `{ source: 'connection', connection }`, whose context
  * is what onAuthenticate returned — Drupal-derived, never client-declared. An
  * agent seat rides the transaction tag (`AgentOrigin.seat`), carrying the
- * account and its `via`. Anything unrecognised is nobody: guessing is how a
+ * account and its agent client. Anything unrecognised is nobody: guessing is how a
  * write ends up credited to whoever typed last.
  */
 export function writerOfOrigin(origin: unknown): WriterRef | null {
@@ -432,13 +457,13 @@ export function writerOfOrigin(origin: unknown): WriterRef | null {
   if (tagged?.agent === true) {
     const seat = tagged.seat
     return seat && Number.isFinite(seat.uid) && seat.uid > 0
-      ? { uid: seat.uid, via: seat.via ?? null }
+      ? { uid: seat.uid, agent: seat.agent ?? null, via: seat.via ?? null }
       : null
   }
   const ctx = (tagged?.source === 'connection' ? tagged.connection?.context : tagged?.context) as
     { user?: { uid?: number } } | undefined
   const uid = Number(ctx?.user?.uid)
-  return Number.isFinite(uid) && uid > 0 ? { uid, via: null } : null
+  return Number.isFinite(uid) && uid > 0 ? { uid, agent: null, via: null } : null
 }
 
 /** The socket of the client connection an update came in on, or null for any other origin. */
@@ -472,7 +497,7 @@ export function recordFileAdders(ledger: Ledger, uuids: string[], writer: Writer
  * taken back opens no episode. The set is exhaustive for those: a block Drupal
  * calls changed that no set names is writing this server never witnessed, and
  * Drupal stamps it an empty set — approvable by anyone who may review the
- * page, healed by an identified edit. The per-block statement is membership only — `{uid, via}`,
+ * page, healed by an identified edit. The per-block statement is membership only — `{uid, agent}`,
  * no amounts (ADR 0002). The character totals that elect the author live
  * per-uid on the ledger and go no further. The author is the peer with the most
  * characters this session (a human by construction), falling back to the last
@@ -485,7 +510,7 @@ export function recordFileAdders(ledger: Ledger, uuids: string[], writer: Writer
  */
 export interface SessionWindow {
   /** Review item => its writer set (membership only). */
-  blocks: Record<string, WriterRef[]>
+  blocks: Record<string, StatedWriter[]>
   /** The human this revision is filed under. */
   author: AttributionPeer | null
   /** Everyone the window carries, for the revision log — text and fields both,
@@ -529,7 +554,7 @@ function pruneStored(ledger: Ledger): void {
  * — which has the document — is the one that can tell.
  */
 export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow {
-  const blocks: Record<string, WriterRef[]> = {}
+  const blocks: Record<string, StatedWriter[]> = {}
   const stated = new Map<string, string | null>()
   const byUid = new Map<number, AttributionPeer>()
   // Keyed by writer, not by account: one person may write both in a seat and
@@ -542,7 +567,7 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
     // stated all the same: Drupal reviews the removal, and a change whose
     // writers nobody states holds nobody out of its sign-off (ADR 0004).
     const print = statedPrint(ledger, id)
-    blocks[id] = [...set.writers.values()].map(w => ({ uid: w.uid, via: w.via }))
+    blocks[id] = [...set.writers.values()].map(statedWriter)
     stated.set(id, print)
     for (const w of set.writers.values()) {
       const peer = ledger.peers.get(w.uid)
@@ -557,7 +582,7 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
   // unaccounted. The author election below weighs text and is untouched.
   const fieldWriters = [...ledger.fieldWriters.values()]
   if (titleDirty && fieldWriters.length > 0) {
-    blocks[TITLE_REVIEW_KEY] = fieldWriters.map(w => ({ uid: w.uid, via: w.via }))
+    blocks[TITLE_REVIEW_KEY] = fieldWriters.map(statedWriter)
   }
   for (const [key, w] of ledger.fieldWriters) {
     if (ledger.peers.has(w.uid)) writing.set(key, w)
@@ -575,7 +600,7 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
     (ledger.totals.get(b.uid) ?? 0) - (ledger.totals.get(a.uid) ?? 0)
     || Number(b.uid === ledger.writer?.uid) - Number(a.uid === ledger.writer?.uid)
     || a.uid - b.uid
-    || (a.via ?? '').localeCompare(b.via ?? ''),
+    || (a.agent ?? '').localeCompare(b.agent ?? ''),
   )
   // A sign-off answers for the text the reviewer read. Edited since, it is not
   // that text any more, and the edit has re-opened the step anyway — so the
@@ -602,7 +627,7 @@ export function sessionWindow(ledger: Ledger, titleDirty = false): SessionWindow
  * The statement a checkpoint carries.
  *
  * Every checkpoint states one, over this server's own connection (ADR 0001).
- * Drupal credits from the set, a `via` entry raising the agent step, so an
+ * Drupal credits from the set, an `agent` entry raising the agent step, so an
  * agent's writing is stated here like anyone else's (ADR 0003).
  *
  * `acting` is who the write is performed as: the peer who triggered it, or —

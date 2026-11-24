@@ -10,7 +10,7 @@ import { AllSelection, EditorState, NodeSelection, TextSelection } from '@tiptap
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { DecorationSet } from '@tiptap/pm/view'
 import { editorSchema } from '../../server/utils/editor-schema'
-import type { PageBlock, BlockMetaMap, ReviewStep } from '#shared/page-blocks'
+import type { ActorNames, PageBlock, BlockMetaMap, ReviewStep } from '#shared/page-blocks'
 import { mayApprove } from '#shared/page-blocks'
 import {
   activeBlockDecoration,
@@ -51,10 +51,13 @@ function doc(...blocks: PMNode[]): PMNode {
   return editorSchema.node('doc', null, blocks)
 }
 
-/** A block Drupal signed off. */
-function signedOff(name?: string | null): PageBlock {
-  return { contributors: [], 'review:peer': { uid: 3, name, at: 1000, vid: 7 } }
+/** A block Drupal signed off, by account 3. */
+function signedOff(): PageBlock {
+  return { contributors: [], 'review:peer': { uid: 3, at: 1000, vid: 7 } }
 }
+
+/** The names Drupal ships beside the sidecar: account 3 is fago. */
+const NAMES: ActorNames = { users: { 3: 'fago' }, agents: {} }
 
 /** A block Drupal flagged as owing a peer review, waiting on `by`. */
 function awaiting(by: number[] = [3]): PageBlock {
@@ -319,23 +322,28 @@ describe('reviewMarkOf', () => {
   })
 
   it('still reports a sign-off given on an unenforced step', () => {
-    expect(reviewMarkOf(signedOff('fago'), ['agent'], OTHER))
+    expect(reviewMarkOf(signedOff(), ['agent'], OTHER, NAMES))
       .toEqual({ state: 'reviewed', steps: [], name: 'fago' })
   })
 
   it('lets an enforced pending step outrank a completed one', () => {
-    const block: PageBlock = { ...signedOff('fago'), ...awaitingAgent([3]) }
+    const block: PageBlock = { ...signedOff(), ...awaitingAgent([3]) }
     expect(reviewMarkOf(block, ['agent'], WRITER)).toEqual(owes(['agent', 'reviewable']))
-    expect(reviewMarkOf(block, ['peer'], WRITER)).toEqual({ state: 'reviewed', steps: [], name: 'fago' })
+    expect(reviewMarkOf(block, ['peer'], WRITER, NAMES)).toEqual({ state: 'reviewed', steps: [], name: 'fago' })
   })
 
   // A recorded sign-off is a fact about the block, not a question about who is
   // reading it.
   it('reads a signed-off block the same way for everybody', () => {
     for (const reviewer of [WRITER, OTHER, MODERATOR, NOBODY]) {
-      expect(reviewMarkOf(signedOff('fago'), ['peer'], reviewer))
+      expect(reviewMarkOf(signedOff(), ['peer'], reviewer, NAMES))
         .toEqual({ state: 'reviewed', steps: [], name: 'fago' })
     }
+  })
+
+  it('reads a sign-off by an account it has no name for unnamed', () => {
+    expect(reviewMarkOf(signedOff(), ['peer'], OTHER))
+      .toEqual({ state: 'reviewed', steps: [], name: null })
   })
 
   it('enforces both steps when handed no policy', () => {
@@ -489,7 +497,7 @@ describe('signOffRefusal', () => {
 
 describe('reviewDecorations', () => {
   it('decorates only the blocks the sidecar says something about', () => {
-    const map: BlockMetaMap = { 'b-1': signedOff('fago'), 'b-2': { contributors: [] } }
+    const map: BlockMetaMap = { 'b-1': signedOff(), 'b-2': { contributors: [] } }
     const d = doc(para('first', 'b-1'), para('second', 'b-2'))
     expect(specs(d, sidecarLookup(map, undefined, OTHER))).toEqual([
       { 'class': 'okb-review okb-review--reviewed' },
@@ -497,7 +505,7 @@ describe('reviewDecorations', () => {
   })
 
   it('renders a flagged block as waiting, whatever it was signed off as before', () => {
-    const map: BlockMetaMap = { 'b-1': { ...signedOff('fago'), ...awaiting([3]) } }
+    const map: BlockMetaMap = { 'b-1': { ...signedOff(), ...awaiting([3]) } }
     const d = doc(para('rewritten', 'b-1'))
     expect(specs(d, sidecarLookup(map, undefined, OTHER)))
       .toEqual([{ 'class': 'okb-review okb-review--reviewable okb-review--peer' }])
@@ -602,19 +610,19 @@ describe('reviewDecorations', () => {
   })
 
   it('anchors the decoration to the reviewed block, not the first one', () => {
-    const map: BlockMetaMap = { 'b-2': signedOff(null) }
+    const map: BlockMetaMap = { 'b-2': signedOff() }
     const d = doc(para('first', 'b-1'), para('second', 'b-2'))
     const [decoration] = reviewDecorations(d, sidecarLookup(map, undefined, OTHER)).find()
     expect(decoration!.from).toBe(d.child(0).nodeSize)
   })
 
   it('ignores a sidecar entry whose block is gone', () => {
-    const map: BlockMetaMap = { 'b-orphan': signedOff(null) }
+    const map: BlockMetaMap = { 'b-orphan': signedOff() }
     expect(specs(doc(para('here', 'b-1')), sidecarLookup(map, undefined, OTHER))).toEqual([])
   })
 
   it('skips an id-less block — a review has nothing to key on', () => {
-    const map: BlockMetaMap = { 'b-1': signedOff(null) }
+    const map: BlockMetaMap = { 'b-1': signedOff() }
     expect(specs(doc(para('text', null)), sidecarLookup(map, undefined, OTHER))).toEqual([])
   })
 })
@@ -907,7 +915,7 @@ describe('the checkmark, mounted', () => {
 })
 
 describe('the plugin', () => {
-  const map: BlockMetaMap = { 'b-1': signedOff('fago') }
+  const map: BlockMetaMap = { 'b-1': signedOff() }
 
   function stateWith(text: string): EditorState {
     return EditorState.create({
@@ -924,7 +932,7 @@ describe('the plugin', () => {
   })
 
   describe('across a local edit', () => {
-    const marks: BlockMetaMap = { 'b-1': awaiting(), 'b-2': awaiting(), 'b-3': signedOff('fago') }
+    const marks: BlockMetaMap = { 'b-1': awaiting(), 'b-2': awaiting(), 'b-3': signedOff() }
     const lookup = sidecarLookup(marks, undefined, OTHER)
 
     function caretIn(block: number, ...blocks: PMNode[]): EditorState {
@@ -1054,7 +1062,7 @@ describe('the plugin', () => {
     expect(reviewMarksKey.getState(state)!.find()).toHaveLength(0)
 
     // A peer's sign-off is mirrored in: the Y.Map changes, the document does not.
-    sidecar['b-1'] = signedOff('peer')
+    sidecar['b-1'] = signedOff()
     const refreshed = state.apply(state.tr.setMeta('okb-review-refresh', true))
     expect(reviewMarksKey.getState(refreshed)!.find()).toHaveLength(2)
   })

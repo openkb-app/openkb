@@ -14,10 +14,13 @@ import {
   ID_BEARING_TYPES,
   mayApprove,
   mintBlockId,
+  NO_ACTOR_NAMES,
   owedSteps,
   REVIEW_STEPS,
   reviewOf,
   TITLE_REVIEW_KEY,
+  userName,
+  type ActorNames,
   type PageBlock,
   type BlockMetaMap,
   type Reviewer,
@@ -169,6 +172,9 @@ function waitingState(
  * `steps` is the policy's *set*: which steps this space asks for. The order a
  * block owing both is reported in is {@link REVIEW_STEPS}, never the caller's.
  *
+ * `names` resolves the reviewer of a recorded sign-off; one it does not know
+ * reads unnamed.
+ *
  * `subject` opens the refusal sentence, for a mark drawn on something other
  * than a block — the title takes one of these (ADR 0017).
  */
@@ -176,6 +182,7 @@ export function reviewMarkOf(
   block: PageBlock | undefined,
   steps: readonly ReviewStep[] = REVIEW_STEPS,
   reviewer: Reviewer,
+  names: ActorNames = NO_ACTOR_NAMES,
   subject = 'This block',
 ): ReviewMark | null {
   if (!block) return null
@@ -187,7 +194,7 @@ export function reviewMarkOf(
     }))
   if (pending.length > 0) return { state: pending[0]!.state, steps: pending }
   const signed = reviewOf(block, 'peer') ?? reviewOf(block, 'agent')
-  return signed ? { state: 'reviewed', steps: [], name: signed.name } : null
+  return signed ? { state: 'reviewed', steps: [], name: userName(names, signed.uid) } : null
 }
 
 /**
@@ -221,8 +228,9 @@ export function sidecarLookup(
   meta: BlockMetaMap,
   steps: readonly ReviewStep[] = REVIEW_STEPS,
   reviewer: Reviewer,
+  names: ActorNames = NO_ACTOR_NAMES,
 ): ReviewLookup {
-  return blockId => reviewMarkOf(meta[blockId], steps, reviewer)
+  return blockId => reviewMarkOf(meta[blockId], steps, reviewer, names)
 }
 
 /** A top-level block the editor can address by id. */

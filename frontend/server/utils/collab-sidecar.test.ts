@@ -11,8 +11,8 @@ function window(blocks: SessionWindow['blocks']): SessionWindow {
   return { blocks, author: null, coAuthors: [], stated: new Map() }
 }
 
-const HUMAN = [{ uid: 3, via: null }]
-const AGENT = [{ uid: 9, via: 'Claude' }]
+const HUMAN = [{ uid: 3, agent: null }]
+const AGENT = [{ uid: 9, agent: 'c1a0de00-0000-4000-8000-000000000001' }]
 
 describe('mirrorReviewFlags', () => {
   it('opens the peer step on a block the session has written', () => {
@@ -26,7 +26,7 @@ describe('mirrorReviewFlags', () => {
     })
   })
 
-  // PageBlocks::stampSession(): a writer carrying a `via` raises the agent
+  // PageBlocks::stampSession(): a writer carrying an `agent` raises the agent
   // step as well, and only those writers are in its baseline.
   it('raises the agent step for an agent writer, and only for them', () => {
     const doc = new Y.Doc()
@@ -42,7 +42,7 @@ describe('mirrorReviewFlags', () => {
   it('widens the baseline Drupal stored, and drops the approvals the edit outdates', () => {
     const doc = new Y.Doc()
     writeBlockMeta(doc, {
-      'b-1': { contributors: [], 'pending:peer': { by: [7], ok: [{ uid: 4, name: 'ada', at: 1, vid: 2 }] } },
+      'b-1': { contributors: [], 'pending:peer': { by: [7], ok: [{ uid: 4, at: 1, vid: 2 }] } },
     })
 
     mirrorReviewFlags(doc, window({ 'b-1': HUMAN }))
@@ -161,7 +161,7 @@ describe('MarkMirror', () => {
 
   /** One peer's write, carrying the origin a real connection's update carries. */
   function typeInto(doc: Y.Doc, ledger: Ledger, block: number, text: string, uid = 3): void {
-    ledger.writer = { uid, via: null }
+    ledger.writer = { uid, agent: null, via: null }
     const origin = { source: 'connection', connection: { context: { user: { uid } } } }
     const para = doc.getXmlFragment('default').get(block) as Y.XmlElement
     doc.transact(() => { (para.get(0) as Y.XmlText).insert(0, text) }, origin)
@@ -169,7 +169,7 @@ describe('MarkMirror', () => {
 
   /** The empty paragraph the editor keeps at the end, once it has an id. */
   function appendEmptyParagraph(doc: Y.Doc, ledger: Ledger, id: string, uid = 3): void {
-    ledger.writer = { uid, via: null }
+    ledger.writer = { uid, agent: null, via: null }
     const origin = { source: 'connection', connection: { context: { user: { uid } } } }
     const fragment = doc.getXmlFragment('default')
     doc.transact(() => {

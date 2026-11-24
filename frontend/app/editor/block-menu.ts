@@ -1,4 +1,4 @@
-import type { PageBlock, Reviewer, ReviewStep } from '#shared/page-blocks'
+import { NO_ACTOR_NAMES, type ActorNames, type PageBlock, type Reviewer, type ReviewStep } from '#shared/page-blocks'
 import { approveActionLabel, reviewMarkOf } from './review-marks'
 import { tableOpItems } from './menu-items'
 
@@ -158,8 +158,9 @@ export function approvalStanding(
   block: PageBlock | undefined,
   steps: readonly ReviewStep[],
   reviewer: Reviewer,
+  names: ActorNames = NO_ACTOR_NAMES,
 ): ApprovalStanding {
-  const mark = reviewMarkOf(block, steps, reviewer)
+  const mark = reviewMarkOf(block, steps, reviewer, names)
   if (!mark) return { state: 'none', label: approveActionLabel('peer'), refusal: null }
   if (mark.state === 'reviewed') {
     return {
@@ -186,6 +187,8 @@ export interface BlockMenuState {
   steps: readonly ReviewStep[]
   /** Who the menu is being opened by. */
   reviewer: Reviewer
+  /** The current names of the accounts the sidecar names. */
+  names?: ActorNames
   /** Open comment threads on this block. */
   openThreads: number
 }
@@ -217,7 +220,7 @@ export interface BlockMenuActions {
  */
 export function blockMenuItems(state: BlockMenuState, actions: BlockMenuActions): BlockMenuItem[][] {
   const { pos } = state.block
-  const standing = approvalStanding(state.meta, state.steps, state.reviewer)
+  const standing = approvalStanding(state.meta, state.steps, state.reviewer, state.names)
 
   const tableItems = tableTargets(state.block)
 

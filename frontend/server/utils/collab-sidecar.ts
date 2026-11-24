@@ -15,7 +15,7 @@ import { editorSchema } from './editor-schema'
  * {@link widened} is `\Drupal\openkb_workflow\PageBlocks::markPending()`:
  * given a block and an episode's writers, both widen the peer step's baseline
  * by those writers and drop the approvals the edit outdates, and a writer
- * carrying a `via` raises the agent step the same way. The rule matches.
+ * carrying an `agent` raises the agent step the same way. The rule matches.
  *
  * WHICH rule applies per block is the checkpoint's own decision, and this pass
  * always assumes the first of four
@@ -56,7 +56,7 @@ export function mirrorReviewFlags(doc: Y.Doc, window: SessionWindow): void {
   for (const [id, writers] of Object.entries(window.blocks)) {
     const steps: Array<[ReviewStep, number[]]> = [
       ['peer', writers.map(w => w.uid)],
-      ['agent', writers.filter(w => w.via !== null).map(w => w.uid)],
+      ['agent', writers.filter(w => w.agent !== null).map(w => w.uid)],
     ]
     for (const [step, uids] of steps) {
       if (uids.length === 0) continue

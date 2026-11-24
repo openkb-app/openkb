@@ -21,6 +21,7 @@ import {
   writerKey,
   writerOfOrigin,
   type Ledger,
+  type WriterRef,
 } from './collab-attribution'
 import { dedupeBlockIds } from '#shared/page-blocks'
 
@@ -41,6 +42,10 @@ function doc(...blocks: PMNode[]): PMNode {
 const ADA = { uid: 7, name: 'ada' }
 const FAGO = { uid: 3, name: 'fago' }
 const CLAUDE = 'Claude'
+const CLAUDE_AGENT = 'c1a0de00-0000-4000-8000-000000000001'
+
+/** The agent client UUID a test label stands for. */
+const agentOf = (via: string | null | undefined): string | null => (via ? CLAUDE_AGENT : null)
 
 function ledgerWith(...peers: Array<typeof ADA>): Ledger {
   const ledger = newLedger()
@@ -72,8 +77,8 @@ function wrote(ledger: Ledger, id: string, ...writers: Wrote[]): void {
   const set = ledger.sets.get(id) ?? { writers: new Map() }
   let chars = 0
   for (const w of writers) {
-    const key = writerKey({ uid: w.uid, via: w.via ?? null })
-    set.writers.set(key, { uid: w.uid, via: w.via ?? null })
+    const key = writerKey({ uid: w.uid, agent: agentOf(w.via) })
+    set.writers.set(key, { uid: w.uid, agent: agentOf(w.via), via: w.via ?? null })
     ledger.totals.set(w.uid, (ledger.totals.get(w.uid) ?? 0) + w.chars)
     chars += w.chars
   }
@@ -81,14 +86,14 @@ function wrote(ledger: Ledger, id: string, ...writers: Wrote[]): void {
   ledger.baseline.set(id, { chars, print: `${id}@${JSON.stringify(writers)}`, index: 0, empty: false })
 }
 
-/** A block's stated writer set as sorted `uid[:via]` member keys — membership, no amounts (ADR 0002). */
+/** A block's stated writer set as sorted `uid[:agent]` member keys — membership, no amounts (ADR 0002). */
 function statedFor(ledger: Ledger, id: string): string[] {
   return (sessionWindow(ledger).blocks[id] ?? [])
-    .map(w => (w.via === null ? String(w.uid) : `${w.uid}:${w.via}`))
+    .map(w => (w.agent === null ? String(w.uid) : `${w.uid}:${w.agent}`))
     .sort()
 }
 
-const human = (uid: number, via: string | null = null) => ({ uid, via })
+const human = (uid: number, via: string | null = null) => ({ uid, agent: agentOf(via), via })
 
 describe('blockPrints', () => {
   it('measures text length per id-bearing top-level block', () => {
@@ -220,7 +225,7 @@ describe('a copy of a block', () => {
     creditWriter(ledger, doc(para('caption', 'b-1'), para('caption', 'b-1'), para('rewritten', 'b-2')))
 
     expect(statedFor(ledger, 'b-1-2')).toEqual([String(FAGO.uid)])
-    expect(statedFor(ledger, 'b-2')).toEqual([`${FAGO.uid}:${CLAUDE}`])
+    expect(statedFor(ledger, 'b-2')).toEqual([`${FAGO.uid}:${CLAUDE_AGENT}`])
   })
 
   it('stays delivered across checkpoints while the session still holds the duplicate', () => {
@@ -288,7 +293,7 @@ describe('creditWriter', () => {
     const ledger = hydrated(doc(para('hello', 'b-1')), ADA)
     ledger.writer = human(ADA.uid)
     const { peer, touches } = creditWriter(ledger, doc(para('hello there', 'b-1')))
-    expect(peer).toEqual({ uid: ADA.uid, name: 'ada', via: null })
+    expect(peer).toEqual({ uid: ADA.uid, name: 'ada', agent: null, via: null })
     expect(touches).toEqual([{ id: 'b-1', chars: 6 }])
     expect(statedFor(ledger, 'b-1')).toEqual([String(ADA.uid)])
   })
@@ -314,12 +319,12 @@ describe('creditWriter', () => {
     expect(statedFor(ledger, 'b-2')).toEqual([String(FAGO.uid)])
   })
 
-  it('seats an agent as a member carrying its via', () => {
+  it('seats an agent as a member carrying its agent client', () => {
     const ledger = hydrated(doc(para('draft', 'b-1')), ADA)
     ledger.writer = human(ADA.uid, CLAUDE)
     const { peer } = creditWriter(ledger, doc(para('draft rewritten by the agent', 'b-1')))
-    expect(peer).toEqual({ uid: ADA.uid, name: 'ada', via: CLAUDE })
-    expect(statedFor(ledger, 'b-1')).toEqual([`${ADA.uid}:${CLAUDE}`])
+    expect(peer).toEqual({ uid: ADA.uid, name: 'ada', agent: CLAUDE_AGENT, via: CLAUDE })
+    expect(statedFor(ledger, 'b-1')).toEqual([`${ADA.uid}:${CLAUDE_AGENT}`])
   })
 
   it('keeps the human and the same human-via-agent as separate members', () => {
@@ -328,7 +333,7 @@ describe('creditWriter', () => {
     creditWriter(ledger, doc(para('one human', 'b-1')))
     ledger.writer = human(ADA.uid, CLAUDE)
     creditWriter(ledger, doc(para('one human and agent', 'b-1')))
-    expect(statedFor(ledger, 'b-1')).toEqual([String(ADA.uid), `${ADA.uid}:${CLAUDE}`])
+    expect(statedFor(ledger, 'b-1')).toEqual([String(ADA.uid), `${ADA.uid}:${CLAUDE_AGENT}`])
   })
 })
 
@@ -396,7 +401,7 @@ describe('sessionWindow', () => {
     creditWriter(ledger, doc(para('one', 'b-1')))
 
     const window = sessionWindow(ledger)
-    expect(window.blocks['b-2']).toEqual([{ uid: ADA.uid, via: null }])
+    expect(window.blocks['b-2']).toEqual([{ uid: ADA.uid, agent: null }])
     expect(window.stated.get('b-2')).toBeNull()
   })
 
@@ -438,7 +443,7 @@ describe('collabWritePayload', () => {
   it('acts as the human the window elected when nobody triggered the write', () => {
     const payload = collabWritePayload(windowOf('b-1', { uid: ADA.uid, chars: 4 }), null)
     expect(payload).toMatchObject({ actingUid: ADA.uid })
-    expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, via: null }])
+    expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, agent: null }])
   })
 
   it('acts as whoever triggered it, however the window voted', () => {
@@ -446,12 +451,12 @@ describe('collabWritePayload', () => {
     // rights Drupal answers to — not the session's busiest typist.
     const payload = collabWritePayload(windowOf('b-1', { uid: ADA.uid, chars: 400 }), FAGO.uid)
     expect(payload).toMatchObject({ actingUid: FAGO.uid })
-    expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, via: null }])
+    expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, agent: null }])
   })
 
-  it('carries the agent member with its via, so Drupal can raise the agent step', () => {
+  it('carries the agent member with its agent client, so Drupal can raise the agent step', () => {
     const payload = collabWritePayload(windowOf('b-1', { uid: ADA.uid, via: CLAUDE, chars: 5 }), null)
-    expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, via: CLAUDE }])
+    expect(payload.blocks['b-1']).toEqual([{ uid: ADA.uid, agent: CLAUDE_AGENT }])
   })
 
   it('discharges once delivered', () => {
@@ -460,7 +465,7 @@ describe('collabWritePayload', () => {
 
     const carried = sessionWindow(ledger)
     expect(collabWritePayload(carried, null).blocks['b-1'])
-      .toEqual([{ uid: ADA.uid, via: null }])
+      .toEqual([{ uid: ADA.uid, agent: null }])
     dischargeWindow(ledger, carried)
     expect(ledger.sets.size).toBe(0)
   })
@@ -477,7 +482,7 @@ describe('an agent\'s window', () => {
     wrote(ledger, 'b-1', { uid: FAGO.uid, via: CLAUDE, chars: 4 })
     const payload = collabWritePayload(sessionWindow(ledger), null)
     expect(payload.actingUid).toBe(FAGO.uid)
-    expect(payload.blocks).toEqual({ 'b-1': [{ uid: FAGO.uid, via: CLAUDE }] })
+    expect(payload.blocks).toEqual({ 'b-1': [{ uid: FAGO.uid, agent: CLAUDE_AGENT }] })
     expect(payload.coAuthors).toEqual([{ name: FAGO.name, via: CLAUDE }])
   })
 
@@ -490,8 +495,8 @@ describe('an agent\'s window', () => {
     const payload = collabWritePayload(sessionWindow(ledger), FAGO.uid)
     expect(payload.actingUid).toBe(FAGO.uid)
     expect(payload.blocks).toEqual({
-      'b-1': [{ uid: ADA.uid, via: null }],
-      'b-2': [{ uid: FAGO.uid, via: CLAUDE }],
+      'b-1': [{ uid: ADA.uid, agent: null }],
+      'b-2': [{ uid: FAGO.uid, agent: CLAUDE_AGENT }],
     })
   })
 })
@@ -616,28 +621,28 @@ describe('dischargeWindow', () => {
 
     dischargeWindow(ledger, delivered)
 
-    expect(sessionWindow(ledger).blocks['b-2']).toEqual([{ uid: FAGO.uid, via: null }])
+    expect(sessionWindow(ledger).blocks['b-2']).toEqual([{ uid: FAGO.uid, agent: null }])
   })
 })
 
 describe('writerOfOrigin', () => {
   it('reads the account off the connection the update arrived on', () => {
     const origin = { source: 'connection', connection: { context: { user: { uid: 7, name: 'ada' } } } }
-    expect(writerOfOrigin(origin)).toEqual({ uid: 7, via: null })
+    expect(writerOfOrigin(origin)).toEqual({ uid: 7, agent: null, via: null })
   })
 
   it('gives a plain direct connection no account', () => {
     expect(writerOfOrigin({ source: 'local', context: { cookie: 'SESS-ada' } })).toBeNull()
   })
 
-  it('names the account an out-of-seat write was authorized under, via null for a human', () => {
-    expect(writerOfOrigin({ agent: true, label: 'fago', clientId: 1, seat: { uid: 7, name: 'fago', via: null } }))
-      .toEqual({ uid: 7, via: null })
+  it('names the account an out-of-seat write was authorized under, no agent for a human', () => {
+    expect(writerOfOrigin({ agent: true, label: 'fago', clientId: 1, seat: { uid: 7, name: 'fago', agent: null, via: null } }))
+      .toEqual({ uid: 7, agent: null, via: null })
   })
 
-  it('carries the agent seat with its via, so it enters the block set as a member', () => {
-    expect(writerOfOrigin({ agent: true, label: 'fago via Claude', clientId: 1, seat: { uid: 7, name: 'fago', via: CLAUDE } }))
-      .toEqual({ uid: 7, via: CLAUDE })
+  it('carries the agent seat with its agent client, so it enters the block set as a member', () => {
+    expect(writerOfOrigin({ agent: true, label: 'fago via Claude', clientId: 1, seat: { uid: 7, name: 'fago', agent: CLAUDE_AGENT, via: CLAUDE } }))
+      .toEqual({ uid: 7, agent: CLAUDE_AGENT, via: CLAUDE })
   })
 
   it('gives a seat-less agent origin no account', () => {
@@ -692,7 +697,7 @@ describe("a window's revision author", () => {
     // `revision_uid` is the token's owner either way, so the label is the only
     // thing separating the human from the agent acting as them.
     const ledger = hydrated(doc(para('', 'b-1')), ADA)
-    ledger.writer = { uid: ADA.uid, via: CLAUDE }
+    ledger.writer = { uid: ADA.uid, agent: CLAUDE_AGENT, via: CLAUDE }
     creditWriter(ledger, doc(para('written by the agent', 'b-1')))
 
     expect(sessionWindow(ledger).coAuthors).toEqual([{ name: 'ada', via: CLAUDE }])
@@ -702,7 +707,7 @@ describe("a window's revision author", () => {
     // A field edit moves no block, so the window would otherwise state nobody
     // and the checkpoint's log would name whoever opened the document.
     const ledger = hydrated(doc(para('unchanged', 'b-1')), ADA)
-    ledger.fieldWriters.set(writerKey({ uid: ADA.uid, via: CLAUDE }), { uid: ADA.uid, via: CLAUDE })
+    ledger.fieldWriters.set(writerKey({ uid: ADA.uid, agent: CLAUDE_AGENT }), { uid: ADA.uid, agent: CLAUDE_AGENT, via: CLAUDE })
 
     const window = sessionWindow(ledger)
     expect(window.blocks).toEqual({})
@@ -711,7 +716,7 @@ describe("a window's revision author", () => {
 
   it('drops the field writers once the lane matches Drupal again', () => {
     const ledger = ledgerWith(ADA)
-    ledger.fieldWriters.set(writerKey({ uid: ADA.uid, via: null }), { uid: ADA.uid, via: null })
+    ledger.fieldWriters.set(writerKey({ uid: ADA.uid, agent: null }), { uid: ADA.uid, agent: null, via: null })
 
     dischargeFieldWriters(ledger, true)
     expect(ledger.fieldWriters.size).toBe(1)
@@ -721,7 +726,7 @@ describe("a window's revision author", () => {
 
   it('a restart keeps the field writers the session still owes', () => {
     const ledger = ledgerWith(ADA)
-    ledger.fieldWriters.set(writerKey({ uid: ADA.uid, via: CLAUDE }), { uid: ADA.uid, via: CLAUDE })
+    ledger.fieldWriters.set(writerKey({ uid: ADA.uid, agent: CLAUDE_AGENT }), { uid: ADA.uid, agent: CLAUDE_AGENT, via: CLAUDE })
 
     const restored = ledgerWith(ADA)
     adoptSnapshot(restored, doc(para('x', 'b-1')), ledgerSnapshot(ledger))
@@ -790,7 +795,7 @@ describe('ledger persistence (ADR 0005)', () => {
     adoptSnapshot(after, doc(para('one rewritten', 'b-1')), snap)
     after.peers.set(ADA.uid, ADA)
 
-    expect(sessionWindow(after).blocks['b-1']).toEqual([{ uid: ADA.uid, via: null }])
+    expect(sessionWindow(after).blocks['b-1']).toEqual([{ uid: ADA.uid, agent: null }])
   })
 
   it('a delivered window does not come back', () => {
@@ -807,11 +812,22 @@ describe('ledger persistence (ADR 0005)', () => {
     expect(sessionWindow(after).blocks).toEqual({})
   })
 
+  it('drops a persisted agent writer that names no agent client', () => {
+    const after = newLedger()
+    adoptSnapshot(after, doc(para('one', 'b-1')), {
+      sets: { 'b-1': [{ uid: ADA.uid, via: 'Claude' } as WriterRef] },
+      committed: { 'b-1': '' },
+    })
+    after.peers.set(ADA.uid, ADA)
+
+    expect(after.sets.has('b-1')).toBe(false)
+  })
+
   it('drops a persisted set whose block neither the document nor Drupal holds', () => {
     // Corruption: the snapshot names a block that exists nowhere.
     const after = newLedger()
     adoptSnapshot(after, doc(para('one', 'b-1')), {
-      sets: { 'b-gone': [{ uid: ADA.uid, via: null }], 'b-1': [{ uid: ADA.uid, via: null }] },
+      sets: { 'b-gone': [{ uid: ADA.uid, agent: null, via: null }], 'b-1': [{ uid: ADA.uid, agent: null, via: null }] },
       committed: { 'b-1': '' },
     })
     after.peers.set(ADA.uid, ADA)
@@ -820,9 +836,9 @@ describe('ledger persistence (ADR 0005)', () => {
     expect(after.sets.has('b-1')).toBe(true)
   })
 
-  it('an agent member survives the restart with its via', () => {
+  it('an agent member survives the restart with its agent client', () => {
     const before = hydrated(doc(para('one', 'b-1')), ADA)
-    before.writer = { uid: ADA.uid, via: 'Claude' }
+    before.writer = { uid: ADA.uid, agent: CLAUDE_AGENT, via: 'Claude' }
     creditWriter(before, doc(para('one by the agent', 'b-1')))
     const snap = ledgerSnapshot(before)
 
@@ -830,7 +846,7 @@ describe('ledger persistence (ADR 0005)', () => {
     adoptSnapshot(after, doc(para('one by the agent', 'b-1')), snap)
     after.peers.set(ADA.uid, ADA)
 
-    expect(sessionWindow(after).blocks['b-1']).toEqual([{ uid: ADA.uid, via: 'Claude' }])
+    expect(sessionWindow(after).blocks['b-1']).toEqual([{ uid: ADA.uid, agent: CLAUDE_AGENT }])
   })
 })
 

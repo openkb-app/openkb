@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import { SPACE_TYPE, type KbSpace } from '#shared/utils/kb-spaces'
 import { PAGE_FILE_FIELDS } from '#shared/utils/files'
 import type { InlineCommentRecord } from '#shared/block-comments'
+import { NO_ACTOR_NAMES, type ActorNames } from '#shared/page-blocks'
 import { fetchUpstream, upstreamError, UPSTREAM_UNAVAILABLE } from './upstream'
 import { COLLAB_DRUPAL_TIMEOUT_MS } from './collab-timing'
 import { forwardedAuthHeaders } from './actor'
@@ -212,6 +213,8 @@ export interface KbPageNode {
    * reports a permanent diff on a document nobody edited.
    */
   blockMeta: string
+  /** The current names of the accounts and agent clients `blockMeta` names. */
+  blockMetaNames: ActorNames
   /**
    * The page's space — `{ id, name }` of the `field_space` term, or null.
    *
@@ -243,12 +246,23 @@ function ceString(raw: unknown): string {
   return ''
 }
 
+/** The names Drupal ships beside the sidecar (`openkb_block_meta` CE formatter). */
+export function ceActorNames(raw: unknown): ActorNames {
+  const names = (raw as { names?: Partial<ActorNames> } | null | undefined)?.names
+  return {
+    users: names?.users && typeof names.users === 'object' ? names.users : NO_ACTOR_NAMES.users,
+    agents: names?.agents && typeof names.agents === 'object' ? names.agents : NO_ACTOR_NAMES.agents,
+  }
+}
+
+/** The page's space off its CE prop, or null when the page has none. */
 function ceSpace(raw: unknown): KbSpace | null {
   if (!raw || typeof raw !== 'object') return null
   const { uuid, name } = raw as { uuid?: string, name?: string }
   return uuid ? { id: uuid, name: name ?? '' } : null
 }
 
+/** Maps a kb_page's CE props to the page the server works with, the sidecar with its names. */
 function mapCePage(props: Record<string, unknown>): KbPageNode {
   const nid = Number(props.nid)
   return {
@@ -259,6 +273,7 @@ function mapCePage(props: Record<string, unknown>): KbPageNode {
     ...splitTitleHeading(ceString(props.body)),
     changed: Number(props.changed) || 0,
     blockMeta: ceString(props.blockMeta),
+    blockMetaNames: ceActorNames(props.blockMeta),
     space: ceSpace(props.space),
   }
 }

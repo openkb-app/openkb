@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
+import Ajv from 'ajv'
 import type { JSONContent } from '@tiptap/core'
 import * as Y from 'yjs'
 import {
@@ -175,7 +178,7 @@ describe('the review model', () => {
   }
 
   const PENDING = block({ 'pending:peer': { by: [3, 7], ok: [] } })
-  const SIGNED = block({ 'review:peer': { uid: 9, name: 'ada', at: 1000, vid: 4 } })
+  const SIGNED = block({ 'review:peer': { uid: 9, at: 1000, vid: 4 } })
 
   it('reads the flag as the flag — a key present is the whole fact', () => {
     expect(isPending(PENDING, 'peer')).toBe(true)
@@ -257,12 +260,22 @@ describe('the review model', () => {
   it('orders contributors by last edit, agent kept apart from the human', () => {
     const byline = blockByline(block({
       contributors: [
-        { uid: 3, via: null, name: 'fago', lastEdit: 1000 },
-        { uid: 3, via: 'Claude', name: 'fago', lastEdit: 2000 },
+        { uid: 3, agent: null, lastEdit: 1000 },
+        { uid: 3, agent: 'c1a0de00-0000-4000-8000-000000000001', lastEdit: 2000 },
       ],
+    }), { users: { 3: 'fago' }, agents: { ['c1a0de00-0000-4000-8000-000000000001']: 'Claude' } })
+
+    expect(byline.contributors.map(c => [c.name, c.via])).toEqual([['fago', 'Claude'], ['fago', null]])
+  })
+
+  it('names an account or client that is gone as unknown', () => {
+    const byline = blockByline(block({
+      contributors: [{ uid: 4, agent: 'c1a0de00-0000-4000-8000-000000000001', lastEdit: 1000 }],
+      'review:peer': { uid: 5, at: 0, vid: 1 },
     }))
 
-    expect(byline.contributors.map(c => c.via)).toEqual(['Claude', null])
+    expect(byline.contributors.map(c => [c.name, c.via])).toEqual([[null, 'an agent']])
+    expect(byline.review.peer!.name).toBeNull()
   })
 
   it('says nothing about a block that owes nothing and attributes nobody', () => {
@@ -285,6 +298,49 @@ describe('the review model', () => {
     expect(serializeBlockMeta({})).toBe('')
     expect(parseBlockMeta(null)).toEqual({})
     expect(parseBlockMeta('not json')).toEqual({})
+  })
+
+  it('stores the blocks under a format version', () => {
+    expect(JSON.parse(serializeBlockMeta({ 'b-1': PENDING }))).toEqual({ v: 1, blocks: { 'b-1': PENDING } })
+  })
+
+  it('reads a sidecar of another format version as no blocks', () => {
+    expect(parseBlockMeta(JSON.stringify({ 'b-1': PENDING }))).toEqual({})
+    expect(parseBlockMeta(JSON.stringify({ v: 2, blocks: { 'b-1': PENDING } }))).toEqual({})
+  })
+})
+
+describe('the stored sidecar format', () => {
+  const schema = JSON.parse(readFileSync(
+    fileURLToPath(new URL('../../openkb/openkb_workflow/schema/block-meta.schema.json', import.meta.url)),
+    'utf8',
+  )) as object
+  const validate = new Ajv({ allErrors: true }).compile(schema)
+
+  it('is what serializeBlockMeta writes', () => {
+    const map: BlockMetaMap = {
+      'b-1': {
+        'contributors': [
+          { uid: 3, agent: null, lastEdit: 1000 },
+          { uid: 3, agent: 'c1a0de00-0000-4000-8000-000000000001', lastEdit: 2000 },
+        ],
+        'moved': true,
+        'pending:peer': { by: [3], ok: [{ uid: 7, at: 10, vid: 4 }] },
+        'pending:agent': { by: [3], ok: [] },
+        'review:peer': { uid: 9, at: 20, vid: 5, by: [3] },
+      },
+      'field:title': { 'pending:peer': { by: [], ok: [] } },
+    }
+
+    expect(validate(JSON.parse(serializeBlockMeta(map))), JSON.stringify(validate.errors)).toBe(true)
+  })
+
+  it('refuses names and agent labels', () => {
+    const named = { v: 1, blocks: { 'b-1': { contributors: [{ uid: 3, agent: null, name: 'fago', lastEdit: 1 }] } } }
+    const labelled = { v: 1, blocks: { 'b-1': { contributors: [{ uid: 3, via: 'Claude', lastEdit: 1 }] } } }
+
+    expect(validate(named)).toBe(false)
+    expect(validate(labelled)).toBe(false)
   })
 })
 

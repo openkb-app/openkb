@@ -14,9 +14,10 @@ import { drupalBaseUrl } from './drupal'
  * the one rule for which carrier a request acts under, and resolves *who* that
  * is.
  *
- * The identity contract is `GET /openkb/agent/identity` → `{ uid, name, via }`:
- * `uid`/`name` are always the human account the request acts as; `via` is the
- * consumer label ("Claude") for token auth, null for a session. Consumers
+ * The identity contract is `GET /openkb/agent/identity` →
+ * `{ uid, name, via, agent }`: `uid`/`name` are always the human account the
+ * request acts as; `via` is the consumer label ("Claude") and `agent` its UUID
+ * for token auth, both null for a session. Consumers
  * (commit attribution, rate limiting, the MCP tools) render "fago via Claude"
  * from it.
  */
@@ -31,6 +32,8 @@ export interface Actor {
   name: string | null
   /** Agent client's label for token auth ("Claude"); null otherwise. */
   via: string | null
+  /** Agent client's UUID for token auth; null otherwise. */
+  agent: string | null
 }
 
 export const ANONYMOUS_ACTOR: Actor = Object.freeze({
@@ -38,6 +41,7 @@ export const ANONYMOUS_ACTOR: Actor = Object.freeze({
   uid: null,
   name: null,
   via: null,
+  agent: null,
 })
 
 /**
@@ -86,18 +90,20 @@ export async function resolveActor(event: H3Event): Promise<Actor> {
   return promise
 }
 
+/** Asks Drupal who the forwarded credentials belong to; a refused one is anonymous. */
 async function fetchIdentity(auth: Record<string, string>): Promise<Actor> {
   const res = await fetchUpstream(`${drupalBaseUrl()}/openkb/agent/identity`, {
     headers: { Accept: 'application/json', ...auth },
   })
   if (res.status === 403) return ANONYMOUS_ACTOR
   if (!res.ok) throw await upstreamError(res, 'agent identity')
-  const identity = (await res.json()) as { uid: number, name: string, via: string | null }
+  const identity = (await res.json()) as { uid: number, name: string, via: string | null, agent?: string | null }
   if (!identity.uid) return ANONYMOUS_ACTOR
   return {
     type: identity.via != null ? 'agent' : 'human',
     uid: identity.uid,
     name: identity.name,
     via: identity.via ?? null,
+    agent: identity.agent ?? null,
   }
 }

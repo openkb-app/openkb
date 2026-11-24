@@ -126,6 +126,7 @@ describe('findKbPageByPath', () => {
       body: 'Body.',
       changed: 1782000000,
       blockMeta: '',
+      blockMetaNames: { users: {}, agents: {} },
       space: { id: 't-9', name: 'Team wiki' },
     })
   })
@@ -192,6 +193,7 @@ const live = (): CePageRead => ({
     body: 'Live body.',
     changed: 1782000000,
     blockMeta: '',
+    blockMetaNames: { users: {}, agents: {} },
     space: null,
   },
   props: {},

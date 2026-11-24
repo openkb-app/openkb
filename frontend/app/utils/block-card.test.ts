@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blockByline, type PageBlock } from '#shared/page-blocks'
+import { blockByline, type ActorNames, type PageBlock } from '#shared/page-blocks'
 import { blockCardView } from './block-card'
 
 /** A block as Drupal's presave would have left it. */
@@ -7,9 +7,17 @@ function block(entry: Partial<PageBlock>): PageBlock {
   return { contributors: [], ...entry }
 }
 
+const CLAUDE_AGENT = 'c1a0de00-0000-4000-8000-000000000001'
+
+/** The current names Drupal ships beside the sidecar. */
+const NAMES: ActorNames = {
+  users: { 3: 'fago', 7: 'ada', 9: 'signer' },
+  agents: { [CLAUDE_AGENT]: 'Claude' },
+}
+
 /** The card for one block, under an optionally-known policy. */
 function card(entry: Partial<PageBlock>, enforced: ('peer' | 'agent')[] | null = null) {
-  return blockCardView(blockByline(block(entry)), enforced)
+  return blockCardView(blockByline(block(entry), NAMES), enforced)
 }
 
 /** The row for one step, or undefined when the step earned none. */
@@ -19,8 +27,8 @@ function row(view: ReturnType<typeof card>, step: 'peer' | 'agent') {
 
 const WRITTEN = {
   contributors: [
-    { uid: 3, via: null, name: 'fago', lastEdit: 1000 },
-    { uid: 7, via: 'Claude', name: 'ada', lastEdit: 2000 },
+    { uid: 3, agent: null, lastEdit: 1000 },
+    { uid: 7, agent: CLAUDE_AGENT, lastEdit: 2000 },
   ],
 }
 
@@ -41,7 +49,7 @@ describe('blockCardView', () => {
   })
 
   it('blockCardView reads a recorded sign-off as signed and names the signer', () => {
-    const view = card({ 'review:peer': { uid: 9, name: 'signer', at: 0, vid: 4 } })
+    const view = card({ 'review:peer': { uid: 9, at: 0, vid: 4 } })
 
     expect(row(view, 'peer')!.state).toBe('signed')
     expect(row(view, 'peer')!.detail).toContain('Signed off by signer')
@@ -50,7 +58,7 @@ describe('blockCardView', () => {
   it('blockCardView prefers the pending flag over an older sign-off', () => {
     const view = card({
       'pending:peer': { by: [3], ok: [] },
-      'review:peer': { uid: 9, name: 'signer', at: 0, vid: 4 },
+      'review:peer': { uid: 9, at: 0, vid: 4 },
     }, ['peer'])
 
     expect(row(view, 'peer')!.state).toBe('awaiting')
@@ -71,7 +79,7 @@ describe('blockCardView', () => {
     it('keeps only the signed rows when the session was told no policy', () => {
       const view = card({
         'pending:agent': { by: [3], ok: [] },
-        'review:peer': { uid: 9, name: 'signer', at: 0, vid: 4 },
+        'review:peer': { uid: 9, at: 0, vid: 4 },
       }, null)
 
       expect(view.steps.map(s => s.step)).toEqual(['peer'])

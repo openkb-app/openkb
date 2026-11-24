@@ -52,9 +52,9 @@ describe('forwardedAuthHeaders', () => {
 
 describe('resolveActor', () => {
   it('resolves a token request to an agent actor, Bearer forwarded', async () => {
-    const impl = stubIdentity({ uid: 5, name: 'fago', via: 'Claude' })
+    const impl = stubIdentity({ uid: 5, name: 'fago', via: 'Claude', agent: 'c1a0de00-0000-4000-8000-000000000001' })
     const actor = await resolveActor(makeEvent({ Authorization: 'Bearer tok-1' }))
-    expect(actor).toEqual({ type: 'agent', uid: 5, name: 'fago', via: 'Claude' })
+    expect(actor).toEqual({ type: 'agent', uid: 5, name: 'fago', via: 'Claude', agent: 'c1a0de00-0000-4000-8000-000000000001' })
     const [url, init] = impl.mock.calls[0] as unknown as [string, RequestInit]
     expect(String(url)).toBe('http://drupal.test/openkb/agent/identity')
     expect(init.headers).toMatchObject({ Authorization: 'Bearer tok-1' })
@@ -62,9 +62,9 @@ describe('resolveActor', () => {
   })
 
   it('resolves a session request to a human actor, cookie forwarded', async () => {
-    const impl = stubIdentity({ uid: 3, name: 'marta', via: null })
+    const impl = stubIdentity({ uid: 3, name: 'marta', via: null, agent: null })
     const actor = await resolveActor(makeEvent({ Cookie: 'SESS=x' }))
-    expect(actor).toEqual({ type: 'human', uid: 3, name: 'marta', via: null })
+    expect(actor).toEqual({ type: 'human', uid: 3, name: 'marta', via: null, agent: null })
     const [, init] = impl.mock.calls[0] as unknown as [string, RequestInit]
     expect(init.headers).toMatchObject({ Cookie: 'SESS=x' })
   })

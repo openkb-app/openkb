@@ -167,6 +167,7 @@ const titleReview = computed(() => reviewMarkOf(
   session.value?.blockMeta.value[TITLE_REVIEW_KEY],
   enforcedSteps(moderationStatus.value),
   session.value?.reviewer.value ?? { uid: null, isAdmin: false },
+  session.value?.actorNames.value,
   itemName(TITLE_REVIEW_KEY),
 ))
 

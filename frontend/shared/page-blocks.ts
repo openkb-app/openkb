@@ -14,7 +14,9 @@ import { listBlockComponentDeclarations } from '#shared/utils/comark-components'
  * Drupal mirrors the same key names in `\Drupal\openkb_workflow\PageBlocks`.
  * The two never share code — one side speaks ProseMirror and the other reads
  * raw markdown segments — but they read and write the same stored JSON, so the
- * names are the contract.
+ * names are the contract. The stored format is
+ * `openkb/openkb_workflow/schema/block-meta.schema.json`: ids only, names are
+ * resolved when read ({@link ActorNames}).
  *
  * ## Who writes it
  *
@@ -40,35 +42,60 @@ import { listBlockComponentDeclarations } from '#shared/utils/comark-components'
 // ---------------------------------------------------------------------------
 
 /**
- * Who an edit is attributed to. `via: null` is a direct human edit; a non-null
- * `via` (e.g. "Claude") is the owner acting through an agent.
+ * Who an edit is attributed to. `agent: null` is a direct human edit; a
+ * non-null `agent` is the UUID of the agent client the owner acted through.
  */
 export interface Actor {
   uid: number | null
-  via: string | null
+  agent: string | null
 }
 
 /** One contributor of a block. Membership, not volume (ADR 0002). */
 export interface Contributor extends Actor {
-  /** Display name captured at edit time (read-page byline convenience). */
-  name?: string | null
-  /** Wall-clock ms of this actor's last contribution to the block. */
+  /** Server time of this actor's last contribution to the block. */
   lastEdit: number
+}
+
+/**
+ * The current names of the accounts and agent clients a sidecar names — what
+ * Drupal ships beside the stored JSON (`openkb_block_meta` CE formatter).
+ */
+export interface ActorNames {
+  /** Account id => display name. */
+  users: Record<string, string>
+  /** Agent client UUID => label. */
+  agents: Record<string, string>
+}
+
+/** No names known: every account reads "Unknown". */
+export const NO_ACTOR_NAMES: ActorNames = Object.freeze({ users: {}, agents: {} })
+
+/** A contributor with its current names, as a read surface shows it. */
+export interface NamedContributor extends Contributor {
+  /** The account's display name; null for an account that is gone. */
+  name: string | null
+  /** The agent client's label; null for a direct edit or a client that is gone. */
+  via: string | null
+}
+
+/** A sign-off with the signer's current name. */
+export interface NamedApproval extends Approval {
+  name: string | null
 }
 
 /** True when two entries are the same acting identity. */
 export function isSameActor(a: Actor, b: Actor): boolean {
-  return (a.uid ?? null) === (b.uid ?? null) && (a.via ?? null) === (b.via ?? null)
+  return (a.uid ?? null) === (b.uid ?? null) && (a.agent ?? null) === (b.agent ?? null)
 }
 
 /**
- * The stable string identity of `{uid, via}` — the key one contributor's entry
- * is held under, both in the Y.Doc and in the canonical serialization. JSON so
- * that no uid/via value can forge another actor's key by containing the
+ * The stable string identity of `{uid, agent}` — the key one contributor's
+ * entry is held under, both in the Y.Doc and in the canonical serialization.
+ * JSON so that no value can forge another actor's key by containing the
  * separator.
  */
 export function contributorKey(actor: Actor): string {
-  return JSON.stringify([actor.uid ?? null, actor.via ?? null])
+  return JSON.stringify([actor.uid ?? null, actor.agent ?? null])
 }
 
 
@@ -91,7 +118,6 @@ export const REVIEW_STEPS: readonly ReviewStep[] = ['agent', 'peer']
 /** A recorded sign-off: who, when, and which revision they were looking at. */
 export interface Approval {
   uid: number | null
-  name?: string | null
   /** Server time of the sign-off, in seconds — Drupal's request time. */
   at: number
   /** The revision id the sign-off was given against. */
@@ -284,11 +310,11 @@ export function owedSteps(
 /** What a read surface needs about one block. */
 export interface BlockByline {
   /** Every contributor, most recent edit first. */
-  contributors: Contributor[]
+  contributors: NamedContributor[]
   /** The steps still waiting. */
   pending: ReviewStep[]
   /** The latest completed sign-off per step. */
-  review: Partial<Record<ReviewStep, Approval>>
+  review: Partial<Record<ReviewStep, NamedApproval>>
 }
 
 /**
@@ -298,21 +324,38 @@ export interface BlockByline {
  * Note what is *not* here: a "reviewed" verdict for a block the sidecar says
  * nothing about. Such a block owes nothing, which is not the same as having
  * been read, and rendering it as a tick would credit a review nobody gave.
+ *
+ * Names are the current ones, from `names`.
  */
-export function blockByline(block: PageBlock | undefined): BlockByline {
+export function blockByline(block: PageBlock | undefined, names: ActorNames = NO_ACTOR_NAMES): BlockByline {
   const contributors = (block?.contributors ?? [])
-    .map(c => ({ ...c }))
+    .map(c => ({
+      ...c,
+      name: userName(names, c.uid),
+      via: c.agent ? names.agents[c.agent] ?? UNKNOWN_AGENT : null,
+    }))
     .sort((a, b) => b.lastEdit - a.lastEdit)
-  const review: Partial<Record<ReviewStep, Approval>> = {}
+  const review: Partial<Record<ReviewStep, NamedApproval>> = {}
   for (const step of REVIEW_STEPS) {
     const recorded = reviewOf(block, step)
-    if (recorded) review[step] = recorded
+    if (recorded) review[step] = { ...recorded, name: userName(names, recorded.uid) }
   }
   return {
     contributors,
     pending: REVIEW_STEPS.filter(step => isPending(block, step)),
     review,
   }
+}
+
+/** The name shown for an account that is gone; matches ActorNames::UNKNOWN_USER. */
+export const UNKNOWN_USER = 'Unknown'
+
+/** The name shown for an agent client that is gone; matches ActorNames::UNKNOWN_AGENT. */
+export const UNKNOWN_AGENT = 'an agent'
+
+/** An account's current display name, or null when it is unknown. */
+export function userName(names: ActorNames, uid: number | null): string | null {
+  return uid === null ? null : names.users[String(uid)] ?? null
 }
 
 /** Whether a block's sidecar entry says anything worth rendering. */
@@ -326,12 +369,26 @@ export function hasRecord(byline: BlockByline): boolean {
 // Codec
 // ---------------------------------------------------------------------------
 
-/** Parse the stored sidecar JSON; empty/invalid input yields an empty map. */
+/** The sidecar format version {@link serializeBlockMeta} writes. */
+export const BLOCK_META_VERSION = 1
+
+/** The stored sidecar: the format version and the blocks. */
+export interface StoredBlockMeta {
+  v: typeof BLOCK_META_VERSION
+  blocks: BlockMetaMap
+}
+
+/**
+ * Parse the stored sidecar JSON into its blocks; empty, invalid or another
+ * version yields an empty map.
+ */
 export function parseBlockMeta(raw: string | null | undefined): BlockMetaMap {
   if (!raw) return {}
   try {
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as BlockMetaMap : {}
+    const parsed = JSON.parse(raw) as Partial<StoredBlockMeta> | null
+    if (!parsed || typeof parsed !== 'object' || parsed.v !== BLOCK_META_VERSION) return {}
+    const blocks = parsed.blocks
+    return blocks && typeof blocks === 'object' && !Array.isArray(blocks) ? blocks : {}
   }
   catch {
     return {}
@@ -341,17 +398,13 @@ export function parseBlockMeta(raw: string | null | undefined): BlockMetaMap {
 /**
  * One contributor with its properties in a fixed order, so two entries holding
  * the same values stringify identically no matter how they were built (parsed
- * from Drupal, merged in the Y.Doc, carried over from an older shape). An
- * unknown display name is left out rather than stored as null — `name` is a
- * read-time convenience, and an absent one must not read as a difference.
+ * from Drupal, merged in the Y.Doc).
  */
 function canonicalContributor(c: Contributor): Contributor {
-  const { uid, via, name, lastEdit } = c
   return {
-    uid: uid ?? null,
-    via: via ?? null,
-    ...(name ? { name } : {}),
-    lastEdit,
+    uid: c.uid ?? null,
+    agent: c.agent ?? null,
+    lastEdit: c.lastEdit,
   }
 }
 
@@ -375,17 +428,19 @@ function canonicalBlock(block: PageBlock): PageBlock {
 }
 
 /**
- * Serialize the sidecar canonically — sorted block ids, and within a block
- * sorted contributors with fixed property order — so equal sidecars produce
- * byte-identical JSON and the commit's dirty check stays deterministic.
- * Returns '' for an empty map so a page with no history stores nothing.
+ * Serialize the sidecar canonically — the format version, sorted block ids,
+ * and within a block sorted contributors with fixed property order — so equal
+ * sidecars produce byte-identical JSON and the commit's dirty check stays
+ * deterministic. Returns '' for an empty map so a page with no history stores
+ * nothing.
  */
 export function serializeBlockMeta(map: BlockMetaMap): string {
   const ids = Object.keys(map).sort()
   if (ids.length === 0) return ''
   const ordered: BlockMetaMap = {}
   for (const id of ids) ordered[id] = canonicalBlock(map[id]!)
-  return JSON.stringify(ordered)
+  const stored: StoredBlockMeta = { v: BLOCK_META_VERSION, blocks: ordered }
+  return JSON.stringify(stored)
 }
 
 // ---------------------------------------------------------------------------
@@ -534,14 +589,14 @@ export function writeBlockMeta(doc: Y.Doc, parsed: BlockMetaMap): void {
 }
 
 /**
- * Value equality of two stored fields, through the canonical serialization —
+ * Value equality of two stored fields, through the canonical contributor form —
  * so the property order of a contributor parsed from Drupal is not a
  * difference. Other fields compare as plain JSON.
  */
 function sameValue(a: unknown, b: unknown): boolean {
   const canonical = (value: unknown) =>
     value && typeof value === 'object' && 'lastEdit' in (value as Contributor)
-      ? serializeBlockMeta({ block: { contributors: [value as Contributor] } })
+      ? JSON.stringify(canonicalContributor(value as Contributor))
       : JSON.stringify(value ?? null)
   return canonical(a) === canonical(b)
 }

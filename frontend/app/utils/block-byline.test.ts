@@ -1,8 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { blockByline, type PageBlock } from '#shared/page-blocks'
+import { blockByline as storedByline, type ActorNames, type PageBlock } from '#shared/page-blocks'
 import { spaceReviewSteps, type KbSpaceCeProp } from '#shared/utils/kb-spaces'
 import { reviewMarkOf } from '../editor/review-marks'
 import { bylineTriggerLabel, bylineView, contributorName, signedOn } from './block-byline'
+
+const CLAUDE_AGENT = 'c1a0de00-0000-4000-8000-000000000001'
+
+/** The current names Drupal ships beside the sidecar. */
+const NAMES: ActorNames = {
+  users: { 3: 'fago', 9: 'signer' },
+  agents: { [CLAUDE_AGENT]: 'Claude' },
+}
+
+/** A block's byline, named from {@link NAMES}. */
+function blockByline(entry: PageBlock) {
+  return storedByline(entry, NAMES)
+}
 
 /** A block as Drupal's presave would have left it. */
 function block(entry: Partial<PageBlock>): PageBlock {
@@ -11,26 +24,26 @@ function block(entry: Partial<PageBlock>): PageBlock {
 
 const WRITTEN = block({
   contributors: [
-    { uid: 3, via: null, name: 'fago', lastEdit: 1000 },
-    { uid: 3, via: 'Claude', name: 'fago', lastEdit: 2000 },
+    { uid: 3, agent: null, lastEdit: 1000 },
+    { uid: 3, agent: CLAUDE_AGENT, lastEdit: 2000 },
   ],
 })
 
 describe('contributorName', () => {
   it('names a direct human edit', () => {
-    expect(contributorName({ uid: 3, via: null, name: 'fago', lastEdit: 1 })).toBe('fago')
+    expect(contributorName({ uid: 3, agent: null, via: null, name: 'fago', lastEdit: 1 })).toBe('fago')
   })
 
   it('names an agent by its owner, and the viewer\'s own as theirs', () => {
-    expect(contributorName({ uid: 3, via: 'Claude', name: 'fago', lastEdit: 1 }))
+    expect(contributorName({ uid: 3, agent: CLAUDE_AGENT, via: 'Claude', name: 'fago', lastEdit: 1 }))
       .toBe('fago via Claude')
-    expect(contributorName({ uid: 3, via: 'Claude', name: 'fago', lastEdit: 1 }, 3))
+    expect(contributorName({ uid: 3, agent: CLAUDE_AGENT, via: 'Claude', name: 'fago', lastEdit: 1 }, 3))
       .toBe('Claude')
   })
 
   it('falls back to Unknown rather than rendering half a sentence', () => {
-    expect(contributorName({ uid: null, via: null, lastEdit: 1 })).toBe('Unknown')
-    expect(contributorName({ uid: 3, via: 'Claude', name: '  ', lastEdit: 1 }))
+    expect(contributorName({ uid: null, agent: null, via: null, name: null, lastEdit: 1 })).toBe('Unknown')
+    expect(contributorName({ uid: 3, agent: CLAUDE_AGENT, via: 'Claude', name: '  ', lastEdit: 1 }))
       .toBe('Unknown via Claude')
   })
 })
@@ -50,7 +63,7 @@ describe('bylineView', () => {
   })
 
   it('leaves a block only people wrote unmarked', () => {
-    const human = block({ contributors: [{ uid: 3, via: null, name: 'fago', lastEdit: 1000 }] })
+    const human = block({ contributors: [{ uid: 3, agent: null, lastEdit: 1000 }] })
     expect(bylineView(blockByline(human)).agentAuthored).toBe(false)
     expect(bylineView(blockByline(block({}))).agentAuthored).toBe(false)
   })
@@ -67,7 +80,7 @@ describe('bylineView', () => {
 
   it('reads a completed step as signed, naming who signed it and when', () => {
     const view = bylineView(blockByline(block({
-      'review:peer': { uid: 9, name: 'signer', at: 0, vid: 4 },
+      'review:peer': { uid: 9, at: 0, vid: 4 },
     })))
 
     expect(view.steps).toHaveLength(1)
@@ -78,7 +91,7 @@ describe('bylineView', () => {
   it('reports the flag, not the sign-off, once the block is pending again', () => {
     const view = bylineView(blockByline(block({
       'pending:peer': { by: [3], ok: [] },
-      'review:peer': { uid: 9, name: 'signer', at: 0, vid: 4 },
+      'review:peer': { uid: 9, at: 0, vid: 4 },
     })))
 
     expect(view.steps).toEqual([{ step: 'peer', state: 'awaiting', label: 'Awaiting review' }])
@@ -91,18 +104,18 @@ describe('bylineView', () => {
 
 describe('bylineTriggerLabel', () => {
   const written = block({
-    contributors: [{ uid: 3, via: null, name: 'editor1', lastEdit: 1000 }],
+    contributors: [{ uid: 3, agent: null, lastEdit: 1000 }],
     'pending:peer': { by: [3], ok: [] },
   })
 
   it('bylineTriggerLabel says Review when the view has a step row', () => {
     expect(bylineTriggerLabel(bylineView(blockByline(written), ['peer'])))
-      .toBe('Review and authorship of the block by editor1')
+      .toBe('Review and authorship of the block by fago')
   })
 
   it('bylineTriggerLabel omits Review when the view has no step row', () => {
     expect(bylineTriggerLabel(bylineView(blockByline(written), ['agent'])))
-      .toBe('About this block — edited by editor1')
+      .toBe('About this block — edited by fago')
   })
 
   it('bylineTriggerLabel falls back to a generic name with no contributors', () => {
@@ -126,7 +139,7 @@ describe('the read-page byline and the editor mark, under one policy', () => {
   })
   /** What presave leaves on a block one person just wrote. */
   const written = block({
-    contributors: [{ uid: 3, via: null, name: 'editor1', lastEdit: 1000 }],
+    contributors: [{ uid: 3, agent: null, lastEdit: 1000 }],
     'pending:peer': { by: [3], ok: [] },
   })
   const reader = { uid: 9, isAdmin: false }
@@ -146,13 +159,13 @@ describe('the read-page byline and the editor mark, under one policy', () => {
     expect(reviewMarkOf(written, steps, reader)).toBeNull()
     expect(bylineView(blockByline(written), steps).steps).toEqual([])
     // The contributor is still named — who wrote it is not a review claim.
-    expect(bylineView(blockByline(written), steps).contributors).toEqual(['editor1'])
+    expect(bylineView(blockByline(written), steps).contributors).toEqual(['fago'])
   })
 
   it('keeps a sign-off that was actually given, whatever the space enforces', () => {
     const signed = block({
-      contributors: [{ uid: 3, via: null, name: 'editor1', lastEdit: 1000 }],
-      'review:peer': { uid: 9, name: 'reviewer', at: 1700000000, vid: 4 },
+      contributors: [{ uid: 3, agent: null, lastEdit: 1000 }],
+      'review:peer': { uid: 9, at: 1700000000, vid: 4 },
     })
     for (const steps of [spaceReviewSteps(space(true)), spaceReviewSteps(space(false))]) {
       expect(bylineView(blockByline(signed), steps).steps[0])

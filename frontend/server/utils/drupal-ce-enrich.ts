@@ -5,7 +5,8 @@ import { resolveFileUuids } from './files'
 import { ceFileLists } from './commit-files'
 import type { PageAttachment, ResolvedFile } from '#shared/utils/files'
 import { resolveCiteNids, resolveDocNids } from './doc-links'
-import { blockByline, hasRecord, parseBlockMeta, type BlockByline } from '#shared/page-blocks'
+import { blockByline, hasRecord, parseBlockMeta, type ActorNames, type BlockByline } from '#shared/page-blocks'
+import { ceActorNames } from './drupal'
 
 /**
  * The custom_elements `raw` formatter emits a text_long field as the full
@@ -22,7 +23,7 @@ export interface CePage {
     element?: string
     props?: {
       body?: RawBodyValue | string
-      blockMeta?: RawBodyValue | string
+      blockMeta?: (RawBodyValue & { names?: ActorNames }) | string
       blockProvenance?: Record<string, BlockByline>
       blockCitations?: Record<string, CitationSource[]>
       pageFiles?: PageAttachment[]
@@ -79,13 +80,13 @@ function rawValue(field: RawBodyValue | string | undefined): string | null {
  * The flags travel verbatim. There is nothing for this layer to work out about
  * them: a sign-off that content moved under was dropped by the write that
  * moved it, so what Drupal stored is already the truth about the block as it
- * reads now.
+ * reads now. Names are the current ones Drupal ships beside the JSON.
  */
-export function blockProvenanceFrom(raw: string | null): Record<string, BlockByline> {
+export function blockProvenanceFrom(raw: string | null, names: ActorNames): Record<string, BlockByline> {
   const map = parseBlockMeta(raw)
   const out: Record<string, BlockByline> = {}
   for (const [id, block] of Object.entries(map)) {
-    const byline = blockByline(block)
+    const byline = blockByline(block, names)
     // A block whose entry survives the sweep but attributes nobody and owes
     // nothing has no byline to render — do not ship an empty one.
     if (!hasRecord(byline)) continue
@@ -165,7 +166,7 @@ export async function enrichCePage(
   const blockCitations = citationsByBlock(bodyTree)
   // The raw file lists are consumed into `pageFiles` and `::image{file}`.
   const { body: _drop, blockMeta: _dropMeta, attachments: _files, images: _images, ...restProps } = content.props ?? {}
-  const blockProvenance = blockProvenanceFrom(rawValue(content.props?.blockMeta))
+  const blockProvenance = blockProvenanceFrom(rawValue(content.props?.blockMeta), ceActorNames(content.props?.blockMeta))
   return {
     ...page,
     content: {

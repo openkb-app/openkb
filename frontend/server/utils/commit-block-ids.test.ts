@@ -106,7 +106,7 @@ describe('block ids at commit', () => {
     // first occurrence — so nothing has to be rewritten to follow a re-mint,
     // and a duplicate cannot carry another block's credit away with it.
     const doc = docWith(body(['typed into', 'b-dup'], ['a duplicate wearing its id', 'b-dup']))
-    const window = { 'b-dup': [{ uid: 7, via: null }] }
+    const window = { 'b-dup': [{ uid: 7, agent: null }] }
     const collabWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: window }
     await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS, collabWrite,
@@ -116,7 +116,7 @@ describe('block ids at commit', () => {
     expect(ids).toEqual(['b-dup', 'b-dup-2'])
     // The duplicate reaches Drupal named by nobody, and is stamped unaccounted
     // for it. That is the block the client introduced, never the one it aimed at.
-    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-dup': [{ uid: 7, via: null }] })
+    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-dup': [{ uid: 7, agent: null }] })
   })
 
   it('leaves the id on the block the accounting names, not on the first one', async () => {
@@ -125,7 +125,7 @@ describe('block ids at commit', () => {
     // document order for ownership hands it the victim's id — and with it the
     // sidecar tally, the comments and the sign-offs keyed on that id.
     const doc = docWith(body(['a duplicate wearing its id', 'b-dup'], ['typed into', 'b-dup']))
-    const window = { 'b-dup': [{ uid: 7, via: null }] }
+    const window = { 'b-dup': [{ uid: 7, agent: null }] }
     const collabWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: window }
     await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual',
@@ -136,7 +136,7 @@ describe('block ids at commit', () => {
 
     expect(committedDocument()).toBe('a duplicate wearing its id {#b-dup-2}\n\ntyped into {#b-dup}\n')
     // The window is untouched: it already names the block that keeps the id.
-    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-dup': [{ uid: 7, via: null }] })
+    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-dup': [{ uid: 7, agent: null }] })
   })
 
   it('re-mints past an id the document already carries', async () => {
@@ -154,11 +154,11 @@ describe('block ids at commit', () => {
 
   it('leaves the payload alone when no id had to move', async () => {
     const doc = docWith(body(['only one', 'b-1']))
-    const collabWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: { 'b-1': [{ uid: 7, via: null }] } }
+    const collabWrite = { secret: 's', actingUid: 7, coAuthors: [{ name: 'ada', via: null }], blocks: { 'b-1': [{ uid: 7, agent: null }] } }
     await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS, collabWrite,
     })
-    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-1': [{ uid: 7, via: null }] })
+    expect(commitMock.mock.calls[0]![3]?.collabWrite?.blocks).toEqual({ 'b-1': [{ uid: 7, agent: null }] })
   })
 
   it('leaves an id-less block id-less — a save must not rewrite untouched content', async () => {
@@ -172,8 +172,8 @@ describe('block ids at commit', () => {
   it('never sends the review sidecar: it is Drupal\'s to write', async () => {
     const doc = docWith(body(['hello', 'b-1']))
     const forged: PageBlock = {
-      contributors: [{ uid: 3, via: null, name: 'fago', lastEdit: 1000 }],
-      'review:peer': { uid: 3, name: 'fago', at: 1000, vid: 1 },
+      contributors: [{ uid: 3, agent: null, lastEdit: 1000 }],
+      'review:peer': { uid: 3, at: 1000, vid: 1 },
     }
     writeBlockMeta(doc, { 'b-1': forged })
     await commit(hp('node:1', doc), 'node:1', {
@@ -191,7 +191,7 @@ describe('block ids at commit', () => {
     expect(first.outcome).toBe('committed')
     commitMock.mockClear()
 
-    writeBlockMeta(doc, { 'b-1': { contributors: [{ uid: 3, via: null, name: 'fago', lastEdit: 2000 }] } })
+    writeBlockMeta(doc, { 'b-1': { contributors: [{ uid: 3, agent: null, lastEdit: 2000 }] } })
     const second = await commit(hp('node:1', doc), 'node:1', {
       trigger: 'manual', identity: { token: 'collab' }, hooks: HOOKS,
     })

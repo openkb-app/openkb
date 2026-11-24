@@ -91,8 +91,8 @@ describe('approvalStanding', () => {
 
   const pendingPeer = (by: number[]): PageBlock => ({
     contributors: [
-      { uid: 3, via: null, name: 'Ada', lastEdit: 1 },
-      { uid: 7, via: null, name: 'Grace', lastEdit: 2 },
+      { uid: 3, agent: null, lastEdit: 1 },
+      { uid: 7, agent: null, lastEdit: 2 },
     ],
     'pending:peer': { by, ok: [] },
   })
@@ -107,7 +107,7 @@ describe('approvalStanding', () => {
 
   it('hasReviewStanding is true for a pending enforced step and for a recorded sign-off', () => {
     expect(hasReviewStanding(approvalStanding(pendingPeer([3]), BOTH_STEPS, ADA))).toBe(true)
-    const signed: PageBlock = { contributors: [], 'review:peer': { uid: 9, name: 'Grace', at: 1, vid: 2 } }
+    const signed: PageBlock = { contributors: [], 'review:peer': { uid: 9, at: 1, vid: 2 } }
     expect(hasReviewStanding(approvalStanding(signed, BOTH_STEPS, ADA))).toBe(true)
   })
 
@@ -118,8 +118,9 @@ describe('approvalStanding', () => {
   })
 
   it('names the reviewer on a signed-off block, and offers nothing more', () => {
-    const block: PageBlock = { contributors: [], 'review:peer': { uid: 9, name: 'Grace', at: 1, vid: 2 } }
-    expect(approvalStanding(block, BOTH_STEPS, ADA)).toMatchObject({
+    const block: PageBlock = { contributors: [], 'review:peer': { uid: 9, at: 1, vid: 2 } }
+    const names = { users: { 9: 'Grace' }, agents: {} }
+    expect(approvalStanding(block, BOTH_STEPS, ADA, names)).toMatchObject({
       state: 'reviewed',
       label: 'Reviewed by Grace',
       refusal: null,
@@ -210,7 +211,7 @@ describe('approvalStanding', () => {
   // offers — both read REVIEW_STEPS order, not the policy's.
   it('leads with the agent step on a block owing both, whatever order the policy lists', () => {
     const both: PageBlock = {
-      contributors: [{ uid: 3, via: null, name: 'Ada', lastEdit: 1 }],
+      contributors: [{ uid: 3, agent: null, lastEdit: 1 }],
       'pending:peer': { by: [3], ok: [] },
       'pending:agent': { by: [3], ok: [] },
     }
@@ -221,7 +222,7 @@ describe('approvalStanding', () => {
   })
 
   it('names no step where there is nothing pending to sign off', () => {
-    const signed: PageBlock = { contributors: [], 'review:peer': { uid: 9, name: 'Grace', at: 1, vid: 2 } }
+    const signed: PageBlock = { contributors: [], 'review:peer': { uid: 9, at: 1, vid: 2 } }
     expect(approvalStanding(signed, BOTH_STEPS, ADA).step).toBeUndefined()
     expect(approvalStanding(undefined, BOTH_STEPS, ADA).step).toBeUndefined()
   })
@@ -299,7 +300,7 @@ describe('blockMenuItems', () => {
   // The reason goes wherever the control is off, this menu included.
   it('greys the review item out where the rule refuses, and says why', () => {
     const meta: PageBlock = {
-      contributors: [{ uid: 3, via: null, name: 'Ada', lastEdit: 1 }],
+      contributors: [{ uid: 3, agent: null, lastEdit: 1 }],
       'pending:peer': { by: [3], ok: [] },
     }
     const item = itemNamed(blockMenuItems({ ...state, meta }, actions), 'Mark reviewed') as BlockActionItem
@@ -309,7 +310,7 @@ describe('blockMenuItems', () => {
 
   it('offers the same block to a moderator', () => {
     const meta: PageBlock = {
-      contributors: [{ uid: 3, via: null, name: 'Ada', lastEdit: 1 }],
+      contributors: [{ uid: 3, agent: null, lastEdit: 1 }],
       'pending:peer': { by: [3], ok: [] },
     }
     const menu = blockMenuItems({ ...state, meta, reviewer: { uid: 3, isAdmin: true } }, actions)

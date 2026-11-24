@@ -29,7 +29,9 @@ import {
 import {
   blockIdOf,
   blockMetaRoot,
+  NO_ACTOR_NAMES,
   readBlockMeta,
+  type ActorNames,
   type BlockMetaMap,
   type Reviewer,
   type ReviewStep,
@@ -54,6 +56,8 @@ export interface Page {
   title: string
   body: string
   changed: number
+  /** The current names of the accounts and agent clients the sidecar names. */
+  blockMetaNames?: ActorNames
 }
 
 /**
@@ -170,6 +174,8 @@ export async function useEditorSession(
    * render, for all three surfaces at once.
    */
   const blockMeta = ref<BlockMetaMap>({})
+  // A sign-off given since the page loaded names a reviewer this may not know.
+  const actorNames = computed(() => page.value?.blockMetaNames ?? NO_ACTOR_NAMES)
 
   /**
    * The comment threads on this document, as a reactive snapshot of the
@@ -576,7 +582,7 @@ export async function useEditorSession(
     // action that asks Drupal to clear it. Reads the Y.Map live — the
     // extension holds no copy, and writes none.
     ReviewMarks.configure({
-      lookup: blockId => sidecarLookup(blockMeta.value, enforced.value, reviewer.value)(blockId),
+      lookup: blockId => sidecarLookup(blockMeta.value, enforced.value, reviewer.value, actorNames.value)(blockId),
       approve: (item, step) => approveItem(item, step),
     }),
     // Marks the blocks a conversation is open on, and owns the action that
@@ -1084,6 +1090,7 @@ export async function useEditorSession(
       meta: id ? blockMeta.value[id] : undefined,
       steps: enforced.value,
       reviewer: reviewer.value,
+      names: actorNames.value,
       openThreads: id ? openThreads(threads.value, id).length : 0,
     }, {
       cut: () => void cutBlock(),
@@ -1272,6 +1279,7 @@ export async function useEditorSession(
     caretBlockId.value ? blockMeta.value[caretBlockId.value] : undefined,
     enforced.value,
     reviewer.value,
+    actorNames.value,
   ))
 
   // The per-block tools beside the toolbar. Both act on the block holding the
@@ -1395,6 +1403,7 @@ export async function useEditorSession(
     editorRef,
     hydrated,
     blockMeta,
+    actorNames,
     reviewer,
     me,
     goToBlock,

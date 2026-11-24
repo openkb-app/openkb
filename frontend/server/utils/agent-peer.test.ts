@@ -74,7 +74,7 @@ async function versionOf(doc: Y.Doc, id: string): Promise<string> {
   return blockVersions(await serializeYDoc(doc))[id]!
 }
 
-const ACTOR: AgentActor = { token: 'tok-1', uid: 7, name: 'fago', via: 'Claude' }
+const ACTOR: AgentActor = { token: 'tok-1', uid: 7, name: 'fago', via: 'Claude', agent: 'c1a0de00-0000-4000-8000-000000000001' }
 
 const SPECS: FieldSpec[] = [
   { key: 'summary', name: 'field_summary', multiple: false, reference: false },
@@ -670,9 +670,9 @@ describe('openAgentSession', () => {
     expect(liveFileNames(document)).toEqual({ [B]: 'Chart' })
   })
 
-  it('seats an agent as a peer carrying its via (ADR 0003)', async () => {
+  it('seats an agent as a peer carrying its agent client (ADR 0003)', async () => {
     // Agents are session peers now: the write enters each block's set carrying
-    // the agent's `via`, and that member is what raises the agent review step —
+    // the agent client, and that member is what raises the agent review step —
     // the requirement travels in the set, not on the checkpoint's credential.
     const { host, document } = hostFor(docFromMarkdownBlocks(['before']))
     const origins: unknown[] = []
@@ -681,7 +681,7 @@ describe('openAgentSession', () => {
     const session = await openAgentSession(host, 1, ACTOR, noTimers)
     await session.apply({ body: 'after' })
 
-    expect(origins.filter(isAgentOrigin)[0]!.seat).toEqual({ uid: 7, name: 'fago', via: 'Claude' })
+    expect(origins.filter(isAgentOrigin)[0]!.seat).toEqual({ uid: 7, name: 'fago', agent: 'c1a0de00-0000-4000-8000-000000000001', via: 'Claude' })
   })
 
   it('writes no word about who wrote it — that is Drupal\'s to witness', async () => {

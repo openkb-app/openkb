@@ -993,7 +993,7 @@ describe('collaboration block provenance', () => {
       // peer already on the block is its last-edit time moving, not a total
       // growing.
       const persisted = await storedBlockMeta(cookie, probe.uuid)
-      expect(credited(persisted['b-edit'], ADMIN_UID)).toMatchObject({ uid: ADMIN_UID, via: null })
+      expect(credited(persisted['b-edit'], ADMIN_UID)).toMatchObject({ uid: ADMIN_UID, agent: null })
       expect(contributorsSince(persisted['b-edit'], 'peer')).toEqual([ADMIN_UID])
       expect(isPending(persisted['b-edit'], 'peer')).toBe(true)
       expect(persisted['b-edit']!.contributors!.map(c => c.uid)).toEqual([ADMIN_UID])
@@ -1007,7 +1007,7 @@ describe('collaboration block provenance', () => {
         isPending(meta['b-edit'], 'peer') && !meta['b-edit']?.['pending:peer']?.estimated
           ? meta['b-edit']
           : undefined)
-      expect(credited(mirrored, ADMIN_UID)).toMatchObject({ uid: ADMIN_UID, via: null })
+      expect(credited(mirrored, ADMIN_UID)).toMatchObject({ uid: ADMIN_UID, agent: null })
     }
     finally {
       await deletePage(cookie, probe.uuid)
@@ -1032,7 +1032,7 @@ describe('collaboration block provenance', () => {
       // Drupal took any of it on trust.
       peer.doc.transact(() => {
         blockMetaRoot(peer.doc).set(fieldKey('b-rev', 'review:peer'), {
-          uid: 202, name: 'bob', at: Date.now(), vid: 1,
+          uid: 202, at: Date.now(), vid: 1,
         })
       })
 
@@ -1269,7 +1269,7 @@ describe('collaboration multi-peer settle', () => {
         // credits, and in review. Being first in document order buys the
         // newcomer none of the original's record, comments or sign-offs.
         expect(persisted['b-v-2']).toBeDefined()
-        expect(persisted['b-v-2']!.contributors?.map(c => [c.uid, c.via ?? null])).toEqual([[foe.uid, null]])
+        expect(persisted['b-v-2']!.contributors?.map(c => [c.uid, c.agent ?? null])).toEqual([[foe.uid, null]])
         expect(credited(persisted['b-v-2'], ADMIN_UID)).toBeUndefined()
         expect(isPending(persisted['b-v-2'], 'peer')).toBe(true)
 
@@ -1288,7 +1288,7 @@ describe('collaboration multi-peer settle', () => {
         const reread = await storedBlockMeta(cookie, probe.uuid)
         expect(credited(reread['b-v'], ADMIN_UID)).toBeDefined()
         expect(credited(reread['b-v'], foe.uid)).toBeUndefined()
-        expect(reread['b-v-2']!.contributors?.map(c => [c.uid, c.via ?? null])).toEqual([[foe.uid, null]])
+        expect(reread['b-v-2']!.contributors?.map(c => [c.uid, c.agent ?? null])).toEqual([[foe.uid, null]])
       }
       finally {
         await deletePage(cookie, probe.uuid)
@@ -1341,7 +1341,7 @@ describe('collaboration multi-peer settle', () => {
         const persisted = await storedBlockMeta(cookie, probe.uuid)
         expect(credited(persisted['b-v'], ADMIN_UID)).toBeDefined()
         expect(credited(persisted['b-v'], foe.uid)).toBeUndefined()
-        expect(persisted['b-v-2']!.contributors?.map(c => [c.uid, c.via ?? null])).toEqual([[foe.uid, null]])
+        expect(persisted['b-v-2']!.contributors?.map(c => [c.uid, c.agent ?? null])).toEqual([[foe.uid, null]])
       }
       finally {
         await deletePage(cookie, probe.uuid)
@@ -1440,13 +1440,13 @@ describe('collaboration multi-peer settle', () => {
         // Both writer sets reached Drupal: the reviewer's membership of the
         // block they typed survived the disconnect that ended the session, and
         // so did the author's. What reaches Drupal is the set — a checkpoint
-        // states {uid, via} per block and no amount, and nothing stored carries
+        // states {uid, agent} per block and no amount, and nothing stored carries
         // one either (ADR 0002). The settle has landed once the reviewer is on
         // their block.
         const persisted = await settledBlockMeta(probe.uuid, meta =>
           credited(meta['b-editor'], peerB.uid) !== undefined
           && contributorsSince(meta['b-editor'], 'peer').includes(peerB.uid))
-        expect(credited(persisted['b-editor'], peerB.uid)).toMatchObject({ uid: peerB.uid, via: null })
+        expect(credited(persisted['b-editor'], peerB.uid)).toMatchObject({ uid: peerB.uid, agent: null })
         expect(credited(persisted['b-admin'], ADMIN_UID)).toBeDefined()
         expect(isPending(persisted['b-editor'], 'peer')).toBe(true)
 

@@ -636,7 +636,7 @@ export default defineNitroPlugin((nitroApp) => {
       // for the same reason: it moves the document, so the writer it interrupts
       // has to be paid before its bytes land. Who it seats afterwards is the
       // origin's own answer (AgentOrigin.seat) — agents are seated with their
-      // via and enter the writer sets like anyone else (ADR 0003).
+      // agent client and enter the writer sets like anyone else (ADR 0003).
       if (!isPeerUpdate(transaction.origin) && !isAgentOrigin(transaction.origin)) return
       // Somebody is writing, so the marks that writing earns are due.
       markMirror.schedule(documentName)

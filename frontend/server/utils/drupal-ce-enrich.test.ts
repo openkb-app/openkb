@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { blockProvenanceFrom, enrichCePage, pageAttachments, type CePage } from './drupal-ce-enrich'
-import { serializeBlockMeta, type BlockMetaMap } from '#shared/page-blocks'
+import { serializeBlockMeta, type ActorNames, type BlockMetaMap } from '#shared/page-blocks'
 
 const kbResponse = (): CePage => ({
   title: 'Hello',
@@ -73,62 +73,70 @@ describe('enrichCePage', () => {
   })
 })
 
+const CLAUDE_AGENT = 'c1a0de00-0000-4000-8000-000000000001'
+
+/** The current names Drupal ships beside the sidecar. */
+const NAMES: ActorNames = {
+  users: { 3: 'fago', 7: 'reviewer', 9: 'signer' },
+  agents: { [CLAUDE_AGENT]: 'Claude' },
+}
+
 /** A sidecar as Drupal's presave writes it: one block written, one signed off. */
 function sidecar(): BlockMetaMap {
   return {
     'b-1': {
       contributors: [
-        { uid: 3, via: null, name: 'fago', lastEdit: 1000 },
-        { uid: 3, via: 'Claude', name: 'fago', lastEdit: 2000 },
+        { uid: 3, agent: null, lastEdit: 1000 },
+        { uid: 3, agent: CLAUDE_AGENT, lastEdit: 2000 },
       ],
       'pending:peer': { by: [3], ok: [] },
     },
     'b-2': {
-      contributors: [{ uid: 7, via: null, name: 'reviewer', lastEdit: 500 }],
-      'review:peer': { uid: 9, name: 'signer', at: 3000, vid: 12 },
+      contributors: [{ uid: 7, agent: null, lastEdit: 500 }],
+      'review:peer': { uid: 9, at: 3000, vid: 12 },
     },
   }
 }
 
 describe('blockProvenanceFrom', () => {
   it('orders contributors by last edit, most recent first', () => {
-    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()))
+    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()), NAMES)
     expect(out['b-1']!.contributors.map(c => c.lastEdit)).toEqual([2000, 1000])
   })
 
   it('keeps a human and the same human via an agent as separate contributors', () => {
-    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()))
+    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()), NAMES)
     expect(out['b-1']!.contributors.map(c => c.via)).toEqual(['Claude', null])
   })
 
   it('carries the sign-off through verbatim, and names the revision it covers', () => {
-    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()))
+    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()), NAMES)
 
     expect(out['b-2']!.review.peer).toMatchObject({ uid: 9, name: 'signer', at: 3000, vid: 12 })
     expect(out['b-2']!.pending).toEqual([])
   })
 
   it('carries the pending flags through as the blocks the page still owes', () => {
-    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()))
+    const out = blockProvenanceFrom(serializeBlockMeta(sidecar()), NAMES)
 
     expect(out['b-1']!.pending).toEqual(['peer'])
   })
 
   it('drops an entry that attributes nobody and owes nothing', () => {
-    expect(blockProvenanceFrom(serializeBlockMeta({ 'b-1': { contributors: [] } }))).toEqual({})
+    expect(blockProvenanceFrom(serializeBlockMeta({ 'b-1': { contributors: [] } }), NAMES)).toEqual({})
   })
 
   it('yields an empty map for an unstored / unparseable sidecar', () => {
-    expect(blockProvenanceFrom(null)).toEqual({})
-    expect(blockProvenanceFrom('')).toEqual({})
-    expect(blockProvenanceFrom('not json')).toEqual({})
+    expect(blockProvenanceFrom(null, NAMES)).toEqual({})
+    expect(blockProvenanceFrom('', NAMES)).toEqual({})
+    expect(blockProvenanceFrom('not json', NAMES)).toEqual({})
   })
 })
 
 describe('enrichCePage — block provenance', () => {
   function withSidecar(): CePage {
     const page = kbResponse()
-    page.content!.props!.blockMeta = { value: serializeBlockMeta(sidecar()) }
+    page.content!.props!.blockMeta = { value: serializeBlockMeta(sidecar()), names: NAMES }
     return page
   }
 
@@ -158,7 +166,7 @@ describe('enrichCePage — block provenance', () => {
   it('keys the provenance by the same ids the rendered tree carries', async () => {
     const page = kbResponse()
     page.content!.props!.body = { value: '# Top {#b-1}\n\nIntro. {#b-2}\n' }
-    page.content!.props!.blockMeta = { value: serializeBlockMeta(sidecar()) }
+    page.content!.props!.blockMeta = { value: serializeBlockMeta(sidecar()), names: NAMES }
     const out = await enrichCePage(page)
     const tree = out.content!.props!.bodyTree as Array<[string, Record<string, unknown>]>
     const ids = tree.map(node => node[1]?.id)

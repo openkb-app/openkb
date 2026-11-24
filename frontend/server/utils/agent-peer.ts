@@ -75,9 +75,10 @@ export interface AgentOrigin {
   clientId: number
   /**
    * The writer this session enters each touched block's set as (ADR 0002/0003),
-   * or null when no account resolves. Carries `via`: the label seats the agent
-   * as a member, which is what raises the block's agent review step — agent
-   * involvement then survives human rework rather than riding a credential.
+   * or null when no account resolves. Carries `agent`: the client seats the
+   * agent as a member, which is what raises the block's agent review step —
+   * agent involvement then survives human rework rather than riding a
+   * credential.
    */
   seat: AttributionPeer | null
 }
@@ -90,11 +91,11 @@ export function isAgentOrigin(origin: unknown): origin is AgentOrigin {
 /**
  * The writer a session's ops enter the block sets as — see {@link AgentOrigin.seat}.
  *
- * Seats the resolved account carrying its `via`; that presence in the set is
- * what raises the agent review step (ADR 0002/0003).
+ * Seats the resolved account carrying its agent client; that presence in the
+ * set is what raises the agent review step (ADR 0002/0003).
  */
 function seatOf(actor: AgentActor): AttributionPeer | null {
-  return actor.uid > 0 ? { uid: actor.uid, name: actor.name, via: actor.via } : null
+  return actor.uid > 0 ? { uid: actor.uid, name: actor.name, agent: actor.agent ?? null, via: actor.via } : null
 }
 
 /**
