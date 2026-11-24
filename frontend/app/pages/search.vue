@@ -358,7 +358,7 @@ function ask() {
   asked = routeQuery.value.trim()
   const id = ++turn
   answerTurn.value = true
-  // The search page's own assistant: little reasoning, sources only.
+  // The search page's own assistant: sources only.
   // `answerError` carries the failure.
   void answerChat.sendMessage({ text: asked }, { body: { agentId: 'openkb_summary' } })
     .catch(() => {})

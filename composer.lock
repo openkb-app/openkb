@@ -3892,7 +3892,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "a6b1d754b864993aceb216285fa5016044d55da0"
+                "reference": "c75ff477116dad98176dced73ef4e0b5da2ff6b1"
             },
             "require": {
                 "drupal/ai": "^1.5.3",
@@ -3928,8 +3928,7 @@
                 "patches": {
                     "drupal/ai": {
                         "OKB-309: Embed nothing for a lexical_only query. The ai_search backend embeds the query's keys before every search and only reaches a provider's vectorSearch() when it holds a vector, so a search that wants the lexical arm alone still costs an embeddings call. The option is passed through instead, and the provider answers it off the index's own text fields. Against 1.5.3. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai_search-lexical-only-skips-the-embedding.patch",
-                        "OKB-451: Type a topic guardrail's llm_config like ai.provider_config's config (ignore). The settings form is the ai_provider_configuration element and stores the selected provider's configuration there (reasoning_effort, temperature, ...); the empty mapping makes every key missing schema. Against 1.5.3. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai-guardrail-llm-config-schema.patch",
-                        "OKB-707: Leave an assistant's config as it is on a save that changes nothing. AiAssistantForm::submitForm() empties llm_configuration for the `__default__` provider, dropping settings such as reasoning_effort that AiAssistantApiRunner still applies to it, and stores every unchecked role as 0. The stored configuration stays only while the provider stays `__default__`; a switch to it still empties it. Against 1.5.3. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai_assistant_api-unchanged-save-keeps-config.patch"
+                        "OKB-451: Type a topic guardrail's llm_config like ai.provider_config's config (ignore). The settings form is the ai_provider_configuration element and stores the selected provider's configuration there (reasoning_effort, temperature, ...); the empty mapping makes every key missing schema. Against 1.5.3. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai-guardrail-llm-config-schema.patch"
                     },
                     "drupal/ai_provider_openai": {
                         "OKB-451: Treat gpt-6 models as reasoning models. isReasoningModel() matches gpt-5* and the o-series only, so reasoning_effort is never sent for a gpt-6 model and the API applies its own default, medium. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/ai_provider_openai-gpt-6-reasoning-model.patch"
@@ -3976,7 +3975,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-24T22:18:50+00:00"
+            "time": "2026-11-24T22:19:24+00:00"
         },
         {
             "name": "drupal/pathauto",
