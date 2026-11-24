@@ -64,6 +64,11 @@ function awaiting(by: number[] = [3]): PageBlock {
   return { contributors: [], 'pending:peer': { by, ok: [] } }
 }
 
+/** A peer flag waiting on `by`, with `approver`'s approval already recorded. */
+function coApproved(by: number[], approver: number): PageBlock {
+  return { contributors: [], 'pending:peer': { by, ok: [{ uid: approver, at: 1000, vid: 7 }] } }
+}
+
 /** The same flag, mirrored by the collab server ahead of its checkpoint. */
 function estimated(by: number[] = [3]): PageBlock {
   return { contributors: [], 'pending:peer': { by, ok: [], estimated: true } }
@@ -84,6 +89,7 @@ function awaitingBoth(by: number[] = [3]): PageBlock {
  * `PageBlocks::refusalReason()`'s own, and a reader acts on the sentence.
  */
 const FOUR_EYES = 'This block needs a second pair of eyes: its only contributor is the account approving it.'
+const ALREADY_APPROVED_SENTENCE = 'This block is waiting for another writer: this account has already approved it.'
 
 /**
  * The refusal a step in this state carries for a signed-in reader. `refused`
@@ -238,6 +244,17 @@ describe('reviewMarkOf', () => {
 
   it('offers it to a co-author — somebody else wrote part of it too', () => {
     expect(reviewMarkOf(awaiting([3, 7]), ['peer'], WRITER)).toEqual(owes(['peer', 'reviewable']))
+  })
+
+  it('stops offering it to a co-author who already approved, and leaves it to the other', () => {
+    const approvedByWriter = coApproved([3, 7], 3)
+    expect(mayApprove(approvedByWriter, 'peer', WRITER)).toBe(false)
+    expect(reviewMarkOf(approvedByWriter, ['peer'], WRITER)).toEqual({
+      state: 'awaiting-others',
+      steps: [{ step: 'peer', state: 'awaiting-others', refusal: ALREADY_APPROVED_SENTENCE }],
+    })
+    expect(mayApprove(approvedByWriter, 'peer', OTHER)).toBe(true)
+    expect(reviewMarkOf(approvedByWriter, ['peer'], OTHER)).toEqual(owes(['peer', 'reviewable']))
   })
 
   // What fago asked to see: my own writing is not mine to sign off.
@@ -483,7 +500,7 @@ describe('signOffRefusal', () => {
 
   /** One rule, two readings: the sentence and the state cannot disagree. */
   it('says no exactly where Drupal\u2019s rule does', () => {
-    const blocks = [awaiting([3]), awaiting([]), awaitingAgent([3]), awaitingBoth([3])]
+    const blocks = [awaiting([3]), awaiting([]), awaitingAgent([3]), awaitingBoth([3]), coApproved([3, 7], 3)]
     for (const block of blocks) {
       for (const step of ['peer', 'agent'] as const) {
         for (const reviewer of [WRITER, OTHER, MODERATOR]) {

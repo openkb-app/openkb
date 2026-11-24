@@ -10,6 +10,7 @@ import { widgetDrawnOncePerDecoration } from './widget-drawn-once'
 import {
   blockIdOf,
   contributorsSince,
+  hasApproved,
   holdsNothing,
   ID_BEARING_TYPES,
   mayApprove,
@@ -95,7 +96,7 @@ import {
  *
  *  - `reviewable` — they may sign it off now;
  *  - `awaiting-others` — it is waiting on eyes that are not theirs, because
- *    their own writing is all it names;
+ *    their own writing is all it names or they already approved it;
  *  - `unattributed` — nobody is on record as having written it; anyone may
  *    sign it off, and an identified edit names a writer.
  */
@@ -217,10 +218,13 @@ export function signOffRefusal(
   reviewer: Reviewer,
   subject = 'This block',
 ): string | null {
-  return mayApprove(block, step, reviewer) ? null : `${subject} ${REFUSAL}`
+  if (mayApprove(block, step, reviewer)) return null
+  if (hasApproved(block, step, reviewer.uid)) return `${subject} ${ALREADY_APPROVED}`
+  return `${subject} ${REFUSAL}`
 }
 
-/** The refusal sentence `PageBlocks::refusalReason()` answers with, without its subject. */
+/** The refusal sentences `PageBlocks::refusalReason()` answers with, without their subject. */
+export const ALREADY_APPROVED = 'is waiting for another writer: this account has already approved it.'
 export const REFUSAL = 'needs a second pair of eyes: its only contributor is the account approving it.'
 
 /** The lookup the session hands the extension, over a mirrored sidecar. */

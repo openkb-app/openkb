@@ -250,7 +250,8 @@ export interface Reviewer {
  *  - `agent` asks for a human, not a second one, so any account clears it;
  *  - `peer` is four-eyes — an episode naming only this account is the
  *    self-approval the rule exists to withhold; one naming nobody has no
- *    author to exclude, so any account clears it (ADR 0004).
+ *    author to exclude, so any account clears it (ADR 0004). A co-author
+ *    whose approval is already recorded waits for the others.
  *
  * A flag the collaboration server estimated ahead of its checkpoint answers the
  * same three questions and reads no differently. Its baseline is the writer set
@@ -265,8 +266,19 @@ export function mayApprove(
 ): boolean {
   if (!isPending(block, step) || reviewer.uid == null) return false
   if (step === 'agent' || reviewer.isAdmin) return true
+  if (hasApproved(block, step, reviewer.uid)) return false
   const writers = contributorsSince(block, step)
   return !(writers.length === 1 && writers[0] === reviewer.uid)
+}
+
+/**
+ * Whether this account has an approval recorded on a pending step.
+ *
+ * `\Drupal\openkb_workflow\PageBlocks::hasApproved()`.
+ */
+export function hasApproved(block: PageBlock | undefined, step: ReviewStep, uid: number | null): boolean {
+  const approvals = block?.[pendingKey(step) as 'pending:peer']?.ok ?? []
+  return approvals.some(approval => approval?.uid === uid)
 }
 
 /**
