@@ -189,6 +189,32 @@ docker compose start frontend
 
 Restore is the reverse, into a stack whose `frontend` is stopped: the dump through `mariadb` (`mariadb -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" < db.sql`), each archive with `tar xz` into the same directory of the same service. Then `docker compose start frontend` and `docker compose exec drupal drush cr`.
 
+## Files
+
+Page files (attachments and images) live in the `drupal-files` volume, under `/app/files/private`: `attachments/<year>-<month>/` and `images/<year>-<month>/`. The volume grows with every upload and every replaced file a revision still holds; back it up with the rest ([Volumes and backup](#volumes-and-backup)). Per-file limits and cleanup are in [attachments.md](attachments.md).
+
+### Upload quota
+
+`openkb_files.settings:upload_quota` caps the bytes of files the site stores, all accounts together. The default is `5 GB`; unset or empty (`null`, `''`) is unlimited.
+
+A site that already stores more than the quota refuses every upload, also right after the update that sets the default. Check the files volume before updating and raise the quota where needed.
+
+```sh
+docker compose exec drupal drush cset -y openkb_files.settings upload_quota "20 GB"
+docker compose exec drupal drush cset -y openkb_files.settings upload_quota ''   # unlimited
+```
+
+- Every file in `file_managed` counts, temporary uploads included. Administrators are not exempt.
+- It holds for every upload: the editor's (upload, paste, drag and drop) and an agent's `tool_api__upload_attachment`.
+- A refused upload is a 422 with "This file would exceed the upload quota of 5 GB (4.98 GB used)." in the editor; the tool answers `"<name>" was refused: …` with the same text.
+- What frees space: a temporary upload no page took, once cron deletes it (`system.file:temporary_maximum_age`, 6 hours by default); a file no revision holds any more, which turns temporary and is deleted the same way. A file an old revision still holds keeps counting.
+- Uploads running at the same time are each checked against the usage before them, so together they can overshoot the quota.
+- `0` refuses every upload with content. A value that is no number of bytes (`unlimited`, `MB`) refuses every upload with "The upload quota is misconfigured." and logs an error on the `openkb_files` channel.
+
+### Virus scanning
+
+Every upload passes core's file validation (`FileValidationEvent`), and the contrib [clamav](https://www.drupal.org/project/clamav) module scans there. OpenKB ships no scanner: to scan uploads, run a `clamd` container next to the stack, `composer require drupal/clamav`, enable `clamav` and point it at `clamd` (daemon mode, TCP, host and port) at `/admin/config/media/clamav`.
+
 ## Resources and logs
 
 Host sizing and image sizes are in the [README](../README.md#requirements): 4 GB of RAM free for the stack. `OPENSEARCH_JAVA_OPTS` sets the OpenSearch heap; the default, 512 MB, fits in it.
