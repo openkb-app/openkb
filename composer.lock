@@ -3892,7 +3892,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "94e731054a0ad2cb1a92d4534d179666bdfd346d"
+                "reference": "e92005fb6275c58e283f50777a94b9108ab263d0"
             },
             "require": {
                 "drupal/ai": "^1.5.3",
@@ -3911,6 +3911,7 @@
                 "drupal/search_api_opensearch": "^2.5.0",
                 "drupal/simple_oauth": "^6.1.4",
                 "drupal/tool": "1.0.0-beta12",
+                "drupal/tool_belt": "1.0.0-alpha7",
                 "drupal/userprotect": "^1.4.0",
                 "php": ">=8.3"
             },
@@ -3960,6 +3961,9 @@
                     },
                     "drupal/mcp_server_tool_bridge": {
                         "OKB-506: Pass a tool's description to its MCP definition as Markup, so the @text placeholder does not HTML-escape the quotes and angle brackets an agent reads in tools/list. Against 1.0.0-beta5. drupal.org issue pending.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/mcp_server_tool_bridge-plain-text-tool-descriptions.patch"
+                    },
+                    "drupal/tool_belt": {
+                        "OKB-615: Add tool_belt_file: a single-use upload URL an agent sends a local file to with curl, so the bytes never pass through the tool call. MR !82 of https://www.drupal.org/project/tool_belt/issues/3616238 without its phpstan.neon and cspell hunks. Against 1.0.0-alpha7.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/tool_belt-file-upload-url.patch"
                     }
                 }
             },
@@ -3971,7 +3975,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-24T08:06:01+00:00"
+            "time": "2026-11-24T09:47:33+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -4584,6 +4588,68 @@
                 "issues": "https://drupal.org/project/issues/tool"
             },
             "published-time": "2026-10-20T21:00:04+00:00"
+        },
+        {
+            "name": "drupal/tool_belt",
+            "version": "1.0.0-alpha7",
+            "source": {
+                "type": "git",
+                "url": "https://git.drupalcode.org/project/tool_belt.git",
+                "reference": "1.0.0-alpha7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://ftp.drupal.org/files/projects/tool_belt-1.0.0-alpha7.zip",
+                "reference": "1.0.0-alpha7",
+                "shasum": "2e4cb07e4d510df9737b5b9808ded4c7b02b7d0c"
+            },
+            "require": {
+                "drupal/core": "^10.5 || ^11 || ^12",
+                "drupal/tool": "^1.0.0-beta12"
+            },
+            "require-dev": {
+                "drupal/pathauto": "^1.13"
+            },
+            "type": "drupal-module",
+            "extra": {
+                "drupal": {
+                    "version": "1.0.0-alpha7",
+                    "datestamp": "1795180706",
+                    "security-coverage": {
+                        "status": "not-covered",
+                        "message": "Alpha releases are not covered by Drupal security advisories."
+                    }
+                }
+            },
+            "notification-url": "https://packages.drupal.org/8/downloads",
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "ajits",
+                    "homepage": "https://www.drupal.org/user/981944"
+                },
+                {
+                    "name": "b_sharpe",
+                    "homepage": "https://www.drupal.org/user/2512258"
+                },
+                {
+                    "name": "michaellander",
+                    "homepage": "https://www.drupal.org/user/636494"
+                }
+            ],
+            "description": "A default collection of tools covering common Drupal core actions.",
+            "homepage": "https://www.drupal.org/project/tool_belt",
+            "keywords": [
+                "Actively maintained",
+                "Artificial Intelligence (AI)"
+            ],
+            "support": {
+                "source": "https://git.drupalcode.org/project/tool_belt",
+                "issues": "https://www.drupal.org/project/issues/tool_belt"
+            },
+            "published-time": "2026-11-20T13:18:05+00:00"
         },
         {
             "name": "drupal/trash",
