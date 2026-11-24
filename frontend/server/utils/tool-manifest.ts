@@ -16,7 +16,7 @@ const MANIFEST_PATH = '/openkb/agent/tool-manifest'
 /** Seconds an answer is reused before Drupal is asked again. */
 const MANIFEST_MAX_AGE = 60
 
-/** Every `/api/mcp` request waits on an expired entry — it may not hang. */
+/** Every `/mcp` request waits on an expired entry — it may not hang. */
 const MANIFEST_TIMEOUT_MS = 2_000
 
 /** The last answer and its validators, for revalidating an expired entry. */

@@ -54,7 +54,7 @@ describe('protected-resource metadata', () => {
     const doc = await protectedResourceMetadata(eventFor(PRM_PATH))
 
     expect(OAuthProtectedResourceMetadataSchema.safeParse(doc).success).toBe(true)
-    expect(doc.resource).toBe(`http://${HOST}/api/mcp`)
+    expect(doc.resource).toBe(`http://${HOST}/mcp`)
     // The issuer a client follows to step 3 — this app, not Drupal: the AS
     // metadata document lives here.
     expect(doc.authorization_servers).toEqual([`http://${HOST}`])
@@ -70,7 +70,7 @@ describe('protected-resource metadata', () => {
     }))
     // A document naming the container's own host would send the client's next
     // request somewhere it cannot reach.
-    expect(doc.resource).toBe('https://kb.public.example/api/mcp')
+    expect(doc.resource).toBe('https://kb.public.example/mcp')
     expect(doc.authorization_servers).toEqual(['https://kb.public.example'])
   })
 })
@@ -167,15 +167,33 @@ describe('the scopes advertised', () => {
 describe('the 401 challenge', () => {
   it('points at this resource\'s own metadata document', async () => {
     const { wwwAuthenticate } = await metadata()
+    for (const path of ['/mcp', '/mcp/']) {
+      expect(wwwAuthenticate(eventFor(path)), path).toBe(
+        `Bearer resource_metadata="http://${HOST}/.well-known/oauth-protected-resource/mcp"`,
+      )
+    }
+  })
+
+  it('at the deprecated /api/mcp, points at the document naming /api/mcp as the resource', async () => {
+    // A client accepts metadata only when its `resource` is a prefix of the
+    // URL it was given; `/mcp` is not one of `/api/mcp`.
+    const { wwwAuthenticate, protectedResourceMetadata, DEPRECATED_MCP_PATH } = await metadata()
     expect(wwwAuthenticate(eventFor('/api/mcp'))).toBe(
       `Bearer resource_metadata="http://${HOST}/.well-known/oauth-protected-resource/api/mcp"`,
     )
+    const route = await import('../routes/.well-known/oauth-protected-resource/api/mcp.get')
+    const event = eventFor('/.well-known/oauth-protected-resource/api/mcp')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(event.node.res as any).setHeader = () => {}
+    const doc = await route.default(event)
+    expect(doc).toEqual(await protectedResourceMetadata(event, DEPRECATED_MCP_PATH))
+    expect(doc.resource).toBe(`http://${HOST}/api/mcp`)
   })
 })
 
 describe('the routes serving them', () => {
   it('serve the documents, open to any origin', async () => {
-    const prm = await import('../routes/.well-known/oauth-protected-resource/api/mcp.get')
+    const prm = await import('../routes/.well-known/oauth-protected-resource/mcp.get')
     const as = await import('../routes/.well-known/oauth-authorization-server.get')
     const { PRM_PATH, AS_METADATA_PATH } = await metadata()
 

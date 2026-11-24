@@ -1,14 +1,16 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, getHeader, setResponseHeader, setResponseStatus } from 'h3'
-import { MCP_RESOURCE_PATH, resourceOrigin } from '../utils/oauth-metadata'
+import { serveMcp } from '../utils/mcp-endpoint'
+import { MCP_PATH, resourceOrigin } from '../utils/oauth-metadata'
 
 /**
- * What a client pointed at the wrong path gets back — anything but HTML.
+ * Serves the MCP endpoint at `/mcp`, and answers an MCP client pointed at the
+ * site origin in JSON rather than with the HTML gate.
  *
- * `claude mcp add <url>` invites pasting the site *origin*, and one segment
- * off is the other common miss. The page catch-all answers an unauthenticated
- * caller with a redirect into the HTML gate, which an MCP client parses as
- * JSON-RPC and reports only as `CLIENT_HTTP_UNEXPECTED_CONTENT`.
+ * `/mcp` is the conventional path, served in place because clients do not
+ * reliably follow a redirect on POST. The origin is what `claude mcp add <url>`
+ * invites pasting; the gate there is reported only as
+ * `CLIENT_HTTP_UNEXPECTED_CONTENT`.
  *
  * Middleware rather than routes, because both paths serve pages and so both
  * answers have to be able to *decline* — a browser asking for either lands on
@@ -33,11 +35,9 @@ function acceptsMcpWire(event: H3Event): boolean {
 }
 
 export default defineEventHandler((event) => {
-  // A pasted URL is what this serves, so it is matched the way one is typed:
-  // a trailing slash and any casing are the same miss.
-  const path = (event.path.split('?')[0] ?? '').toLowerCase().replace(/\/$/, '')
+  const path = (event.path.split('?')[0] ?? '').replace(/\/$/, '')
   const atRoot = path === ''
-  if ((!atRoot && path !== '/mcp') || acceptsHtml(event)) {
+  if ((!atRoot && path !== MCP_PATH) || acceptsHtml(event)) {
     return
   }
   if (atRoot && !acceptsMcpWire(event)) {
@@ -48,12 +48,8 @@ export default defineEventHandler((event) => {
   // other.
   setResponseHeader(event, 'vary', 'accept')
 
-  // One segment off: send the client where it meant to go, method intact, so
-  // the 401 + `WWW-Authenticate` discovery chain engages at the target.
   if (!atRoot) {
-    setResponseHeader(event, 'location', MCP_RESOURCE_PATH)
-    setResponseStatus(event, 308)
-    return null
+    return serveMcp(event)
   }
 
   // No redirect at the site root — it is a page for humans. The answer offers
@@ -61,7 +57,7 @@ export default defineEventHandler((event) => {
   setResponseStatus(event, 404)
   return {
     error: 'not_found',
-    error_description: `Nothing answers here. If you are looking for the MCP endpoint, it is at ${MCP_RESOURCE_PATH}.`,
-    mcp_endpoint: `${resourceOrigin(event)}${MCP_RESOURCE_PATH}`,
+    error_description: `Nothing answers here. If you are looking for the MCP endpoint, it is at ${MCP_PATH}.`,
+    mcp_endpoint: `${resourceOrigin(event)}${MCP_PATH}`,
   }
 })

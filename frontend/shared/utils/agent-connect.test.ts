@@ -9,16 +9,16 @@ import { claudeCodeConnectCommand, mcpEndpoint } from './agent-connect'
  */
 describe('the connect snippets', () => {
   it('names the MCP endpoint on the origin the reader is on', () => {
-    expect(mcpEndpoint('https://kb.example.com')).toBe('https://kb.example.com/api/mcp')
+    expect(mcpEndpoint('https://kb.example.com')).toBe('https://kb.example.com/mcp')
   })
 
   it('does not double the slash on an origin that carries one', () => {
-    expect(mcpEndpoint('http://localhost:8091/')).toBe('http://localhost:8091/api/mcp')
+    expect(mcpEndpoint('http://localhost:8091/')).toBe('http://localhost:8091/mcp')
   })
 
   it('gives Claude Code the endpoint and no credential', () => {
     const command = claudeCodeConnectCommand('https://kb.example.com')
-    expect(command).toBe('claude mcp add --transport http openkb https://kb.example.com/api/mcp')
+    expect(command).toBe('claude mcp add --transport http openkb https://kb.example.com/mcp')
     expect(command).not.toContain('--header')
   })
 })

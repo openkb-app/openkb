@@ -4,16 +4,18 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   type CallToolResult,
+  type Implementation,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js'
 import { fetchFrontmatterSchema } from './drupal'
 import { callDrupalTool, listDrupalTools } from './drupal-tools'
 import { kbTools, runKbTool, KB_INSTRUCTIONS } from './mcp-tools'
+import { resourceOrigin } from './oauth-metadata'
 import { enabledSessionTools } from './tool-manifest'
 import { refused, type KbTool, type ToolResult } from './mcp-tools/types'
 
 /**
- * The MCP server exposed at `/api/mcp` (see server/api/mcp.ts).
+ * The MCP server exposed at `/mcp` (see server/utils/mcp-endpoint.ts).
  *
  * It is an adapter, not a place where behaviour lives: the tools it executes
  * are declared and implemented one per file under server/utils/mcp-tools/, in
@@ -52,6 +54,25 @@ import { refused, type KbTool, type ToolResult } from './mcp-tools/types'
 
 const NAME = 'openkb'
 const VERSION = '1.0.0'
+
+/**
+ * `serverInfo` as clients present it: the app icons of `public/site.webmanifest`,
+ * as absolute URLs on the origin the client reached.
+ */
+function serverInfo(origin: string): Implementation {
+  return {
+    name: NAME,
+    version: VERSION,
+    title: 'OpenKnowledgebase',
+    description: 'Read, search and edit the pages of this knowledge base.',
+    websiteUrl: origin,
+    icons: [
+      { src: `${origin}/okb-app-icon.svg`, mimeType: 'image/svg+xml', sizes: ['any'] },
+      { src: `${origin}/okb-app-icon-192.png`, mimeType: 'image/png', sizes: ['192x192'] },
+      { src: `${origin}/okb-app-icon-512.png`, mimeType: 'image/png', sizes: ['512x512'] },
+    ],
+  }
+}
 
 /** A tool declaration as MCP lists it. */
 function toMcpTool(tool: KbTool): Tool {
@@ -97,7 +118,7 @@ export async function createMcpServer(event: H3Event): Promise<Server> {
   const localToolNames = new Set(localTools.map(tool => tool.name))
 
   const server = new Server(
-    { name: NAME, version: VERSION },
+    serverInfo(resourceOrigin(event)),
     { capabilities: { tools: {} }, instructions: KB_INSTRUCTIONS },
   )
 

@@ -100,6 +100,18 @@ describe('MCP server', () => {
     expect(callDrupalTool).toHaveBeenCalledWith(EVENT, 'notATool', {})
   })
 
+  it('presents itself with the app icons, on the origin the client reached', async () => {
+    const { client } = await connect()
+    const info = client.getServerVersion()!
+    expect(info.title).toBe('OpenKnowledgebase')
+    expect(info.description).toBeTruthy()
+    expect(info.icons?.map(icon => icon.src)).toEqual([
+      'http://kb.example.test/okb-app-icon.svg',
+      'http://kb.example.test/okb-app-icon-192.png',
+      'http://kb.example.test/okb-app-icon-512.png',
+    ])
+  })
+
   // The instructions are prose for a model; what a test can hold them to is
   // naming every tool the flow they describe uses, and the `status` keys.
   it('names every tool and status key the agent flow needs in the instructions', async () => {
@@ -119,7 +131,7 @@ describe('MCP server', () => {
   // The three session tools, and the same three Drupal declares as Tool API
   // plugins so one plugin manager knows the whole surface (openkb_tools,
   // ToolParityTest). Drupal offers none of them — it cannot execute them —
-  // so this list and the relayed Drupal tools together are /api/mcp.
+  // so this list and the relayed Drupal tools together are /mcp.
   it('lists the read and write tools it executes itself', async () => {
     const { client } = await connect()
     const { tools } = await client.listTools()

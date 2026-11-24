@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { H3Event } from 'h3'
 import rootForm from './oauth-protected-resource.get'
-import pathForm from './oauth-protected-resource/api/mcp.get'
+import pathForm from './oauth-protected-resource/mcp.get'
 
 /**
  * The root-form protected-resource document.
@@ -35,10 +35,10 @@ function eventFor(path: string): { event: H3Event, headers: Record<string, strin
 describe('GET /.well-known/oauth-protected-resource', () => {
   it('serves the same document as the path-suffixed form', async () => {
     const root = await rootForm(eventFor('/.well-known/oauth-protected-resource').event)
-    const suffixed = await pathForm(eventFor('/.well-known/oauth-protected-resource/api/mcp').event)
+    const suffixed = await pathForm(eventFor('/.well-known/oauth-protected-resource/mcp').event)
     expect(root).toEqual(suffixed)
     // Which names the endpoint the client was looking for, so it can carry on.
-    expect(root.resource).toBe(`http://${HOST}/api/mcp`)
+    expect(root.resource).toBe(`http://${HOST}/mcp`)
   })
 
   it('is open to any origin, as discovery has to be', async () => {

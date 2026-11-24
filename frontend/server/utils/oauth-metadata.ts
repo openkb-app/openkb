@@ -10,7 +10,7 @@ import { drupalBaseUrl } from './drupal'
 import { fetchUpstream } from './upstream'
 
 /**
- * The two discovery documents that turn a pasted `/api/mcp` URL into a login.
+ * The two discovery documents that turn a pasted `/mcp` URL into a login.
  *
  * The topology they describe is split, and that is the whole reason they are
  * written here rather than taken from the SDK's `mcpAuthMetadataRouter`: the
@@ -35,10 +35,24 @@ import { fetchUpstream } from './upstream'
 export const AS_METADATA_PATH = '/.well-known/oauth-authorization-server'
 
 /** The MCP endpoint this app protects. */
-export const MCP_RESOURCE_PATH = '/api/mcp'
+export const MCP_PATH = '/mcp'
+
+/**
+ * The endpoint's alias path, for clients configured with it.
+ *
+ * Its own resource: a client accepts metadata only when its `resource` is a
+ * prefix of the URL the client was given.
+ *
+ * @deprecated Removed after 1.0. Use {@link MCP_PATH}.
+ */
+export const DEPRECATED_MCP_PATH = '/api/mcp'
 
 /** RFC 9728 §3.1 — the PRM URL for a resource, path-suffixed. */
-export const PRM_PATH = `/.well-known/oauth-protected-resource${MCP_RESOURCE_PATH}`
+export function prmPath(resourcePath: string): string {
+  return `/.well-known/oauth-protected-resource${resourcePath}`
+}
+
+export const PRM_PATH = prmPath(MCP_PATH)
 
 /** Where a client registers itself — the pass-through, not Drupal. */
 export const REGISTRATION_PATH = '/register'
@@ -108,12 +122,12 @@ export function resourceOrigin(event: H3Event): string {
   return url.origin
 }
 
-/** RFC 9728 protected-resource metadata for `/api/mcp`. */
-export async function protectedResourceMetadata(event: H3Event): Promise<OAuthProtectedResourceMetadata> {
+/** RFC 9728 protected-resource metadata for one of the endpoint's paths. */
+export async function protectedResourceMetadata(event: H3Event, resourcePath = MCP_PATH): Promise<OAuthProtectedResourceMetadata> {
   const origin = resourceOrigin(event)
   const scopes = await scopesSupported()
   return OAuthProtectedResourceMetadataSchema.parse({
-    resource: `${origin}${MCP_RESOURCE_PATH}`,
+    resource: `${origin}${resourcePath}`,
     authorization_servers: [origin],
     ...(scopes.length ? { scopes_supported: scopes } : {}),
     resource_name: 'OpenKnowledgebase',
@@ -152,11 +166,13 @@ export async function authorizationServerMetadata(event: H3Event): Promise<OAuth
 }
 
 /**
- * The `WWW-Authenticate` value an unauthenticated `/api/mcp` answers with.
+ * The `WWW-Authenticate` value an unauthenticated MCP request answers with,
+ * naming the metadata of the path it reached.
  *
  * The `resource_metadata` parameter is the entry point to everything above:
  * without it a client has a 401 and nowhere to go (RFC 9728 §5.1).
  */
 export function wwwAuthenticate(event: H3Event): string {
-  return `Bearer resource_metadata="${resourceOrigin(event)}${PRM_PATH}"`
+  const resourcePath = event.path.startsWith(DEPRECATED_MCP_PATH) ? DEPRECATED_MCP_PATH : MCP_PATH
+  return `Bearer resource_metadata="${resourceOrigin(event)}${prmPath(resourcePath)}"`
 }

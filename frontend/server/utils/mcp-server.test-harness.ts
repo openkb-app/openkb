@@ -87,9 +87,10 @@ export async function sessionRouterMock(
 }
 
 export const EVENT = {
+  path: '/mcp',
   context: {},
   node: {
-    req: { headers: { authorization: 'Bearer agent-token' } },
+    req: { url: '/mcp', headers: { host: 'kb.example.test', authorization: 'Bearer agent-token' } },
     // waitForChanges gives up its wait when the client goes away.
     res: { on: () => {} },
   },
