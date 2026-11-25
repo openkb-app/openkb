@@ -120,7 +120,6 @@ export async function useEditorSession(
   const initialChanged = computed(() => page.value?.changed ?? 0)
 
   const docName = computed(() => `node:${nid.value}`)
-  const localKey = computed(() => `openkb-node-${nid.value}`)
 
   // Identity peers see on carets and per-field editing indicators, derived
   // server-side from the Drupal session via /api/me (useRequestFetch so the
@@ -207,10 +206,23 @@ export async function useEditorSession(
       : null
   })
 
-  const { provider, liveStatus, peers, awarenessStates, synced, deleted: deletedRemotely } = useLiveCollab({
+  // Resolved by mount, when useLiveCollab reads it.
+  const localKey = computed(() => mirrorKey(nid.value, meAsync.data.value?.uid))
+
+  /** The mirror key of the account this browser is signed in as now. */
+  async function currentLocalKey(): Promise<string | null> {
+    const actor = await requestFetch<{ uid: number | null }>('/api/actor')
+    return mirrorKey(nid.value, actor.uid)
+  }
+
+  const {
+    provider, liveStatus, peers, awarenessStates, synced, deleted: deletedRemotely,
+    keptCopy, keptCopyMarkdown, discardKeptCopy,
+  } = useLiveCollab({
     ydoc,
     name: docName.value,
-    localKey: localKey.value,
+    localKey,
+    currentLocalKey,
   })
 
   /** Whether this reader sent a sign-off in this session. */
@@ -1387,6 +1399,9 @@ export async function useEditorSession(
     presence,
     synced,
     deletedRemotely,
+    keptCopy,
+    keptCopyMarkdown,
+    discardKeptCopy,
     commitStatus,
     commitError,
     loadError,

@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createApp, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue'
+import { createApp, defineComponent, h, onBeforeUnmount, onMounted, ref, toValue } from 'vue'
 import * as Y from 'yjs'
+import { useBeforeUnloadGuard } from './useBeforeUnloadGuard'
 import { editorAcceptsInput, useLiveCollab } from './useLiveCollab'
 
 interface ProviderOptions {
@@ -11,19 +12,28 @@ interface ProviderOptions {
   onAuthenticated: () => void
 }
 
-const providers: Array<{ options: ProviderOptions, destroy: ReturnType<typeof vi.fn> }> = []
+type Location = { path: string, query: Record<string, string> }
+
+let routeLeaveGuard: () => boolean
+let routeUpdateGuard: (to: Location, from: Location) => boolean
+
+const providers: Array<{ options: ProviderOptions, destroy: ReturnType<typeof vi.fn>, hasUnsyncedChanges: boolean }> = []
 
 vi.mock('@hocuspocus/provider', () => ({
   HocuspocusProvider: class {
     destroy = vi.fn()
     onMessage = vi.fn()
     on = vi.fn()
+    hasUnsyncedChanges = false
     constructor(public options: ProviderOptions) { providers.push(this) }
   },
 }))
+// IndexedDB refuses every open: the editor runs without a mirror.
 vi.mock('y-indexeddb', () => ({
   IndexeddbPersistence: class {
-    destroy = vi.fn(async () => {})
+    constructor() {
+      throw new Error('IndexedDB unavailable')
+    }
   },
   clearDocument: vi.fn(async () => {}),
 }))
@@ -33,7 +43,7 @@ function mounted(ydoc: Y.Doc) {
   let session!: ReturnType<typeof useLiveCollab>
   const app = createApp(defineComponent({
     setup() {
-      session = useLiveCollab({ ydoc, name: 'node:1', localKey: 'openkb-node-1' })
+      session = useLiveCollab({ ydoc, name: 'node:1', localKey: 'openkb-node-1', currentLocalKey: async () => 'openkb-node-1' })
       return () => h('div')
     },
   }))
@@ -41,19 +51,39 @@ function mounted(ydoc: Y.Doc) {
   return Object.assign(() => app.unmount(), { session })
 }
 
+/** Answers the first sync and waits until the editor may hydrate. */
+async function syncFirst(unmount: ReturnType<typeof mounted>) {
+  providers.at(-1)!.options.onSynced()
+  await vi.waitFor(() => expect(unmount.session.synced.value).toBe(true))
+}
+
 /** The doc's 'update' listeners — lib0's observable keeps them in a map. */
 function updateListeners(ydoc: Y.Doc): number {
   return (ydoc as unknown as { _observers: Map<string, Set<unknown>> })._observers.get('update')?.size ?? 0
 }
 
+/** Whether leaving the page now would ask the browser to confirm. */
+function confirmsUnload(): boolean {
+  const event = new Event('beforeunload', { cancelable: true })
+  window.dispatchEvent(event)
+  return event.defaultPrevented
+}
+
+/** Stubs the auto-imports the composable uses. */
+function stubAutoImports() {
+  providers.length = 0
+  vi.stubGlobal('ref', ref)
+  vi.stubGlobal('onMounted', onMounted)
+  vi.stubGlobal('onBeforeUnmount', onBeforeUnmount)
+  vi.stubGlobal('toValue', toValue)
+  vi.stubGlobal('useBeforeUnloadGuard', useBeforeUnloadGuard)
+  vi.stubGlobal('onBeforeRouteLeave', (guard: () => boolean) => { routeLeaveGuard = guard })
+  vi.stubGlobal('onBeforeRouteUpdate', (guard: typeof routeUpdateGuard) => { routeUpdateGuard = guard })
+  vi.stubGlobal('csrfToken', async () => 'browser-token')
+}
+
 describe('useLiveCollab disposal', () => {
-  beforeEach(() => {
-    providers.length = 0
-    vi.stubGlobal('ref', ref)
-    vi.stubGlobal('onMounted', onMounted)
-    vi.stubGlobal('onBeforeUnmount', onBeforeUnmount)
-    vi.stubGlobal('csrfToken', async () => 'browser-token')
-  })
+  beforeEach(stubAutoImports)
   afterEach(() => { vi.unstubAllGlobals() })
 
   it('destroys the provider on unmount and leaves the doc to its owner', () => {
@@ -68,15 +98,11 @@ describe('useLiveCollab disposal', () => {
     expect(destroyed).not.toHaveBeenCalled()
   })
 
-  it('drops the mirror re-creation listener a checkpoint left on the doc', async () => {
+  it('takes its listeners off the doc on unmount', async () => {
     const ydoc = new Y.Doc()
     const unmount = mounted(ydoc)
-    const before = updateListeners(ydoc)
-    providers[0]!.options.onSynced()
-
-    // A confirmed checkpoint clears the mirror and arms the re-creation.
+    await syncFirst(unmount)
     ydoc.getMap('_meta').set('last_commit', { at: 1 })
-    await vi.waitFor(() => expect(updateListeners(ydoc)).toBe(before + 1))
 
     unmount()
 
@@ -84,14 +110,75 @@ describe('useLiveCollab disposal', () => {
   })
 })
 
-describe('useLiveCollab live status', () => {
-  beforeEach(() => {
-    providers.length = 0
-    vi.stubGlobal('ref', ref)
-    vi.stubGlobal('onMounted', onMounted)
-    vi.stubGlobal('onBeforeUnmount', onBeforeUnmount)
-    vi.stubGlobal('csrfToken', async () => 'browser-token')
+describe('useLiveCollab without a mirror', () => {
+  beforeEach(stubAutoImports)
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('asks to confirm leaving only while edits the server has not acknowledged are pending', async () => {
+    const unmount = mounted(new Y.Doc())
+    const provider = providers[0]!
+
+    // Before the first sync the editor holds no edits of its own.
+    provider.hasUnsyncedChanges = true
+    expect(confirmsUnload()).toBe(false)
+
+    await syncFirst(unmount)
+    expect(unmount.session.mirrorEnabled.value).toBe(false)
+    expect(confirmsUnload()).toBe(true)
+
+    provider.hasUnsyncedChanges = false
+    expect(confirmsUnload()).toBe(false)
+
+    provider.hasUnsyncedChanges = true
+    unmount()
+    expect(confirmsUnload()).toBe(false)
   })
+
+  it('asks to confirm an in-app navigation only while unacknowledged edits are pending', async () => {
+    const confirm = vi.fn(() => false)
+    vi.stubGlobal('confirm', confirm)
+    const unmount = mounted(new Y.Doc())
+    const provider = providers[0]!
+
+    provider.hasUnsyncedChanges = true
+    expect(routeLeaveGuard()).toBe(true)
+    expect(confirm).not.toHaveBeenCalled()
+
+    await syncFirst(unmount)
+    expect(routeLeaveGuard()).toBe(false)
+    confirm.mockReturnValue(true)
+    expect(routeLeaveGuard()).toBe(true)
+
+    provider.hasUnsyncedChanges = false
+    confirm.mockClear()
+    expect(routeLeaveGuard()).toBe(true)
+    expect(confirm).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('asks to confirm a route update to another page or out of edit mode', async () => {
+    const confirm = vi.fn(() => false)
+    vi.stubGlobal('confirm', confirm)
+    const unmount = mounted(new Y.Doc())
+    await syncFirst(unmount)
+    providers[0]!.hasUnsyncedChanges = true
+    const editing = { path: '/wiki/a', query: { edit: '' } }
+
+    expect(routeUpdateGuard({ path: '/wiki/a', query: { edit: '', block: 'x' } }, editing)).toBe(true)
+    expect(confirm).not.toHaveBeenCalled()
+
+    expect(routeUpdateGuard({ path: '/wiki/b', query: {} }, editing)).toBe(false)
+    expect(routeUpdateGuard({ path: '/wiki/a', query: {} }, editing)).toBe(false)
+    expect(confirm).toHaveBeenCalledTimes(2)
+
+    providers[0]!.hasUnsyncedChanges = false
+    expect(routeUpdateGuard({ path: '/wiki/b', query: {} }, editing)).toBe(true)
+    unmount()
+  })
+})
+
+describe('useLiveCollab live status', () => {
+  beforeEach(stubAutoImports)
   afterEach(() => { vi.unstubAllGlobals() })
 
   it('is live only once the connection has synced, on every reconnect', () => {

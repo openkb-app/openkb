@@ -11,7 +11,7 @@ import { forwardedAuthHeaders } from './actor'
 import { asCollabServer, collabIdentityConfigured } from './collab-identity'
 import { mapCeFieldValues, type FieldSpec, type FieldValues } from './entity-fields'
 import { projectFields, projectMarkdown } from './frontmatter'
-import { liveContent, liveThreads } from './session-read'
+import { liveContent, liveThreads, type LiveContent } from './session-read'
 import { threadsOfRecords } from './collab-comments'
 import { blockVersions } from './block-versions'
 import { decodePageEntities } from './comark-entities'
@@ -209,7 +209,7 @@ export async function getKbPage(
     draft.page.title,
     live?.body ?? draft.page.body,
     live ? { ...values, ...live.fields } : values,
-    await pageStatus(event, options, found, draft.page, draft.page),
+    await pageStatus(event, options, found, draft.page, draft.page, live),
     await pageComments(options, page.nid),
     parent,
   )
@@ -258,6 +258,9 @@ async function pageComments(
  * pressing Publish records the ask instead of being refused — so this adds the
  * blockers to {@link canPublishNow}.
  *
+ * A read served from a live session answers for the session: its uncommitted
+ * edits are a draft, and the flags they owe come off the session's sidecar.
+ *
  * A status that cannot be established leaves the field off rather than failing
  * the page: the content is what was asked for, the standing is the extra.
  */
@@ -268,6 +271,8 @@ async function pageStatus(
   sidecar: PageSidecar,
   /** The working copy's sidecar, where the caller already read it. */
   workingCopySidecar?: PageSidecar,
+  /** The live session the read was served from. */
+  live?: LiveContent | null,
 ): Promise<PageStatus | undefined> {
   const nid = read.page.nid
   if (!options.withStatus || !read.canEdit) return undefined
@@ -286,16 +291,18 @@ async function pageStatus(
     return undefined
   }
 
-  const meta = parseBlockMeta(workingCopy.blockMeta)
+  const meta = live ? live.blockMeta : parseBlockMeta(workingCopy.blockMeta)
+  const uncommitted = live?.uncommitted ?? false
   const owed = awaitingReview(meta, moderation)
   const pending = Object.entries(owed).flatMap(([id, steps]) =>
     steps.map(step => pendingItem(id, meta[id], step, workingCopy.blockMetaNames)))
 
   return {
-    draft_exists: moderation.hasUnpublishedChanges,
+    // A never-published page keeps Drupal's answer, as the tool schema states.
+    draft_exists: moderation.hasUnpublishedChanges || (uncommitted && moderation.hasPublishedRevision),
     blocks_pending: Object.keys(owed).length,
     pending,
-    can_publish: canPublishNow(moderation) && pending.length === 0,
+    can_publish: canPublishNow(moderation, uncommitted) && pending.length === 0,
   }
 }
 

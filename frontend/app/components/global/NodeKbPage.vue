@@ -512,6 +512,12 @@ useHead(() => ({
         v-if="session?.externalChange.value"
         @reload="session.reload"
       />
+      <EditorKeptCopyBanner
+        v-if="session?.keptCopy.value"
+        :since="session.keptCopy.value.since"
+        :read-copy="session.keptCopyMarkdown"
+        @discard="session.discardKeptCopy"
+      />
 
       <div class="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 sm:py-8">
         <article class="min-w-0">

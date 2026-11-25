@@ -1,7 +1,10 @@
 import type * as Y from 'yjs'
-import { serializeYDoc, type CommitContext } from './commit'
+import { contentHash, serializeYDoc, type CommitContext } from './commit'
+import { blockIdCommitHooks } from './commit-block-ids'
+import { dirtyFieldKeys } from './commit-fields'
 import { commentsSynced } from './collab-comments'
 import { readThreads, type CommentThread } from '#shared/block-comments'
+import { readBlockMeta, type BlockMetaMap } from '#shared/page-blocks'
 import type { FieldSpec, FieldValues } from './entity-fields'
 
 /**
@@ -29,6 +32,10 @@ export interface LiveContent {
   body: string
   /** Live values of the exposed fields — only the keys the document carries. */
   fields: FieldValues
+  /** The session holds edits no checkpoint has written to Drupal yet. */
+  uncommitted: boolean
+  /** The session's sidecar, flags for those edits included. */
+  blockMeta: BlockMetaMap
 }
 
 /** The collab document name for a node, as the session router names it. */
@@ -72,8 +79,11 @@ export async function liveThreads(nid: number): Promise<CommentThread[] | null> 
 /**
  * The live content for a node, or `null` when no session is loaded for it.
  *
- * The body goes through the commit pipeline's own serializer, so what a draft
- * read reports is spelled the way the next checkpoint will write it. The title
+ * The body goes through the commit pipeline's own serializer and block-id
+ * dedupe, so what a draft read reports is spelled the way the next checkpoint
+ * will write it, and hashes as that checkpoint does. A duplicate id stays on
+ * its first occurrence here; a checkpoint whose ledger keeps a later one
+ * writes different bytes, and the read reports them as uncommitted. The title
  * heading is not part of it, here as everywhere else a body is read
  * (server/utils/title-heading.ts).
  */
@@ -101,5 +111,11 @@ export async function liveContent(nid: number, specs: FieldSpec[]): Promise<Live
   for (const spec of specs) {
     if (live.has(spec.key)) fields[spec.key] = live.get(spec.key) as FieldValues[string]
   }
-  return { body: await serializeYDoc(doc, [], ctx), fields }
+  const body = await serializeYDoc(doc, blockIdCommitHooks().preSerialize, ctx)
+  return {
+    body,
+    fields,
+    uncommitted: contentHash(body) !== doc.getMap('_meta').get('last_commit_hash') || dirtyFieldKeys(doc).length > 0,
+    blockMeta: readBlockMeta(doc),
+  }
 }

@@ -3,6 +3,7 @@ import * as Y from 'yjs'
 import { prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import { editorSchema } from './editor-schema'
 import * as sessionRead from './session-read'
+import { contentHash } from './commit'
 import type { FieldSpec } from './entity-fields'
 
 /**
@@ -50,6 +51,45 @@ describe('liveContent', () => {
     // Only the exposed keys, and only the ones the document actually carries —
     // a key it lacks must stay the revision's, not become null.
     expect(live?.fields).toEqual({ summary: 'Live summary.' })
+  })
+
+  it('tells edits no checkpoint wrote from a body Drupal holds', async () => {
+    documents.clear()
+    const doc = docWithText('Written by an agent.')
+    documents.set('node:7', doc)
+    expect((await liveContent(7))?.uncommitted).toBe(true)
+
+    doc.getMap('_meta').set('last_commit_hash', contentHash((await liveContent(7))!.body))
+    expect((await liveContent(7))?.uncommitted).toBe(false)
+  })
+
+  it('counts a fields-only change as uncommitted', async () => {
+    documents.clear()
+    const doc = docWithText('Checkpointed.')
+    documents.set('node:7', doc)
+    doc.getMap('_meta').set('last_commit_hash', contentHash((await liveContent(7))!.body))
+    doc.getMap('_meta').set('fields_baseline', { summary: 'Committed summary.' })
+    doc.getMap('fields').set('summary', 'Committed summary.')
+    expect((await liveContent(7))?.uncommitted).toBe(false)
+
+    doc.getMap('fields').set('summary', 'Edited summary.')
+    expect((await liveContent(7))?.uncommitted).toBe(true)
+  })
+
+  it('hashes a duplicate block id as the checkpoint wrote it', async () => {
+    documents.clear()
+    const paragraph = (text: string) => ({ type: 'paragraph', attrs: { id: 'b-dup00001' }, content: [{ type: 'text', text }] })
+    const doc = prosemirrorJSONToYDoc(
+      editorSchema,
+      { type: 'doc', content: [paragraph('One.'), paragraph('Two.')] } as never,
+      'default',
+    )
+    doc.getMap('_meta').set('last_commit_hash', contentHash('One. {#b-dup00001}\n\nTwo. {#b-dup00001-2}'))
+    documents.set('node:7', doc)
+
+    const live = await liveContent(7)
+    expect(live?.body).toBe('One. {#b-dup00001}\n\nTwo. {#b-dup00001-2}')
+    expect(live?.uncommitted).toBe(false)
   })
 
   it('keeps a leading H1, which is a block and not the title', async () => {

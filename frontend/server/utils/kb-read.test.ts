@@ -1,4 +1,4 @@
-import type { ActorNames } from '#shared/page-blocks'
+import { parseBlockMeta, type ActorNames } from '#shared/page-blocks'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import { fieldSpecs } from './entity-fields'
@@ -439,6 +439,48 @@ describe('getKbPage status', () => {
       can_publish: false,
     })
     expect(fetchCeWorkingCopy).toHaveBeenCalledWith({}, 7, { ...CE_PAGE, canEdit: true })
+  })
+
+  it('answers for the live session a read was served from', async () => {
+    // A published page owing nothing, and an agent's write the session holds
+    // but no checkpoint has written yet.
+    fetchCeWorkingCopy.mockResolvedValue(workingCopy({ blockMeta: '{}' }))
+    fetchModerationStatus.mockResolvedValue({
+      ...MODERATED,
+      state: 'published',
+      hasUnpublishedChanges: false,
+    })
+    liveContent.mockResolvedValue({
+      body: 'Live body.',
+      fields: {},
+      uncommitted: true,
+      blockMeta: parseBlockMeta(PENDING_META),
+    })
+
+    const page = await getKbPage(EVENT, 'team-wiki/getting-started', {
+      version: 'working-copy',
+      withStatus: true,
+    })
+
+    expect(page!.status).toMatchObject({ draft_exists: true, blocks_pending: 2, can_publish: false })
+  })
+
+  it('keeps Drupal\'s answer for a never-published page a session edits', async () => {
+    fetchCeWorkingCopy.mockResolvedValue(workingCopy({ blockMeta: '{}' }))
+    fetchModerationStatus.mockResolvedValue({
+      ...MODERATED,
+      state: 'draft',
+      hasPublishedRevision: false,
+      hasUnpublishedChanges: false,
+    })
+    liveContent.mockResolvedValue({ body: 'Live body.', fields: {}, uncommitted: true, blockMeta: {} })
+
+    const page = await getKbPage(EVENT, 'team-wiki/getting-started', {
+      version: 'working-copy',
+      withStatus: true,
+    })
+
+    expect(page!.status!.draft_exists).toBe(false)
   })
 
   it('reads no working copy where there is no draft to read', async () => {
