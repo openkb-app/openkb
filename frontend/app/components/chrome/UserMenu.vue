@@ -59,14 +59,13 @@ const { accountMenu } = await useAccountMenu()
 
 const backendBase = useRuntimeConfig().public.drupalBaseUrl as string | undefined
 
-const backendItems = computed<DropdownMenuItem[]>(() => {
+const accountItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = []
   if (uid.value != null) {
     items.push({
       label: 'Edit profile',
       icon: 'i-lucide-user-pen',
-      to: backendUrl(backendBase, `/user/${uid.value}/edit`),
-      external: true,
+      to: `/user/${uid.value}/edit`,
     })
   }
   if (isAdmin.value) {
@@ -91,7 +90,7 @@ const helpItems: DropdownMenuItem[] = [{
 const items = computed<DropdownMenuItem[][]>(() => [
   [{ label: name.value ?? 'Account', type: 'label' }],
   helpItems,
-  backendItems.value,
+  accountItems.value,
   accountMenu.value.map(item => ({
     label: item.title,
     icon: accountItemIcon(item),

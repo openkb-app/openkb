@@ -104,6 +104,9 @@ export default defineNuxtConfig({
     fetchProxyHeaders: ['cookie', 'x-forwarded-for'],
     // The page file upload streams its body on to Drupal itself.
     disableFormHandler: ['/api/files/upload'],
+    // Drupal forms load their libraries (DrupalLibraryDefault), except the
+    // password strength widget and the admin theme's scripts: unstyled here.
+    skipLibraryScripts: ['/core/modules/user/js/', '/core/themes/'],
     // The Canvas page builder is not part of this app, so the component
     // preview endpoint and its component-index build step are off.
     enableComponentPreview: false,
