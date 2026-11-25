@@ -7,6 +7,7 @@ import { comarkEditorParts } from '#okb-comark-editor-parts'
 import { comarkComponentDeclarations } from '#shared/utils/comark-components'
 import { BlockId } from './nodes/block-id'
 import { buildComarkComponentNodes } from './nodes/comark-component-nodes'
+import { OkbLink } from './nodes/link'
 import { OkbMention } from './nodes/mention'
 import { OkbOrderedList } from './nodes/ordered-list'
 import CodeBlockNodeView from '../components/CodeBlockNodeView.vue'
@@ -54,8 +55,9 @@ function buildComarkComponentEditorExtensions(): AnyExtension[] {
  * - GFM tables + task lists — comark parses both, so the schema must
  *   carry them or an edit+save destroys the content (round-trip corpus
  *   in test/roundtrip/ enforces this).
- * - The code block and the ordered list replace StarterKit's copies, which
- *   the pages disable (`codeBlock: false, orderedList: false` in `:starter-kit`).
+ * - The code block, the ordered list and the link replace StarterKit's copies,
+ *   which the pages disable (`codeBlock: false, orderedList: false, link: false`
+ *   in `:starter-kit`).
  *
  * The node SCHEMA (name / attrs / parse+render HTML) lives in the Vue-free
  * ./nodes/ modules, which the server-side commit schema
@@ -82,6 +84,7 @@ export function buildEditorExtensions() {
     HiddenCaretKeys,
     BlockId,
     ...buildComarkComponentEditorExtensions(),
+    OkbLink,
     OkbMention,
     OkbCodeBlock.extend({
       addStorage() {

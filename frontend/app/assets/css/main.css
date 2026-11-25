@@ -260,6 +260,11 @@
      for the app's one `:focus-visible` ring. */
   @apply [&_a]:text-primary [&_a]:border-b [&_a]:border-transparent [&_a]:hover:border-primary [&_a]:font-medium [&_a]:transition-colors;
   @apply [&_a:has(>code)]:border-b-0 [&_a>code]:border-dashed [&_a:hover>code]:border-primary [&_a:hover>code]:text-primary [&_a>code]:transition-colors;
+  /* The editor nests the link inside the other marks (app/editor/nodes/link.ts):
+     linked code and bold links look the same either way round. */
+  @apply [&_code>a]:border-b-0 [&_code>a]:text-inherit [&_code:has(>a)]:border-dashed [&_code:has(>a):hover]:border-primary [&_code:has(>a):hover]:text-primary [&_code:has(>a)]:transition-colors;
+  @apply [&_:is(h1,h2,h3,h4,h5,h6)>code:has(>a)]:text-sm [&_:is(h1,h2,h3,h4,h5,h6)>code:has(>a)]:font-medium;
+  @apply [&_strong_a:not(code>a)]:font-bold;
   @apply [&_:is(h1,h2,h3,h4,h5,h6)]:text-highlighted [&_:is(h1,h2,h3,h4,h5,h6)]:font-bold;
   @apply [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h5]:text-base [&_h6]:text-base;
   @apply [&_h2]:mt-12 [&_h2]:mb-6 [&_h3]:mt-8 [&_h3]:mb-3 [&_h4]:mt-6 [&_h4]:mb-2;

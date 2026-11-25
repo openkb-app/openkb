@@ -253,7 +253,7 @@ const dragHandleOptions = {
     <UEditor
       ref="editorRef"
       content-type="json"
-      :starter-kit="{ history: false, undoRedo: false, trailingNode: false, codeBlock: false, orderedList: false }"
+      :starter-kit="{ history: false, undoRedo: false, trailingNode: false, codeBlock: false, orderedList: false, link: false }"
       :mention="false"
       :image="false"
       :extensions="editorExtensions"

@@ -30,7 +30,7 @@ export interface RoundTripImpl {
  * runtime/components/Editor.vue) and appends our `:extensions` prop; this
  * mirrors that assembly line by line, with the options the edit pages pass
  * (`:starter-kit="{ history: false, undoRedo: false, codeBlock: false,
- * orderedList: false }"`,
+ * orderedList: false, link: false }"`,
  * `:mention="false"`, no placeholder).
  * Collaboration / CollaborationCaret are omitted — they contribute no
  * schema nodes or marks, only Y.js plugins that need a live provider.
@@ -40,7 +40,7 @@ export function editorExtensions(): AnyExtension[] {
     StarterKit.configure({
       code: false,
       horizontalRule: false,
-      link: { openOnClick: false },
+      link: false,
       undoRedo: false,
       codeBlock: false,
       orderedList: false,

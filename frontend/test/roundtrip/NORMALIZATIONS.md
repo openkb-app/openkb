@@ -4,12 +4,13 @@ The contract of every transform the editor round-trip
 (markdown → TipTap doc → markdown) is allowed to apply. Anything not
 listed here is a bug: the corpus in `test/roundtrip/` fails on it.
 
-Canonical markdown is what comark's renderer writes, with the two exceptions
-in `app/comark/render-handlers.ts` (escapes comark misses, emphasis that would
-not flank). It is byte-stable: `serialize(load(md)) === md`. Input written in
-another style converges to canonical form in **one** pass and is byte-stable
-from then on. "Lossy" entries lose information that cannot be recovered from
-the saved markdown; everything else is pure re-formatting.
+Canonical markdown is what comark's renderer writes, with the exceptions in
+`app/comark/render-handlers.ts` (escapes comark misses, emphasis that would
+not flank, spaces at an emphasis edge). It is byte-stable:
+`serialize(load(md)) === md`. Input written in another style converges to
+canonical form in **one** pass and is byte-stable from then on. "Lossy"
+entries lose information that cannot be recovered from the saved markdown;
+everything else is pure re-formatting.
 
 ## Formatting canonicalizations (content-preserving)
 
@@ -42,6 +43,7 @@ the saved markdown; everything else is pure re-formatting.
 | F25 | Inline code holding a backtick | A fence one backtick longer than its longest run, padded with a space where the code starts or ends on a backtick |
 | F26 | Soft-broken lines of a list item's first paragraph | Not indented (lazy continuation); comark reads them as the same paragraph |
 | F27 | A component alone in a paragraph, heading or table cell (a lone page link, mention, citation, inline file or file image) | Inline form (`:doc[Page]{nid="7"}`, `:image{…}`), not a block fence: comark picks the fence by text siblings only |
+| F28 | Spaces at the edge of a bold, italic or strike run (`<strong>bold </strong>`, a space typed after a bold link, a mark split by an inline link) | Written outside the run (`**bold** :attachment[…]`): comark trims the mark's content. Spaces inside an inline code at the run's edge stay in the code (`**` x`**`) |
 
 ## Structural transforms (content preserved, shape changed)
 
@@ -59,12 +61,11 @@ the saved markdown; everything else is pure re-formatting.
 | L3 | A mention naming no user (`:mention[a]{uid="x"}`, a uid that is not a number) | Serializes as plain `@label`. A mention with a uid round-trips as `:mention[label]{uid="…"}` |
 | L4 | Heading auto-ids (`id="slug"` from comark) | Never stored in the editor; regenerated from text at next parse |
 | L5 | Unescaped `data:` URI in an image (`data:image/svg+xml;utf8,<svg …/>`) | Not parsed as a link; the URI content after the comma is lost. Base64 and percent-encoded `data:` URIs round-trip. Agent writes are percent-encoded at the write door (`server/utils/comark-data-uri.ts`), so a body arriving that way carries no such URI; a destination that does not close after its payload is refused with a 422 |
-| L6 | A mark around an inline page or file link (`**see :doc[Intro]{nid="7"} here**`, `*:attachment[plan]{file="…"}*`) | The mark splits around the link (`**see**:doc[…]**here**`): the editor's inline links carry no marks |
+| L6 | A mark around an inline page or file link (`**see :doc[Intro]{nid="7"} here**`, `*:attachment[plan]{file="…"}*`) | The mark splits around the link (`**see** :doc[…] **here**`): the editor's inline links carry no marks |
 | L7 | A hard break inside a heading (Shift+Enter in the editor) | Writes as a space: an ATX heading is one line, a break would end it. Breaks at the heading's edges drop with its edge whitespace |
 | L8 | A `{#id}` on a nested block (list item, quote line inside a longer quote, table cell), or on a heading other than its own `{#b-…}` id | Dropped: comark reads it as the nested block's attribute, and only top-level blocks are review units. On a quote holding one paragraph, comark reads it as the quote's id, written as `::block{#id}` |
 | L9 | A bare `{#id}` line; a component naming nothing (`:image{{…}}`, `:mention[x]{{…}}`) | The line is no block to comark and drops. A file-less, source-less image shows nothing and drops; a mention or page link naming nothing keeps its words |
 | L10 | Text that reads as a link: a scheme URL, `www.…`, an email | Written bare; the next load makes it a link |
-| L11 | Whitespace at the edge of a bold, italic or strike run (`**bold **` before an inline link) | Dropped: comark trims the mark's content |
 | L12 | A table cell opening on `{…}` or `:name` | Written bare; the next load reads attributes or a component and the cell empties |
 | L13 | A paragraph line after a soft break that reads as a table delimiter row (`\| --- \| --- \|`) | Written bare; the next load makes a table |
 | L14 | A heading ending on a `#` run (`C #`), also after a hard break | Written bare; the next load reads the run as the closing sequence and drops it |

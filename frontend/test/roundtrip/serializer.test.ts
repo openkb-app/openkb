@@ -737,6 +737,10 @@ describe('what the editor holds reads back from what it writes', () => {
     ['a hard break a paragraph ends on', () => doc(p([run('a'), s.node('hardBreak')])), 'a'],
     ['a list in a table cell', () => doc(table([cell('tableHeader', p('h'))], [cell('tableCell', s.node('bulletList', null, [s.node('listItem', null, [p('one')]), s.node('listItem', null, [p('two')])]))])), '| h       |\n| ------- |\n| one two |'],
     ['code in a table cell', () => doc(table([cell('tableHeader', p('h'))], [cell('tableCell', s.node('codeBlock', null, s.text('x\ny')))])), '| h     |\n| ----- |\n| `x y` |'],
+    ['spaces at the edges of a bold run', () => doc(p([run('a'), run(' b ', mark('bold')), run('c')])), 'a **b** c'],
+    ['a non-breaking space at the edge of a bold run', () => doc(p([run('a'), run('b\u00A0', mark('bold')), run('c')])), 'a**b**\u00A0c'],
+    ['bold inline code starting on a space', () => doc(p([run('a '), run(' x', mark('bold'), mark('code'))])), 'a **` x`**'],
+    ['bold ending on inline code that ends on a space', () => doc(p([run('a', mark('bold')), run('b ', mark('bold'), mark('code')), run(' c')])), '**a`b `** c'],
   ])('%s writes its nearest form, stable from the first save', async (_, build, markdown) => {
     expect(await serializeDocToMarkdown(build())).toBe(markdown)
     expect(await serializeDocToMarkdown(await parseMarkdownToDoc(markdown))).toBe(markdown)
@@ -759,12 +763,10 @@ describe('comark gaps: what it writes reads back as something else', () => {
   const table = (head: ProseNode, body: ProseNode) =>
     s.node('table', null, [s.node('tableRow', null, [head]), s.node('tableRow', null, [body])])
   const ol = (attrs: Record<string, unknown> | null, ...items: ProseNode[]) => s.node('orderedList', attrs, items)
-  const attachment = () => s.node('attachmentInline', { file: 'u-1', label: 'F' })
   const fileImage = () => s.node('image', { file: '11111111-2222-4333-8444-555555555555', alt: 'x' })
 
   test.each<[string, () => ProseNode, string]>([
     ['L10', () => doc(p('see www.example.com and ada@example.com')), 'see www.example.com and ada@example.com'],
-    ['L11', () => doc(p([t('bold ', ['bold']), attachment()])), '**bold**:attachment[F]{file="u-1"}'],
     ['L12', () => doc(table(cell('tableHeader', p('{a}')), cell('tableCell', p(':b')))), '| {a} |\n| --- |\n| :b  |'],
     ['L13', () => doc(p('| a | b |\n| --- | --- |')), '| a | b |\n| --- | --- |'],
     ['L14', () => doc(s.node('heading', { level: 2 }, t('C #'))), '## C #'],

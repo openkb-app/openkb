@@ -586,10 +586,22 @@ function mapPmInlineContent(content: JSONContent[] | undefined): ComarkNode[] {
 }
 
 /**
- * A mark's nesting rank: underline opens first, as comark reads `<u>**a**</u>`
- * as both marks and `**<u>a</u>**` not; inline code is a leaf and opens last.
+ * Nesting ranks; a lower rank opens first, unlisted marks rank 0.
+ * - underline: comark reads `<u>**a**</u>` as both marks, `**<u>a</u>**` not.
+ * - link: outside other marks, `[**a**](url)`; block versions hash this spelling.
+ * - code: a leaf.
  */
-const markNestingOrder = (mark: Mark) => mark.type === 'underline' ? -1 : mark.type === 'code' ? 1 : 0
+const MARK_NESTING_RANKS: Record<string, number> = {
+  underline: -2,
+  link: -1,
+  code: 1,
+}
+
+/** A mark's nesting rank. */
+function markNestingOrder(mark: Mark): number {
+  return MARK_NESTING_RANKS[mark.type] ?? 0
+}
+
 /** Sorts marks into the order they nest in. */
 function sortMarksForNesting(marks: Mark[]): Mark[] {
   return [...marks].sort((a, b) => markNestingOrder(a) - markNestingOrder(b))

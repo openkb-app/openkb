@@ -51,6 +51,10 @@ describe('editorSchema (commit parity)', () => {
     expect(missing).toEqual([])
   })
 
+  it('ranks the marks in the live editor order', () => {
+    expect(Object.keys(editorSchema.marks)).toEqual(Object.keys(clientSchema.marks))
+  })
+
   it('registers exactly the editor node set', () => {
     expect(Object.keys(editorSchema.nodes).sort()).toEqual(EXPECTED_NODES)
   })

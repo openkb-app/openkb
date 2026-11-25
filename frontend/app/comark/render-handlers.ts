@@ -103,6 +103,15 @@ function countEdgeMarks(node: ComarkNode | undefined, char: string, side: -1 | 1
   return 1 + countEdgeMarks(side === 1 ? children.at(-1) : children[0], char, side)
 }
 
+/** An emphasis mark's text as comark's trim sees it: inline code and other elements count as non-space text. */
+function textSeenByEmphasisTrim(nodes: ComarkNode[]): string {
+  return nodes.map((child) => {
+    if (typeof child === 'string') return child
+    if (Object.hasOwn(DELIMITER_OF, child[0])) return textSeenByEmphasisTrim(child.slice(2) as ComarkNode[])
+    return '\0'
+  }).join('')
+}
+
 /** Whether a delimiter run sits between `outer` and `inner` so that it opens (or closes) emphasis. */
 function delimiterRunFlanks(outer: string, inner: string): boolean {
   return !WHITESPACE.test(inner) && (!PUNCTUATION.test(inner) || WHITESPACE.test(outer) || PUNCTUATION.test(outer))
@@ -113,6 +122,8 @@ function delimiterRunFlanks(outer: string, inner: string): boolean {
  * where the delimiters would not open and close emphasis: `a**(b)**` and
  * `**a*b****c*` read back with literal `*`. Of two marks whose delimiters
  * join into one run, the later takes the tag, so a paragraph never opens on one.
+ * Spaces at the mark's edges go outside it: comark's handler trims them
+ * (comark issue pending).
  */
 function renderEmphasisMark(tag: 'strong' | 'em' | 'del'): Handler {
   const delimiter = tag === 'del' ? '~~' : tag === 'strong' ? '**' : '*'
@@ -120,15 +131,19 @@ function renderEmphasisMark(tag: 'strong' | 'em' | 'del'): Handler {
   return async (node, state, parent) => {
     const markdown: string = await state.handlers[tag]!(node as never, state, parent as never)
     const core = markdown.slice(delimiter.length, -delimiter.length)
-    if (!core) return ''
+    const text = textSeenByEmphasisTrim(node.slice(2) as ComarkNode[])
+    const leadingSpaces = text.match(/^\s*/)![0]
+    if (!core) return leadingSpaces
+    const trailingSpaces = text.match(/\s*$/)![0]
     // A nested mark's delimiters join this one's run: flanking looks past them.
     const chars = Array.from(core.replace(char === '~' ? /^~+|~+$/g : /^\*+|\*+$/g, '') || core)
     const siblings = parent?.slice(2) as ComarkNode[] | undefined
-    const joinedRun = countEdgeMarks(siblings?.[siblings.indexOf(node) - 1], char, 1)
-    const flanks = delimiterRunFlanks(neighborCharacter(node, parent, -1), chars[0]!)
-      && delimiterRunFlanks(neighborCharacter(node, parent, 1), chars.at(-1)!)
+    const joinedRun = leadingSpaces ? 0 : countEdgeMarks(siblings?.[siblings.indexOf(node) - 1], char, 1)
+    const flanks = delimiterRunFlanks(leadingSpaces || neighborCharacter(node, parent, -1), chars[0]!)
+      && delimiterRunFlanks(trailingSpaces || neighborCharacter(node, parent, 1), chars.at(-1)!)
       && !(joinedRun > 0 && joinedRun + countEdgeMarks(node, char, -1) > 2)
-    return flanks ? markdown : `<${tag}>${core}</${tag}>`
+    const written = flanks ? markdown : `<${tag}>${core}</${tag}>`
+    return `${leadingSpaces}${written}${trailingSpaces}`
   }
 }
 
