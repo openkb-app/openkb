@@ -206,7 +206,7 @@ const announcement = computed(() => {
   if (!last || last.role !== 'assistant') return ''
   const receipt = shownReceiptFor(last)
   if (receipt) return announceReceipt(receipt)
-  return announce(shownGroundingFor(last), citationsFor(last).length, searchesFor(last).length)
+  return announce(shownGroundingFor(last), sourceRowsFor(last).length, searchesFor(last).length)
 })
 
 const composer = useTemplateRef<HTMLElement>('composer')
@@ -445,7 +445,7 @@ const strayQuestion = computed(() => {
           >
             <AnswerMarkdown
               :text="answerTextFor(message)"
-              :citation-chips="citationsFor(message)"
+              :citation-chips="shownCitationsFor(message)"
               :streaming="status === 'streaming' && message.id === lastMessageId"
             />
           </div>
@@ -460,7 +460,7 @@ const strayQuestion = computed(() => {
           <ChatAnswerState
             v-if="message.role === 'assistant'"
             :grounding="shownGroundingFor(message)"
-            :cited="citationsFor(message).length"
+            :cited="sourceRowsFor(message).length"
             :searches="searchesFor(message).length"
             :query="questionFor(message)"
             :scope-name="scopeNameFor(message)"
@@ -480,16 +480,16 @@ const strayQuestion = computed(() => {
 
           <!-- Cited sources under the assistant message -->
           <div
-            v-if="message.role === 'assistant' && linkedCitationsFor(message).length"
+            v-if="message.role === 'assistant' && sourceRowsFor(message).length"
             class="mt-3 rounded-md border border-(--ui-border-muted) bg-(--ui-bg-muted) p-2"
           >
             <div class="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-(--ui-text-muted)">
               <UIcon name="i-lucide-link-2" class="size-3" />
               Sources
-              <span class="ml-auto text-(--ui-text-dimmed)">{{ linkedCitationsFor(message).length }}</span>
+              <span class="ml-auto text-(--ui-text-dimmed)">{{ sourceRowsFor(message).length }}</span>
             </div>
             <NuxtLink
-              v-for="c in linkedCitationsFor(message)"
+              v-for="c in sourceRowsFor(message)"
               :key="c.n"
               :to="c.path"
               data-test="source-row"

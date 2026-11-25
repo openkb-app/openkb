@@ -323,9 +323,11 @@ const reasoningParts = computed<ReasoningUIPart[]>(() =>
   streamed.value?.parts.filter(isReasoning) ?? [],
 )
 const answerText = computed(() => lastAssistant.value ? answerTextFor(lastAssistant.value) : '')
-const answerCitations = computed(() => lastAssistant.value ? citationsFor(lastAssistant.value) : [])
-/** The same, minus the sources a row could not lead to. */
-const answerSources = computed(() => lastAssistant.value ? linkedCitationsFor(lastAssistant.value) : [])
+const answerCitations = computed(() => lastAssistant.value ? shownCitationsFor(lastAssistant.value) : [])
+/** One Sources row per shown number. */
+const answerSources = computed(() => lastAssistant.value ? sourceRowsFor(lastAssistant.value) : [])
+/** How many sources the answer cited: one per Sources row. */
+const answerCitedSources = computed(() => answerSources.value.length)
 /** How the answer stands is published when a turn settles, so a replacement
  *  has none while it streams: the state row reads off the snapshot until the
  *  new turn has a grounding of its own. */
@@ -799,7 +801,7 @@ onMounted(() => {
           <ChatAnswerState
             surface="answer"
             :grounding="answerGrounding"
-            :cited="answerCitations.length"
+            :cited="answerCitedSources"
             :error="answerError"
             :login-href="answerLoginHref"
             @rephrase="openInChat"

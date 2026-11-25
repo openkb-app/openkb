@@ -8,6 +8,7 @@ import type {
   UIMessage,
   UIMessagePart,
 } from 'ai'
+import { citedParts } from '#shared/utils/comark-tree'
 
 /** One source an answer cited, read off its `source-url` part. */
 export interface Citation {
@@ -21,6 +22,12 @@ export interface Citation {
   meta: string
   /** How well it matched the search up front; 0 for a source a tool read. */
   score: number
+}
+
+/** One cited block of a source, with the number the reader sees on it. */
+export interface ShownCitation extends Citation {
+  /** The marker part it stands for: `4`, or `4#b-1a2b` for a block of source 4. */
+  cite: string
 }
 
 /**
@@ -130,13 +137,62 @@ export function citationsFor(m: UIMessage): Citation[] {
 }
 
 /**
- * The cited sources a Sources list offers.
+ * What the answer cites, one entry per marker part, numbered as the reader
+ * sees it.
  *
- * A row is a link, so a source with no path is no better than an uncited
- * number — the same bar `chipsFor()` holds the markers to.
+ * Numbered by where the citation leads, in the order the answer writes them,
+ * as the read view numbers stored citations (`citeNode` in
+ * #shared/utils/comark-tree.ts):
+ * - Two blocks of one page are two numbers.
+ * - Two citations of one block are one number, also a search hit `[2]` and a
+ *   page read `[5#b-a]` of that block.
+ * - `[4#b-1a2b]` leads to that block of source 4's page.
+ * - A source with no path is no link: it gets no number, as its marker gets
+ *   no chip.
  */
-export function linkedCitationsFor(m: UIMessage): Citation[] {
-  return citationsFor(m).filter(c => c.path)
+export function shownCitationsFor(m: UIMessage): ShownCitation[] {
+  const sources = citationsFor(m)
+  const numbers = new Map<string, number>()
+  const shown = new Map<string, ShownCitation>()
+  for (const cite of citedParts(answerTextFor(m))) {
+    if (shown.has(cite)) continue
+    const [n, block] = cite.split('#')
+    const source = sources.find(c => String(c.n) === n)
+    if (!source?.path) continue
+    const path = block ? `${source.path.split('#')[0]}#${block}` : source.path
+    const place = placeOf(source, block)
+    const number = numbers.get(place) ?? numbers.size + 1
+    numbers.set(place, number)
+    shown.set(cite, { ...source, n: number, cite, path })
+  }
+  return [...shown.values()]
+}
+
+/**
+ * Where a citation leads, the same for every tool that names the place.
+ *
+ * Keyed on the source id, not the path: a search hit's path is the page's
+ * alias, a page read's is `/node/<nid>`; both ids start with the alias.
+ *
+ * @param block The block the marker names; the source's own anchor when none.
+ */
+function placeOf(source: Citation, block: string | undefined): string {
+  const page = source.sourceId.split('#')[0]
+  const anchor = block ?? source.path.split('#')[1] ?? ''
+  return `${page}#${anchor}`
+}
+
+/**
+ * The Sources rows: one per shown number.
+ *
+ * Two marker parts leading to one block share a number, so they share a row.
+ */
+export function sourceRowsFor(m: UIMessage): ShownCitation[] {
+  const rows = new Map<number, ShownCitation>()
+  for (const cite of shownCitationsFor(m)) {
+    if (!rows.has(cite.n)) rows.set(cite.n, cite)
+  }
+  return [...rows.values()]
 }
 
 /**

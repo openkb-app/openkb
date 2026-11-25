@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { shippedAllowedHtml } from '~~/test/shipped-comark-format'
-import { citationsByBlock, collectFences, markdownToTree, parseComark, referencesByBlock, liftTitleBlockId, CODE_BLOCK_TAG, COMPONENT_TAGS, HTML_ELEMENTS, type AllowedHtml, type ComarkNode, type FenceRenderer } from './comark-tree'
+import { citationsByBlock, collectFences, markdownToTree, parseComark, referencesByBlock, liftTitleBlockId, CODE_BLOCK_TAG, COMPONENT_TAGS, HTML_ELEMENTS, type AllowedHtml, type ComarkNode, type ComarkProps, type FenceRenderer } from './comark-tree'
 import { highlightToTokens } from './code-highlight'
 import { CITATION_TAG } from './citations'
 import { FENCE_TAG } from './fences'
@@ -535,10 +535,10 @@ describe('HTML comments, processing instructions and CDATA', () => {
 
 describe('citation chips', () => {
   const sources = [
-    { n: 1, title: 'Deploy on Pantheon', path: '/lupus-decoupled/deployment/pantheon' },
-    { n: 2, title: 'Release checklist', path: '/handbook/release' },
-    { n: 3, title: 'Spaces', path: '/handbook/spaces' },
-    { n: 7, title: 'Seven', path: '/seven' },
+    { n: 1, cite: '1', title: 'Deploy on Pantheon', path: '/lupus-decoupled/deployment/pantheon' },
+    { n: 2, cite: '2', title: 'Release checklist', path: '/handbook/release' },
+    { n: 3, cite: '3', title: 'Spaces', path: '/handbook/spaces' },
+    { n: 7, cite: '7', title: 'Seven', path: '/seven' },
   ]
 
   /** The `n` of every citation node in the tree, in document order. */
@@ -546,6 +546,14 @@ describe('citation chips', () => {
     return nodes.flatMap((node) => {
       if (typeof node === 'string') return []
       return node[0] === CITATION_TAG ? [String(node[1].n)] : chipped(children(node as Element))
+    })
+  }
+
+  /** The props of every citation node in the tree, in document order. */
+  function chipProps(nodes: ComarkNode[]): ComarkProps[] {
+    return nodes.flatMap((node) => {
+      if (typeof node === 'string') return []
+      return node[0] === CITATION_TAG ? [node[1]] : chipProps(children(node as Element))
     })
   }
 
@@ -569,6 +577,38 @@ describe('citation chips', () => {
     }
   })
 
+  it('chips a [n#block] marker as the chip that stands for it', async () => {
+    const blocks = [
+      { n: 1, cite: '2#b-1a2b', title: 'Two', path: '/node/2#b-1a2b' },
+      { n: 2, cite: '2#b-9', title: 'Two', path: '/node/2#b-9' },
+    ]
+    const nodes = await markdownToTree('answer [2#b-1a2b] and [2#b-9], again [2#b-1a2b].', { citationChips: blocks })
+    expect(chipProps(nodes)).toEqual([
+      { n: '1', title: 'Two', path: '/node/2#b-1a2b' },
+      { n: '2', title: 'Two', path: '/node/2#b-9' },
+      { n: '1', title: 'Two', path: '/node/2#b-1a2b' },
+    ])
+  })
+
+  it('chips a block marker next to a plain one and inside a list', async () => {
+    const chips = [...sources, { n: 4, cite: '2#b-x', title: 'Two', path: '/x' }, { n: 5, cite: '3#b-y', title: 'Three', path: '/y' }]
+    const nodes = await markdownToTree('answer [1][2#b-x] and [1, 3#b-y].', { citationChips: chips })
+    expect(chipped(nodes)).toEqual(['1', '4', '1', '5'])
+    expect(JSON.stringify(nodes)).not.toContain('#b-x]')
+  })
+
+  it.each(['[2#b-x]', '[9#b-x]'])('writes %s, a block or a source with no chip, back out as text', async (marker) => {
+    const nodes = await markdownToTree(`answer ${marker}.`, { citationChips: sources })
+    expect(children(at(nodes))).toContain(marker)
+    expect(chipped(nodes)).toEqual([])
+  })
+
+  it.each(['[2#main]', '[see above]'])('writes %s, no marker, back out with its brackets', async (written) => {
+    const nodes = await markdownToTree(`answer ${written}.`, { citationChips: sources })
+    expect(chipped(nodes)).toEqual([])
+    expect(collect(children(at(nodes)))).toBe(`answer ${written}.`)
+  })
+
   it('chips a marker written straight after a word', async () => {
     const nodes = await markdownToTree('as documented[1].', { citationChips: sources })
     expect(chipped(nodes)).toEqual(['1'])
@@ -583,7 +623,7 @@ describe('citation chips', () => {
   it('keeps a marker whose source has no path as text', async () => {
     // A chip is a link; a source with nowhere to lead is no better than an
     // uncited number.
-    const nodes = await markdownToTree('answer [1].', { citationChips: [{ n: 1, title: 'Nowhere' }] })
+    const nodes = await markdownToTree('answer [1].', { citationChips: [{ n: 1, cite: '1', title: 'Nowhere' }] })
     expect(children(at(nodes))).toContain('[1]')
     expect(chipped(nodes)).toEqual([])
   })

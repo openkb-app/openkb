@@ -73,7 +73,10 @@ export type ComarkNode = string | [tag: string, props: ComarkProps, ...children:
 
 /** One source an answer cited, as much of it as a chip shows. */
 export interface CitationChip {
+  /** The number the chip shows. */
   n: number
+  /** The marker part it stands for: `4`, or `4#b-1a2b` for a block of source 4. */
+  cite: string
   title?: string
   /** Where the chip leads, anchored on the cited block. A chip without one is not rendered. */
   path?: string
@@ -469,6 +472,7 @@ function cleanNode(node: ComarkNode, ctx: PassContext, inline: boolean): ComarkN
   // No tag: an HTML comment, processing instruction or CDATA.
   if (!tag || DROPPED_TAGS.has(tag)) return []
   if (ctx.citationChips && isCitationRef(node)) return chipsFor(`[${node[2]}]`, ctx.citationChips)
+  if (ctx.citationChips && isBareSpan(node)) return ['[', ...cleanChildren(children, ctx, true), ']']
   // A tag that is neither a built component nor on the format's list is not
   // the author's to write: the words below it stay, the element itself does
   // not. A void tag has no children, so the same rule drops it.
@@ -584,11 +588,14 @@ function docLinkNode(props: ComarkProps, children: ComarkNode[], ctx: PassContex
   return [DOC_LINK_TAG, link, words]
 }
 
-/** What one marker names: `1`, or `2, 3` written as a single marker. */
-const CITE_NUMBERS = /^\d+(?:\s*,\s*\d+)*$/
+/** One cited number, with the block of the source it names: `4` or `4#b-1a2b`. */
+const CITE_ONE = String.raw`\d+(?:#b-[\w-]+)?`
+
+/** What one marker names: `1`, `4#b-1a2b`, or `2, 3` written as a single marker. */
+const CITE_NUMBERS = new RegExp(String.raw`^${CITE_ONE}(?:\s*,\s*${CITE_ONE})*$`)
 
 /** The same, as it sits in a text node. */
-const CITE_IN_TEXT = /\[(\d+(?:\s*,\s*\d+)*)\]/g
+const CITE_IN_TEXT = new RegExp(String.raw`\[(${CITE_ONE}(?:\s*,\s*${CITE_ONE})*)\]`, 'g')
 
 /**
  * A bare `[7]` or `[2, 3]` in the prose: an attribute-less span of digits.
@@ -603,6 +610,18 @@ function isCitationRef(node: ComarkNode): node is [string, ComarkProps, string] 
     && node.length === 3
     && typeof node[2] === 'string'
     && CITE_NUMBERS.test(node[2])
+}
+
+/**
+ * A `[1#main]` or `[see above]` in an answer: an attribute-less span.
+ *
+ * comark's span syntax eats the brackets; an answer is model prose, not MDC,
+ * so the brackets stay as written.
+ */
+function isBareSpan(node: ComarkNode): boolean {
+  return typeof node !== 'string'
+    && node[0] === 'span'
+    && Object.keys(node[1] ?? {}).length === 0
 }
 
 /**
@@ -632,13 +651,33 @@ function citedText(text: string, cited: readonly CitationChip[]): ComarkNode[] {
  */
 function chipsFor(marker: string, cited: readonly CitationChip[]): ComarkNode[] {
   const chips: ComarkNode[] = []
-  for (const part of marker.slice(1, -1).split(',')) {
-    const n = part.trim()
-    const source = cited.find(c => String(c.n) === n)
-    if (!source?.path) return [marker]
-    chips.push([CITATION_TAG, { n, title: source.title ?? '', path: source.path }])
+  for (const cite of markerParts(marker)) {
+    const chip = cited.find(c => c.cite === cite)
+    if (!chip?.path) return [marker]
+    chips.push([CITATION_TAG, { n: String(chip.n), title: chip.title ?? '', path: chip.path }])
   }
   return chips
+}
+
+/** What one `[…]` marker cites: `[1, 4#b-1a2b]` is `1` and `4#b-1a2b`. */
+function markerParts(marker: string): string[] {
+  return marker.slice(1, -1).split(',').map(part => part.trim())
+}
+
+/** A fenced code block, to its closing fence or the end of a streaming text. */
+const CODE_FENCE = /^ {0,3}(`{3,}|~{3,}).*$[\s\S]*?(?:^ {0,3}\1.*$|(?![\s\S]))/gm
+
+/** An inline code span: a backtick run, closed by a run of the same length. */
+const CODE_SPAN = /(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g
+
+/**
+ * Every marker part the text cites, in the order it is written.
+ *
+ * A marker in code is code: it renders as written, so it cites nothing.
+ */
+export function citedParts(text: string): string[] {
+  const prose = text.replace(CODE_FENCE, '').replace(CODE_SPAN, '')
+  return [...prose.matchAll(CITE_IN_TEXT)].flatMap(match => markerParts(match[0]))
 }
 
 /**

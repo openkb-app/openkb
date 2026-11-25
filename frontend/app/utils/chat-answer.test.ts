@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { UIMessage, UIMessagePart } from 'ai'
-import { announce, answerTextFor, citationsFor, searchesFor, SEARCH_TOOL, toolRunsFor, toolRunsLabel, UNGROUNDED_EXPLANATION } from './chat-answer'
+import { announce, answerTextFor, citationsFor, searchesFor, shownCitationsFor, SEARCH_TOOL, sourceRowsFor, toolRunsFor, toolRunsLabel, UNGROUNDED_EXPLANATION } from './chat-answer'
 import type { GroundingState, ToolRun } from './chat-answer'
 
 function grounding(state: GroundingState, retrieved?: number) {
@@ -170,6 +170,82 @@ describe('citationsFor', () => {
 
   it('leaves out a source part that carries no number', () => {
     expect(citationsFor(turn({ type: 'source-url', sourceId: 'x', url: 'https://example.com' }))).toEqual([])
+  })
+})
+
+/** A source part numbered `n` by the citation pass; its id is its url unless given. */
+function source(n: number, url: string, sourceId = url) {
+  return { type: 'source-url', sourceId, url, title: `S${n}`, providerMetadata: { ai_rag_cite: { n, meta: '', score: 0 } } }
+}
+
+/** A search hit on block `b-a` of the page at `/wiki/pump`, as `search_pages` names it. */
+const HIT = (n: number) => source(n, '/wiki/pump#b-a')
+
+/** A page read of `/wiki/pump`, as `get_page` names it: by alias, linked by node. */
+const READ = (n: number) => source(n, '/node/36', '/wiki/pump')
+
+describe('shownCitationsFor', () => {
+  /** What the reader sees per shown citation: its number, marker part and link. */
+  function shown(text: string, ...sources: unknown[]) {
+    return shownCitationsFor(turn({ type: 'text', text }, ...sources)).map(c => [c.n, c.cite, c.path])
+  }
+
+  it('gives each cited block of one page a number of its own', () => {
+    expect(shown('Pumps [6#b-a], valves [6#b-b], seals [6#b-c].', source(6, '/node/36'))).toEqual([
+      [1, '6#b-a', '/node/36#b-a'],
+      [2, '6#b-b', '/node/36#b-b'],
+      [3, '6#b-c', '/node/36#b-c'],
+    ])
+  })
+
+  it('gives two citations of one block one number', () => {
+    expect(shown('Pumps [6#b-a], again [6#b-a], the page [6].', source(6, '/node/36'))).toEqual([
+      [1, '6#b-a', '/node/36#b-a'],
+      [2, '6', '/node/36'],
+    ])
+  })
+
+  it('numbers plain and block citations in the order the answer writes them', () => {
+    expect(shown('First [3], then [1, 3#b-x].', source(1, '/a#b-lead'), source(3, '/node/3'))).toEqual([
+      [1, '3', '/node/3'],
+      [2, '1', '/a#b-lead'],
+      [3, '3#b-x', '/node/3#b-x'],
+    ])
+  })
+
+  it('leaves out a marker no source stands behind', () => {
+    expect(shown('Only [2#b-x] and [1].', source(1, '/a'))).toEqual([[1, '1', '/a']])
+  })
+
+  it('gives a search hit and a page read of one block one number', () => {
+    expect(shown('Hit [2], read [5#b-a], the page [5].', HIT(2), READ(5))).toEqual([
+      [1, '2', '/wiki/pump#b-a'],
+      [1, '5#b-a', '/node/36#b-a'],
+      [2, '5', '/node/36'],
+    ])
+  })
+
+  it('numbers no marker written in code', () => {
+    expect(shown('Write `[1]` as\n\n```\n[2]\n```\n\nsee [2].', source(1, '/a'), source(2, '/b'))).toEqual([[1, '2', '/b']])
+  })
+
+  it('numbers the markers of an answer whose fence is still open', () => {
+    expect(shown('See [1].\n\n~~~\n[2]', source(1, '/a'), source(2, '/b'))).toEqual([[1, '1', '/a']])
+  })
+
+  it('numbers no source without a path', () => {
+    expect(shown('Pathless [2], then [1].', source(1, '/a'), source(2, ''))).toEqual([[1, '1', '/a']])
+  })
+})
+
+describe('sourceRowsFor', () => {
+  it('lists one row per shown number', () => {
+    const rows = sourceRowsFor(turn(
+      { type: 'text', text: 'Hit [2], read [5#b-a], more [5#b-b].' },
+      HIT(2),
+      READ(5),
+    ))
+    expect(rows.map(c => [c.n, c.path])).toEqual([[1, '/wiki/pump#b-a'], [2, '/node/36#b-b']])
   })
 })
 
