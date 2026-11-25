@@ -3,13 +3,15 @@
 // suite outside a Nuxt app.
 import { computed, ref } from 'vue'
 import type { Grounding } from '~/utils/chat-answer'
-import { UNGROUNDED_EXPLANATION, UNGROUNDED_LABEL } from '~/utils/chat-answer'
+import { searchFoundNothing, UNGROUNDED_EXPLANATION, UNGROUNDED_LABEL } from '~/utils/chat-answer'
 
 const props = defineProps<{
   /** How the answer stands, or null when nothing grounded it. */
   grounding: Grounding | null
   /** How many sources the answer cited. */
   cited: number
+  /** How many searches the model ran itself on the turn. */
+  searches?: number
   /** What was asked, quoted back — capped — so the reader sees what was searched. */
   query?: string
   /** The space the turn was scoped to, when it was scoped to one. */
@@ -49,7 +51,7 @@ const isUnavailable = computed(() => !hasError.value && props.grounding?.state =
 // An answer standing on nothing because the search found nothing: the reader
 // is owed what was searched and the same ways on as a refusal, next to the
 // badge rather than instead of it.
-const foundNothing = computed(() => isUngrounded.value && props.grounding?.retrieved === 0)
+const foundNothing = computed(() => isUngrounded.value && searchFoundNothing(props.grounding, props.searches ?? 0))
 const waysOn = computed(() => foundNothing.value || isNoAnswer.value || isUnavailable.value)
 
 /** Longest question quoted back in full, in characters. */

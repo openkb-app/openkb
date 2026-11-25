@@ -2,20 +2,34 @@ import type {
   DataUIPart,
   DynamicToolUIPart,
   ReasoningUIPart,
+  SourceUrlUIPart,
   TextUIPart,
   ToolUIPart,
   UIMessage,
   UIMessagePart,
 } from 'ai'
 
-/** One source an answer cited, as `ai_rag_cite` publishes it. */
+/** One source an answer cited, read off its `source-url` part. */
 export interface Citation {
+  /** The `[n]` the answer cites it by. */
   n: number
+  /** Names the source the same way on every read. */
+  sourceId: string
   path: string
   title: string
+  /** One line placing the source; '' where it has none. */
   meta: string
+  /** How well it matched the search up front; 0 for a source a tool read. */
   score: number
 }
+
+/**
+ * The provider-metadata namespace a source part carries its number under.
+ *
+ * The protocol's source part has no field for the `[n]` an answer cites it
+ * by, so `ai_rag_cite` puts it, the source's place and its score there.
+ */
+const CITATION_METADATA = 'ai_rag_cite'
 
 /**
  * How an answer stands to the sources it was allowed to be built from.
@@ -53,6 +67,11 @@ export interface SearchQuery {
 
 export interface Grounding {
   mode: string
+  /**
+   * `always`: searched before the model ran. `off`: the model searched with
+   * its tools, or not at all.
+   */
+  retrieval?: 'always' | 'off'
   /** Absent while the answer streams: what it cited is not known yet. */
   state?: GroundingState
   /** How many sources the answer was offered. */
@@ -83,9 +102,31 @@ export function answerTextFor(m: UIMessage): string {
   return groundingFor(m)?.state === 'dependency_unavailable' ? '' : textFor(m)
 }
 
-/** The sources the answer cited, empty when it cited none. */
+/**
+ * Whether a message part is a `source-url` part.
+ */
+function isSourceUrl(p: UIMessagePart): p is SourceUrlUIPart {
+  return p.type === 'source-url'
+}
+
+/**
+ * The sources the answer cited, empty when it cited none.
+ *
+ * A source part without a number is not one the answer can have cited.
+ */
 export function citationsFor(m: UIMessage): Citation[] {
-  return dataFor<Citation[]>(m, 'data-citations') ?? []
+  return m.parts.filter(isSourceUrl).flatMap((part) => {
+    const cited = part.providerMetadata?.[CITATION_METADATA]
+    if (typeof cited?.n !== 'number') return []
+    return [{
+      n: cited.n,
+      sourceId: part.sourceId,
+      path: part.url,
+      title: part.title ?? '',
+      meta: typeof cited.meta === 'string' ? cited.meta : '',
+      score: typeof cited.score === 'number' ? cited.score : 0,
+    }]
+  })
 }
 
 /**
@@ -109,17 +150,31 @@ export function groundingFor(m: UIMessage): Grounding | null {
 }
 
 /**
+ * Whether an uncited answer stands on a search that found nothing.
+ *
+ * With retrieval off nothing is searched unless the model searches, so an
+ * answer to a turn without a search found nothing only in that it looked
+ * for nothing.
+ *
+ * @param searches How many searches the model ran on the turn.
+ */
+export function searchFoundNothing(grounding: Grounding | null, searches: number): boolean {
+  if (grounding?.state !== 'ungrounded' || grounding.retrieved !== 0) return false
+  return grounding.retrieval !== 'off' || searches > 0
+}
+
+/**
  * How the finished answer stands, in one sentence for a live region.
  *
  * Terse on purpose: it is heard, not read, and the same states are on screen
  * in full next to the answer.
  */
-export function announce(grounding: Grounding | null, cited: number): string {
+export function announce(grounding: Grounding | null, cited: number, searches = 0): string {
   switch (grounding?.state) {
     case 'grounded':
       return `Answered from ${cited} source${cited === 1 ? '' : 's'}.`
     case 'ungrounded':
-      return grounding.retrieved === 0
+      return searchFoundNothing(grounding, searches)
         ? 'Answered, but nothing in the pages you can read matched.'
         : `Answered. ${UNGROUNDED_EXPLANATION}`
     case 'insufficient_evidence':
@@ -209,4 +264,54 @@ export function toolRunsLabel(runs: ToolRun[]): string {
   const failed = runs.filter(r => r.failed).length
   if (!failed) return calls
   return failed === runs.length ? `${calls} failed` : `${calls}, ${failed} failed`
+}
+
+/**
+ * The function name the chat calls the search tool by.
+ *
+ * `tool_ai_connector` names a Tool API tool `tool__<plugin id>`.
+ */
+export const SEARCH_TOOL = 'tool__openkb_search_pages'
+
+/** One search the assistant ran on a turn, as its tool call streams it. */
+export interface ToolSearch {
+  toolCallId: string
+  /** What it searched for: a plain `q` reads as the question. */
+  query: SearchQuery
+  /** It has been asked for and has not answered yet. */
+  running: boolean
+  /** How many hits it answered, once it has; absent while it runs or failed. */
+  hits?: number
+}
+
+/** A string argument of a tool call, '' where it is missing. */
+function stringArgument(input: unknown, name: string): string {
+  const value = (input as Record<string, unknown> | null)?.[name]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+/**
+ * The searches the assistant ran, in the order it ran them.
+ *
+ * A listing call, which asks nothing, is not a search.
+ */
+export function searchesFor(m: UIMessage): ToolSearch[] {
+  return toolRunsFor(m)
+    .filter(run => run.name === SEARCH_TOOL)
+    .flatMap((run) => {
+      const q = stringArgument(run.input, 'q')
+      const query = {
+        terms: q ? '' : stringArgument(run.input, 'terms'),
+        question: q || stringArgument(run.input, 'question'),
+      }
+      if (!query.terms && !query.question) return []
+      // A Tool API result carries the tool's outputs under `outputs`.
+      const total = (run.output as { outputs?: { total?: unknown } } | undefined)?.outputs?.total
+      return [{
+        toolCallId: run.toolCallId,
+        query,
+        running: run.running,
+        hits: typeof total === 'number' ? total : undefined,
+      }]
+    })
 }

@@ -831,7 +831,7 @@ onMounted(() => {
             >
               <UIcon name="i-lucide-file-text" class="size-3 text-(--okb-agent-text)" />
               <span class="truncate font-medium">[{{ c.n }}] {{ c.title }}</span>
-              <span class="ml-auto font-mono text-[10px] text-(--ui-text-dimmed)">{{ c.score.toFixed(2) }}</span>
+              <span v-if="c.score" class="ml-auto font-mono text-[10px] text-(--ui-text-dimmed)">{{ c.score.toFixed(2) }}</span>
             </NuxtLink>
           </div>
 

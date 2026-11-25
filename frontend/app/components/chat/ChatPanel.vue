@@ -206,7 +206,7 @@ const announcement = computed(() => {
   if (!last || last.role !== 'assistant') return ''
   const receipt = shownReceiptFor(last)
   if (receipt) return announceReceipt(receipt)
-  return announce(shownGroundingFor(last), citationsFor(last).length)
+  return announce(shownGroundingFor(last), citationsFor(last).length, searchesFor(last).length)
 })
 
 const composer = useTemplateRef<HTMLElement>('composer')
@@ -434,6 +434,9 @@ const strayQuestion = computed(() => {
             />
           </template>
 
+          <!-- What the assistant searched for, from its first search on. -->
+          <ChatSearchedFor v-if="message.role === 'assistant'" :searches="searchesFor(message)" />
+
           <!-- Assistant prose: comark components + clickable [n] chips. -->
           <div
             v-if="message.role === 'assistant'"
@@ -458,6 +461,7 @@ const strayQuestion = computed(() => {
             v-if="message.role === 'assistant'"
             :grounding="shownGroundingFor(message)"
             :cited="citationsFor(message).length"
+            :searches="searchesFor(message).length"
             :query="questionFor(message)"
             :scope-name="scopeNameFor(message)"
             :error="message.id === lastMessageId ? turnError : null"
@@ -502,7 +506,7 @@ const strayQuestion = computed(() => {
                   {{ c.meta }}
                 </div>
               </div>
-              <span class="font-mono text-[10px] text-(--ui-text-dimmed)">{{ c.score.toFixed(2) }}</span>
+              <span v-if="c.score" class="font-mono text-[10px] text-(--ui-text-dimmed)">{{ c.score.toFixed(2) }}</span>
             </NuxtLink>
           </div>
 

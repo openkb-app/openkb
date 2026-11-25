@@ -15,6 +15,7 @@ function mount(
   props: {
     grounding: Grounding | null
     cited: number
+    searches?: number
     query?: string
     scopeName?: string | null
     error?: string | null
@@ -87,6 +88,17 @@ describe('ChatAnswerState', () => {
     // Sources were there to cite, so there is nothing to say about the search.
     expect(root.querySelector('[data-test="answer-searched-note"]')).toBeNull()
     expect(root.querySelector('[data-test="answer-no-answer"]')).toBeNull()
+  })
+
+  it('with retrieval off, says the search found nothing only when the model searched', () => {
+    const off: Grounding = { mode: 'grounded', retrieval: 'off', state: 'ungrounded', retrieved: 0 }
+
+    const unsearched = mount({ grounding: off, cited: 0, query: 'hello' })
+    expect(unsearched.querySelector('[data-test="answer-ungrounded"]')).not.toBeNull()
+    expect(unsearched.querySelector('[data-test="answer-searched-note"]')).toBeNull()
+
+    const searched = mount({ grounding: off, cited: 0, searches: 1, query: 'sourdough' })
+    expect(searched.querySelector('[data-test="answer-searched-note"]')).not.toBeNull()
   })
 
   it('adds what was searched, and the ways on, when the search found nothing', () => {
