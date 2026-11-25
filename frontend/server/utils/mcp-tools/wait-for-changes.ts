@@ -247,11 +247,11 @@ function eventLine(event: ChangeEvent): string {
     }
     case 'blocks':
       return event.event === 'removed'
-        ? `${event.blockId} is gone from the page`
-        : `${event.blockId} settled at ${event.version}${byLine(event.by)}`
+        ? `${event.block} is gone from the page`
+        : `${event.block} settled at ${event.version}${byLine(event.by)}`
     case 'presence':
       return `${event.who.name ?? 'someone'} ${event.event}`
-        + `${event.blockId ? ` in ${event.blockId}` : ''}`
+        + `${event.block ? ` in ${event.block}` : ''}`
     case 'session':
       return `the session closed (${event.reason}) — stop waiting on this page`
   }
@@ -311,7 +311,10 @@ const EVENTS_OUTPUT_SCHEMA: JsonSchema = {
           at: { type: 'integer', description: 'Wall-clock ms.' },
           cursor: { type: 'string', description: 'This event\'s own place in the log.' },
           thread: THREAD_SCHEMA,
-          blockId: { type: ['string', 'null'] },
+          block: {
+            type: ['string', 'null'],
+            description: 'The block a blocks or presence event is about.',
+          },
           version: {
             type: ['string', 'null'],
             description:

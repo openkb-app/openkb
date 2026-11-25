@@ -119,7 +119,7 @@ describe('waitForChanges', () => {
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({
       kind: 'comments',
-      thread: { blockId: 'b-1', resolved: false, messages: [expect.objectContaining({ name: 'editor1' })] },
+      thread: { block: 'b-1', resolved: false, messages: [expect.objectContaining({ name: 'editor1' })] },
     })
     // The prose says the same thing, for a client that reads the text.
     expect((answer.content as any[])[0].text).toContain('Can you add a source?')
@@ -333,7 +333,7 @@ describe('waitForChanges', () => {
     })
     const { events } = next.structuredContent as any
     expect(events).toHaveLength(1)
-    expect(events[0]).toMatchObject({ kind: 'comments', thread: { blockId: 'b-1' } })
+    expect(events[0]).toMatchObject({ kind: 'comments', thread: { block: 'b-1' } })
   })
 
   it('still advertises the agent wait as default 30 s, max 120 s', async () => {

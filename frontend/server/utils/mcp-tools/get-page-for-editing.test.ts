@@ -86,7 +86,7 @@ describe('getPageForEditing', () => {
       status: {
         draft_exists: true,
         blocks_pending: 1,
-        pending: [{ block_id: 'b-1', change: 'changed', by: [], step: 'peer' }],
+        pending: [{ block: 'b-1', change: 'changed', by: [], step: 'peer' }],
         can_publish: false,
       },
     })
@@ -99,7 +99,7 @@ describe('getPageForEditing', () => {
       .toEqual({
         draft_exists: true,
         blocks_pending: 1,
-        pending: [{ block_id: 'b-1', change: 'changed', by: [], step: 'peer' }],
+        pending: [{ block: 'b-1', change: 'changed', by: [], step: 'peer' }],
         can_publish: false,
       })
     // The status costs the moderation read, so the tool has to ask for it.

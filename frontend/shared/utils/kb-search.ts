@@ -8,7 +8,8 @@
 
 /** One matching section of a page. */
 export interface SearchSection {
-  blockId: string
+  /** The block the section opens on, '' where its markdown spells no id. */
+  block: string
   /** The headings the section sits under, outermost first. */
   headingPath: string[]
   /** Plain text: a section found by meaning alone has no term to mark. */
@@ -28,7 +29,7 @@ export interface SearchSection {
 
 /** One row: a page, and every section of it the query matched. */
 export interface SearchPage {
-  id: string
+  nid: number
   score: number
   title: string
   path: string

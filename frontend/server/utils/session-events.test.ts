@@ -134,7 +134,7 @@ describe('session events', () => {
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({
       kind: 'blocks',
-      blockId: 'b-1',
+      block: 'b-1',
       markdown: 'first draft, done {#b-1}',
     })
     // The version is the one an updateBlocks `expect` sends back.
@@ -183,7 +183,7 @@ describe('session events', () => {
 
     expect(seen(log, cursor).map(event => [event.kind, (event as { event: string }).event]))
       .toEqual([['presence', 'joined'], ['presence', 'moved']])
-    expect(seen(log, cursor)[1]).toMatchObject({ who: { name: 'editor1', uid: 3 }, blockId: 'b-2' })
+    expect(seen(log, cursor)[1]).toMatchObject({ who: { name: 'editor1', uid: 3 }, block: 'b-2' })
   })
 
   it('resolves a browser peer\'s caret to the block it sits in', async () => {
@@ -203,7 +203,7 @@ describe('session events', () => {
     } as never, null)
     await settled()
 
-    expect(seen(log, cursor)[0]).toMatchObject({ kind: 'presence', event: 'joined', blockId: 'b-2' })
+    expect(seen(log, cursor)[0]).toMatchObject({ kind: 'presence', event: 'joined', block: 'b-2' })
   })
 
   it('leaves the watcher\'s own presence out of what it reads', async () => {
@@ -320,7 +320,7 @@ describe('session events', () => {
     await settled()
 
     expect(seen(log, cursor)).toEqual([
-      expect.objectContaining({ kind: 'blocks', event: 'removed', blockId: 'b-2', markdown: null }),
+      expect.objectContaining({ kind: 'blocks', event: 'removed', block: 'b-2', markdown: null }),
     ])
   })
 
@@ -338,7 +338,7 @@ describe('session events', () => {
     applyBlockOps(doc, ops, await parsed(ops))
     await settled()
 
-    expect(seen(log, cursor).map(event => (event as { blockId: string }).blockId).sort()).toEqual(['b-1', 'b-2'])
+    expect(seen(log, cursor).map(event => (event as { block: string }).block).sort()).toEqual(['b-1', 'b-2'])
   })
 
   it('credits nobody alone with a block whose settle render failed when another writer follows', async () => {
@@ -357,8 +357,8 @@ describe('session events', () => {
     Y.transact(doc, () => applyBlockOps(doc, ops, otherBlocks), { agent: true, seat: { uid: 9, name: 'editor1', via: null } })
     await settled()
 
-    const events = seen(log, cursor) as Array<{ blockId: string, by: unknown }>
-    expect(events.map(event => [event.blockId, event.by]).sort()).toEqual([['b-1', null], ['b-2', null]])
+    const events = seen(log, cursor) as Array<{ block: string, by: unknown }>
+    expect(events.map(event => [event.block, event.by]).sort()).toEqual([['b-1', null], ['b-2', null]])
   })
 
   it('takes its baseline from the next settle when the first render fails', async () => {
@@ -375,7 +375,7 @@ describe('session events', () => {
     await settled()
 
     expect(seen(log, cursor)).toEqual([
-      expect.objectContaining({ kind: 'blocks', blockId: 'b-2', markdown: 'reported {#b-2}' }),
+      expect.objectContaining({ kind: 'blocks', block: 'b-2', markdown: 'reported {#b-2}' }),
     ])
   })
 

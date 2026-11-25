@@ -108,7 +108,7 @@ describe('the turn the chat is sent', () => {
   })
 
   it('carries the thread in the caller context', () => {
-    expect(chatTurnContext(thread('c-1'))).toEqual({ commentThread: { blockId: 'b-1', threadId: 'c-1' } })
+    expect(chatTurnContext(thread('c-1'))).toEqual({ commentThread: { block: 'b-1', threadId: 'c-1' } })
   })
 })
 

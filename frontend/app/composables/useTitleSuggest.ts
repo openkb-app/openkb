@@ -11,8 +11,8 @@ import { markedParts } from '#shared/utils/kb-search'
 
 /** One offered page. */
 export interface TitleSuggestion {
-  /** The search_api item id, `entity:node/<nid>:<langcode>`. */
-  id: string
+  /** The page's node id. */
+  nid: number
   /** The title, split into plain and matched runs. */
   parts: ExcerptPart[]
   title: string
@@ -23,7 +23,7 @@ export interface TitleSuggestion {
 }
 
 interface TitleHit {
-  id?: string
+  nid?: number
   title?: string
   path?: string
   space?: string
@@ -87,11 +87,12 @@ export function useTitleSuggest(space: Ref<string>) {
   return { suggestions, suggest, clear }
 }
 
+/** One title offer as the menu shows it, its matched words marked. */
 function toSuggestion(hit: TitleHit): TitleSuggestion {
   const title = hit.title ?? ''
   const fragment = hit.highlights?.[0]
   return {
-    id: hit.id ?? '',
+    nid: hit.nid ?? 0,
     title,
     parts: fragment ? markedParts(fragment) : [{ text: title, marked: false }],
     path: hit.path ?? '',

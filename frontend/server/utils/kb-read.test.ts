@@ -339,8 +339,8 @@ describe('getKbPage status', () => {
       draft_exists: true,
       blocks_pending: 2,
       pending: [
-        { block_id: 'b-1', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
-        { block_id: 'b-2', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+        { block: 'b-1', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+        { block: 'b-2', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
       ],
       can_publish: false,
     })
@@ -361,7 +361,7 @@ describe('getKbPage status', () => {
     expect(page!.status).toEqual({
       draft_exists: true,
       blocks_pending: 1,
-      pending: [{ block_id: 'b-1', change: 'changed', by: [], step: 'peer' }],
+      pending: [{ block: 'b-1', change: 'changed', by: [], step: 'peer' }],
       can_publish: false,
     })
   })
@@ -377,7 +377,7 @@ describe('getKbPage status', () => {
       withStatus: true,
     })
 
-    expect(page!.status!.pending).toEqual([{ block_id: 'b-1', change: 'added', by: [{ uid: 3 }], step: 'peer' }])
+    expect(page!.status!.pending).toEqual([{ block: 'b-1', change: 'added', by: [{ uid: 3 }], step: 'peer' }])
   })
 
   it('names each writer a step waits on, and what kind of change it is', async () => {
@@ -403,7 +403,7 @@ describe('getKbPage status', () => {
     })
 
     expect(page!.status!.pending).toEqual([
-      { block_id: 'field:title', change: 'renamed', by: [{ uid: 4 }], step: 'peer' },
+      { block: 'field:title', change: 'renamed', by: [{ uid: 4 }], step: 'peer' },
     ])
     fetchModerationStatus.mockResolvedValue({ ...MODERATED, reviewSteps: ['agent', 'peer'] })
     const both = await getKbPage(EVENT, 'team-wiki/getting-started', {
@@ -412,12 +412,12 @@ describe('getKbPage status', () => {
     })
     expect(both!.status!.pending).toEqual([
       {
-        block_id: 'b-1',
+        block: 'b-1',
         change: 'removed',
         by: [{ uid: 3, name: 'editor1', via: 'Claude' }],
         step: 'agent',
       },
-      { block_id: 'field:title', change: 'renamed', by: [{ uid: 4 }], step: 'peer' },
+      { block: 'field:title', change: 'renamed', by: [{ uid: 4 }], step: 'peer' },
     ])
   })
 
@@ -433,8 +433,8 @@ describe('getKbPage status', () => {
       draft_exists: true,
       blocks_pending: 2,
       pending: [
-        { block_id: 'b-1', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
-        { block_id: 'b-2', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+        { block: 'b-1', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
+        { block: 'b-2', change: 'changed', by: [{ uid: 3 }], step: 'peer' },
       ],
       can_publish: false,
     })

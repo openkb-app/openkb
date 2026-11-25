@@ -97,7 +97,7 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
             pending: {
               type: 'array',
               description:
-                'Those items, one entry per review step owed. `block_id` is the '
+                'Those items, one entry per review step owed. `block` is the '
                 + 'sidecar key: a block id, a removed block\'s id, or '
                 + '`field:title`. `by` lists who the step waits on; empty means '
                 + 'no writer was witnessed, which an identified edit of the block '
@@ -105,7 +105,7 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
               items: {
                 type: 'object',
                 properties: {
-                  block_id: { type: 'string' },
+                  block: { type: 'string' },
                   change: { type: 'string', enum: ['added', 'changed', 'moved', 'removed', 'renamed'] },
                   by: {
                     type: 'array',
@@ -122,7 +122,7 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
                   },
                   step: { type: 'string', enum: ['agent', 'peer'] },
                 },
-                required: ['block_id', 'change', 'by', 'step'],
+                required: ['block', 'change', 'by', 'step'],
                 additionalProperties: false,
               },
             },

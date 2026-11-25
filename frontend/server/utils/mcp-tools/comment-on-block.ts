@@ -31,7 +31,7 @@ export function commentOnBlockTool(): KbTool {
       type: 'object',
       properties: {
         ...TARGET_PROPERTIES,
-        blockId: {
+        block: {
           type: 'string',
           description:
             'The block to comment on, by the `{#b-…}` id every read of the page '
@@ -49,14 +49,14 @@ export function commentOnBlockTool(): KbTool {
             + 'the same syntax a page body and the threads you read use; a plain `@name` is just text.',
         },
       },
-      required: ['blockId', 'text'],
+      required: ['block', 'text'],
       additionalProperties: false,
     },
     outputSchema: WRITE_OUTPUT_SCHEMA,
     async run(args, { event }) {
-      const { blockId, text, threadId } = args
-      if (typeof blockId !== 'string' || blockId === '') {
-        return writeRefusal('commentOnBlock requires a "blockId" string.')
+      const { block, text, threadId } = args
+      if (typeof block !== 'string' || block === '') {
+        return writeRefusal('commentOnBlock requires a "block" string.')
       }
       if (typeof text !== 'string' || text.trim() === '') {
         return writeRefusal('commentOnBlock requires a non-empty "text" string.')
@@ -65,7 +65,7 @@ export function commentOnBlockTool(): KbTool {
         return writeRefusal('"threadId" must be the id of a thread on this block.')
       }
       return runWrite(event, args, {
-        comment: { blockId, text: text.trim(), ...(threadId ? { threadId } : {}) },
+        comment: { blockId: block, text: text.trim(), ...(threadId ? { threadId } : {}) },
       })
     },
   }

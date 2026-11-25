@@ -15,7 +15,7 @@ import { makeEvent, stubFetch, type Reply } from '../test-support/h3'
 
 const ANSWER = {
   pages: [{
-    id: 'entity:node/7:en',
+    nid: 7,
     title: 'Rotation notes',
     path: '/team-wiki/rotation-notes',
     space: 'Team Wiki',
@@ -72,7 +72,7 @@ describe('searchKbPages', () => {
     expect(await searchKbPages(makeEvent(), { q: 'Rel' })).toEqual({
       query: 'Rel',
       hits: [{
-        id: 'entity:node/7:en',
+        nid: 7,
         title: 'Rotation notes',
         path: '/team-wiki/rotation-notes',
         space: 'Team Wiki',
@@ -83,7 +83,7 @@ describe('searchKbPages', () => {
   })
 
   it('drops a row that names no page to link to', async () => {
-    reply({ body: { pages: [{ id: 'entity:node/7:en', title: 'Pathless' }] } })
+    reply({ body: { pages: [{ nid: 7, title: 'Pathless' }] } })
     expect((await searchKbPages(makeEvent(), { q: 'Rel' })).hits).toEqual([])
   })
 

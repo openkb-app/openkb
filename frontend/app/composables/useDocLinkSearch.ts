@@ -29,7 +29,7 @@ export interface DocLinkItem {
   url?: string
 }
 
-interface SearchHit { id: string, title: string, path: string }
+interface SearchHit { nid: number, title: string, path: string }
 
 /** One page as the picker reads it — its words, alias, and its blocks' versions. */
 interface Page { title: string, path: string, body: string, versions: Record<string, string> }
@@ -47,12 +47,6 @@ export interface ResolvedTarget {
 const LABEL_LIMIT = 60
 
 const DEBOUNCE_MS = 120
-
-/** The search item id is `entity:node/<nid>:<langcode>`. */
-function nidOf(hit: SearchHit): number | null {
-  const nid = Number(hit.id.match(/^entity:node\/(\d+)/)?.[1])
-  return Number.isInteger(nid) && nid > 0 ? nid : null
-}
 
 function textOf(node: JSONContent): string {
   if (typeof node.text === 'string') return node.text
@@ -133,14 +127,13 @@ export function useDocLinkSearch() {
     }
   }
 
-  async function searchPages(query: string, signal: AbortSignal): Promise<Array<SearchHit & { nid: number }>> {
+  /** The pages a query finds by title and text, each with a page to link to. */
+  async function searchPages(query: string, signal: AbortSignal): Promise<SearchHit[]> {
     const answer = await $fetch<{ hits?: SearchHit[] }>('/api/kb/search', {
       query: { q: query, titlePrefix: '1' },
       signal,
     })
-    return (answer.hits ?? [])
-      .map(hit => ({ ...hit, nid: nidOf(hit) }))
-      .filter((hit): hit is SearchHit & { nid: number } => hit.nid !== null && hit.path !== '')
+    return (answer.hits ?? []).filter(hit => Number.isInteger(hit.nid) && hit.nid > 0 && hit.path !== '')
   }
 
   /** Runs the search for one announced query, debounced. */

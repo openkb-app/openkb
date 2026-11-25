@@ -48,7 +48,7 @@ export interface CommentsEvent {
 export interface BlocksEvent {
   kind: 'blocks'
   event: 'settled' | 'removed'
-  blockId: string
+  block: string
   /** What the block now holds — null once it is gone. */
   version: string | null
   markdown: string | null
@@ -62,7 +62,7 @@ export interface PresenceEvent {
   event: 'joined' | 'left' | 'moved'
   who: EventPeer
   /** The block they are in, or null when they are in none. */
-  blockId: string | null
+  block: string | null
   /** The awareness client this is about — a watcher's own is filtered out. */
   clientId: number
 }
@@ -372,12 +372,12 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
         for (const [id, markdown] of current) {
           if (before.get(id) === markdown) continue
           record(at, {
-            kind: 'blocks', event: 'settled', blockId: id, version: blockVersion(markdown), markdown, by,
+            kind: 'blocks', event: 'settled', block: id, version: blockVersion(markdown), markdown, by,
           })
         }
         for (const id of before.keys()) {
           if (current.has(id)) continue
-          record(at, { kind: 'blocks', event: 'removed', blockId: id, version: null, markdown: null, by })
+          record(at, { kind: 'blocks', event: 'removed', block: id, version: null, markdown: null, by })
         }
       } while (settleAgain)
     }
@@ -396,15 +396,15 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
     for (const [clientId, peer] of current) {
       const before = peers.get(clientId)
       if (!before) {
-        record(at, { kind: 'presence', event: 'joined', who: peer.who, blockId: peer.blockId, clientId })
+        record(at, { kind: 'presence', event: 'joined', who: peer.who, block: peer.blockId, clientId })
       }
       else if (before.blockId !== peer.blockId) {
-        record(at, { kind: 'presence', event: 'moved', who: peer.who, blockId: peer.blockId, clientId })
+        record(at, { kind: 'presence', event: 'moved', who: peer.who, block: peer.blockId, clientId })
       }
     }
     for (const [clientId, peer] of peers) {
       if (!current.has(clientId)) {
-        record(at, { kind: 'presence', event: 'left', who: peer.who, blockId: null, clientId })
+        record(at, { kind: 'presence', event: 'left', who: peer.who, block: null, clientId })
       }
     }
     peers = current

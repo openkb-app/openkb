@@ -468,7 +468,7 @@ onMounted(() => {
           <li
             v-for="(row, index) in suggestions"
             :id="rowId(index)"
-            :key="row.id || row.path"
+            :key="row.nid || row.path"
             role="option"
             :aria-selected="activeRow === index"
             class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-[13px]"
@@ -602,7 +602,7 @@ onMounted(() => {
           <ul v-if="pages.length" class="flex flex-col" data-testid="search-results">
             <li
               v-for="{ page, excerpt } in rows"
-              :key="page.id || page.path"
+              :key="page.nid || page.path"
               class="border-b border-(--ui-border-muted) py-3 last:border-b-0"
             >
               <NuxtLink
@@ -678,7 +678,7 @@ onMounted(() => {
                   {{ sectionsLabel(page) }}
                 </p>
                 <ul class="flex flex-col gap-0.5">
-                  <li v-for="section in subSections(page)" :key="section.blockId || section.path">
+                  <li v-for="section in subSections(page)" :key="section.block || section.path">
                     <NuxtLink
                       :to="section.path"
                       class="flex items-baseline gap-2 rounded px-1.5 py-1 text-[12.5px] hover:bg-elevated"

@@ -44,7 +44,7 @@ describe('commentOnBlock', () => {
 
     const opened = await client.callTool({
       name: 'commentOnBlock',
-      arguments: { path: 'intro', blockId: 'b-1', text: 'Rewrote the second sentence.' },
+      arguments: { path: 'intro', block: 'b-1', text: 'Rewrote the second sentence.' },
     })
 
     expect(opened.isError).toBeFalsy()
@@ -58,7 +58,7 @@ describe('commentOnBlock', () => {
 
     await client.callTool({
       name: 'commentOnBlock',
-      arguments: { path: 'intro', blockId: 'b-1', threadId: 'c-1a2b', text: 'And the units.' },
+      arguments: { path: 'intro', block: 'b-1', threadId: 'c-1a2b', text: 'And the units.' },
     })
 
     expect(routeAgentEdit).toHaveBeenLastCalledWith(
@@ -73,7 +73,7 @@ describe('commentOnBlock', () => {
     const tool = (await client.listTools()).tools.find(t => t.name === 'commentOnBlock')!
     const input = tool.inputSchema as Record<string, any>
 
-    expect(Object.keys(input.properties).sort()).toEqual(['blockId', 'nid', 'path', 'text', 'threadId'])
+    expect(Object.keys(input.properties).sort()).toEqual(['block', 'nid', 'path', 'text', 'threadId'])
     // Closed, so "resolved: true" is refused rather than ignored — and there
     // is no second tool that takes it either.
     expect(input.additionalProperties).toBe(false)
@@ -81,7 +81,7 @@ describe('commentOnBlock', () => {
 
     const res = await client.callTool({
       name: 'commentOnBlock',
-      arguments: { path: 'intro', blockId: 'b-1', text: 'Fixed.', resolved: true },
+      arguments: { path: 'intro', block: 'b-1', text: 'Fixed.', resolved: true },
     })
 
     expect(res.isError).toBe(true)
@@ -95,7 +95,7 @@ describe('commentOnBlock', () => {
 
     const res = await client.callTool({
       name: 'commentOnBlock',
-      arguments: { path: 'intro', blockId: 'b-1', text: '   ' },
+      arguments: { path: 'intro', block: 'b-1', text: '   ' },
     })
 
     expect(res.isError).toBe(true)
@@ -111,7 +111,7 @@ describe('commentOnBlock', () => {
 
     const res = await client.callTool({
       name: 'commentOnBlock',
-      arguments: { path: 'intro', blockId: 'b-gone', text: 'Where did this go?' },
+      arguments: { path: 'intro', block: 'b-gone', text: 'Where did this go?' },
     })
 
     expect(res.isError).toBe(true)

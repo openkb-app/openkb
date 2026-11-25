@@ -84,8 +84,8 @@ export function chatTurnText(thread: CommentThread): string {
 }
 
 /** The caller context a thread's turn carries: the thread the chat works. */
-export function chatTurnContext(thread: CommentThread): { commentThread: { blockId: string, threadId: string } } {
-  return { commentThread: { blockId: thread.blockId, threadId: thread.threadId } }
+export function chatTurnContext(thread: CommentThread): { commentThread: { block: string, threadId: string } } {
+  return { commentThread: { block: thread.blockId, threadId: thread.threadId } }
 }
 
 /** Whether the chat of `uid` replied in the thread since the messages in `before`. */

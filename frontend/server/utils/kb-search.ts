@@ -24,8 +24,8 @@ import type { PageSearchResponse, SearchPage, SearchSection } from '#shared/util
 
 /** One row a title prefix offers. */
 export interface SearchHit {
-  /** The search_api item id, `entity:node/<nid>:<langcode>`. */
-  id: string
+  /** The page's node id. */
+  nid: number
   title: string
   /** The page's space-scoped alias — what a row links to. */
   path: string
@@ -71,7 +71,7 @@ export async function searchKbPages(
     query,
     hits: rows
       .map(row => ({
-        id: typeof row.id === 'string' ? row.id : '',
+        nid: typeof row.nid === 'number' ? row.nid : 0,
         title: typeof row.title === 'string' ? row.title : '',
         path: typeof row.path === 'string' ? row.path : '',
         space: typeof row.space === 'string' ? row.space : '',
@@ -202,7 +202,7 @@ function toPage(row: Record<string, unknown>): SearchPage | null {
   if (path === '') return null
   const sections = Array.isArray(row.sections) ? row.sections : []
   return {
-    id: typeof row.id === 'string' ? row.id : '',
+    nid: typeof row.nid === 'number' ? row.nid : 0,
     title: typeof row.title === 'string' ? row.title : '',
     path,
     space: typeof row.space === 'string' ? row.space : '',
@@ -219,7 +219,7 @@ function toPage(row: Record<string, unknown>): SearchPage | null {
 function toSection(row: Record<string, unknown>, pagePath: string): SearchSection {
   const headingPath = Array.isArray(row.heading_path) ? row.heading_path : []
   return {
-    blockId: typeof row.block_id === 'string' ? row.block_id : '',
+    block: typeof row.block === 'string' ? row.block : '',
     headingPath: headingPath.filter((entry): entry is string => typeof entry === 'string'),
     excerpt: typeof row.excerpt === 'string' ? row.excerpt : '',
     highlights: (Array.isArray(row.highlights) ? row.highlights : [])

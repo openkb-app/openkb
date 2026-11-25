@@ -4,7 +4,7 @@ import type { SearchPage, SearchSection } from './kb-search'
 
 function section(overrides: Partial<SearchSection> = {}): SearchSection {
   return {
-    blockId: 'b-4',
+    block: 'b-4',
     headingPath: ['Rotation notes', 'On call'],
     excerpt: 'Who carries the pager.',
     highlights: [],
@@ -16,7 +16,7 @@ function section(overrides: Partial<SearchSection> = {}): SearchSection {
 
 function page(sections: SearchSection[]): SearchPage {
   return {
-    id: 'entity:node/7:en',
+    nid: 7,
     score: sections[0]?.score ?? 0,
     title: 'Rotation notes',
     path: '/team-wiki/rotation-notes',
@@ -28,7 +28,7 @@ function page(sections: SearchSection[]): SearchPage {
 
 describe('search result rows', () => {
   it('opens the row on the section that matched best', () => {
-    const row = page([section(), section({ blockId: 'b-9', path: '/team-wiki/rotation-notes#b-9' })])
+    const row = page([section(), section({ block: 'b-9', path: '/team-wiki/rotation-notes#b-9' })])
     expect(rowLink(row)).toBe('/team-wiki/rotation-notes#b-4')
     expect(rowExcerptParts(row)).toEqual([{ text: 'Who carries the pager.', marked: false }])
   })
@@ -40,12 +40,12 @@ describe('search result rows', () => {
   })
 
   it('links a section whose markdown spells no block id to the page', () => {
-    const row = page([section({ blockId: '', path: '/team-wiki/rotation-notes' })])
+    const row = page([section({ block: '', path: '/team-wiki/rotation-notes' })])
     expect(rowLink(row)).toBe('/team-wiki/rotation-notes')
   })
 
   it('lists every section but the one already shown as the excerpt', () => {
-    const second = section({ blockId: 'b-9', headingPath: ['Rotation notes', 'Handover'] })
+    const second = section({ block: 'b-9', headingPath: ['Rotation notes', 'Handover'] })
     expect(subSections(page([section(), second]))).toEqual([second])
     expect(subSections(page([section()]))).toEqual([])
   })

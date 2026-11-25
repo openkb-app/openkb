@@ -22,7 +22,7 @@ export interface ThreadMessage {
 
 /** One conversation about one block. */
 export interface ProjectedThread {
-  blockId: string
+  block: string
   threadId: string
   anchor: { from: number, to: number, quote: string } | null
   messages: ThreadMessage[]
@@ -36,7 +36,7 @@ export interface ProjectedThread {
 /** The live thread, projected. */
 export function projectThread(thread: CommentThread): ProjectedThread {
   return {
-    blockId: thread.blockId,
+    block: thread.blockId,
     threadId: thread.threadId,
     anchor: thread.anchor,
     messages: thread.messages.map(message => ({
@@ -113,7 +113,10 @@ export function projectThreads(threads: CommentThread[], includeResolved: boolea
 export const THREAD_SCHEMA: JsonSchema = {
   type: 'object',
   properties: {
-    blockId: { type: 'string', description: 'The block the conversation is about.' },
+    block: {
+      type: 'string',
+      description: 'The block the conversation is about. Pass it to commentOnBlock as `block`.',
+    },
     threadId: {
       type: 'string',
       description: 'Pass it to commentOnBlock as `threadId` to answer this thread.',
@@ -189,7 +192,7 @@ export const THREAD_SCHEMA: JsonSchema = {
     lastAt: { type: 'integer', description: 'The latest activity of any kind.' },
   },
   required: [
-    'blockId', 'threadId', 'anchor', 'messages', 'resolved', 'assignee', 'openedAt', 'lastAt',
+    'block', 'threadId', 'anchor', 'messages', 'resolved', 'assignee', 'openedAt', 'lastAt',
   ],
   additionalProperties: false,
 }

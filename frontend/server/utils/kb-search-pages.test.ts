@@ -20,7 +20,7 @@ const ANSWER = {
   total: null,
   has_more: false,
   pages: [{
-    id: 'entity:node/7:en',
+    nid: 7,
     title: 'Rotation notes',
     path: '/team-wiki/rotation-notes',
     space: 'Team Wiki',
@@ -30,7 +30,7 @@ const ANSWER = {
     score: 0.91,
     sections: [
       {
-        block_id: 'b-4',
+        block: 'b-4',
         heading_path: ['Rotation notes', 'On call'],
         excerpt: 'Who carries the pager.',
         highlights: ['Who carries the \uE000pager\uE001.'],
@@ -38,7 +38,7 @@ const ANSWER = {
         path: '/team-wiki/rotation-notes#b-4',
       },
       {
-        block_id: 'b-9',
+        block: 'b-9',
         heading_path: ['Rotation notes', 'Handover'],
         excerpt: 'What the next shift is told.',
         score: 0.78,
@@ -90,7 +90,7 @@ describe('searchPageSections', () => {
       total: null,
       hasMore: false,
       pages: [{
-        id: 'entity:node/7:en',
+        nid: 7,
         title: 'Rotation notes',
         path: '/team-wiki/rotation-notes',
         space: 'Team Wiki',
@@ -100,7 +100,7 @@ describe('searchPageSections', () => {
         score: 0.91,
         sections: [
           {
-            blockId: 'b-4',
+            block: 'b-4',
             headingPath: ['Rotation notes', 'On call'],
             excerpt: 'Who carries the pager.',
             highlights: ['Who carries the \uE000pager\uE001.'],
@@ -108,7 +108,7 @@ describe('searchPageSections', () => {
             path: '/team-wiki/rotation-notes#b-4',
           },
           {
-            blockId: 'b-9',
+            block: 'b-9',
             headingPath: ['Rotation notes', 'Handover'],
             excerpt: 'What the next shift is told.',
             highlights: [],

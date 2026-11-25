@@ -118,7 +118,7 @@ export interface PageStatus {
 /** One review step an item of the working copy still owes. */
 export interface PendingItem {
   /** The sidecar key: a block id, a removed block's id, or `field:title`. */
-  block_id: string
+  block: string
   change: 'added' | 'changed' | 'moved' | 'removed' | 'renamed'
   /** Who the step is waiting on; empty when no writer was witnessed. */
   by: Array<{ uid: number, name?: string, via?: string }>
@@ -321,7 +321,7 @@ function pendingItem(id: string, block: PageBlock | undefined, step: ReviewStep,
       ? [{ uid }]
       : credited.map(c => ({ uid, ...(c.name ? { name: c.name } : {}), ...(c.via ? { via: c.via } : {}) }))
   })
-  return { block_id: id, change, by, step }
+  return { block: id, change, by, step }
 }
 
 /**
