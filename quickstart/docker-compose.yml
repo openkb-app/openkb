@@ -139,7 +139,7 @@ services:
       - mariadb-data:/var/lib/mysql
 
   opensearch:
-    image: ${OPENKB_OPENSEARCH_IMAGE:-opensearchproject/opensearch:3.9.0}
+    image: ${OPENKB_OPENSEARCH_IMAGE:-opensearchproject/opensearch:3.10.0}
     << : *container-defaults
     environment:
       discovery.type: single-node
