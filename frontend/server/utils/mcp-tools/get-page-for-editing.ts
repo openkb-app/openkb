@@ -1,5 +1,5 @@
 import { getKbPage, type KbPage } from '../kb-read'
-import { PATH_DESCRIPTION, toProjectionSchema } from './schemas'
+import { toProjectionSchema } from './schemas'
 import { fetchAccountNames } from '../account-names'
 import { nameThreadCurrently, projectThreads, threadAccountUids, THREAD_SCHEMA } from './comment-threads'
 import { answered, refused, type JsonSchema, type KbTool } from './types'
@@ -16,36 +16,11 @@ export function getPageForEditingTool(frontmatterSchema: JsonSchema): KbTool {
   return {
     name: 'getPageForEditing',
     manifestName: 'get_page_for_editing',
-    description:
-      "Read a knowledge-base page's WORKING COPY by path — the revision "
-      + 'updateFields and updateBlocks write, including edits a live editing '
-      + 'session has taken and not yet committed. Returns the page once, as the '
-      + '`.md` wire format — a YAML frontmatter block of the exposed fields '
-      + 'above the canonical body — with the fields also given structured, plus '
-      + 'the two things an edit needs: `versions`, the block version each write '
-      + 'op sends back as its `expect`, and `status`, where the page stands '
-      + 'editorially for your account. `status` is served only to an account '
-      + 'that may edit, so a page that comes back without it is one you may read '
-      + 'and not change. To read the page as it stands PUBLISHED — to answer a '
-      + 'question or to cite it — call tool_api__get_page instead.\n\n'
-      + '`comments` is what the editors are saying about the blocks — open '
-      + 'threads, resolved ones only if you ask. Read them before you rewrite '
-      + 'anything: a thread is somebody telling you what this block still needs, '
-      + 'and commentOnBlock is how you answer one. To work on the page WHILE a '
-      + 'human edits it, call waitForChanges next and loop on it: act on '
-      + '`comments` addressed to you, on `blocks` only where your instructions '
-      + 'say to, and never write into a block somebody is in.',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: PATH_DESCRIPTION },
-        includeResolved: {
-          type: 'boolean',
-          description:
-            'Also serve the conversations an editor has marked done. Off by '
-            + 'default: a resolved thread is settled, and acting on one re-opens '
-            + 'a question somebody closed.',
-        },
+        path: { type: 'string' },
+        includeResolved: { type: 'boolean' },
       },
       required: ['path'],
       additionalProperties: false,

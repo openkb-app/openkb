@@ -336,7 +336,7 @@ describe('waitForChanges', () => {
     expect(events[0]).toMatchObject({ kind: 'comments', thread: { block: 'b-1' } })
   })
 
-  it('still advertises the agent wait as default 30 s, max 120 s', async () => {
+  it('still bounds the agent wait at 120 s', async () => {
     session()
     const { client } = await connect()
 
@@ -345,7 +345,6 @@ describe('waitForChanges', () => {
       minimum: 0,
       maximum: 120,
     })
-    expect((tool.inputSchema as any).properties.timeoutSec.description).toContain('default 30')
   })
 
   it('refuses a kind it does not serve, naming the ones it does', async () => {

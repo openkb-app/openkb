@@ -8,15 +8,15 @@ import type { H3Event } from 'h3'
  * set. A tool file states what it takes, what it answers and what it does —
  * never how a protocol frames that.
  *
- * The same four tools are declared in Drupal as Tool API plugins
- * (`openkb_tools`, ADR 0009), which is the one registry of the whole surface;
- * these are the executable halves Drupal cannot run.
+ * The same tools are declared in Drupal as Tool API plugins (`openkb_tools`,
+ * ADR 0009), which is the one registry of the whole surface and the source of
+ * every description; these are the executable halves Drupal cannot run.
  */
 export interface KbTool {
   name: string
   /** The tool's `mcp_tool_config` id: the name Drupal's tool manifest lists it under. */
   manifestName: string
-  description: string
+  /** Structure only: the descriptions are Drupal's, from the tool manifest. */
   inputSchema: JsonSchema
   outputSchema?: JsonSchema
   run: (args: Record<string, unknown>, context: ToolContext) => Promise<ToolResult>

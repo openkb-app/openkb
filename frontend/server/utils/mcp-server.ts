@@ -9,9 +9,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { fetchFrontmatterSchema } from './drupal'
 import { callDrupalTool, listDrupalTools } from './drupal-tools'
-import { kbTools, runKbTool, KB_INSTRUCTIONS } from './mcp-tools'
+import { kbTools, runKbTool } from './mcp-tools'
+import { withDescriptions } from './mcp-tools/schemas'
 import { resourceOrigin } from './oauth-metadata'
-import { enabledSessionTools } from './tool-manifest'
+import { toolManifest, type ManifestTool } from './tool-manifest'
 import { refused, type KbTool, type ToolResult } from './mcp-tools/types'
 
 /**
@@ -30,9 +31,11 @@ import { refused, type KbTool, type ToolResult } from './mcp-tools/types'
  * `POST /api/agent/edit` and the `.md` PUT do. No local tool writes to Drupal
  * directly, and there is no path by which one could.
  *
- * Drupal decides which local tools are offered: one that its tool manifest
- * (server/utils/tool-manifest.ts) does not list is left out of `tools/list`
- * and refused on `tools/call`.
+ * Drupal decides which local tools are offered and every text an agent reads:
+ * one that its tool manifest (server/utils/tool-manifest.ts) does not list is
+ * left out of `tools/list` and refused on `tools/call`; the server
+ * instructions, each tool's description and its argument descriptions are the
+ * manifest's. The tools here keep only behaviour: names, schemas, handlers.
  *
  * The tools Drupal owns are relayed over its own MCP endpoint as this caller,
  * generically: no Drupal tool's name occurs here, so one added over there
@@ -74,12 +77,12 @@ function serverInfo(origin: string): Implementation {
   }
 }
 
-/** A tool declaration as MCP lists it. */
-function toMcpTool(tool: KbTool): Tool {
+/** A tool declaration as MCP lists it, described as Drupal describes it. */
+function toMcpTool(tool: KbTool, described: ManifestTool): Tool {
   return {
     name: tool.name,
-    description: tool.description,
-    inputSchema: tool.inputSchema as Tool['inputSchema'],
+    description: described.description,
+    inputSchema: withDescriptions(tool.inputSchema, described.inputSchema) as Tool['inputSchema'],
     ...(tool.outputSchema ? { outputSchema: tool.outputSchema as Tool['outputSchema'] } : {}),
   }
 }
@@ -116,17 +119,21 @@ export async function createMcpServer(event: H3Event): Promise<Server> {
 
   const localTools = kbTools(frontmatterSchema)
   const localToolNames = new Set(localTools.map(tool => tool.name))
+  const { instructions } = await toolManifest()
 
   const server = new Server(
     serverInfo(resourceOrigin(event)),
-    { capabilities: { tools: {} }, instructions: KB_INSTRUCTIONS },
+    { capabilities: { tools: {} }, ...(instructions ? { instructions } : {}) },
   )
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const enabled = await enabledSessionTools()
+    const { tools: enabled } = await toolManifest()
     return {
       tools: [
-        ...localTools.filter(tool => enabled.has(tool.manifestName)).map(toMcpTool),
+        ...localTools.flatMap((tool) => {
+          const described = enabled.get(tool.manifestName)
+          return described ? [toMcpTool(tool, described)] : []
+        }),
         ...(await listDrupalTools(event)).filter(tool => !localToolNames.has(tool.name)),
       ],
     }
@@ -141,7 +148,7 @@ export async function createMcpServer(event: H3Event): Promise<Server> {
       // MCP endpoint.
       if (!localToolNames.has(name)) return await callDrupalTool(event, name, args)
       const tool = localTools.find(candidate => candidate.name === name)!
-      if (!(await enabledSessionTools()).has(tool.manifestName)) {
+      if (!(await toolManifest()).tools.has(tool.manifestName)) {
         return toCallToolResult(refused(`${name} is not enabled on this site.`))
       }
       return toCallToolResult(await runKbTool(localTools, name, args, { event }))

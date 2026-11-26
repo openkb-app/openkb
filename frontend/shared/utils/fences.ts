@@ -21,8 +21,6 @@ export interface FenceOptions {
   languageLabel: string
   /** The source a block inserted from the block menu starts with. */
   template: string
-  /** For agents: what to write this fence for, e.g. "a diagram, in Mermaid syntax". */
-  agentHint: string
 }
 
 export interface FenceDefinition extends FenceOptions {

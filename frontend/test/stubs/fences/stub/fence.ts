@@ -7,5 +7,4 @@ export default {
   icon: 'i-lucide-pencil',
   languageLabel: 'Stub',
   template: 'one\ntwo',
-  agentHint: 'a sketch',
 } satisfies FenceOptions

@@ -27,7 +27,7 @@ export const fetchCeNode = vi.fn()
 export const fetchFrontmatterSpecs = vi.fn()
 export const listDrupalTools = vi.fn()
 export const callDrupalTool = vi.fn()
-export const enabledSessionTools = vi.fn()
+export const toolManifest = vi.fn()
 
 /**
  * The write tools route through the session router; the router itself is
@@ -63,7 +63,21 @@ export const drupalToolsMock = {
  * is enabled unless a case says otherwise.
  */
 export const toolManifestMock = {
-  enabledSessionTools: (...a: unknown[]) => enabledSessionTools(...a),
+  toolManifest: (...a: unknown[]) => toolManifest(...a),
+}
+
+/** The instructions Drupal's tool manifest serves in these suites. */
+export const INSTRUCTIONS = 'Instructions, as Drupal serves them.'
+
+/** A tool manifest enabling `names`, each described as Drupal would. */
+export function manifestOf(names: string[]) {
+  return {
+    instructions: INSTRUCTIONS,
+    tools: new Map(names.map(name => [name, {
+      description: `Drupal describes ${name}.`,
+      inputSchema: { properties: { path: { description: `Drupal describes ${name}'s path.` } } },
+    }])),
+  }
 }
 
 /** Every session tool, by the name Drupal's tool manifest lists it under. */
@@ -162,7 +176,7 @@ export function resetMocks(): void {
   joinAgentSession.mockReset()
   listDrupalTools.mockReset().mockResolvedValue([])
   callDrupalTool.mockReset().mockResolvedValue({ content: [{ type: 'text', text: 'relayed' }] })
-  enabledSessionTools.mockReset().mockResolvedValue(new Set(SESSION_TOOLS))
+  toolManifest.mockReset().mockResolvedValue(manifestOf(SESSION_TOOLS))
 }
 
 /** A client and the server it drives, over the in-memory transport. */

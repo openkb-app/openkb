@@ -14,40 +14,13 @@ export function commentOnBlockTool(): KbTool {
   return {
     name: 'commentOnBlock',
     manifestName: 'comment_on_block',
-    description:
-      'Say something about one block of a knowledge-base page — a reply to an '
-      + 'open thread (pass its `threadId`), or a new thread on the block (leave '
-      + '`threadId` off). Threads and their ids come from getPageForEditing\'s '
-      + '`comments` and from waitForChanges. The message is written as YOU — the '
-      + 'account behind your token, carrying your agent label, the way your '
-      + 'edits are — into the page\'s collaborative session, so a human with the '
-      + 'page open sees it appear in their review drawer at once.\n\n'
-      + 'Answer the thread you were asked about rather than opening a second one '
-      + 'beside it; a new thread is for something nobody has raised yet. You '
-      + 'cannot mark a thread resolved and there is no tool that can: the editor '
-      + 'who asked decides when their point is settled. Say what you changed and '
-      + 'leave the thread open.',
     inputSchema: {
       type: 'object',
       properties: {
         ...TARGET_PROPERTIES,
-        block: {
-          type: 'string',
-          description:
-            'The block to comment on, by the `{#b-…}` id every read of the page '
-            + 'carries. It must be a block the page still holds.',
-        },
-        threadId: {
-          type: 'string',
-          description:
-            'The thread to answer, from `comments`. Leave it off to open a new '
-            + 'thread on the block.',
-        },
-        text: {
-          type: 'string',
-          description: 'What to say, as comark text. Mention a person as `:mention[name]{uid="N"}`, '
-            + 'the same syntax a page body and the threads you read use; a plain `@name` is just text.',
-        },
+        block: { type: 'string' },
+        threadId: { type: 'string' },
+        text: { type: 'string' },
       },
       required: ['block', 'text'],
       additionalProperties: false,

@@ -1,13 +1,6 @@
 import type { JsonSchema } from './types'
 
-/** Schema fragments more than one tool declares. */
-
-export const PATH_DESCRIPTION
-  = 'The page path, e.g. "team-wiki/getting-started" — its space slug then its '
-    + 'own, exactly the URL path (a leading slash, a trailing ".md" and a '
-    + '"#block" anchor are tolerated). It is what tool_api__search_pages '
-    + 'returns — anchored on the section it cites — and what links between '
-    + 'pages use.'
+/** Schema fragments more than one tool declares, and what is done to them. */
 
 /**
  * How a write tool names its target. `path` is the addressable name an agent
@@ -15,9 +8,35 @@ export const PATH_DESCRIPTION
  * for a caller that resolved the node some other way.
  */
 export const TARGET_PROPERTIES = {
-  path: { type: 'string', description: PATH_DESCRIPTION },
-  nid: { type: 'integer', description: 'Node id, as an alternative to "path".' },
+  path: { type: 'string' },
+  nid: { type: 'integer' },
 } as const
+
+/**
+ * A schema with the descriptions Drupal's tool manifest gives it, matched by
+ * property name down through `properties` and `items`.
+ */
+export function withDescriptions(schema: JsonSchema, descriptions: JsonSchema): JsonSchema {
+  const merged: JsonSchema = { ...schema }
+  if (typeof descriptions.description === 'string') merged.description = descriptions.description
+  const properties = asSchema(schema.properties)
+  const described = asSchema(descriptions.properties)
+  if (properties && described) {
+    merged.properties = Object.fromEntries(Object.entries(properties).map(([key, property]) => {
+      const entry = asSchema(described[key])
+      return [key, entry && asSchema(property) ? withDescriptions(property as JsonSchema, entry) : property]
+    }))
+  }
+  const items = asSchema(schema.items)
+  const describedItems = asSchema(descriptions.items)
+  if (items && describedItems) merged.items = withDescriptions(items, describedItems)
+  return merged
+}
+
+/** The value as a schema object, or undefined when it is none. */
+export function asSchema(value: unknown): JsonSchema | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as JsonSchema : undefined
+}
 
 /**
  * Maps every property of a schema through `map`, leaving a schema that carries

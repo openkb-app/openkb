@@ -7,5 +7,4 @@ export default {
   icon: 'i-lucide-workflow',
   languageLabel: 'Mermaid',
   template: 'flowchart LR\n  A[Start] --> B[Done]',
-  agentHint: 'a diagram, in Mermaid syntax',
 } satisfies FenceOptions

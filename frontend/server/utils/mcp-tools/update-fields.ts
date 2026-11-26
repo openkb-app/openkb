@@ -14,14 +14,6 @@ const UUID_LIST = { type: 'array', items: { type: 'string', format: 'uuid' } }
  */
 const MAX_ADDED_FILES = 50
 
-const FILES_DESCRIPTION = 'File UUIDs to add to and remove from the page\'s file lists, per list: '
-  + '"attachments" and "images", each {add, remove, names}. Only files you uploaded yourself may be '
-  + 'added: your upload with tool_api__file_upload_url or tool_api__upload_attachment, or a file of '
-  + 'yours you may still download. A file the page does not hold and you did not upload is not '
-  + 'added; the answer names it in `notAccepted`. '
-  + '"names" maps a file UUID on the list to its name on this page, at most 255 characters; an empty '
-  + 'name shows the file\'s own again. The file itself keeps its name.'
-
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -49,23 +41,14 @@ export function updateFieldsTool(frontmatterSchema: JsonSchema): KbTool {
   return {
     name: 'updateFields',
     manifestName: 'update_fields',
-    description:
-      "Update frontmatter fields of a knowledge-base page's draft. Only the "
-      + 'fields you pass are touched; the body is left alone. The edit is applied '
-      + "inside the page's collaborative editing session, so a human with the "
-      + 'page open sees it arrive live. It does not publish — read it back with '
-      + 'getPageForEditing. `files` adds file UUIDs to and removes them from the '
-      + 'page\'s file lists (attachments, images) and names them on this page; '
-      + 'files you do not name stay. Only files you uploaded yourself may be added.',
     inputSchema: {
       type: 'object',
       properties: {
         ...TARGET_PROPERTIES,
         // The shapes Drupal accepts, tracking the `frontmatter` form display.
-        fields: { ...contract, description: 'Field keys to write, with their new values.' },
+        fields: contract,
         files: {
           type: 'object',
-          description: FILES_DESCRIPTION,
           properties: Object.fromEntries(Object.keys(PAGE_FILE_FIELDS).map(key => [key, {
             type: 'object',
             properties: {

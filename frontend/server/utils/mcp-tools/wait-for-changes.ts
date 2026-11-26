@@ -13,7 +13,6 @@ import {
   type ChangeKind,
   type EventPeer,
 } from '../session-events'
-import { PATH_DESCRIPTION } from './schemas'
 import { readThreads, type CommentThread } from '#shared/block-comments'
 import { actorLabel } from '#shared/utils/attribution'
 import { sessionRefusal, writeRefusal } from './write'
@@ -37,56 +36,17 @@ export function waitForChangesTool(): KbTool {
   return {
     name: 'waitForChanges',
     manifestName: 'wait_for_changes',
-    description:
-      'Wait for the page to change under you, and answer as soon as it does — '
-      + 'this is how you collaborate with somebody who is editing right now. '
-      + 'Call it in a loop: each answer carries a `cursor`, and passing that '
-      + 'cursor to the next call picks up exactly where the last one stopped, so '
-      + 'nothing that happened while you were thinking is missed. Without a '
-      + '`cursor` you start from now, and the first call answers at once with '
-      + 'the open threads nobody has answered yet — what was said before you '
-      + 'arrived.\n\n'
-      + 'Three kinds of event, and they are for different things. `comments` is '
-      + 'somebody talking to you: read the thread, do what it asks, then answer '
-      + 'it with commentOnBlock. A thread whose `assignee` names your account '
-      + 'and your agent label was handed to you in particular; you answer it and '
-      + 'leave marking it done to a person. `blocks` is a block a person finished editing '
-      + '(you are told when it went quiet, never per keystroke) — act on one only '
-      + 'where your instructions say to. `presence` is who is in the page and '
-      + 'which block they are in: never write into a block somebody is sitting '
-      + 'in, wait for them to move on.\n\n'
-      + 'An answer with no events means the wait timed out and nothing happened; '
-      + 'call again with the cursor it gave you. `editors` is how many people '
-      + 'have the page open, so a quiet page and an empty one are not the same '
-      + 'answer. A `session` event means the page\'s editing session closed — '
-      + 'the editors have left or the session is gone — so it ends the wait on '
-      + 'this page: stop calling for it. When you stop waiting, say what you '
-      + 'did. What you did yourself is never reported back '
-      + 'to you. Waiting joins the page\'s editing session, so it needs the same '
-      + 'write access as updateBlocks.',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: PATH_DESCRIPTION },
-        cursor: {
-          type: 'string',
-          description:
-            'Where to resume, from the previous answer. Leave it off on the '
-            + 'first call to start from now.',
-        },
+        path: { type: 'string' },
+        cursor: { type: 'string' },
         kinds: {
           type: 'array',
-          description:
-            'Which kinds to wait for; all of them by default. A `session` event '
-            + 'reaches you whatever you ask for.',
           items: { type: 'string', enum: [...CHANGE_KINDS] },
         },
         timeoutSec: {
           type: 'integer',
-          description:
-            `How long to wait before answering with no events (default ${DEFAULT_TIMEOUT_SEC}, `
-            + `max ${MAX_TIMEOUT_SEC}). Zero answers at once with whatever has `
-            + 'happened since the cursor.',
           minimum: 0,
           maximum: MAX_TIMEOUT_SEC,
         },

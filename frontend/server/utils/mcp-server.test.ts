@@ -10,7 +10,10 @@ import {
   sessionRouterMock,
   callDrupalTool,
   listDrupalTools,
-  enabledSessionTools,
+  toolManifest,
+  manifestOf,
+  SESSION_TOOLS,
+  INSTRUCTIONS,
   routeAgentEdit,
   EVENT,
   PAGE,
@@ -22,7 +25,8 @@ import {
  * transport — the same tools/list + tools/call path the HTTP endpoint serves.
  * What each tool declares and answers is asserted beside it, under
  * server/utils/mcp-tools/; this asserts the wiring around them: the relay of
- * Drupal's tools, the instructions, and how a thrown error is shaped.
+ * Drupal's tools, the texts Drupal describes them with, and how a thrown error
+ * is shaped.
  */
 
 vi.mock('./kb-read', () => kbReadMock)
@@ -112,20 +116,48 @@ describe('MCP server', () => {
     ])
   })
 
-  // The instructions are prose for a model; what a test can hold them to is
-  // naming every tool the flow they describe uses, and the `status` keys.
-  it('names every tool and status key the agent flow needs in the instructions', async () => {
+  it('serves Drupal\'s instructions at initialize', async () => {
     const { client } = await connect()
-    const instructions = client.getInstructions()!
+    expect(client.getInstructions()).toBe(INSTRUCTIONS)
+  })
+
+  it('describes each session tool and its arguments as Drupal does', async () => {
+    const { client } = await connect()
     const { tools } = await client.listTools()
-    const drupalTools = ['tool_api__list_spaces', 'tool_api__create_page', 'tool_api__get_page', 'tool_api__search_pages', 'tool_api__list_assignments']
-    for (const name of [...tools.map(t => t.name), ...drupalTools]) {
-      expect(instructions).toContain(name)
-    }
-    expect(instructions).not.toMatch(/\bgetPage\b/)
-    for (const field of ['draft_exists', 'blocks_pending', 'pending', 'can_publish']) {
-      expect(instructions).toContain(`\`${field}\``)
-    }
+    const tool = tools.find(t => t.name === 'getPageForEditing')!
+
+    expect(tool.description).toBe('Drupal describes get_page_for_editing.')
+    expect((tool.inputSchema.properties as any).path).toEqual({
+      type: 'string',
+      description: 'Drupal describes get_page_for_editing\'s path.',
+    })
+    // The executable schema stays this server's.
+    expect(tool.inputSchema.required).toEqual(['path'])
+    expect((tool.inputSchema.properties as any).includeResolved).toEqual({ type: 'boolean' })
+  })
+
+  it('takes the descriptions of nested arguments from Drupal', async () => {
+    const manifest = manifestOf(SESSION_TOOLS)
+    manifest.tools.set('update_blocks', {
+      description: 'Drupal describes update_blocks.',
+      inputSchema: {
+        properties: {
+          blocks: {
+            description: 'The ops, in order.',
+            items: { properties: { expect: { description: 'The version you read.' } } },
+          },
+        },
+      },
+    })
+    toolManifest.mockResolvedValue(manifest)
+    const { client } = await connect()
+    const { tools } = await client.listTools()
+    const blocks = (tools.find(t => t.name === 'updateBlocks')!.inputSchema.properties as any).blocks
+
+    expect(blocks.description).toBe('The ops, in order.')
+    expect(blocks.items.properties.expect).toEqual({ type: 'string', description: 'The version you read.' })
+    expect(blocks.items.properties.markdown).toEqual({ type: 'string' })
+    expect(blocks.items.required).toEqual(['markdown'])
   })
 
   // The three session tools, and the same three Drupal declares as Tool API
@@ -140,7 +172,7 @@ describe('MCP server', () => {
   })
 
   it('leaves out and refuses a session tool Drupal does not enable', async () => {
-    enabledSessionTools.mockResolvedValue(new Set(['get_page_for_editing']))
+    toolManifest.mockResolvedValue(manifestOf(['get_page_for_editing']))
     listDrupalTools.mockResolvedValue([
       { name: 'tool_api__list_spaces', description: 'x', inputSchema: { type: 'object' } },
     ])
@@ -162,11 +194,17 @@ describe('MCP server', () => {
   // Which session tools exist is Drupal's to say; without an answer the server
   // guesses neither all nor none.
   it('answers an unreadable tool manifest with an error', async () => {
-    enabledSessionTools.mockRejectedValue(new Error('Drupal answered the tool manifest with 503'))
+    toolManifest.mockRejectedValue(new Error('Drupal answered the tool manifest with 503'))
+
+    await expect(connect()).rejects.toThrow('tool manifest')
+    expect(getKbPage).not.toHaveBeenCalled()
+  })
+
+  it('refuses a call when the manifest turns unreadable after initialize', async () => {
     const { client } = await connect()
+    toolManifest.mockRejectedValue(new Error('Drupal answered the tool manifest with 503'))
 
     await expect(client.listTools()).rejects.toThrow('tool manifest')
-
     const res = await client.callTool({ name: 'getPageForEditing', arguments: { path: 'intro' } })
     expect(res.isError).toBe(true)
     expect(getKbPage).not.toHaveBeenCalled()

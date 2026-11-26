@@ -2,51 +2,74 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 /**
  * Drupal's tool manifest as the MCP server reads it: how often Drupal is
- * asked, how an unchanged answer is revalidated, and what an unreadable one
- * does. Every request to Drupal is recorded, so "a fresh entry costs nothing"
- * is a count.
+ * asked, as whom, and what an expired entry and a failed refresh do. Every request to Drupal is
+ * recorded, so "a fresh entry costs nothing" is a count.
  */
 
 /**
- * Nitro's cache as `swr: false` behaves: an entry is served until `maxAge`
- * runs out, then the function runs again and its error reaches the caller.
+ * Nitro's cache as `swr: true` behaves:
+ * - a fresh entry is served;
+ * - an expired one is served at once while the function runs again in the
+ *   background; a failure there keeps the entry;
+ * - without an entry the caller waits, and gets the error.
+ *
+ * With `swr: false` an expired entry waits as a missing one does.
  */
 vi.mock('nitropack/runtime', () => ({
   defineCachedFunction: (
     fn: () => Promise<unknown>,
-    opts: { maxAge: number, getKey: () => string },
+    opts: { maxAge: number, swr: boolean, getKey: () => string },
   ) => {
-    const entries = new Map<string, { value: unknown, expires: number }>()
+    const entries = new Map<string, { value: unknown, mtime: number }>()
+    const pending = new Map<string, Promise<void>>()
     return async () => {
       const key = opts.getKey()
       const entry = entries.get(key)
-      if (entry && entry.expires > Date.now()) return entry.value
-      const value = await fn()
-      entries.set(key, { value, expires: Date.now() + opts.maxAge * 1000 })
-      return value
+      const expired = !entry || Date.now() - entry.mtime > opts.maxAge * 1000
+      if (expired && !pending.has(key)) {
+        const refresh = fn()
+          .then((value) => {
+            entries.set(key, { value, mtime: Date.now() })
+          })
+          .finally(() => pending.delete(key))
+        pending.set(key, refresh)
+      }
+      if (entry && opts.swr) {
+        pending.get(key)?.catch(() => {})
+        return entry.value
+      }
+      await pending.get(key)
+      return entries.get(key)!.value
     }
   },
 }))
 vi.mock('./drupal', () => ({ drupalBaseUrl: () => 'http://drupal.test' }))
-
-const ETAG = '"a8950d3a83c8e36f0f8d907d11affec7"'
-const LAST_MODIFIED = 'Wed, 30 Sep 2026 12:01:59 GMT'
+vi.mock('./collab-identity', () => ({
+  asCollabServer: (run: (auth: Record<string, string>) => Promise<unknown>) => run({ Authorization: 'Bearer server-token' }),
+}))
 
 /** One request made to Drupal. */
 interface Wire {
   url: string
-  ifNoneMatch: string | null
-  ifModifiedSince: string | null
+  authorization: string | null
 }
 
+/** The timer the fake timers replace, to let a background refresh finish. */
+const realSetTimeout = globalThis.setTimeout
+
 let wire: Wire[] = []
-/** What Drupal answers next; the default is the manifest, validators set. */
+/** What Drupal answers next; the default is the manifest. */
 let answer: () => Response
 
 function manifest(names: string[]): Response {
-  return new Response(JSON.stringify({ tools: names.map(name => ({ name })) }), {
+  const tools = names.map(name => ({
+    name,
+    description: `Describes ${name}.`,
+    inputSchema: { properties: { path: { description: 'The page path.' } } },
+  }))
+  return new Response(JSON.stringify({ instructions: 'Use the tools.', tools }), {
     status: 200,
-    headers: { 'content-type': 'application/json', 'etag': ETAG, 'last-modified': LAST_MODIFIED },
+    headers: { 'content-type': 'application/json' },
   })
 }
 
@@ -57,7 +80,7 @@ beforeEach(() => {
   answer = () => manifest(['get_page_for_editing', 'update_blocks'])
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
     const headers = new Headers(init.headers)
-    wire.push({ url, ifNoneMatch: headers.get('if-none-match'), ifModifiedSince: headers.get('if-modified-since') })
+    wire.push({ url, authorization: headers.get('authorization') })
     return answer()
   }))
 })
@@ -67,16 +90,34 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** Lets a background refresh finish. */
+function settle(): Promise<void> {
+  return new Promise(resolve => realSetTimeout(resolve, 0))
+}
+
+/** The names of the tools the manifest enables, as read through the cache. */
 async function load() {
-  return (await import('./tool-manifest')).enabledSessionTools
+  const { toolManifest } = await import('./tool-manifest')
+  return async () => new Set((await toolManifest()).tools.keys())
 }
 
 describe('tool manifest', () => {
-  it('reads the enabled session tools from Drupal', async () => {
+  it('reads the instructions and the tools\' texts from Drupal', async () => {
+    const { toolManifest } = await import('./tool-manifest')
+    const { instructions, tools } = await toolManifest()
+
+    expect(instructions).toBe('Use the tools.')
+    expect(tools.get('update_blocks')).toEqual({
+      description: 'Describes update_blocks.',
+      inputSchema: { properties: { path: { description: 'The page path.' } } },
+    })
+  })
+
+  it('reads the enabled session tools from Drupal, as the server identity', async () => {
     const enabledSessionTools = await load()
 
     expect(await enabledSessionTools()).toEqual(new Set(['get_page_for_editing', 'update_blocks']))
-    expect(wire).toEqual([{ url: 'http://drupal.test/openkb/agent/tool-manifest', ifNoneMatch: null, ifModifiedSince: null }])
+    expect(wire).toEqual([{ url: 'http://drupal.test/openkb/agent/tool-manifest', authorization: 'Bearer server-token' }])
   })
 
   it('asks Drupal nothing while the entry is fresh', async () => {
@@ -89,38 +130,59 @@ describe('tool manifest', () => {
     expect(wire).toHaveLength(1)
   })
 
-  it('revalidates an expired entry, and a 304 keeps the last answer', async () => {
+  it('answers from an expired entry without waiting for Drupal', async () => {
     const enabledSessionTools = await load()
     await enabledSessionTools()
     vi.advanceTimersByTime(61_000)
-    answer = () => new Response(null, { status: 304 })
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      wire.push({ url, authorization: null })
+      return new Promise<Response>(() => {})
+    }))
 
     expect(await enabledSessionTools()).toEqual(new Set(['get_page_for_editing', 'update_blocks']))
-    expect(wire[1]).toMatchObject({ ifNoneMatch: ETAG, ifModifiedSince: LAST_MODIFIED })
+    expect(wire).toHaveLength(2)
   })
 
-  it('takes a changed answer once the entry expired', async () => {
+  it('serves the refreshed text from the read after the refresh', async () => {
     const enabledSessionTools = await load()
     await enabledSessionTools()
     vi.advanceTimersByTime(61_000)
     answer = () => manifest(['get_page_for_editing'])
 
+    expect(await enabledSessionTools()).toEqual(new Set(['get_page_for_editing', 'update_blocks']))
+    await settle()
     expect(await enabledSessionTools()).toEqual(new Set(['get_page_for_editing']))
+    expect(wire).toHaveLength(2)
   })
 
   it.each([
     ['Drupal refuses', () => new Response('', { status: 503 })],
     ['Drupal answers something else', () => new Response('{}', { status: 200 })],
-  ])('is an error, never a guess, when %s after the entry expired', async (_label, failure) => {
+    ['Drupal answers instructions that are no text', () => new Response(JSON.stringify({ instructions: ['Use the tools.'], tools: [] }), { status: 200 })],
+    ['Drupal cannot be reached', () => {
+      throw new TypeError('fetch failed')
+    }],
+  ])('keeps serving the entry when a refresh fails because %s', async (_label, failure) => {
     const enabledSessionTools = await load()
     await enabledSessionTools()
     vi.advanceTimersByTime(61_000)
     answer = failure
 
+    expect(await enabledSessionTools()).toEqual(new Set(['get_page_for_editing', 'update_blocks']))
+    await settle()
+    expect(await enabledSessionTools()).toEqual(new Set(['get_page_for_editing', 'update_blocks']))
+    await settle()
+    expect(wire).toHaveLength(3)
+  })
+
+  it('is an error when Drupal refuses the first read', async () => {
+    answer = () => new Response('', { status: 403 })
+    const enabledSessionTools = await load()
+
     await expect(enabledSessionTools()).rejects.toThrow('tool manifest')
   })
 
-  it('is an error when Drupal cannot be reached', async () => {
+  it('is an error when Drupal cannot be reached for the first read', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => {
       throw new TypeError('fetch failed')
     }))
