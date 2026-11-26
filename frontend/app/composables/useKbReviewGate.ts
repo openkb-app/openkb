@@ -1,5 +1,4 @@
-import { blockLabel, reviewQueue, signableRows, unidentifiedBlocks, type ReviewQueueRow, type UnidentifiedRow } from '~/editor/review-marks'
-import { commentRows, type CommentThreadView } from '~/editor/comment-marks'
+import { blockLabel, commentRows, reviewQueue, signableRows, unidentifiedBlocks, type CommentThreadView, type ReviewQueueRow, type UnidentifiedRow } from '~/editor/review-model'
 import { assignedCounts } from '~/editor/comment-assignee'
 import { awaitingReview } from '#shared/utils/moderation'
 import { foldAwaitingBlocks } from '~/utils/node-chrome'

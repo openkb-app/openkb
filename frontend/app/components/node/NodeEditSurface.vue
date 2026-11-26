@@ -25,7 +25,7 @@ const emit = defineEmits<{ (e: 'session', session: EditorSession): void }>()
     :class="mode === 'preparing' ? 'invisible absolute inset-x-0 top-0' : ''"
   >
     <Suspense>
-      <PageInlineEditor
+      <LazyPageInlineEditor
         :nid="nid"
         :steps="steps"
         :may-moderate="mayModerate"

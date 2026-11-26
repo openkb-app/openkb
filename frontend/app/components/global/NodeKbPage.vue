@@ -23,7 +23,7 @@ import { BLOCK_ID_PREFIX, TITLE_REVIEW_KEY, type BlockByline, type ReviewStep } 
 import { assignableOwnAgents, assigneeCandidates, defaultAssigneeForNextNewComment } from '~/editor/comment-assignee'
 import { chatAssignee } from '~/editor/chat-comments'
 import { readFences, readFencesKey } from '~/editor/fence-renders'
-import { itemName, reviewMarkOf } from '~/editor/review-marks'
+import { itemName, reviewMarkOf } from '~/editor/review-model'
 import type { CommentAssignee } from '#shared/block-comments'
 import type { PageAttachment } from '#shared/utils/files'
 // Relative: the SFC type resolver does not read Nuxt's aliases.
@@ -371,7 +371,15 @@ const cardEnforcedSteps = computed<readonly ReviewStep[] | null>(() => {
 // outline. Below `lg` there is no pane and the outline follows the page.
 const { wide } = useSidePane()
 
-useChatCommentHandler(session, myUid)
+// The editor loads with the first edit; a reader who may edit fetches it on idle.
+onNuxtReady(() => {
+  if (env.canEdit.value) void import('~/components/PageInlineEditor.vue')
+})
+
+// The chat comment handler works threads of a live edit session: mounted with
+// the first session, then kept, so the turns it asked stay asked.
+const chatHandlerMounted = ref(false)
+watch(session, (now) => { if (now) chatHandlerMounted.value = true })
 
 // Print rules that need the page's data, as CSS strings (quotes, backslashes
 // and `<` escaped):
@@ -406,14 +414,14 @@ useHead(() => ({
              on the block. Each width is the measured row width that group
              needs; the extended set folds into one menu rather than going
              away — a shorter row must not cost the editor a tool. -->
-        <UEditorToolbar :editor="editorInstance" :items="session.historyItems" class="shrink-0 border-0 bg-transparent" />
-        <UEditorToolbar :editor="editorInstance" :items="session.toolbarItems" class="border-0 bg-transparent" />
-        <UEditorToolbar v-if="navbarWidth >= 1020" :editor="editorInstance" :items="session.toolbarExtendedItems" class="border-0 bg-transparent" />
-        <UEditorToolbar v-else-if="navbarWidth > 0" :editor="editorInstance" :items="session.toolbarOverflowItems" class="shrink-0 border-0 bg-transparent" />
+        <LazyUEditorToolbar :editor="editorInstance" :items="session.historyItems" class="shrink-0 border-0 bg-transparent" />
+        <LazyUEditorToolbar :editor="editorInstance" :items="session.toolbarItems" class="border-0 bg-transparent" />
+        <LazyUEditorToolbar v-if="navbarWidth >= 1020" :editor="editorInstance" :items="session.toolbarExtendedItems" class="border-0 bg-transparent" />
+        <LazyUEditorToolbar v-else-if="navbarWidth > 0" :editor="editorInstance" :items="session.toolbarOverflowItems" class="shrink-0 border-0 bg-transparent" />
         <USeparator orientation="vertical" class="h-5 shrink-0" />
         <div class="flex shrink-0 items-center gap-1" role="group" aria-label="This block">
           <span class="hidden text-xs text-muted @min-[900px]/editnav:inline">Block</span>
-          <UEditorToolbar v-if="navbarWidth >= 672" :editor="editorInstance" :items="trailingToolbarItems" class="shrink-0 border-0 bg-transparent" />
+          <LazyUEditorToolbar v-if="navbarWidth >= 672" :editor="editorInstance" :items="trailingToolbarItems" class="shrink-0 border-0 bg-transparent" />
           <EditorBlockMenuButton :session="session" class="shrink-0" />
         </div>
         <!-- The way back. Everything the block tools do lands on the block the
@@ -494,15 +502,15 @@ useHead(() => ({
     class="sticky top-(--ui-header-height) z-20 flex shrink-0 items-center gap-1 border-b border-default bg-default/95 px-2 py-1 backdrop-blur"
   >
     <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-      <UEditorToolbar :editor="editorInstance" :items="session.historyItems" class="shrink-0 border-0 bg-transparent" />
-      <UEditorToolbar :editor="editorInstance" :items="session.toolbarItems" class="border-0 bg-transparent" />
-      <UEditorToolbar :editor="editorInstance" :items="session.toolbarExtendedItems" class="border-0 bg-transparent" />
+      <LazyUEditorToolbar :editor="editorInstance" :items="session.historyItems" class="shrink-0 border-0 bg-transparent" />
+      <LazyUEditorToolbar :editor="editorInstance" :items="session.toolbarItems" class="border-0 bg-transparent" />
+      <LazyUEditorToolbar :editor="editorInstance" :items="session.toolbarExtendedItems" class="border-0 bg-transparent" />
     </div>
     <!-- The block zone, pinned outside the scrolling half. Same split as the
          navbar strip: what acts on the block sits apart from what writes at
          the caret. -->
     <div class="flex shrink-0 items-center gap-1 border-s border-default ps-1" role="group" aria-label="This block">
-      <UEditorToolbar :editor="editorInstance" :items="trailingToolbarItems" class="shrink-0 border-0 bg-transparent" />
+      <LazyUEditorToolbar :editor="editorInstance" :items="trailingToolbarItems" class="shrink-0 border-0 bg-transparent" />
       <EditorBlockMenuButton :session="session" class="shrink-0" />
     </div>
     <a
@@ -632,6 +640,7 @@ useHead(() => ({
               :may-moderate="mayModerate(moderationStatus)"
               @session="setSession"
             />
+            <LazyNodeChatCommentHandler v-if="chatHandlerMounted" :session="session" :uid="myUid" />
           </div>
 
           <ViewPageAttachments v-if="mode !== 'edit' && pageFiles?.length" :files="pageFiles" />

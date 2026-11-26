@@ -3,7 +3,8 @@ import { isChangeOrigin } from '@tiptap/extension-collaboration'
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, editsInsideBlocks, marginAnchor, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
+import { blockAt, blockAtSelection, ensureBlockId, editsInsideBlocks, marginAnchor, marksInside, topLevelBlockPos } from './review-marks'
+import { addressableBlocks, blockLabel, type AddressableBlock } from './review-model'
 import { widgetDrawnOncePerDecoration } from './widget-drawn-once'
 import { blockAnchor, openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
 
@@ -151,28 +152,6 @@ export function createCommentAnchorPlugin(): Plugin<RememberedAnchor | null> {
 export function rememberedAnchor(state: EditorState, pos: number): CommentAnchor | null {
   const held = commentAnchorKey.getState(state)
   return held && held.pos === pos ? held.anchor : null
-}
-
-/** A thread as the drawer lists it: the thread plus its block's text. */
-export interface CommentThreadView extends CommentThread {
-  blockText: string
-}
-
-/**
- * The threads as the drawer lists them — in the order they were opened, each
- * carrying the {@link blockLabel} of the block it is on.
- *
- * The block's text rides along because a thread names the passage it is about,
- * and one opened on a whole block — or one whose passage has since been
- * rewritten ({@link resolveAnchor}) — has only the block to name instead. A
- * thread whose block has left the document is dropped: there is nowhere to
- * send anybody, exactly as in the review queue beside it.
- */
-export function commentRows(doc: PMNode, threads: CommentThread[]): CommentThreadView[] {
-  const text = new Map(addressableBlocks(doc).map(b => [b.id, blockLabel(b.node)]))
-  return threads
-    .filter(thread => text.has(thread.blockId))
-    .map(thread => ({ ...thread, blockText: text.get(thread.blockId) ?? '' }))
 }
 
 /**

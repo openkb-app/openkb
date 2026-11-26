@@ -1,4 +1,4 @@
-import * as Y from 'yjs'
+import type * as Y from 'yjs'
 import type { JSONContent } from '@tiptap/core'
 import { listBlockComponentDeclarations } from '#shared/utils/comark-components'
 

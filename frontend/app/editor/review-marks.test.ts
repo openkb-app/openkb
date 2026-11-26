@@ -14,30 +14,32 @@ import type { ActorNames, PageBlock, BlockMetaMap, ReviewStep } from '#shared/pa
 import { mayApprove } from '#shared/page-blocks'
 import {
   activeBlockDecoration,
+  createActiveBlockPlugin,
+  blockAtSelection,
+  createReviewMarksPlugin,
+  reviewDecorations,
+  reviewMarksKey,
+  ReviewMarks,
+  topLevelBlockPos,
+} from './review-marks'
+import {
   addressableBlocks,
   approveActionLabel,
   blockLabel,
   bulkSignOffToast,
   reviewAnswerFor,
   signableRows,
-  createActiveBlockPlugin,
-  blockAtSelection,
-  createReviewMarksPlugin,
-  reviewDecorations,
   reviewMarkOf,
-  reviewMarksKey,
   reviewQueue,
   reviewToggleLabel,
-  ReviewMarks,
   signOffRefusal,
   reviewPills,
   sidecarLookup,
   stepMarkLabel,
-  topLevelBlockPos,
   unidentifiedBlocks,
   type ReviewLookup,
   type WaitingState,
-} from './review-marks'
+} from './review-model'
 
 function para(text: string, id: string | null): PMNode {
   return editorSchema.node('paragraph', { id }, text ? [editorSchema.text(text)] : [])

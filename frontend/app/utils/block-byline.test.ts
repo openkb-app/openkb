@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { blockByline as storedByline, type ActorNames, type PageBlock } from '#shared/page-blocks'
 import { spaceReviewSteps, type KbSpaceCeProp } from '#shared/utils/kb-spaces'
-import { reviewMarkOf } from '../editor/review-marks'
+import { reviewMarkOf } from '../editor/review-model'
 import { bylineTriggerLabel, bylineView, contributorName, signedOn } from './block-byline'
 
 const CLAUDE_AGENT = 'c1a0de00-0000-4000-8000-000000000001'

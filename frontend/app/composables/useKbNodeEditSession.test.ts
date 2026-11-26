@@ -5,8 +5,7 @@ import type { KbCePageContext } from '~/composables/useKbCePage'
 import type { EditorSession } from '~/components/PageInlineEditor.vue'
 import { useKbNodeEditSession } from './useKbNodeEditSession'
 
-vi.mock('~/editor/menu-items', () => ({ editorHandlers: {} }))
-vi.mock('~/editor/review-marks', () => ({ addressableBlocks: () => [] }))
+vi.mock('~/editor/review-model', () => ({ addressableBlocks: () => [] }))
 
 /**
  * The read → edit swap when the collab server does and does not answer.
@@ -104,9 +103,26 @@ describe('useKbNodeEditSession', () => {
     unmount()
   })
 
+  it('starts the timeout when the editor reports its session, not on the click', async () => {
+    const { session, unmount } = mounted()
+    session.startEdit()
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(session.collabUnreachable.value).toBe(false)
+
+    session.setSession(editorSession(false))
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    expect(session.collabUnreachable.value).toBe(true)
+    unmount()
+  })
+
   it('retry remounts the session and restarts the timeout', async () => {
     const { session, unmount } = mounted()
     session.startEdit()
+    await nextTick()
+    session.setSession(editorSession(false))
     await nextTick()
     await vi.advanceTimersByTimeAsync(10_000)
 
@@ -116,6 +132,8 @@ describe('useKbNodeEditSession', () => {
     expect(session.mode.value).toBe('preparing')
     expect(session.collabUnreachable.value).toBe(false)
     expect(session.session.value).toBeNull()
+    session.setSession(editorSession(false))
+    await nextTick()
     await vi.advanceTimersByTimeAsync(10_000)
     expect(session.collabUnreachable.value).toBe(true)
     unmount()
@@ -173,6 +191,8 @@ describe('useKbNodeEditSession', () => {
   it('leaves no timer behind when the page goes away while preparing', async () => {
     const { session, unmount } = mounted()
     session.startEdit()
+    await nextTick()
+    session.setSession(editorSession(false))
     await nextTick()
     expect(vi.getTimerCount()).toBe(1)
 

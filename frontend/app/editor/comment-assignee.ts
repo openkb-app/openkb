@@ -3,7 +3,6 @@ import type { PresencePeer } from '#shared/utils/presence'
 import { ownedLabel } from '#shared/utils/attribution'
 import { CHAT_AGENT_LABEL } from '#shared/utils/chat-agent'
 import type { ComarkNode } from '#shared/utils/comark-tree'
-import { renderComarkNodesToMarkdown } from '../comark/markdown-engine'
 
 /**
  * Who a comment thread can be handed to, and which threads are mine.
@@ -322,6 +321,8 @@ export async function draftToComark(
     .map(children => trimParagraphEdges(children))
     .filter(children => children.length > 0)
     .map((children): ComarkNode => ['p', {}, ...children])
+  // The renderer carries the editor schema: loaded on the first draft, not with the page.
+  const { renderComarkNodesToMarkdown } = await import('../comark/markdown-engine')
   return renderComarkNodesToMarkdown(nodes)
 }
 

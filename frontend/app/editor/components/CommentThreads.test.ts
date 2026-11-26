@@ -2,7 +2,8 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { createApp, h, nextTick, reactive } from 'vue'
 import CommentThreads from './CommentThreads.vue'
-import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
+import type { CommentDraft, ShownThreads } from '../comment-marks'
+import type { CommentThreadView } from '../review-model'
 import { assigneeCandidates } from '../comment-assignee'
 import type { CommentAssignee } from '#shared/block-comments'
 import type { PresencePeer } from '#shared/utils/presence'
@@ -39,6 +40,7 @@ afterEach(() => { vi.unstubAllGlobals() })
 /** Waits until a send has written the draft as stored text and emitted it. */
 async function sent(): Promise<void> {
   for (let round = 0; round < 3; round++) {
+    await import('../../comark/markdown-engine')
     await import('comark/render')
     await new Promise(resolve => setTimeout(resolve, 0))
   }

@@ -1,6 +1,5 @@
 import type { EditorSession } from '~/components/PageInlineEditor.vue'
-import { editorHandlers } from '~/editor/menu-items'
-import { addressableBlocks } from '~/editor/review-marks'
+import { addressableBlocks } from '~/editor/review-model'
 import type { KbCePageContext } from '~/composables/useKbCePage'
 
 type Mode = 'read' | 'preparing' | 'edit'
@@ -46,11 +45,10 @@ export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOpti
     session.value = s
   }
 
-  // The formatting toolbars mount in the app navbar — OUTSIDE <UEditor> — so
-  // they cannot inject the handler map UEditor provides to its own subtree.
-  // Provide the same merged map here: without it, every custom handler kind
-  // (table ops, callout, infobox, image) silently no-ops from the navbar.
-  provide('editorHandlers', computed(() => editorHandlers))
+  // The formatting toolbars mount in the app navbar, outside <UEditor>, so they
+  // cannot inject the handler map UEditor provides. Provide the session's map,
+  // which loads with the editor; without it custom handler kinds no-op there.
+  provide('editorHandlers', computed(() => session.value?.editorHandlers ?? {}))
 
   /** Atomic mode swap; uses the View Transitions API when present (progressive
    * enhancement — the instant swap is the universal path). */
@@ -61,8 +59,16 @@ export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOpti
     else apply()
   }
 
+  // The browser keeps a failed editor chunk failed until the page loads again.
+  let sessionFailed = false
+
   function startEdit() {
     if (mode.value !== 'read' || !opts.nid.value || !env.canEdit.value) return
+    if (sessionFailed) {
+      const path = router.resolve({ path: route.path, query: { ...route.query, edit: '' } }).fullPath
+      reloadNuxtApp({ path, force: true })
+      return
+    }
     // Edit mode lives in the URL (`?edit`), so it survives navigation: leaving
     // the page and pressing Back returns to the editor rather than to a read
     // view. Pushing (not replacing) makes Back leave the editor the same way it
@@ -102,12 +108,13 @@ export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOpti
     caretBlock = null
   })
 
-  // A session-setup failure inside the editor subtree (page fetch, collab
-  // wiring) must not strand the reader in 'preparing' or on a dead edit
+  // A session-setup failure inside the editor subtree (editor code, page fetch,
+  // collab wiring) must not strand the reader in 'preparing' or on a dead edit
   // surface — surface the error and fall back to the intact read view.
   onErrorCaptured((err) => {
     if (mode.value === 'read') return true
     console.error('[kb-page] editor session failed:', err)
+    sessionFailed = true
     mode.value = 'read'
     toast.add({
       title: 'Editing unavailable',
@@ -133,12 +140,16 @@ export function useKbNodeEditSession(env: KbCePageContext, opts: EditSessionOpti
   watch(mode, (m) => {
     clearReadyTimeout()
     collabUnreachable.value = false
-    if (m === 'preparing') {
-      readyTimeout = setTimeout(() => { collabUnreachable.value = true }, 10000)
-    }
     if (m === 'read') {
       session.value = null
       fmOpen.value = false
+    }
+  })
+  // The timeout runs from the editor's session, not from the click: on a slow
+  // line the editor code itself can take longer to arrive.
+  watch(session, (s) => {
+    if (s && mode.value === 'preparing') {
+      readyTimeout = setTimeout(() => { collabUnreachable.value = true }, 10000)
     }
   })
   onScopeDispose(clearReadyTimeout)

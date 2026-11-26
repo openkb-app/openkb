@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import ReviewPanel from './ReviewPanel.vue'
-import type { ReviewQueueRow, UnidentifiedRow } from '../review-marks'
+import type { ReviewQueueRow, UnidentifiedRow } from '../review-model'
 
 /**
  * What the surface says when the gate holds — in a bare Vue app, with Nuxt UI

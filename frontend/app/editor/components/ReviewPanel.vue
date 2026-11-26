@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId } from 'vue'
-import { changesLabel, isYours, itemName, signableRows, STEP_LABEL, type ReviewQueueRow, type UnidentifiedRow, type WaitingState } from '../review-marks'
-import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
+import { changesLabel, isYours, itemName, signableRows, STEP_LABEL, type CommentThreadView, type ReviewQueueRow, type UnidentifiedRow, type WaitingState } from '../review-model'
+import type { CommentDraft, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
 import type { CommentAssignee } from '#shared/block-comments'
 import { REVIEW_STEPS, type ReviewStep } from '#shared/page-blocks'

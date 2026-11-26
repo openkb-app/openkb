@@ -3,6 +3,11 @@ import type { CommitStatus } from '~/composables/useDrupalCommitState'
 import type { PublishBlocker } from '~/composables/useModerationStatus'
 import type { ReviewStep } from '#shared/page-blocks'
 
+/** Either flavour of collab-auth rejection — the editor must not accept local edits. */
+export function isAuthFailedStatus(status: LiveStatus): boolean {
+  return status === 'auth-error' || status === 'no-access'
+}
+
 /** The single edit-mode state badge — one plain view of where the work stands. */
 export interface SyncChipView {
   label: string

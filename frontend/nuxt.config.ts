@@ -149,6 +149,12 @@ export default defineNuxtConfig({
   },
 
   hooks: {
+    // No `<link rel="prefetch">` hints: they would download the editor and the
+    // chat for every reader. Those load on demand, or on idle for a reader who
+    // may use them (NodeKbPage, ChatDrawer).
+    'build:manifest'(manifest) {
+      for (const chunk of Object.values(manifest)) chunk.prefetch = false
+    },
     // Replace nuxtjs-drupal-ce's default /api/drupal-ce passthrough with
     // our own (server/api/drupal-ce/[...path].get.ts) so kb_page responses
     // get the comark tree spliced onto content.props.bodyTree. The composable

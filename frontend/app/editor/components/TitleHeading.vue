@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
 import { TITLE_KEY } from '~~/server/utils/entity-fields'
-import { reviewPills, type ReviewMark } from '~/editor/review-marks'
+import { reviewPills, type ReviewMark } from '~/editor/review-model'
 import type { FrontmatterFormApi } from '~/composables/useFrontmatterForm'
 import type { ReviewStep } from '#shared/page-blocks'
 

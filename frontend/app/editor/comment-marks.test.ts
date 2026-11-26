@@ -19,7 +19,6 @@ import {
   commentMarginKey,
   createCommentMarginPlugin,
   commentMarksKey,
-  commentRows,
   createCommentMarksPlugin,
   marginDecorations,
   threadCounts,
@@ -31,6 +30,7 @@ import {
   threadAt,
   type CommentDraft,
 } from './comment-marks'
+import { commentRows } from './review-model'
 import { OkbImage } from './nodes/image'
 
 const AT = 1_700_000_000_000

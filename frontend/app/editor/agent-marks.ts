@@ -2,7 +2,7 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
-import { addressableBlocks } from './review-marks'
+import { addressableBlocks } from './review-model'
 import { claimLabel, type PresencePeer } from '#shared/utils/presence'
 
 /**

@@ -2,7 +2,8 @@
 // Explicit, not auto-imported: the component is rendered by its own vitest
 // suite outside a Nuxt app.
 import { computed, onMounted, provide, ref, watch } from 'vue'
-import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
+import type { CommentDraft, ShownThreads } from '../comment-marks'
+import type { CommentThreadView } from '../review-model'
 import {
   addedMention,
   assignedCounts,

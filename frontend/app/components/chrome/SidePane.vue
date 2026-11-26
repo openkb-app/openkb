@@ -52,11 +52,11 @@ const LABEL: Record<SidePaneContent, string> = {
       :style="{ '--width': `${width}%` }"
     >
       <!-- The chat brings its own band, so the pane's control goes inside it. -->
-      <ChatPanel v-if="content === 'chat'" @close="closeChat()">
+      <ChatPanelOnDemand v-if="content === 'chat'" @close="closeChat()">
         <template #controls>
           <ChromeSidePaneHide />
         </template>
-      </ChatPanel>
+      </ChatPanelOnDemand>
 
       <!-- Editing: Review on top, the chat below, each folding to its band. -->
       <template v-else-if="content === 'comments'">
@@ -101,7 +101,7 @@ const LABEL: Record<SidePaneContent, string> = {
           class="flex min-h-0 flex-col border-t border-default"
           :class="chatOpen ? 'flex-1' : 'shrink-0'"
         >
-          <ChatPanel v-if="chatOpen" @close="closeChat()">
+          <ChatPanelOnDemand v-if="chatOpen" @close="closeChat()">
             <template #controls>
               <UButton
                 icon="i-lucide-chevron-down"
@@ -115,7 +115,7 @@ const LABEL: Record<SidePaneContent, string> = {
                 @click="closeChat()"
               />
             </template>
-          </ChatPanel>
+          </ChatPanelOnDemand>
           <ChromeSidePaneBand v-else>
             <h2 class="min-w-0 text-sm font-semibold text-highlighted">
               <UButton

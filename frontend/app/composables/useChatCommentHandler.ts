@@ -14,7 +14,7 @@ import {
 } from '~/editor/chat-comments'
 
 /** What the handler needs of the edit session. */
-interface ChatThreadSession {
+export interface ChatThreadSession {
   threads: Ref<CommentThread[]>
   liveStatus: Ref<LiveStatus>
   takeForChat: (blockId: string, threadId: string, tab: string) => Promise<string | null>

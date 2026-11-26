@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMediaQuery } from '@vueuse/core'
-import type { ReviewQueueRow, UnidentifiedRow } from '../review-marks'
-import type { CommentDraft, CommentThreadView, ShownThreads } from '../comment-marks'
+import type { CommentThreadView, ReviewQueueRow, UnidentifiedRow } from '../review-model'
+import type { CommentDraft, ShownThreads } from '../comment-marks'
 import type { AssigneeCandidate } from '../comment-assignee'
 import type { CommentAssignee } from '#shared/block-comments'
 import type { ReviewStep } from '#shared/page-blocks'

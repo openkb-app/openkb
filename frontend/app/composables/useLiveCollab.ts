@@ -7,6 +7,7 @@ import { isNoEditAccessReason } from '#shared/utils/collab-auth'
 import { deletedAtOf } from '#shared/utils/collab-meta'
 import { batchRemoteUpdates } from '~/editor/collab-batching'
 import { serializeDocToMarkdown } from '~/comark/markdown-engine'
+import { isAuthFailedStatus } from '~/utils/node-chrome'
 
 // 'live': the socket is open and this connection has synced, so the editor
 // holds the server's document.
@@ -14,11 +15,6 @@ import { serializeDocToMarkdown } from '~/comark/markdown-engine'
 // 'no-access': the session is authenticated but lacks edit access to this
 // node — a permission problem, not a sign-in problem.
 export type LiveStatus = 'connecting' | 'live' | 'offline' | 'auth-error' | 'no-access'
-
-/** Either flavour of collab-auth rejection — the editor must not accept local edits. */
-export function isAuthFailedStatus(status: LiveStatus): boolean {
-  return status === 'auth-error' || status === 'no-access'
-}
 
 /**
  * Whether the editor takes keystrokes: once the body is seeded, and while the

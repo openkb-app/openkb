@@ -2,9 +2,9 @@
 import type { EditorSession } from '~/components/PageInlineEditor.vue'
 import type { ModerationStatus } from '#shared/utils/moderation'
 import type { ReviewStep } from '#shared/page-blocks'
-import { isAuthFailedStatus } from '~/composables/useLiveCollab'
+import { isAuthFailedStatus } from '~/utils/node-chrome'
 import type { AssignedCounts } from '~/editor/comment-assignee'
-import { reviewToggleLabel } from '~/editor/review-marks'
+import { reviewToggleLabel } from '~/editor/review-model'
 
 const props = defineProps<{
   session: EditorSession

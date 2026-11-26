@@ -1,5 +1,5 @@
 import { NO_ACTOR_NAMES, type ActorNames, type PageBlock, type Reviewer, type ReviewStep } from '#shared/page-blocks'
-import { approveActionLabel, reviewMarkOf } from './review-marks'
+import { approveActionLabel, reviewMarkOf } from './review-model'
 import { tableOpItems } from './menu-items'
 
 /**
