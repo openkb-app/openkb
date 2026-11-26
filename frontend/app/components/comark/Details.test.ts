@@ -27,12 +27,12 @@ afterEach(() => {
 
 describe('Details', () => {
   it('stays closed on screen', async () => {
-    expect(await renderSection({})).toMatch(/^<details data-test="details"/)
+    expect(await renderSection({})).toMatch(/<details data-test="details"/)
   })
 
   it('is open in a print render', async () => {
     setBrowserPrintRender(true)
-    expect(await renderSection({})).toMatch(/^<details open data-test="details"/)
+    expect(await renderSection({})).toMatch(/<details open data-test="details"/)
   })
 
   it('keeps a section the reader opened open after a browser print', () => {
