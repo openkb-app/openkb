@@ -186,7 +186,7 @@ function clearChat() {
 function endChat() {
   clearChat()
   prompt.value = ''
-  scrollTop.value = 0
+  scrollTop.value = null
   emit('close')
 }
 
@@ -218,6 +218,14 @@ const scroller = useTemplateRef<HTMLElement>('scroller')
 // scroller still shrinks under the returning suggestions, and both move the end.
 let atEnd = true
 let ownTop = 0
+/** The place a remount returns the reader to, until the list is tall enough to hold it. */
+let restoreTo: number | null = null
+
+/** How long after input that scrolls the pane a scroll still counts as the reader's. */
+const READER_SCROLL_MS = 250
+
+/** Keys that scroll the pane once the reader clicked into it, wherever the focus is. */
+const SCROLL_KEYS = new Set(['PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' '])
 
 /** The gap above the question at the top, so it does not touch the band. */
 const PIN_GAP = 8
@@ -245,13 +253,11 @@ watch(() => list.value?.$el, (el, _old, onCleanup) => {
   }
   /** Whether the reader is at that end, which the pane's scroll height is past. */
   const nearEnd = () => readable() - box.scrollTop - box.clientHeight < 40
-  // Back to where the reader was before this mount, which is the end unless
-  // they had scrolled up out of it.
-  if (scrollTop.value) {
-    box.scrollTop = scrollTop.value
-    ownTop = box.scrollTop
-    atEnd = nearEnd()
-  }
+  // Back to where the reader was before this mount: the end, or the place they
+  // had scrolled up to. The list renders its turns over several frames, so
+  // that place is set again on each of them.
+  restoreTo = scrollTop.value
+  atEnd = restoreTo === null
   // The padding also takes up what the turn gives back when the reasoning
   // folds itself away: the end moves while the list and the pane keep their
   // size, so the turn's content is measured for itself, turn by turn.
@@ -278,32 +284,87 @@ watch(() => list.value?.$el, (el, _old, onCleanup) => {
       // target to 0, which is where a conversation shorter than the pane sits.
       box.scrollTop = readable() - box.clientHeight
     }
+    else if (restoreTo !== null) {
+      box.scrollTop = restoreTo
+      if (Math.abs(box.scrollTop - restoreTo) < 1) restoreTo = null
+    }
     else return
     ownTop = box.scrollTop
-    scrollTop.value = ownTop
+    scrollTop.value = atEnd ? null : ownTop
   }
-  // A scroll event is delivered a frame late, by when the list may have grown
-  // past it. Only a scroll the reader made says they left the end.
+  // Only the reader leaves the end or the pinned question. The pane also moves
+  // without them: the browser clamps it to a shorter list, scroll anchoring
+  // shifts it, and the list scrolls a new question into view.
+  let readerUntil = 0
+  let draggingScrollbar = false
+  let clickedIntoPane = false
+  /** Input that scrolls the pane: the scrolls of the next moments are the reader's. */
+  const markReaderScrolling = () => {
+    readerUntil = performance.now() + READER_SCROLL_MS
+  }
+  /**
+   * A scrolling key outside a field, after the reader clicked into the pane.
+   *
+   * After a click on text the focus is on the body, so the click decides.
+   */
+  const markKeyScrolling = (ev: KeyboardEvent) => {
+    const target = ev.target as HTMLElement
+    if (!SCROLL_KEYS.has(ev.key)) return
+    if (!clickedIntoPane && !box.contains(target)) return
+    if (target.isContentEditable || target.closest('input, textarea, select')) return
+    markReaderScrolling()
+  }
+  /** Where the reader last pressed; a press on the pane itself is one on its scrollbar. */
+  const notePress = (ev: PointerEvent) => {
+    clickedIntoPane = box.contains(ev.target as Node)
+    draggingScrollbar = ev.target === box
+  }
+  /** The scrollbar is let go of. */
+  const releaseScrollbar = () => {
+    draggingScrollbar = false
+  }
+  let seenTop = box.scrollTop
+  /**
+   * A scroll the reader made: whether it left the end, and where it left the pane.
+   *
+   * Scrolling up always leaves the end; only scrolling down can reach it.
+   */
   const onScroll = () => {
+    const up = box.scrollTop < seenTop
+    seenTop = box.scrollTop
     if (box.scrollTop === ownTop) return
+    if (!draggingScrollbar && performance.now() > readerUntil) return
+    // A fling goes on scrolling after the finger is lifted.
+    markReaderScrolling()
     pinned = null
-    atEnd = nearEnd()
-    scrollTop.value = box.scrollTop
+    restoreTo = null
+    atEnd = !up && nearEnd()
+    scrollTop.value = atEnd ? null : box.scrollTop
   }
   const settling = new ResizeObserver(follow)
   settling.observe(el)
   settling.observe(box)
-  box.addEventListener('scroll', onScroll, { passive: true })
+  const listening = new AbortController()
+  const options = { passive: true, signal: listening.signal }
+  box.addEventListener('scroll', onScroll, options)
+  box.addEventListener('wheel', markReaderScrolling, options)
+  box.addEventListener('touchmove', markReaderScrolling, options)
+  window.addEventListener('keydown', markKeyScrolling, { ...options, capture: true })
+  window.addEventListener('pointerdown', notePress, { ...options, capture: true })
+  window.addEventListener('pointerup', releaseScrollbar, options)
+  window.addEventListener('pointercancel', releaseScrollbar, options)
   onCleanup(() => {
     settling.disconnect()
-    box.removeEventListener('scroll', onScroll)
+    listening.abort()
   })
 }, { flush: 'post' })
 
 // Every question asked from here is the one the pane keeps at its top while
-// its answer arrives.
+// its answer arrives, and its turn is the end the pane follows after that.
 watch(() => messages.value.filter(m => m.role === 'user').length, async (asked, before) => {
   if (!asked || asked === before) return
+  atEnd = true
+  restoreTo = null
   await nextTick()
   const box = scroller.value
   const asks = box?.querySelectorAll<HTMLElement>('[data-role="user"]')
@@ -407,11 +468,13 @@ const strayQuestion = computed(() => {
         </div>
       </div>
 
+      <!-- The pane scrolls itself (see `follow`), not the list. -->
       <UChatMessages
         v-else
         ref="list"
         :messages="messages"
         :status="status"
+        :should-scroll-to-bottom="false"
         :user="{ side: 'right', variant: 'soft' }"
         :assistant="{
           side: 'left',

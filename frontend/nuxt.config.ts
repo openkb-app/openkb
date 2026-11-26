@@ -122,7 +122,7 @@ export default defineNuxtConfig({
       drupalBaseUrl,
       // ai_assistant config entity id sent as `agentId` to /vercel-ai/chat.
       // Overridable via NUXT_PUBLIC_CHAT_AGENT_ID.
-      chatAgentId: 'openkb',
+      chatAgentId: 'openkb_chat',
     },
   },
 

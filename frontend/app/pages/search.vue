@@ -362,7 +362,7 @@ function ask() {
   answerTurn.value = true
   // The search page's own assistant: sources only.
   // `answerError` carries the failure.
-  void answerChat.sendMessage({ text: asked }, { body: { agentId: 'openkb_summary' } })
+  void answerChat.sendMessage({ text: asked }, { body: { agentId: 'openkb_answers' } })
     .catch(() => {})
     .finally(() => { if (id === turn) answerTurn.value = false })
 }

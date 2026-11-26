@@ -94,7 +94,8 @@ type ChatSession = ReturnType<typeof useChatSession>
  */
 type PanelSession = ChatSession & {
   unsent: Ref<string>
-  scrollTop: Ref<number>
+  /** Where the reader had scrolled up to; `null` while they are at the end. */
+  scrollTop: Ref<number | null>
   scope: Ref<string>
   askedScopes: Ref<Array<string | null>>
 }
@@ -104,7 +105,7 @@ let panelSession: PanelSession | null = null
 const newPanelSession = (): PanelSession => ({
   ...useChatSession(),
   unsent: ref(''),
-  scrollTop: ref(0),
+  scrollTop: ref<number | null>(null),
   scope: ref(SCOPE_ALL),
   askedScopes: ref([]),
 })

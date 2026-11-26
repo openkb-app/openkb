@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const agentId
     = (typeof body.agentId === 'string' && body.agentId !== '' ? body.agentId : null)
       ?? (useRuntimeConfig(event).public.chatAgentId as string | undefined)
-      ?? 'openkb'
+      ?? 'openkb_chat'
 
   const auth = forwardedAuthHeaders(event)
   const res = await fetchUpstream(`${drupalBaseUrl()}/vercel-ai/chat`, {

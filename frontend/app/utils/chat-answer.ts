@@ -160,26 +160,11 @@ export function shownCitationsFor(m: UIMessage): ShownCitation[] {
     const source = sources.find(c => String(c.n) === n)
     if (!source?.path) continue
     const path = block ? `${source.path.split('#')[0]}#${block}` : source.path
-    const place = placeOf(source, block)
-    const number = numbers.get(place) ?? numbers.size + 1
-    numbers.set(place, number)
+    const number = numbers.get(path) ?? numbers.size + 1
+    numbers.set(path, number)
     shown.set(cite, { ...source, n: number, cite, path })
   }
   return [...shown.values()]
-}
-
-/**
- * Where a citation leads, the same for every tool that names the place.
- *
- * Keyed on the source id, not the path: a search hit's path is the page's
- * alias, a page read's is `/node/<nid>`; both ids start with the alias.
- *
- * @param block The block the marker names; the source's own anchor when none.
- */
-function placeOf(source: Citation, block: string | undefined): string {
-  const page = source.sourceId.split('#')[0]
-  const anchor = block ?? source.path.split('#')[1] ?? ''
-  return `${page}#${anchor}`
 }
 
 /**

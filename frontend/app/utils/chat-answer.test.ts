@@ -173,16 +173,19 @@ describe('citationsFor', () => {
   })
 })
 
-/** A source part numbered `n` by the citation pass; its id is its url unless given. */
-function source(n: number, url: string, sourceId = url) {
-  return { type: 'source-url', sourceId, url, title: `S${n}`, providerMetadata: { ai_rag_cite: { n, meta: '', score: 0 } } }
+/** A source part numbered `n` by the citation pass, identified by its url. */
+function source(n: number, url: string) {
+  return { type: 'source-url', sourceId: url, url, title: `S${n}`, providerMetadata: { ai_rag_cite: { n, meta: '', score: 0 } } }
 }
 
-/** A search hit on block `b-a` of the page at `/wiki/pump`, as `search_pages` names it. */
-const HIT = (n: number) => source(n, '/wiki/pump#b-a')
+/** A search hit on block `b-a` of node 36, as `search_pages` names it. */
+const HIT = (n: number) => source(n, '/node/36#b-a')
 
-/** A page read of `/wiki/pump`, as `get_page` names it: by alias, linked by node. */
-const READ = (n: number) => source(n, '/node/36', '/wiki/pump')
+/** A page read of node 36, as `get_page` names it. */
+const READ = (n: number) => source(n, '/node/36')
+
+/** A retrieved passage of block `b-a` of node 36, as the chunk retriever names it. */
+const RETRIEVED = (n: number) => source(n, '/node/36#b-a')
 
 describe('shownCitationsFor', () => {
   /** What the reader sees per shown citation: its number, marker part and link. */
@@ -219,7 +222,7 @@ describe('shownCitationsFor', () => {
 
   it('gives a search hit and a page read of one block one number', () => {
     expect(shown('Hit [2], read [5#b-a], the page [5].', HIT(2), READ(5))).toEqual([
-      [1, '2', '/wiki/pump#b-a'],
+      [1, '2', '/node/36#b-a'],
       [1, '5#b-a', '/node/36#b-a'],
       [2, '5', '/node/36'],
     ])
@@ -239,13 +242,22 @@ describe('shownCitationsFor', () => {
 })
 
 describe('sourceRowsFor', () => {
+  it('gives a retrieved passage and a page read of one block one number and one row', () => {
+    const rows = sourceRowsFor(turn(
+      { type: 'text', text: 'Retrieved [1], read [4#b-a].' },
+      RETRIEVED(1),
+      READ(4),
+    ))
+    expect(rows.map(c => [c.n, c.path])).toEqual([[1, '/node/36#b-a']])
+  })
+
   it('lists one row per shown number', () => {
     const rows = sourceRowsFor(turn(
       { type: 'text', text: 'Hit [2], read [5#b-a], more [5#b-b].' },
       HIT(2),
       READ(5),
     ))
-    expect(rows.map(c => [c.n, c.path])).toEqual([[1, '/wiki/pump#b-a'], [2, '/node/36#b-b']])
+    expect(rows.map(c => [c.n, c.path])).toEqual([[1, '/node/36#b-a'], [2, '/node/36#b-b']])
   })
 })
 
