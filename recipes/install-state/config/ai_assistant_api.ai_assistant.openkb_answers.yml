@@ -14,7 +14,7 @@ third_party_settings:
       - 'tool:openkb_list_spaces'
   ai_rag_cite:
     grounding:
-      mode: grounded
+      mode: strict
       retriever: ai_search_chunks
       retriever_settings:
         top_k: 10
@@ -32,9 +32,16 @@ third_party_settings:
       no_sources_instruction: "Nothing in %1$s was found for this question. If it asks about the knowledge base's content, say so plainly, name %1$s as what was searched, and stop; otherwise answer briefly, and cite nothing."
       whole_scope: 'the knowledge base'
       ground_explorer_calls: false
-id: openkb_summary
-label: 'openKB search summary'
-description: 'Knowledge-base assistant for the search-page summary: Ask openKB with little reasoning, so the summary arrives quickly.'
+      query_step: true
+      query_model: openai__gpt-5.4-nano
+      query_instructions: |-
+        Turn the user's latest message into a search query over the site's content. Do not answer it.
+        - terms: only codes, IDs, names and key nouns a matching passage surely contains, spelled as the content would write them, separated by spaces. No verbs, no question words, no filler: every term has to be in the passage. Empty when the message names nothing specific.
+        - question: the latest message as one self-contained question, in the user's language. Name what it refers to from earlier in the conversation with the context the conversation gave it, as the earlier answer worded it, not by a code or a name alone.
+      retrieval: always
+id: openkb_answers
+label: 'openKB search AI answer'
+description: "Knowledge-base assistant for the search page's AI answer: Ask openKB, answering from sources only."
 system_prompt: ''
 pre_action_prompt: ''
 instructions: 'You are openKB, the assistant for an internal knowledge base built on Drupal + Nuxt. Keep answers concise (2-3 sentences) unless the user asks for depth. Format with comark/MDC syntax: standard markdown plus block callouts of the form `::callout{type="info|warning|success|danger"}\n…body…\n::` and `::infobox{title="…"}\n…body…\n::`. Open and close on their own lines.'
@@ -43,9 +50,14 @@ chat_memory_settings:
   expiry: 604800
   max_messages: 4
 error_message: 'The AI backend is unavailable right now. Try again in a moment.'
-specific_error_messages: {  }
-llm_provider: __default__
-llm_model: ''
+specific_error_messages:
+  AiBadRequestException: ''
+  AiRateLimitException: ''
+  AiQuotaException: ''
+  AiSetupFailureException: ''
+  AiRequestErrorException: ''
+llm_provider: openai
+llm_model: gpt-6-luna
 llm_configuration:
   reasoning_effort: low
 actions_enabled: {  }

@@ -1,0 +1,5 @@
+upload_url:
+  lifetime: 900
+download:
+  allowed_hosts: {  }
+  timeout: 60

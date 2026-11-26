@@ -9,7 +9,6 @@ install:
   - ai
   - ai_api_explorer
   - ai_assistant_api
-  - ai_provider_amazeeio
   - ai_provider_anthropic
   - ai_provider_mistral
   - ai_provider_openai
@@ -30,6 +29,9 @@ install:
   - datetime
   - dblog
   - dynamic_page_cache
+  - easy_email
+  - easy_email_override
+  - easy_email_theme
   - editor
   - field
   - field_ui
@@ -39,6 +41,8 @@ install:
   - image
   - inline_comment
   - inline_form_errors
+  - jquery_ui
+  - jquery_ui_resizable
   - jsonapi
   - jsonapi_role_access
   - key
@@ -56,6 +60,7 @@ install:
   - lupus_decoupled_user_form
   - lupus_decoupled_views
   - mail_login
+  - mailsystem
   - mcp_server
   - mcp_server_tool_bridge
   - menu_link_content
@@ -70,8 +75,11 @@ install:
   - openkb_agent_registration
   - openkb_ai
   - openkb_collab_api
+  - openkb_files
   - openkb_invite
   - openkb_jsonapi
+  - openkb_mail
+  - openkb_mail_theme
   - openkb_revision
   - openkb_schema
   - openkb_search
@@ -80,6 +88,7 @@ install:
   - openkb_tools
   - openkb_update_hold
   - openkb_update_status
+  - openkb_user
   - openkb_workflow
   - options
   - page_cache
@@ -95,12 +104,15 @@ install:
   - simple_oauth
   - simple_oauth_personal_consumers
   - stark
+  - symfony_mailer_lite
   - system
   - taxonomy
   - text
   - token
   - tool
   - tool_ai_connector
+  - tool_belt
+  - tool_belt_file
   - trash
   - trusted_redirect
   - update
@@ -204,12 +216,72 @@ config:
         mail_login_password_reset_username_description: 'Password reset instructions will be sent to your registered email address.'
         mail_login_password_reset_email_only_title: 'Email address'
         mail_login_password_reset_email_only_description: 'Password reset instructions will be sent to your registered email address.'
+    mailsystem.settings:
+      simpleConfigUpdate:
+        theme: openkb_mail_theme
+        defaults:
+          sender: symfony_mailer_lite
+          formatter: symfony_mailer_lite
+        modules:
+          symfony_mailer_lite:
+            none:
+              sender: symfony_mailer_lite
+              formatter: symfony_mailer_lite
+          easy_email:
+            none:
+              sender: symfony_mailer_lite
+              formatter: symfony_mailer_lite
     mcp_server.settings:
       simpleConfigUpdate:
         langcode: en
         server_name: OpenKB
         server_version: 1.0.0
-        server_instructions: 'The OpenKB knowledge base. Content lives in spaces, and a space is an access boundary: call tool_api__list_spaces to see which ones you may work in and what you may do in each. Before creating a page, call tool_api__list_spaces with access="write" and create only into a space it returns — the first segment of a page path is its space slug, and a space is never created as a side effect of a page write. Read a page with tool_api__get_page, by its path; it answers the page as it stands published. Find one with tool_api__search_pages, which answers only pages you may read — it reads the published index, so unfinished work is found with tool_api__find_drafts instead. When you connect, call tool_api__list_assignments: it answers the comment threads people handed to you while you were away. To find out what a page used to say, list its revisions with tool_api__list_revisions, read every version of one block with tool_api__get_block_history, and find the revision a wording was added or removed in with tool_api__search_history.'
+        server_instructions: |-
+          Access to OpenKnowledgebase (openKB): pages of comark markdown, kept in spaces.
+        
+          ## Spaces and access
+          Content lives in spaces, and a space is an access boundary. Call tool_api__list_spaces to see which ones you may work in and what you may do in each. The first segment of a page path is its space slug.
+          When you connect, call tool_api__list_assignments: it answers the comment threads people handed to you while you were away.
+        
+          ## Finding and reading pages
+          - tool_api__search_pages finds pages, and only pages you may read. It reads the published index, so unfinished work is found with tool_api__find_drafts instead.
+          - There are two reads and they are not interchangeable. tool_api__get_page answers the page as it stands PUBLISHED: that is what to answer a question from and what to cite. getPageForEditing answers the WORKING COPY, which is what an edit is based on.
+          - To cite a block in a page you write, copy the `nid` and `block` a tool answered into `:citation{nid="…" block="…"}`. Name the block: a citation of a whole page, `:citation{nid="…"}`, is the exception. Cite an external source as `:citation{url="https://…"}`.
+          - To find out what a page used to say, list its revisions with tool_api__list_revisions, read every version of one block with tool_api__get_block_history, and find the revision a wording was added or removed in with tool_api__search_history.
+        
+          ## Creating a page
+          - Call tool_api__list_spaces with access="write" and create only into a space it returns.
+          - Call tool_api__create_page with a title and that space's slug. Pass `parent` (a page path of the same space) to place the new page under it in the page tree.
+          - It answers with the path it generated and the id of the one placeholder block the new page holds, which your first updateBlocks replaces.
+        
+          ## Editing a page
+          To change an existing page, use updateFields for frontmatter fields and updateBlocks for prose, naming the blocks you mean to change by the `{#b-…}` ids getPageForEditing returns. Both edit inside the page's collaborative session, so a human editing the same page sees your changes as you make them. Writes go to the page's draft, never straight to the published page, so an edit loop reads its own work back with getPageForEditing: getPageForEditing → updateBlocks → getPageForEditing.
+        
+          Always send `expect` on every updateBlocks op: the block version getPageForEditing's `versions` map reported. Somebody may be editing the same page right now, and `expect` is what keeps you from silently overwriting them. A refused call answers `conflicts`, naming which blocks moved and what they hold now: re-apply your edit to that markdown and call again with the version it reported. A refusal costs one call and needs no read, so write on the version you have rather than re-reading to be sure. A call that succeeds reports the same for what it wrote: `applied.blocks` maps every block it changed to the version it holds now, a block you inserted under the id minted for it. That is the `expect` your next edit to that block sends. Chain edits on it; only read the page again when you need content you do not already have.
+        
+          Your first write puts you in the page as a peer and you stay there while you keep working, so the blocks your last write touched are marked as yours for whoever has the page open. You do not announce that separately, and it reserves nothing. `observers` counts the humans connected in browsers, never you: above zero means somebody is in the page with you, so keep edits small and expect them to move under you. `entry` says whether your session found the page already open ("joined") or opened it ("started").
+        
+          ## Working beside people
+          To work on a page WHILE somebody edits it, loop on waitForChanges: it answers the moment the session moves and hands you a cursor to resume from, so you react to what a person does rather than re-reading the page. Act on `comments` addressed to you: read the thread, make the change, then answer it with commentOnBlock. Act on `blocks` only where your instructions say to. A `session` event means the page's editing session closed: it ends the wait on that page.
+        
+          ## Asking people
+          - What you need from a person (a decision, a missing fact or source): a commentOnBlock thread on its block, with a concrete suggestion. No open-points or todo list in the page, unless the person asks for one or it is content (e.g. a runbook checklist).
+          - Facts you can check and corrections go straight into the block.
+        
+          ## Review
+          tool_api__list_spaces reports the review steps a space runs: `agent_review` (a human signs off every block you write; on by default, wiki-style spaces too) and `moderated` (peer sign-off, four-eyes). When your writing is done:
+          1. Read `status` from getPageForEditing for each page you wrote.
+          2. Ask before you stop. Where a review step applies, tell the user the pages are ready for review, each by its path with its `blocks_pending`, and ask whether to wait for review feedback. Where none applies, tell the user the pages are drafts for an editor to publish.
+          3. On a yes, loop on waitForChanges as described above, one call per page in turn, each with its own cursor and a short `timeoutSec`; a round is one call on every page still waited on. A `session` event ends the wait on that page. Stop when no page is left, after ten rounds in a row with no event, or when the user interrupts. On a no, stop: the pages wait as drafts.
+        
+          Reading `status`: `draft_exists` true means the working copy holds changes that are not live yet; a never-published page reads true in a wiki space and false in a moderated one. `blocks_pending` counts the blocks still waiting for a human sign-off; above zero, the page cannot publish yet. `pending` names each one: the block, the kind of change, who it waits on (`by`, empty when no writer was witnessed) and the step it owes; name them when you report. `can_publish` answers for the account you act for and can be true; you still do not publish, you tell the user the page is ready for an editor.
+        
+          ## Do not
+          - Do not publish. No tool does: publishing is an editor's decision.
+          - Do not create a page in a space tool_api__list_spaces did not report as writable. A space is never created as a side effect of a page write.
+          - Do not send an updateBlocks op without `expect`, unless it names no block.
+          - Do not write into a block `presence` says somebody is in.
+          - Do not resolve a comment thread a person opened; the editor who raised the point closes it.
         pagination_limit: 50
         pending:
           poll_interval_ms: 300
@@ -319,6 +391,7 @@ config:
         - 'access content'
         - 'access mcp server'
         - 'access user profiles'
+        - 'change own username'
         - 'create kb_page content'
         - 'create openkb_space'
         - 'create url aliases'

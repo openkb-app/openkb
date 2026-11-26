@@ -77,7 +77,7 @@ default:
         1. Open the account menu and choose "Agents & API clients".
         2. Under "Provision a token", enter a name for the client and click "Create API client".
         3. Copy the "Client ID" and the "Client secret". The secret is shown once, on this page only.
-        4. Give both to the agent. It exchanges them at `/oauth/token` on the administration host for a short-lived access token (the client credentials grant), and sends that token as a bearer token to the `/api/mcp` endpoint.
+        4. Give both to the agent. It exchanges them at `/oauth/token` on the administration host for a short-lived access token (the client credentials grant), and sends that token as a bearer token to the `/mcp` endpoint.
         ::
 
         ## Revoking {#b-14bc3319}

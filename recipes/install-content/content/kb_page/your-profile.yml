@@ -1,0 +1,95 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 0d4c2548-1df7-56dc-a1f4-6836abba8326
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    7d8db27c-9c97-5673-bf38-54729776460d: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: 'Your profile'
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/your-profile
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: 7d8db27c-9c97-5673-bf38-54729776460d
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Your profile {#b-4d7bfb87}
+
+        ## Goal {#b-be8a781e}
+
+        Change the name others see, your password and your picture. {#b-b42ce9b7}
+
+        ## Steps {#b-a1ea3016}
+
+        ::block{#b-b90e7a2f}
+        1. Open the account menu at the bottom of the sidebar and choose "Edit profile".
+        2. "Username" is the name others see, in mentions and bylines. Type a new one to change it.
+        3. To change your password, enter the "Current password" and the new password twice. If you forgot the current one, click "Reset your password".
+        4. Under "Picture", choose an image. It uploads at once; "Remove" takes it away again.
+        5. Click "Save".
+        ::
+
+        ## Good to know {#b-960391e3}
+
+        ::block{#b-282b2e95}
+        - A username is unique on the site. It cannot be an email address, contain " via ", or be "AI assistant" or "collab_server" in any letter case.
+        - A new username shows everywhere at once, also in mentions written before the change.
+        - If "Username" is grayed out and says "An administrator can change it.", the site keeps the names it gives. Ask an administrator.
+        - You sign in with your email address. The profile does not show it, and only an administrator or a site manager changes it.
+        ::
+
+        ## Related topics {#b-ec7ba829}
+
+        ::block{#b-6a7cc45d}
+        - [Welcome to OpenKnowledgebase](/openkb-user-guide/welcome)
+        - [Invitations](/openkb-user-guide/invitations)
+        - [Users and roles](/openkb-user-guide/users-and-roles)
+        ::

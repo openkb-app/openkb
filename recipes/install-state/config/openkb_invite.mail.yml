@@ -8,7 +8,7 @@ invite:
 
     [openkb_invite:login-url]
 
-    Your user name is [user:account-name]. The link works once.
+    Sign in with your email address. The link works once.
 invite_account:
   subject: '[openkb_invite:inviter] invited you to [openkb_invite:space]'
   body: |-

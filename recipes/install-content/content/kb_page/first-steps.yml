@@ -63,11 +63,12 @@ default:
       value: |
         # First steps {#b-2be051f7}
 
-        Sign in, make a page, find things and learn the keys. {#b-aff93510}
+        Sign in, make a page, find things, learn the keys and set up your profile. {#b-aff93510}
 
         ::block{#b-aa1e2916}
         - [Welcome to OpenKnowledgebase](/openkb-user-guide/welcome)
         - [Your first page](/openkb-user-guide/your-first-page)
         - [Finding things](/openkb-user-guide/finding-things)
         - [Keyboard shortcuts](/openkb-user-guide/keyboard-shortcuts)
+        - [Your profile](/openkb-user-guide/your-profile)
         ::

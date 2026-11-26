@@ -94,26 +94,8 @@ default:
         1. Open the space's page and click "Settings". Only managers see the button.
         2. In the "Space settings" dialog, choose "Read access".
         3. Under "Members", the list shows everyone on the roster. Change a role with the select next to the name, or remove the person with the X. To add someone who has an account, type their name in "Add a person…" right below the list, pick the role and click "Add". Roster changes are saved at once.
-        4. To invite someone by email, type their address in "Invite by email…" at the bottom, pick the role and click "Invite". See "Invitations" below.
+        4. To invite someone by email, type their address in "Invite by email…" at the bottom, pick the role and click "Invite". See [Invitations](/openkb-user-guide/invitations).
         5. Click "Save changes" for the description, the read access and the switches under "Publishing".
-        ::
-
-        ## Invitations {#b-a955eafc}
-
-        An invited person joins the space when they accept. Until then the invitation is listed under "Pending invitations", right above "Invite by email…", with the email address for the manager who sent it. Without pending invitations the heading does not show. {#b-4ef22fdb}
-
-        ::block{#b-803bd172}
-        - The address needs a domain such as `example.com`. An address with a pending invitation to the space cannot be invited again.
-        - "Cancel" withdraws the invitation. An account the invitation created and nobody used goes with it.
-        - An invitation not accepted within 24 hours is removed. To invite again, invite anew.
-        - The list can go stale while the dialog is open: the person accepted, or the invitation expired. "Cancel" on such a row removes it, says the invitation was no longer pending and reloads the members.
-        ::
-
-        ## What the invited person sees {#b-d808e19f}
-
-        ::block{#b-ba73e194}
-        - Without an account yet: an email with a link. It opens "Welcome to …", naming every space that invited them. "Accept invitation" joins those spaces and asks for a password; then the space opens. The link works once, within 24 hours, and signs in only through that card.
-        - With an account: an email with a link to "Join …". "Accept invitation" joins the space and opens it.
         ::
 
         ## The site administrator {#b-7c98833d}
@@ -123,6 +105,7 @@ default:
         ## Related topics {#b-87e87f56}
 
         ::block{#b-51ddfd75}
+        - [Invitations](/openkb-user-guide/invitations)
         - [Review policy per space](/openkb-user-guide/review-policy)
         - [Spaces](/openkb-user-guide/spaces)
         ::

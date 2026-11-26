@@ -79,7 +79,7 @@ default:
         3. The agent is woken by the comment. It reads the working copy with `getPageForEditing`, writes its correction with `updateBlocks` and answers in the thread with `commentOnBlock`. Its edit lands in the working copy as you watch, in the same editor.
         4. Each block the agent wrote shows the pill "Pending agent review" in the margin, and "Publish" is greyed until every one is signed off.
         5. Read the block. Click the checkmark next to the pill, "Sign off the agent write". The block's ⠿ menu offers the same. Repeat for every block. If a correction is wrong, reply in the thread and let the agent try again, or edit the block yourself.
-        6. Click "Mark as done" on the thread, or "Resolve this comment". The agent cannot close it.
+        6. Click "Mark as done" on the thread, or "Resolve this comment". The agent cannot close a thread you opened.
         7. Click "Publish".
         ::
 

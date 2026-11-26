@@ -1,0 +1,123 @@
+_meta:
+  version: '1.0'
+  entity_type: node
+  uuid: 560bc498-1360-5a2a-b83e-c80908e94655
+  bundle: kb_page
+  default_langcode: en
+  depends:
+    0309780f-4ed8-5116-9778-d38b97adaea3: openkb_space
+    ec808cff-e174-548d-8d32-2b3b119894e8: taxonomy_term
+default:
+  status:
+    -
+      value: true
+  moderation_state:
+    -
+      value: published
+  uid:
+    -
+      target_id: 1
+  revision_uid:
+    -
+      target_id: 1
+  title:
+    -
+      value: Invitations
+  created:
+    -
+      value: 1758585600
+  promote:
+    -
+      value: false
+  sticky:
+    -
+      value: false
+  default_langcode:
+    -
+      value: true
+  revision_translation_affected:
+    -
+      value: true
+  path:
+    -
+      alias: /openkb-user-guide/invitations
+      langcode: en
+      # Pinned (pathauto=0): the alias is the address the guide's own links
+      # point at, so it may not drift with a retitling.
+      pathauto: 0
+  field_type:
+    -
+      value: guide
+  field_tags:
+    -
+      entity: ec808cff-e174-548d-8d32-2b3b119894e8
+  field_owner:
+    -
+      target_id: 1
+  field_space:
+    -
+      entity: 0309780f-4ed8-5116-9778-d38b97adaea3
+  field_kb_body:
+    -
+      format: comark
+      value: |
+        # Invitations {#b-c5c798a1}
+
+        ## Goal {#b-f057fb94}
+
+        Bring a person into a space by email, whether they have an account or not. {#b-62841370}
+
+        ## Who may invite {#b-a337b455}
+
+        A manager of the space. Anyone who creates a space is its first manager, so every signed-in person can invite into the spaces they manage. {#b-2000faac}
+
+        ## Steps {#b-90d23b14}
+
+        ::block{#b-e3ffcdd6}
+        1. Open the space's page and click "Settings". Only managers see the button.
+        2. Under "Members", type the person's email address in "Invite by email…" at the bottom, pick the role and click "Invite".
+        3. The person gets an email with a link. The invitation is listed under "Pending invitations" until they accept.
+        4. When they accept, they join the space with the role you picked. A person who is already on a roster of the space keeps that role.
+        ::
+
+        ## Pending invitations {#b-a955eafc}
+
+        An invited person joins the space when they accept. Until then the invitation is listed under "Pending invitations", right above "Invite by email…", with the email address for the manager who sent it. Without pending invitations the heading does not show. {#b-4ef22fdb}
+
+        ::block{#b-803bd172}
+        - The address needs a domain such as `example.com`. An address with a pending invitation to the space cannot be invited again.
+        - "Cancel" withdraws the invitation. An account the invitation created and nobody used goes with it.
+        - An invitation not accepted within 24 hours is removed. An invitation cannot be sent again: cancel it and invite anew.
+        - The list can go stale while the dialog is open: the person accepted, or the invitation expired. "Cancel" on such a row removes it, says the invitation was no longer pending and reloads the members.
+        - A person sends at most 20 invitations per hour. Cancelled ones count.
+        ::
+
+        ## What the invited person sees {#b-d808e19f}
+
+        ::block{#b-ba73e194}
+        - Never signed in before, also with an account an administrator created: an email with a link. It opens "Welcome to …", naming every space that invited them. "Accept invitation" joins those spaces. "Your name" then shows the username the site gave the account, to keep or change, and "Continue" goes on; later it is changed in [Your profile](/openkb-user-guide/your-profile). "Set your password" follows, and then the space opens. The link works once, within 24 hours, and signs in only through that card.
+        - Signed in before: an email with a link to "Join …". "Accept invitation" joins the space and opens it.
+        ::
+
+        ## The new account {#b-a6a2b2d3}
+
+        ::block{#b-42f69144}
+        - An invitation to an address without an account creates one. It has no role and is named from the email address. See [Users and roles](/openkb-user-guide/users-and-roles).
+        - The person signs in with their email address and the password they set.
+        - Whoever receives the email can accept the invitation. Check the address before you click "Invite".
+        - A blocked account gets no email.
+        ::
+
+        ## For the site administrator {#b-d4f888a4}
+
+        ::block{#b-bd41e04a}
+        - The texts of the two invitation emails are edited under "Emails" at `/admin/config/people/accounts` on the administration host: "Invitation (person invited to a space)" and "Invitation (person with an account)".
+        - A site that keeps the usernames the system gives skips the "Your name" step. See [Users and roles](/openkb-user-guide/users-and-roles).
+        ::
+
+        ## Related topics {#b-710c5286}
+
+        ::block{#b-574c8967}
+        - [Members and access](/openkb-user-guide/members-and-access)
+        - [Users and roles](/openkb-user-guide/users-and-roles)
+        ::

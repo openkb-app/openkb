@@ -1,0 +1,42 @@
+langcode: en
+status: true
+dependencies: {  }
+id: openkb_invite_account
+label: 'OpenKB: Invitation (person with an account)'
+key: ''
+recipient: {  }
+cc: {  }
+bcc: {  }
+fromName: ''
+fromAddress: ''
+replyToAddress: ''
+subject: '[easy_email:field_openkb_invite:entity:inviter] invited you to [easy_email:field_openkb_invite:entity:space]'
+inboxPreview: ''
+bodyHtml:
+  value: |-
+    <p>[easy_email:field_openkb_invite:entity:inviter] invited you to the space "[easy_email:field_openkb_invite:entity:space]" on [site:name].</p>
+    <p>Sign in and accept the invitation here:</p>
+    <table class="button" role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td>
+          <a href="[easy_email:field_openkb_invite:entity:accept-url]">Accept the invitation</a>
+        </td>
+      </tr>
+    </table>
+  format: easy_email
+bodyPlain: |-
+  [easy_email:field_openkb_invite:entity:inviter] invited you to the space "[easy_email:field_openkb_invite:entity:space]" on [site:name].
+
+  Sign in and accept the invitation here:
+
+  [easy_email:field_openkb_invite:entity:accept-url]
+generateBodyPlain: false
+attachment: {  }
+saveAttachment: false
+attachmentScheme: private
+attachmentDirectory: ''
+saveEmail: false
+allowSavingEmail: false
+purgeEmails: false
+purgeInterval: 30
+purgePeriod: days

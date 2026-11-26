@@ -1,0 +1,22 @@
+langcode: en
+status: true
+dependencies: {  }
+id: openkb_invite
+label: 'OpenKB: Invitation (person invited to a space)'
+module: openkb_invite
+key: invite
+easy_email_type: openkb_invite
+param_map:
+  -
+    source: invite
+    destination: field_openkb_invite
+copied_fields:
+  from: false
+  reply_to: false
+  to: true
+  cc: false
+  bcc: false
+  subject: false
+  body_html: false
+  body_plain: false
+  attachments: false

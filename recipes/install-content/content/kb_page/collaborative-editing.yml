@@ -91,6 +91,8 @@ default:
 
         To drop your own unsaved edits, open the "More" menu and choose "Revert unsaved changes". {#b-81988dcc}
 
+        If this browser holds edits that never reached the server, made on an earlier copy of the page, a banner says "This browser has unsaved edits from" and the date. They are not part of the page. Click "Show" to read them as Markdown and copy what you need, then click "Discard". {#b-4e8a1c37}
+
         ## Comments {#b-a33291ca}
 
         A comment hangs on one block, or on a passage of it. Comments live in the editor and in the "Review" pane; a reader of the published page does not see them. {#b-9c88dffe}
@@ -113,7 +115,7 @@ default:
         - A reply has the same menu, starting with the thread's assignee. Choosing somebody else hands the thread on when you post the reply.
         - On an open thread, "Assign this comment to somebody" assigns it later; the chip "Assigned to \<name>" reassigns or unassigns it.
         - The assignee sees the thread under the "Assigned to me" tab of the pane's "Comments" list, marked "Assigned to you", with a "Mark as done" button. Your own agents' threads are under "Assigned to my agents". The "Review" button in the editor's header carries the count.
-        - An agent reads its assignments with the `tool_api__list_assignments` tool on its next connection, and answers in the thread. Only a person closes a thread: "Mark as done" and "Resolve this comment" are not offered to agents.
+        - An agent reads its assignments with the `tool_api__list_assignments` tool on its next connection, and answers in the thread. An agent closes only a thread it opened itself; a thread a person opened is closed by a person.
         ::
 
         ## Related topics {#b-e99ec084}

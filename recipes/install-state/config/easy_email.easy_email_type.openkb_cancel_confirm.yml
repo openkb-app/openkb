@@ -1,0 +1,54 @@
+langcode: en
+status: true
+dependencies: {  }
+id: openkb_cancel_confirm
+label: 'OpenKB: Account cancellation confirmation'
+key: ''
+recipient: {  }
+cc: {  }
+bcc: {  }
+fromName: ''
+fromAddress: ''
+replyToAddress: ''
+subject: 'Account cancellation request for [easy_email:recipient_uid:0:entity:display-name] at [site:name]'
+inboxPreview: ''
+bodyHtml:
+  value: |-
+    <p>[easy_email:recipient_uid:0:entity:display-name]</p>
+    <p>A request to cancel your account has been made at [site:name].</p>
+    <p>You may now cancel your account on <a href="[site:url]">[site:url-brief]</a> by clicking this link:</p>
+    <table class="button button--danger" role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td>
+          <a href="[easy_email:recipient_uid:0:entity:cancel-url]">Cancel your account</a>
+        </td>
+      </tr>
+    </table>
+    <p><strong>NOTE: The cancellation of your account is not reversible.</strong></p>
+    <p>This link expires in one day and nothing will happen if it is not used.</p>
+    <p>--&nbsp; [site:name] team</p>
+  format: easy_email
+bodyPlain: |-
+  [easy_email:recipient_uid:0:entity:display-name]
+
+  A request to cancel your account has been made at [site:name].
+
+  You may now cancel your account on [site:url-brief] by clicking this link or copying and pasting it into your browser:
+
+  [easy_email:recipient_uid:0:entity:cancel-url]
+
+  NOTE: The cancellation of your account is not reversible.
+
+  This link expires in one day and nothing will happen if it is not used.
+
+  --  [site:name] team
+generateBodyPlain: false
+attachment: {  }
+saveAttachment: false
+attachmentScheme: private
+attachmentDirectory: ''
+saveEmail: false
+allowSavingEmail: false
+purgeEmails: false
+purgeInterval: 30
+purgePeriod: days

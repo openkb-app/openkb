@@ -6,7 +6,6 @@ dependencies:
     - image.style.thumbnail
   module:
     - image
-    - path
     - user
 id: user.user.default
 targetEntityType: user
@@ -16,18 +15,6 @@ content:
   account:
     weight: -10
     region: content
-  language:
-    weight: 0
-    region: content
-  path:
-    type: path
-    weight: 30
-    region: content
-    settings: {  }
-    third_party_settings: {  }
-  timezone:
-    weight: 6
-    region: content
   user_picture:
     type: image_image
     weight: -1
@@ -36,4 +23,7 @@ content:
       progress_indicator: throbber
       preview_image_style: thumbnail
     third_party_settings: {  }
-hidden: {  }
+hidden:
+  language: true
+  path: true
+  timezone: true

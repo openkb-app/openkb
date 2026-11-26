@@ -65,36 +65,61 @@ default:
 
         ## Goal {#b-7be0e19c}
 
-        Create accounts for the people who will use the site. {#b-89856368}
+        Manage the accounts of the people who use the site: create them, give roles, rename, block and delete them. {#b-89856368}
 
-        ## How accounts work {#b-fc98806d}
+        ## How people get an account {#b-fc98806d}
 
         ::block{#b-28c79094}
-        - A space manager invites people by email from the space's members form. A new address gets an account with no role and an email with a link. The person accepts the invitation and sets a password, then signs in with that email address. An account nobody used goes with its invitation when it is cancelled or expires after 24 hours. See [Members and access](/openkb-user-guide/members-and-access).
-        - Self-registration is not available. An administrator or a site manager also creates accounts at `/admin/people/create` on the administration host; `/admin/people` lists them with their roles.
-        - Every signed-in account may read the spaces open to "All users", write in the spaces it is a member of, and create spaces of its own.
-        - What a person may do in a space is decided by the space's roster, not by a site role. See [Members and access](/openkb-user-guide/members-and-access).
-        - People sign in with their email address and password; the username signs in too. The email address is the account's identity: its owner cannot change it. An administrator or a site manager changes it on the account's edit form.
-        - The "Administrator" role reaches every space and every page, the Drupal administration, and the "Admin backend" entry in the account menu.
-        - The "Site manager" role runs the accounts below the administrator: it creates, edits, blocks and deletes accounts that hold no role or only "Site manager", and gives or takes the "Site manager" role. It reaches the Drupal administration through "Admin backend" and reads the recent log messages under Reports. Administrator accounts, the AI settings and the rest of the site configuration are out of its reach.
+        - By invitation: a space manager invites a person by email. A new address gets an account with no role. An account nobody used goes with its invitation when it is cancelled or expires after 24 hours. See [Invitations](/openkb-user-guide/invitations).
+        - From an administrator or a site manager, who creates the account in the Drupal administration. See "Create an account" below.
+        - Self-registration is not available.
         ::
 
-        ## Steps {#b-ad1b0dc0}
+        ## What an account may do {#b-0d1b25ed}
+
+        ::block{#b-3fc474a5}
+        - Every signed-in account may read the spaces open to "All users", write in the spaces it is a member of, and create spaces of its own.
+        - What a person may do in a space is decided by the space's roster, not by a site role. See [Members and access](/openkb-user-guide/members-and-access).
+        - The "Administrator" role reaches every space and every page, the Drupal administration, and the "Admin backend" entry in the account menu.
+        - The "Site manager" role runs the accounts below the administrator: it creates, edits, blocks and deletes accounts that hold no role or only "Site manager", and gives or takes the "Site manager" role. It reaches the Drupal administration through "Admin backend" and reads the recent log messages under Reports. It also administers the AI guardrails. Administrator accounts, the other AI settings and the rest of the site configuration are out of its reach.
+        ::
+
+        ## Email address and username {#b-35c3d485}
+
+        ::block{#b-4aba0d55}
+        - People sign in with their email address and password; the username signs in too. The email address is the account's identity: its owner cannot change it. An administrator or a site manager changes it on the account's edit form.
+        - The username is the name others see, in mentions and bylines. The site names every new account from its email address: the part before the @, numbered if another account holds it. A new person confirms or changes that name on the welcome card, before setting a password. Later they change it with "Edit profile" in the account menu, where they also change their password and picture; see [Your profile](/openkb-user-guide/your-profile). Changing the email address leaves the username as it is.
+        - A username cannot be an email address, contain " via ", or be "AI assistant" or "collab_server" in any letter case: it would pass for an address, an agent's work or the collaboration server.
+        - A site that keeps the names the system gives revokes "Change own username" from the Authenticated user role under People → Permissions. The profile screen then shows the username read-only, and the welcome card skips the name step. An administrator or a site manager still changes it on the account's edit form.
+        ::
+
+        ## Create an account {#b-ad1b0dc0}
 
         ::block{#b-2a4b7b63}
         1. Open the account menu and choose "Admin backend". The Drupal administration opens.
         2. Go to People and choose "Add user".
-        3. Enter an email address, a username and a password, and set the status to active. Give the Administrator role to administrators only, and the Site manager role to the people who run the accounts.
+        3. Enter an email address and a password, and set the status to active. Leave the username empty to name the account from its email address. Give the Administrator role to administrators only, and the Site manager role to the people who run the accounts.
         4. Click "Create new account".
-        5. Give the person their email address and password. They sign in with them on the site's "Sign in" page. A password reset goes through the login page on the administration host.
+        5. Give the person their email address and password. They sign in with them on the site's "Log in" page. A forgotten password is reset with "Forgot your password?" on that page.
         6. Add the person to the spaces they should work in. See [Members and access](/openkb-user-guide/members-and-access).
         ::
 
         The password of the `admin` account is set when the site is installed. See [Installation](https://github.com/openkb-app/openkb/blob/1.x/README.md#installation). {#b-bb385de3}
 
+        ## Change, block or delete an account {#b-02f7575c}
+
+        ::block{#b-2a1103ea}
+        1. Open the account menu and choose "Admin backend", then go to People. The list shows the accounts with their status and roles; a site manager does not see administrator accounts.
+        2. Click "Edit" in the account's row.
+        3. Change the username, the email address, the password or the roles, and click "Save". A site manager sees only the "Site manager" role and cannot edit administrator accounts.
+        4. To keep a person from signing in, set the status to "Blocked" and click "Save". Their pages stay. Set it back to "Active" to let them in again.
+        5. To delete the account, click "Cancel account" at the bottom of the form. Under "Cancellation method", choose the method that starts with "Delete the account and make its content belong to the Anonymous user" and click "Confirm". The preselected method only blocks the account. The method that starts with "Delete the account and its content" deletes the person's pages too.
+        ::
+
         ## Related topics {#b-2d19ed1f}
 
         ::block{#b-9b65bc4f}
+        - [Invitations](/openkb-user-guide/invitations)
         - [Spaces](/openkb-user-guide/spaces)
         - [Backups and updates](/openkb-user-guide/backups-and-updates)
         ::
