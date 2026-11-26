@@ -652,9 +652,9 @@ describe('collaboration WS bridge', () => {
     const note = { uid: 1, at: 1, text: said, via: 'Claude', anchor }
     // Drupal serves the author as the record's `uid`, not in its data; the
     // document carries it in the message.
-    const served = { name: 'admin', at: 1, text: said, anchor }
-    const filed = { ...served, uid: 1 }
+    const served = { name: 'admin', at: expect.any(Number), text: said, anchor }
     const act = { uid: 1, at: 2, resolved: true }
+    const started = Date.now()
     try {
       const session = await open(cookie, docName)
       // The seed leaves hydration to the first client, which here is this
@@ -679,7 +679,11 @@ describe('collaboration WS bridge', () => {
         uid: 1,
         data: served,
       })
-      expect(stored[1]).toMatchObject({ msg_id: 'm-2', uid: 1, data: { at: 2, resolved: true } })
+      expect(stored[1]).toMatchObject({ msg_id: 'm-2', uid: 1, data: { at: expect.any(Number), resolved: true } })
+      // The server's clock, in the writer's order.
+      const noteAt = stored[0]!.data.at
+      expect(noteAt).toBeGreaterThanOrEqual(started)
+      expect(stored[1]!.data.at).toBeGreaterThan(noteAt)
 
       // And the page itself carries no trace of it: a conversation is not
       // content and not gate data.
@@ -716,13 +720,18 @@ describe('collaboration WS bridge', () => {
         thread_id: 'c-2',
         msg_id: 'm-3',
         uid: 1,
-        data: { at: 3, text: parting.text, name: 'admin' },
+        data: { at: expect.any(Number), text: parting.text, name: 'admin' },
       })
+      const partingAt = delivered.find(m => m.msg_id === 'm-3')!.data.at
+      expect(partingAt).toBeGreaterThan(noteAt)
 
       // And the whole conversation outlives the session that said it.
       const second = await open(cookie, docName)
       expect([...second.doc.getMap('comments').values()])
-        .toEqual(expect.arrayContaining([filed, { ...parting, name: 'admin' }]))
+        .toEqual(expect.arrayContaining([
+          { ...served, uid: 1, at: noteAt },
+          { ...parting, name: 'admin', at: partingAt },
+        ]))
     }
     finally {
       await deletePage(cookie, probe.uuid)
@@ -1356,6 +1365,7 @@ describe('collaboration multi-peer settle', () => {
   })
 
   it('files a peer\'s message under that peer, whatever it names', { timeout: 120_000 }, async () => {
+    const started = Date.now()
     const peerB = await createEditorPeer()
     try {
       const probe = await createPage(cookie, 'something to discuss {#b-note}\n')
@@ -1381,8 +1391,9 @@ describe('collaboration multi-peer settle', () => {
           thread_id: 'c-2',
           msg_id: 'm-2',
           uid: peerB.uid,
-          data: { name: peerB.name, at: 2, text: 'said as myself' },
+          data: { name: peerB.name, at: expect.any(Number), text: 'said as myself' },
         }])
+        expect(stored[0]!.data.at).toBeGreaterThanOrEqual(started)
         // The live document says the same, to every peer.
         await expect.poll(() => admin.doc.getMap('comments').has(forged)).toBe(false)
         expect(admin.doc.getMap('comments').get(own)).toMatchObject({ uid: peerB.uid, name: peerB.name })

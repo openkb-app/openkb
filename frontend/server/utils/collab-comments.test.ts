@@ -156,7 +156,7 @@ describe('stampCommentAuthors', () => {
   function stamping(writer: CommentWriter | null): Y.Doc {
     const doc = new Y.Doc()
     commentsRoot(doc).observe((event, transaction) => {
-      if (transaction.origin === PEER) stampCommentAuthors(event, writer)
+      if (transaction.origin === PEER) stampCommentAuthors(event, writer, AT)
     })
     return doc
   }
@@ -192,6 +192,32 @@ describe('stampCommentAuthors', () => {
     expect(messages(doc)).toEqual([
       { msg: 'm-1', uid: 9, name: 'editor2', via: 'Claude', at: AT, text: 'from the agent' },
     ])
+  })
+
+  it('times a new message by the server\'s clock, and keeps the time of an own rewrite', () => {
+    const doc = stamping(EDITOR2)
+    write(doc, 'm-1', { uid: 9, at: AT + 120_000, text: 'from a fast clock' })
+    write(doc, 'm-2', { uid: 9, at: AT - 600_000, text: 'from a slow clock' })
+    write(doc, 'm-1', { uid: 9, at: AT + 500_000, text: 'edited' })
+    expect(messages(doc)).toEqual([
+      { msg: 'm-1', uid: 9, name: 'editor2', at: AT, text: 'edited' },
+      { msg: 'm-2', uid: 9, name: 'editor2', at: AT + 1, text: 'from a slow clock' },
+    ])
+  })
+
+  it('lets an agent\'s resolve win over a reopen sent with a clock ahead', () => {
+    const doc = new Y.Doc()
+    const writer = { current: EDITOR2 }
+    commentsRoot(doc).observe((event, transaction) => {
+      if (transaction.origin === PEER) stampCommentAuthors(event, writer.current, AT)
+    })
+    const anchor = { from: 0, to: 5, quote: 'first' }
+    write(doc, 'm-1', { uid: 9, at: AT, text: 'opened by the agent', anchor })
+    write(doc, 'm-2', { uid: 9, at: AT + 1, resolved: true })
+    write(doc, 'm-3', { uid: 9, at: AT + 120_000, resolved: false })
+    writer.current = { uid: 9, name: 'editor2', via: 'Claude' }
+    write(doc, 'm-4', { uid: 9, at: AT + 2, resolved: true })
+    expect(readThreads(doc)[0]!.resolved).toBe(true)
   })
 
   it('drops a write with no writer behind it', () => {

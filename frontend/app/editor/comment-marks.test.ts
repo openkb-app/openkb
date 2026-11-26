@@ -10,11 +10,10 @@ import { DecorationSet } from '@tiptap/pm/view'
 import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { buildCommitSchemaExtensions, editorSchema } from '../../server/utils/editor-schema'
-import { readThreads, recordCommentMessage, type CommentThread } from '#shared/block-comments'
+import { blockAnchor, readThreads, recordCommentMessage, type CommentThread } from '#shared/block-comments'
 import {
   anchorAtSelection,
   type CommentMarginActions,
-  blockAnchor,
   CommentMarks,
   commentDecorations,
   commentMarginKey,

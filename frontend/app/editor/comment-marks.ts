@@ -5,7 +5,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { addressableBlocks, blockAt, blockLabel, blockAtSelection, ensureBlockId, editsInsideBlocks, marginAnchor, marksInside, topLevelBlockPos, type AddressableBlock } from './review-marks'
 import { widgetDrawnOncePerDecoration } from './widget-drawn-once'
-import { openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
+import { blockAnchor, openThreads, resolveAnchor, type CommentAnchor, type CommentThread } from '#shared/block-comments'
 
 /**
  * Inline comments in the editor (OKB-121) — the surface half of the model in
@@ -80,20 +80,6 @@ export function anchorAtSelection(state: EditorState): CommentAnchor | null {
     to: node.textBetween(0, to).length,
     quote: node.textBetween(from, to),
   }
-}
-
-/**
- * The whole of a block as an anchor — the subject of a comment opened without a
- * passage, so the thread names the block's own words rather than degrading to a
- * bare "this block". Read off the block itself, it does not depend on a live
- * selection surviving the toolbar press, and the projection resolves it over
- * the block's full text ({@link resolveAnchor}).
- *
- * Null for an empty block: there are no words to quote, and a caret-only note on
- * it is genuinely about the block.
- */
-export function blockAnchor(block: { text: string }): CommentAnchor | null {
-  return block.text.length ? { from: 0, to: block.text.length, quote: block.text } : null
 }
 
 /**

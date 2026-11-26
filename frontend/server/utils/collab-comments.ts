@@ -87,8 +87,10 @@ function isMessage(value: unknown): value is CommentMessage {
  * - a take on a thread ({@link refusesTake}) that is not the writer's to take
  *   is removed, and so is `handling: null` — a tab gives a take back by
  *   deleting its own;
- * - otherwise the message gets the writer's uid, name and via, and a take this
- *   server's clock.
+ * - otherwise the message gets the writer's uid, name and via, and a new
+ *   message or take this server's clock: message order and the thread's
+ *   state never rest on a client's clock. A rewrite of the writer's own
+ *   message keeps its time.
  *
  * Returns the keys of the takes it kept.
  */
@@ -100,6 +102,7 @@ export function stampCommentAuthors(
   const root = event.target
   const stamped = new Map<string, CommentMessage | null>()
   const takes: string[] = []
+  const clock = serverClock(root, event, now)
   for (const [key, change] of event.changes.keys) {
     const old = change.oldValue as unknown
     if (isRecord(old) && (!writer || old.uid !== writer.uid)) {
@@ -118,7 +121,7 @@ export function stampCommentAuthors(
       continue
     }
     if (value.handling) takes.push(key)
-    const at = value.handling === undefined ? value.at : now
+    const at = value.handling === undefined && isMessage(old) ? old.at : clock(value.at)
     if (
       value.uid === writer.uid && (value.name ?? null) === writer.name
       && (value.via ?? null) === writer.via && value.at === at
@@ -135,6 +138,27 @@ export function stampCommentAuthors(
     })
   }
   return takes
+}
+
+/** The last time {@link serverClock} handed out, per document. */
+const lastStamp = new WeakMap<Y.Doc, number>()
+
+/**
+ * Server times for the messages one write adds: in the order the writer gave
+ * them, each later than any time handed out before on this document.
+ */
+function serverClock(root: Y.Map<unknown>, event: Y.YMapEvent<unknown>, now: number): (clientAt: number) => number {
+  const added = [...event.changes.keys.keys()]
+    .map(key => root.get(key))
+    .filter(isMessage)
+    .map(message => message.at)
+    .sort((a, b) => a - b)
+  const start = Math.max(now, (lastStamp.get(root.doc!) ?? 0) + 1)
+  return (clientAt) => {
+    const at = start + added.indexOf(clientAt)
+    lastStamp.set(root.doc!, Math.max(at, lastStamp.get(root.doc!) ?? 0))
+    return at
+  }
 }
 
 /**

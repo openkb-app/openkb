@@ -124,8 +124,8 @@ export const THREAD_SCHEMA: JsonSchema = {
     anchor: {
       description:
         'The passage the thread was opened on, as it read then — `quote` is what '
-        + 'it is about and the offsets are where it was. Null for a thread about '
-        + 'the whole block.',
+        + 'it is about and the offsets are where it was. A thread about the whole '
+        + 'block quotes all of its text; null when the block had none.',
       anyOf: [
         {
           type: 'object',
@@ -166,8 +166,7 @@ export const THREAD_SCHEMA: JsonSchema = {
     resolved: {
       type: 'boolean',
       description:
-        'Whether an editor has marked the thread done. Only a human does that — '
-        + 'there is no tool for it.',
+        'Whether the thread was marked done.',
     },
     assignee: {
       description:

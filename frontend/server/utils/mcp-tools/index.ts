@@ -71,7 +71,7 @@ interface Undeclared {
 /**
  * Every argument a tool closed to extras does not declare, down through nested
  * objects and list items. A typo — or a field the tool deliberately has no say
- * over, like a thread's `resolved` — is refused rather than silently ignored.
+ * over, like a message's `via` — is refused rather than silently ignored.
  */
 function undeclaredArguments(schema: JsonSchema, value: unknown, at = ''): Undeclared[] {
   if (Array.isArray(value)) {

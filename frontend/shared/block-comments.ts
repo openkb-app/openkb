@@ -313,6 +313,29 @@ export function resolveAnchor(
 }
 
 /**
+ * The whole of a block as an anchor — the subject of a comment opened without a
+ * passage, so the thread names the block's own words rather than degrading to a
+ * bare "this block". Null for an empty block: there are no words to quote.
+ */
+export function blockAnchor(block: { text: string }): CommentAnchor | null {
+  return block.text.length ? { from: 0, to: block.text.length, quote: block.text } : null
+}
+
+/**
+ * The anchor on the `occurrence`-th (1-based) place `quote` occurs in a
+ * block's text, or null when it does not occur that often.
+ */
+export function quoteAnchor(text: string, quote: string, occurrence: number = 1): CommentAnchor | null {
+  if (quote === '' || occurrence < 1) return null
+  let from = -1
+  for (let seen = 0; seen < occurrence; seen++) {
+    from = text.indexOf(quote, from + 1)
+    if (from === -1) return null
+  }
+  return { from, to: from + quote.length, quote }
+}
+
+/**
  * One message as the inline-comment API names it.
  *
  * The coordinates are hoisted out; everything else the live map holds rides

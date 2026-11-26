@@ -11,7 +11,7 @@ import type { Hocuspocus } from '@hocuspocus/server'
 import { editorSchema } from './editor-schema'
 import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
 import { mintAuthoredIds } from './agent-block-ids'
-import { blockIdOf, collectBlockIds } from '#shared/page-blocks'
+import { blockIdOf, isIdBearing } from '#shared/page-blocks'
 import { actorLabel } from '#shared/utils/attribution'
 import { TITLE_KEY, type FieldSpec, type FieldValues } from './entity-fields'
 import {
@@ -23,7 +23,7 @@ import {
   type PeerIdentity,
 } from './agent-awareness'
 import { blockSegmentsOfDoc, blockVersion } from './block-versions'
-import { mintCommentId, readThreads, recordCommentMessage } from '#shared/block-comments'
+import { blockAnchor, mintCommentId, quoteAnchor, readThreads, recordCommentMessage, type CommentAnchor, type CommentMessage, type CommentThread } from '#shared/block-comments'
 import type { AgentPeerState } from '#shared/utils/presence'
 import type { ProseMirrorJSON } from './commit'
 import type { AttributionPeer } from './collab-attribution'
@@ -596,7 +596,7 @@ async function writeOnUnmoved<T>(
 
 /**
  * One message an agent says about a block: a reply when it names a thread, a
- * new block-level thread when it does not.
+ * new thread when it does not, and optionally the resolve of a thread it opened.
  *
  * A conversation is not content — it rides the document's own `comments` map
  * (ADR 0006) — but it is written through the same session for the same reason
@@ -607,47 +607,115 @@ export interface CommentOp {
   blockId: string
   /** The thread to reply into; absent opens one on the block. */
   threadId?: string
-  text: string
+  /** What to say; optional only when resolving. */
+  text?: string
+  /** The passage a new thread is about; absent for the whole block. */
+  quote?: string
+  /** Which occurrence of `quote` in the block, 1-based. */
+  occurrence?: number
+  /** Marks the named thread resolved, after the message. */
+  resolve?: boolean
 }
 
 /**
  * Writes one message into a block's conversation, under the actor's identity.
  *
- * The block and, when named, the thread must exist: the map's coherence sweep
- * drops a message at a coordinate nobody can reach, so it is refused rather
- * than accepted and lost. Resolving is not offered here — an agent may say
- * something about a thread, not decide it is done.
+ * - The block and, when named, the thread must exist: the map's coherence
+ *   sweep drops a message at a coordinate nobody can reach.
+ * - A new thread is anchored on `quote` in the block's text, or on the whole
+ *   block, as a person's thread is.
+ * - Only a thread the same agent opened may be resolved; people resolve their
+ *   own threads.
  *
  * @throws {UnknownBlockError}
  * @throws {UnknownThreadError}
+ * @throws {CommentRefusedError}
  */
-export function applyComment(doc: Y.Doc, actor: AgentActor, op: CommentOp): { threadId: string, msgId: string } {
+export function applyComment(doc: Y.Doc, actor: AgentActor, op: CommentOp): { threadId: string, msgId?: string, resolved?: true } {
   const { doc: current } = initProseMirrorDoc(doc.getXmlFragment('default'), editorSchema)
-  if (!collectBlockIds(current.toJSON() as JSONContent).has(op.blockId)) {
+  const blocks = (current.toJSON() as JSONContent).content ?? []
+  const index = blocks.findIndex(node => blockIdOf(node) === op.blockId && isIdBearing(node))
+  if (index === -1) {
     throw new UnknownBlockError(op.blockId)
   }
-  if (op.threadId !== undefined && !readThreads(doc)
-    .some(thread => thread.blockId === op.blockId && thread.threadId === op.threadId)) {
+  const thread = op.threadId === undefined
+    ? undefined
+    : readThreads(doc).find(candidate => candidate.blockId === op.blockId && candidate.threadId === op.threadId)
+  if (op.threadId !== undefined && !thread) {
     throw new UnknownThreadError(op.blockId, op.threadId)
+  }
+  if (op.resolve && thread && !thread.messages.some(message => message.anchor)) {
+    throw new CommentRefusedError(`Thread "${op.threadId}" marks no text (its block has none, or its opening message is gone), `
+      + 'so who opened it cannot be told and it is not yours to resolve. Say what you changed in the thread and leave it open.')
+  }
+  if (op.resolve && !(thread && isOpenedBy(thread, actor))) {
+    throw new CommentRefusedError(`Thread "${op.threadId}" was not opened by you, so it is not yours to resolve: `
+      + 'whoever opened it decides when it is settled. Say what you changed in the thread and leave it open.')
+  }
+  if (thread && op.quote !== undefined) {
+    throw new CommentRefusedError('A reply speaks about its thread\'s passage: "quote" is only for a new thread.')
+  }
+  const text = current.child(index).textContent
+  let anchor: CommentAnchor | null = blockAnchor({ text })
+  if (op.quote !== undefined) {
+    anchor = quoteAnchor(text, op.quote, op.occurrence ?? 1)
+    if (!anchor) {
+      const which = op.occurrence && op.occurrence > 1 ? ` ${op.occurrence} times` : ''
+      throw new CommentRefusedError(`Block "${op.blockId}" does not contain the quote${which}; nothing was written. `
+        + 'Quote the text as it reads, without markdown syntax, from a fresh getPageForEditing.')
+    }
   }
 
   const threadId = op.threadId ?? mintCommentId('c')
-  const msgId = mintCommentId('m')
-  recordCommentMessage(doc, op.blockId, threadId, msgId, {
-    uid: actor.uid,
-    name: actor.name,
-    via: actor.via,
-    at: Date.now(),
-    text: op.text,
-  })
-  return { threadId, msgId }
+  const said = { uid: actor.uid, name: actor.name, via: actor.via }
+  const at = Date.now()
+  let msgId: string | undefined
+  if (op.text) {
+    msgId = mintCommentId('m')
+    const message: CommentMessage = { ...said, at, text: op.text }
+    if (!thread && anchor) {
+      message.anchor = anchor
+    }
+    recordCommentMessage(doc, op.blockId, threadId, msgId, message)
+  }
+  if (op.resolve) {
+    // A tick later, so the thread reads as resolved after the message.
+    recordCommentMessage(doc, op.blockId, threadId, mintCommentId('m'), { ...said, at: at + 1, resolved: true })
+  }
+  return { threadId, ...(msgId ? { msgId } : {}), ...(op.resolve ? { resolved: true as const } : {}) }
 }
 
-/** Raised when a comment names a thread the block does not carry. */
+/**
+ * Whether this agent opened the thread: same account and agent label on the
+ * message carrying the anchor.
+ *
+ * - Only the opening message carries an anchor.
+ * - No anchored message (opener deleted, empty block) means nobody's.
+ */
+function isOpenedBy(thread: CommentThread, actor: AgentActor): boolean {
+  const anchored = thread.messages.filter(message => message.anchor)
+  if (!actor.via || anchored.length === 0) {
+    return false
+  }
+  return anchored.every(message => message.uid === actor.uid && message.via === actor.via)
+}
+
+/** Raised when a thread names a block it is not on. */
 export class UnknownThreadError extends Error {
   constructor(public readonly blockId: string, public readonly threadId: string) {
     super(`No thread "${threadId}" on block "${blockId}".`)
     this.name = 'UnknownThreadError'
+  }
+}
+
+/** Raised when a comment op cannot be written as asked; nothing was written. */
+export class CommentRefusedError extends Error {
+  /**
+   * @param message Why the op was refused, phrased for the agent.
+   */
+  constructor(message: string) {
+    super(message)
+    this.name = 'CommentRefusedError'
   }
 }
 
@@ -738,8 +806,8 @@ export interface AgentOpsResult {
   unchanged: string[]
   /** Blocks a replace op with empty markdown removed. */
   removed: string[]
-  /** The thread the message landed in, and the message's own id. */
-  comment?: { threadId: string, msgId: string }
+  /** The thread the message landed in, the message's own id, and whether the thread was resolved. */
+  comment?: { threadId: string, msgId?: string, resolved?: true }
   /** Added files the writer did not upload and the page does not hold: not added. */
   notAccepted?: NotAcceptedFile[]
 }

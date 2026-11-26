@@ -152,12 +152,15 @@ export const WRITE_OUTPUT_SCHEMA: JsonSchema = {
           description:
             'Where a commentOnBlock message landed: the thread it is in — the '
             + 'one you named, or the one opened for it — and its own id. Send '
-            + 'the thread back as `threadId` to keep answering in it.',
+            + 'the thread back as `threadId` to keep answering in it. '
+            + '`resolved` is true when the call resolved the thread; a resolve '
+            + 'without text has no `msgId`.',
           properties: {
             threadId: { type: 'string' },
             msgId: { type: 'string' },
+            resolved: { type: 'boolean' },
           },
-          required: ['threadId', 'msgId'],
+          required: ['threadId'],
           additionalProperties: false,
         },
       },

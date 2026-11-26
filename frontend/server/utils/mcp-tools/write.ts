@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { resolveWriteSubject, routeWrite } from '../agent-write'
 import { AgentJoinError, AgentOpsError, type AgentEditResult } from '../session-router'
-import { DuplicatedBlockError, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError, UnknownThreadError, UnlistedFileError, type AgentOps, type NotAcceptedFile } from '../agent-peer'
+import { CommentRefusedError, DuplicatedBlockError, StaleBlockError, UnanchoredBlockError, UnchainedBlockError, UnknownBlockError, UnknownThreadError, UnlistedFileError, type AgentOps, type NotAcceptedFile } from '../agent-peer'
 import { answered, refused, type ToolResult } from './types'
 
 /**
@@ -52,6 +52,15 @@ export function writeRefusal(message: string, errors: Record<string, string[]> =
  * - Added files the session did not add are named with the way forward. Not
  *   an error; `ok` is false when nothing else was applied.
  */
+/** What a commentOnBlock write did, for the answer's summary line. */
+function describeComment(comment: { threadId: string, msgId?: string, resolved?: true }): string {
+  if (!comment.msgId) {
+    return `resolved thread ${comment.threadId}`
+  }
+  const resolved = comment.resolved ? ' (resolved)' : ''
+  return `comment in thread ${comment.threadId}${resolved}`
+}
+
 function writeResult(result: AgentEditResult): ToolResult {
   const { unchanged, removed, notAccepted = [], ...rest } = result.applied
   const applied = { ...rest, ...(removed.length ? { removed } : {}) }
@@ -61,7 +70,7 @@ function writeResult(result: AgentEditResult): ToolResult {
     applied.body ? 'body' : null,
     blocks.length ? `blocks: ${blocks.map(([id, version]) => `${id}@${version}`).join(', ')}` : null,
     removed.length ? `removed blocks: ${removed.join(', ')}` : null,
-    applied.comment ? `comment in thread ${applied.comment.threadId}` : null,
+    applied.comment ? describeComment(applied.comment) : null,
   ].filter(Boolean).join('; ')
   const notAcceptedNote = notAccepted.length ? ` ${describeNotAcceptedFiles(notAccepted)}` : ''
   if (!changed && notAccepted.length) {
@@ -128,7 +137,7 @@ function staleRefusal(err: StaleBlockError): ToolResult {
  */
 export function sessionRefusal(err: unknown): ToolResult {
   if (err instanceof StaleBlockError) return staleRefusal(err)
-  if (err instanceof UnknownBlockError || err instanceof DuplicatedBlockError || err instanceof UnknownThreadError || err instanceof UnanchoredBlockError || err instanceof UnchainedBlockError || err instanceof UnlistedFileError) {
+  if (err instanceof UnknownBlockError || err instanceof DuplicatedBlockError || err instanceof UnknownThreadError || err instanceof CommentRefusedError || err instanceof UnanchoredBlockError || err instanceof UnchainedBlockError || err instanceof UnlistedFileError) {
     return writeRefusal(err.message)
   }
   if (err instanceof AgentOpsError) return writeRefusal('Validation failed — nothing was written.', err.fields)

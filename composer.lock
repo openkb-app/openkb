@@ -3889,7 +3889,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "173a301657f936ed0fc65bf6783ba53b9e9f9404"
+                "reference": "910a256e68e5b223b97bf81ee35fe611670fc097"
             },
             "require": {
                 "drupal/ai": "^1.5.3",

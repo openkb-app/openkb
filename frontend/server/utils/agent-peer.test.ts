@@ -10,6 +10,7 @@ import {
   applyBlockOps,
   applyBodyMarkdown,
   applyComment,
+  CommentRefusedError,
   applyFieldValues,
   DuplicatedBlockError,
   UnanchoredBlockError,
@@ -37,7 +38,7 @@ import type { ProseMirrorJSON } from './commit'
 import { readBlockMeta } from '#shared/page-blocks'
 import { liveFileLists, liveFileNames, liveHiddenFiles, setFileHidden, setPageFiles } from '#shared/utils/page-files'
 import { seedFiles } from './commit-files'
-import { readThreads } from '#shared/block-comments'
+import { commentsRoot, messageKey, readThreads, recordCommentMessage } from '#shared/block-comments'
 import { collabColor } from '#shared/utils/presence'
 
 /** Runs while the stale check renders its snapshot: a peer edit landing mid-render. */
@@ -472,7 +473,8 @@ describe('applyComment', () => {
     const { threadId, msgId } = applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Fixed the figure.' })
 
     const [thread] = readThreads(doc)
-    expect(thread).toMatchObject({ blockId: 'b-1', threadId, resolved: false, anchor: null })
+    // Without a quote it marks the whole block, as a person's thread does.
+    expect(thread).toMatchObject({ blockId: 'b-1', threadId, resolved: false, anchor: { from: 0, to: 5, quote: 'first' } })
     // The identity a revision and the presence strip use for the same actor:
     // the account is the owner's, `via` is what marks it as the agent's doing.
     expect(thread!.messages).toEqual([expect.objectContaining({
@@ -498,7 +500,114 @@ describe('applyComment', () => {
       .toEqual(['Metric now.', 'What about the units?'])
   })
 
-  it('resolves nothing: the message carries no standing whatever it says', async () => {
+  it('anchors a new thread on the quoted passage, the occurrence it names', async () => {
+    const doc = docWithIdentifiedBlocks([['b-1', 'one fish, two fish']])
+
+    applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Which fish?', quote: 'fish', occurrence: 2 })
+
+    expect(readThreads(doc)[0]!.anchor).toEqual({ from: 14, to: 18, quote: 'fish' })
+  })
+
+  it('refuses a quote the block does not contain, and a quote on a reply', async () => {
+    const doc = docWithIdentifiedBlocks([['b-1', 'one fish, two fish']])
+    const { threadId } = applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Fish.' })
+    const before = Y.encodeStateAsUpdate(doc)
+
+    expect(() => applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Hm.', quote: '**fish**' }))
+      .toThrow(/does not contain the quote/)
+    expect(() => applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Hm.', quote: 'fish', occurrence: 3 }))
+      .toThrow(/3 times/)
+    expect(() => applyComment(doc, ACTOR, { blockId: 'b-1', threadId, text: 'Hm.', quote: 'fish' }))
+      .toThrow(CommentRefusedError)
+
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before)
+  })
+
+  it('resolves a thread the same agent opened, after the closing message', async () => {
+    const doc = docWithIdentifiedBlocks([['b-1', 'first']])
+    const { threadId } = applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Shall I spell out the unit?' })
+
+    const done = applyComment(doc, ACTOR, { blockId: 'b-1', threadId, text: 'Done.', resolve: true })
+
+    expect(done).toMatchObject({ threadId, resolved: true, msgId: expect.any(String) })
+    const [thread] = readThreads(doc)
+    expect(thread!.resolved).toBe(true)
+    // Written in the same millisecond, so their order between themselves is the key's.
+    expect(thread!.messages.map(m => m.text).sort()).toEqual(['Done.', 'Shall I spell out the unit?'])
+
+    // A resolve needs no text; people reopen it the same way.
+    const bare = docWithIdentifiedBlocks([['b-1', 'first']])
+    const opened = applyComment(bare, ACTOR, { blockId: 'b-1', text: 'Question?' })
+    expect(applyComment(bare, ACTOR, { blockId: 'b-1', threadId: opened.threadId, resolve: true }))
+      .toEqual({ threadId: opened.threadId, resolved: true })
+    expect(readThreads(bare)[0]!.resolved).toBe(true)
+  })
+
+  it('refuses to resolve a thread a person or another agent opened', async () => {
+    const doc = docWithIdentifiedBlocks([['b-1', 'first']])
+    const anchor = { from: 0, to: 5, quote: 'first' }
+    recordCommentMessage(doc, 'b-1', 'c-human', 'm-1', { uid: 7, name: 'fago', at: 1, text: 'Spell out the unit.', anchor })
+    recordCommentMessage(doc, 'b-1', 'c-other', 'm-2', { uid: 7, name: 'fago', via: 'Codex', at: 2, text: 'Unit?', anchor })
+    const before = Y.encodeStateAsUpdate(doc)
+
+    // The same account, but the person: theirs to resolve.
+    expect(() => applyComment(doc, ACTOR, { blockId: 'b-1', threadId: 'c-human', text: 'Done.', resolve: true }))
+      .toThrow(/not opened by you/)
+    expect(() => applyComment(doc, ACTOR, { blockId: 'b-1', threadId: 'c-other', resolve: true }))
+      .toThrow(CommentRefusedError)
+    // The person's own account answering as a person never counts as the agent.
+    expect(() => applyComment(doc, { ...ACTOR, via: null }, { blockId: 'b-1', threadId: 'c-human', resolve: true }))
+      .toThrow(CommentRefusedError)
+
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before)
+  })
+
+  it('refuses a person\'s thread whose opening message is stamped ahead of the agent\'s reply', async () => {
+    const doc = docWithIdentifiedBlocks([['b-1', 'first']])
+    const ahead = Date.now() + 60_000
+    const anchor = { from: 0, to: 5, quote: 'first' }
+    recordCommentMessage(doc, 'b-1', 'c-human', 'm-1', { uid: 8, name: 'anna', at: ahead, text: 'Spell out the unit.', anchor })
+    applyComment(doc, ACTOR, { blockId: 'b-1', threadId: 'c-human', text: 'Which unit?' })
+    // The agent's reply now reads first.
+    expect(readThreads(doc)[0]!.messages[0]!.via).toBe('Claude')
+
+    expect(() => applyComment(doc, ACTOR, { blockId: 'b-1', threadId: 'c-human', resolve: true }))
+      .toThrow(/not opened by you/)
+    expect(readThreads(doc)[0]!.resolved).toBe(false)
+  })
+
+  it('refuses a thread whose opening message is gone, even after the agent replied', async () => {
+    const doc = docWithIdentifiedBlocks([['b-1', 'first']])
+    const anchor = { from: 0, to: 5, quote: 'first' }
+    recordCommentMessage(doc, 'b-1', 'c-human', 'm-1', { uid: 8, name: 'anna', at: 1, text: 'Spell out the unit.', anchor })
+    recordCommentMessage(doc, 'b-1', 'c-human', 'm-2', { uid: 8, name: 'anna', at: 2, text: 'And the year.' })
+    applyComment(doc, ACTOR, { blockId: 'b-1', threadId: 'c-human', text: 'Both done.' })
+    commentsRoot(doc).delete(messageKey('b-1', 'c-human', 'm-1'))
+
+    expect(() => applyComment(doc, ACTOR, { blockId: 'b-1', threadId: 'c-human', resolve: true }))
+      .toThrow(/who opened it cannot be told/)
+  })
+
+  it('marks a quote that spans a mark, by the text as it reads', async () => {
+    const doc = prosemirrorJSONToYDoc(editorSchema, {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        attrs: { id: 'b-1' },
+        content: [
+          { type: 'text', text: 'one ' },
+          { type: 'text', text: 'red', marks: [{ type: 'bold' }] },
+          { type: 'text', text: ' fish' },
+        ],
+      }],
+    } as never, 'default')
+
+    applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Which fish?', quote: 'red fish' })
+
+    expect(readThreads(doc)[0]!.anchor).toEqual({ from: 4, to: 12, quote: 'red fish' })
+  })
+
+  it('resolves nothing unless asked: the message carries no standing whatever it says', async () => {
     const doc = docWithIdentifiedBlocks([['b-1', 'first']])
     const { threadId } = applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Done, resolved.' })
 
