@@ -6,7 +6,7 @@ import { blockSegmentsOfDoc, blockVersion } from './block-versions'
 import { writerOfOrigin, type WriterRef } from './collab-attribution'
 import { COLLAB_BLOCK_SETTLE_MS, COLLAB_PRESENCE_SETTLE_MS } from './collab-timing'
 import { blockIdOf } from '#shared/page-blocks'
-import { parseMessageKey, readThreads, type CommentThread } from '#shared/block-comments'
+import { BLOCK_SEPARATOR, parseMessageKey, readThreads, type CommentThread } from '#shared/block-comments'
 import type { ProseMirrorJSON } from './commit'
 import type { AwareDoc } from './agent-awareness'
 import type { AwarenessUser } from '#shared/utils/presence'
@@ -457,20 +457,57 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
     schedulePresence()
   }
 
-  /** A thread is reported whole, however many of its messages just landed. */
+  /** The key a thread is tracked under between reports. */
+  const threadKey = (thread: Pick<CommentThread, 'blockId' | 'threadId'>): string => `${thread.blockId}${BLOCK_SEPARATOR}${thread.threadId}`
+
+  /** Each thread as last read, so a write the server undid is not news. */
+  const lastThreads = new Map(readThreads(doc).map(thread => [threadKey(thread), JSON.stringify(thread)]))
+  /** Threads the current batch of transactions touched. */
+  const touchedThreads = new Set<string>()
+  /** The peers whose writes touched those threads. */
+  let commentWriters: EventPeer[] = []
+
+  /** Notes the threads a comments change touched, and its writer. */
   const onComments = (event: Y.YMapEvent<unknown>): void => {
-    const at = now()
-    const threads = readThreads(doc)
-    const reported = new Set<string>()
-    const wrote = writerOfOrigin(event.transaction.origin)
-    const by = wrote ? peerOfWriter(wrote) : null
+    let touchedAThread = false
     for (const key of event.keysChanged) {
       const coordinates = parseMessageKey(key)
-      if (!coordinates || reported.has(coordinates.threadId)) continue
-      const thread = threads.find(candidate =>
-        candidate.blockId === coordinates.blockId && candidate.threadId === coordinates.threadId)
-      if (!thread) continue
-      reported.add(thread.threadId)
+      if (!coordinates) continue
+      touchedThreads.add(threadKey(coordinates))
+      touchedAThread = true
+    }
+    // A key that is no message touches no thread, so its writer is not news.
+    if (!touchedAThread) return
+    const wrote = writerOfOrigin(event.transaction.origin)
+    if (wrote && !commentWriters.some(seen => isSameWriter(seen, wrote))) {
+      commentWriters.push(peerOfWriter(wrote))
+    }
+  }
+
+  /**
+   * Reports each touched thread whole, once the batch is done.
+   *
+   * The server stamps a peer's comment write in a transaction of its own, which
+   * Yjs runs inside the same batch: what is reported is the stamped thread, by
+   * the peer whose write caused it.
+   */
+  const onAfterAllTransactions = (): void => {
+    if (touchedThreads.size === 0) return
+    const by = commentWriters.length === 1 ? commentWriters[0]! : null
+    const touched = [...touchedThreads]
+    touchedThreads.clear()
+    commentWriters = []
+    const current = new Map(readThreads(doc).map(thread => [threadKey(thread), thread]))
+    const at = now()
+    for (const key of touched) {
+      const thread = current.get(key)
+      if (!thread) {
+        lastThreads.delete(key)
+        continue
+      }
+      const json = JSON.stringify(thread)
+      if (lastThreads.get(key) === json) continue
+      lastThreads.set(key, json)
       record(at, { kind: 'comments', thread, by })
     }
   }
@@ -483,6 +520,7 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
   doc.on('update', onUpdate)
   doc.on('destroy', onDestroy)
   doc.getMap('comments').observe(onComments)
+  doc.on('afterAllTransactions', onAfterAllTransactions)
   doc.awareness.on('update', schedulePresence)
 
   watch.stop = (): void => {
@@ -493,6 +531,7 @@ export function watchSession(target: WatchTarget, options: WatchOptions = {}): S
     doc.off('update', onUpdate)
     doc.off('destroy', onDestroy)
     doc.getMap('comments').unobserve(onComments)
+    doc.off('afterAllTransactions', onAfterAllTransactions)
     doc.awareness.off('update', schedulePresence)
     if (watches.get(target.documentName) === watch) watches.delete(target.documentName)
     for (const wake of [...watch.waiters]) wake()

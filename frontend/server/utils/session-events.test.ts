@@ -4,9 +4,11 @@ import { Awareness } from 'y-protocols/awareness'
 import { absolutePositionToRelativePosition, initProseMirrorDoc, prosemirrorJSONToYDoc } from '@tiptap/y-tiptap'
 import { editorSchema } from './editor-schema'
 import { presenceCarrier, publishAwareness, type AwareDoc } from './agent-awareness'
-import { applyBlockOps, applyComment, type AgentActor, type BlockOp } from './agent-peer'
+import { applyBlockOps, applyComment, isAgentOrigin, type AgentActor, type BlockOp } from './agent-peer'
 import { parseMarkdownToJson } from '../../app/comark/markdown-engine'
-import { recordCommentMessage } from '#shared/block-comments'
+import { commentsRoot, messageKey, recordCommentMessage } from '#shared/block-comments'
+import { isPeerUpdate, writerOfOrigin } from './collab-attribution'
+import { stampCommentAuthors } from './collab-comments'
 import {
   awaitChanges,
   changesSince,
@@ -96,6 +98,22 @@ async function timedOut<T>(waiting: Promise<T>, ms: number): Promise<T> {
 /** Writes the way an agent session does — one transaction, carrying its seat. */
 function asAgent<T>(doc: AwareDoc, write: () => T): T {
   return Y.transact(doc, write, { agent: true, seat: { uid: 7, name: 'fago', via: 'Claude' } })
+}
+
+/** A browser peer's transaction origin, as hocuspocus tags it. */
+const BROWSER = { source: 'connection', connection: { context: { user: { uid: 9 } } } }
+
+/**
+ * Stamps every peer and agent write to the comments map, as the collab server
+ * does (`server/plugins/hocuspocus.ts`). Observes before any watcher, as there.
+ */
+function stampCommentsLikeTheServer(doc: AwareDoc): void {
+  commentsRoot(doc).observe((event, transaction) => {
+    if (!isPeerUpdate(transaction.origin) && !isAgentOrigin(transaction.origin)) return
+    const writer = writerOfOrigin(transaction.origin)
+    const seat = (transaction.origin as { seat?: { name?: string } }).seat
+    stampCommentAuthors(event, writer && { ...writer, name: seat?.name ?? 'Bob' })
+  })
 }
 
 /** Puts a peer in the room, with the block it claims to be working on. */
@@ -479,6 +497,93 @@ describe('session events', () => {
     expect(events[0]).toMatchObject({
       kind: 'comments',
       thread: { threadId: 'c-1', assignee: { uid: 7, name: 'fago', via: 'Claude' } },
+    })
+  })
+
+  describe('behind the server stamp', () => {
+    it('reports a browser peer\'s new thread once, as stamped, by that peer', () => {
+      const doc = documentWith([['b-1', 'first']])
+      stampCommentsLikeTheServer(doc)
+      const log = watch(doc)
+      const cursor = changesSince(log, undefined, ALL).cursor
+
+      Y.transact(doc, () => {
+        recordCommentMessage(doc, 'b-1', 'c-1', 'm-1', { uid: 9, at: 1, text: 'Source?' })
+      }, BROWSER)
+
+      const events = seen(log, cursor)
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        kind: 'comments',
+        by: { uid: 9, via: null },
+        thread: { threadId: 'c-1', messages: [{ uid: 9, name: 'Bob', text: 'Source?' }] },
+      })
+      const stamped = commentsRoot(doc).get(messageKey('b-1', 'c-1', 'm-1')) as { at: number }
+      expect(stamped.at).toBeGreaterThan(1)
+      expect((events[0] as { thread: { messages: Array<{ at: number }> } }).thread.messages[0]!.at).toBe(stamped.at)
+    })
+
+    it('reports an agent\'s new thread once to others, and not back to the agent', () => {
+      const doc = documentWith([['b-1', 'first']])
+      stampCommentsLikeTheServer(doc)
+      const log = watch(doc)
+      const cursor = changesSince(log, undefined, ALL).cursor
+
+      const { threadId } = asAgent(doc, () => applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Fixed it.' }))
+
+      expect(changesSince(log, cursor, ALL, { uid: 7, via: 'Claude' }).events).toEqual([])
+      const events = changesSince(log, cursor, ALL, { uid: 9 }).events
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({ kind: 'comments', thread: { threadId }, by: { uid: 7, via: 'Claude' } })
+    })
+
+    it('reports a resolve once, by whoever resolved', () => {
+      const doc = documentWith([['b-1', 'first']])
+      stampCommentsLikeTheServer(doc)
+      const log = watch(doc)
+      const { threadId } = asAgent(doc, () => applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Fixed it.' }))
+      const cursor = changesSince(log, undefined, ALL).cursor
+
+      Y.transact(doc, () => {
+        recordCommentMessage(doc, 'b-1', threadId, 'm-r', { uid: 9, at: 1, resolved: true })
+      }, BROWSER)
+
+      const events = changesSince(log, cursor, ALL, { uid: 7, via: 'Claude' }).events
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({ kind: 'comments', thread: { threadId, resolved: true }, by: { uid: 9 } })
+    })
+
+    it('reports nothing for a write the server refuses', () => {
+      const doc = documentWith([['b-1', 'first']])
+      stampCommentsLikeTheServer(doc)
+      const log = watch(doc)
+      const { threadId, msgId } = asAgent(doc, () => applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Fixed it.' }))
+      const cursor = changesSince(log, undefined, ALL).cursor
+
+      // Another account's message is not the browser peer's to delete.
+      Y.transact(doc, () => {
+        commentsRoot(doc).delete(messageKey('b-1', threadId, msgId!))
+      }, BROWSER)
+
+      expect(commentsRoot(doc).has(messageKey('b-1', threadId, msgId!))).toBe(true)
+      expect(changesSince(log, cursor, ALL, { uid: 7, via: 'Claude' }).events).toEqual([])
+    })
+
+    it('does not carry a writer of a non-message key into the next comment', () => {
+      const doc = documentWith([['b-1', 'first']])
+      stampCommentsLikeTheServer(doc)
+      const log = watch(doc)
+      const cursor = changesSince(log, undefined, ALL).cursor
+
+      Y.transact(doc, () => {
+        commentsRoot(doc).set('junk', 1)
+      }, BROWSER)
+      const { threadId } = asAgent(doc, () => applyComment(doc, ACTOR, { blockId: 'b-1', text: 'Fixed it.' }))
+
+      expect(changesSince(log, cursor, ALL, { uid: 7, via: 'Claude' }).events).toEqual([])
+      const events = changesSince(log, cursor, ALL, { uid: 9 }).events
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({ kind: 'comments', thread: { threadId }, by: { uid: 7, via: 'Claude' } })
     })
   })
 

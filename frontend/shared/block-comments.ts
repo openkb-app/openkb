@@ -79,7 +79,7 @@ export function commentsRoot(doc: Y.Doc): Y.Map<unknown> {
 
 
 /** Separates the block id from the message coordinates; a block id holds no NUL. */
-const BLOCK_SEPARATOR = '\u0000'
+export const BLOCK_SEPARATOR = '\u0000'
 
 /**
  * Where in the block a thread was opened.
