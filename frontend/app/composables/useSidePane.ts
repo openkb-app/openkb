@@ -35,7 +35,9 @@ export function useSidePane() {
     maxAge: REMEMBER_FOR,
   })
   const hidden = useState<boolean>('side-pane-hidden', () => store.value)
-  const matchesWide = useMediaQuery('(min-width: 1024px)')
+  // A print lays out at paper width; the pane stays as the screen has it, so
+  // no drawer opens mid-print.
+  const matchesWide = useMediaQuery('print, (min-width: 1024px)')
   const mounted = sidePaneMounted()
 
   const content = computed<SidePaneContent | null>(
