@@ -38,6 +38,7 @@
         "drupal/core-composer-scaffold": "^11.4.14",
         "drupal/core-project-message": "^11.4.14",
         "drupal/core-recommended": "~11.4.14",
+        "drupal/easy_email_express": "^1.0.4",
         "drupal/lupus_decoupled_recipe": "^2.1.0",
         "drupal/monitoring": "^1.22.0",
         "drupal/ohdear_integration": "^3.0.0",

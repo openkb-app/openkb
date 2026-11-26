@@ -134,6 +134,7 @@ Thumbs.db
 !/recipes/openkb_recipe_monitoring/
 !/recipes/openkb_recipe_site_manager/
 !/recipes/openkb_recipe_ai_guardrails/
+!/recipes/openkb_recipe_html_email/
 !/recipes/openkb_recipe_user_guide/
 !/recipes/openkb_recipe_starter_spaces/
 # The generated install artifacts the published project ships.

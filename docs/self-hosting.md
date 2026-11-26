@@ -57,14 +57,14 @@ Both services listen on plain HTTP, bound to `127.0.0.1`: `drupal` on `DRUPAL_HT
 
 ## Outgoing mail
 
-Drupal sends account mails — a new account's login link, password resets. The image has no mail server, so nothing leaves the site until `MAILER_DSN` names a transport:
+Drupal sends account mails — invites, a new account's login link, password resets — as HTML mails with a plain-text part ([email.md](email.md)). The image has no mail server, so nothing leaves the site until `MAILER_DSN` names a transport:
 
 ```sh
 MAILER_DSN=smtp://user:pass@smtp.example.com:587   # URL-encode the user and password
 MAIL_FROM=kb@example.com                           # the sender address
 ```
 
-`MAILER_DSN` switches Drupal to core's Symfony mailer with that transport; STARTTLS is used where the server offers it. Use `smtp` or `smtps`: the other [built-in transports](https://symfony.com/doc/current/mailer.html#using-built-in-transports), `sendmail` and `native`, need a local mail server the image lacks. A DSN without scheme or host is ignored, and mail stays off.
+`MAILER_DSN` becomes the default transport of the site's mailer, symfony_mailer_lite; STARTTLS is used where the server offers it. Use `smtp` or `smtps`: the other [built-in transports](https://symfony.com/doc/current/mailer.html#using-built-in-transports), `sendmail` and `native`, need a local mail server the image lacks. A DSN without scheme or host is ignored, and mail stays off.
 
 Set `MAIL_FROM` to an address the relay may send as. Unset, the sender is the installed site mail, `admin@example.com`, which relays reject.
 

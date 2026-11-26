@@ -40,23 +40,16 @@ if (getenv('OKB_SEARCH_READ_ONLY')) {
   $config['search_api.index.kb_chunks']['read_only'] = TRUE;
 }
 
-// Outgoing mail. The installed php_mail plugin needs an MTA, which the image
-// lacks. MAILER_DSN switches to core's Symfony mailer with that transport,
-// e.g. smtp://user:pass@smtp.example.com:587. A DSN without scheme or host is
-// ignored.
+// Outgoing mail goes through symfony_mailer_lite. Its default transport needs
+// an MTA, which the image lacks. MAILER_DSN switches to its `mailer_dsn`
+// transport with that DSN, e.g. smtp://user:pass@smtp.example.com:587. A DSN
+// without scheme or host is ignored.
 if ($mailer_dsn = getenv('MAILER_DSN')) {
   $dsn = parse_url($mailer_dsn);
   if (!empty($dsn['scheme']) && !empty($dsn['host'])) {
-    parse_str($dsn['query'] ?? '', $mailer_options);
-    $config['system.mail']['interface']['default'] = 'symfony_mailer';
-    $config['system.mail']['mailer_dsn'] = [
-      'scheme' => $dsn['scheme'],
-      'host' => $dsn['host'],
-      'user' => isset($dsn['user']) ? rawurldecode($dsn['user']) : NULL,
-      'password' => isset($dsn['pass']) ? rawurldecode($dsn['pass']) : NULL,
-      'port' => $dsn['port'] ?? NULL,
-      'options' => $mailer_options,
-    ];
+    $config['symfony_mailer_lite.settings']['default_transport'] = 'mailer_dsn';
+    $config['symfony_mailer_lite.symfony_mailer_lite_transport.mailer_dsn']['status'] = TRUE;
+    $config['symfony_mailer_lite.symfony_mailer_lite_transport.mailer_dsn']['configuration']['dsn'] = $mailer_dsn;
   }
 }
 
