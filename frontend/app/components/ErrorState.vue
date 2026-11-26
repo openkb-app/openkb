@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { DeadMailedLink } from '~/utils/mailed-links'
+
 /**
  * Branded failure state, shared by the full-page error boundary (app/error.vue)
  * and by inline regions that fail on their own (search results, editor load).
@@ -19,20 +21,24 @@ const props = withDefaults(defineProps<{
   retryable?: boolean
   /** Why a refused request was refused, in the words the route answered. */
   reason?: string
+  /** Why the page, a mailed sign-in or invite link, opens no more. */
+  deadLink?: DeadMailedLink | null
 }>(), {
   statusCode: 500,
   fullPage: false,
   retryable: true,
   reason: '',
+  deadLink: null,
 })
 
 const emit = defineEmits<{ retry: [] }>()
 
 const { isSignedIn } = useCurrentUser()
 
-type Kind = 'not-found' | 'forbidden' | 'refused' | 'unavailable'
+type Kind = DeadMailedLink | 'not-found' | 'forbidden' | 'refused' | 'unavailable'
 
 const kind = computed<Kind>(() => {
+  if (props.deadLink) return props.deadLink
   if (props.statusCode === 404) return 'not-found'
   if (props.statusCode === 401 || props.statusCode === 403) return 'forbidden'
   if (props.statusCode >= 400 && props.statusCode < 500) return 'refused'
@@ -40,6 +46,21 @@ const kind = computed<Kind>(() => {
 })
 
 const copy = computed(() => ({
+  'login-refused': {
+    icon: 'i-lucide-mail-x',
+    title: 'This link is no longer valid',
+    description: 'A sign-in link works once and for a limited time, and an invitation’s link ends when the invitation is cancelled. Ask for a new sign-in link, or the person who invited you for a new invitation.',
+  },
+  'invite-gone': {
+    icon: 'i-lucide-mail-x',
+    title: 'This link is no longer valid',
+    description: 'The invitation was cancelled or has expired. To join, ask the person who invited you to invite you again.',
+  },
+  'invite-closed': {
+    icon: 'i-lucide-mail-x',
+    title: 'This invitation is not open to this account',
+    description: 'It was accepted already, or it was sent to someone else.',
+  },
   'not-found': {
     icon: 'i-lucide-file-question',
     title: 'This page doesn’t exist',
@@ -67,6 +88,9 @@ const copy = computed(() => ({
 const route = useRoute()
 const loginHref = computed(() => `/user/login?destination=${encodeURIComponent(route.fullPath)}`)
 const showRetry = computed(() => props.retryable && kind.value === 'unavailable')
+const showSignIn = computed(() => !isSignedIn.value && kind.value === 'forbidden')
+const showNewLink = computed(() => kind.value === 'login-refused')
+const homeIsPrimary = computed(() => !showRetry.value && !showSignIn.value && !showNewLink.value)
 </script>
 
 <template>
@@ -105,7 +129,7 @@ const showRetry = computed(() => props.retryable && kind.value === 'unavailable'
           Try again
         </UButton>
         <UButton
-          v-if="kind === 'forbidden' && !isSignedIn"
+          v-if="showSignIn"
           :to="loginHref"
           color="primary"
           size="md"
@@ -115,9 +139,19 @@ const showRetry = computed(() => props.retryable && kind.value === 'unavailable'
           Sign in
         </UButton>
         <UButton
+          v-if="showNewLink"
+          to="/user/password"
+          color="primary"
+          size="md"
+          block
+          icon="i-lucide-mail"
+        >
+          Request a new sign-in link
+        </UButton>
+        <UButton
           to="/"
-          :color="showRetry || (kind === 'forbidden' && !isSignedIn) ? 'neutral' : 'primary'"
-          :variant="showRetry || (kind === 'forbidden' && !isSignedIn) ? 'outline' : 'solid'"
+          :color="homeIsPrimary ? 'primary' : 'neutral'"
+          :variant="homeIsPrimary ? 'solid' : 'outline'"
           size="md"
           block
           icon="i-lucide-home"

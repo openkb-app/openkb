@@ -13,9 +13,6 @@
 // eat that before it happened.
 const ANON_ROUTES = new Set(['/access-denied', '/user/login', '/user/password', '/oauth/authorize'])
 
-// The one-time login link: the invitee's, or a password reset's.
-const ONE_TIME_LOGIN = /^\/user\/reset\//
-
 // A Drupal session cookie; Drupal hashes its name from the cookie domain.
 const SESSION_COOKIE = /(?:^|;\s*)S?SESS[a-z0-9]+=/i
 

@@ -17,6 +17,11 @@ const status = computed(() => {
   return [401, 403, 404].includes(code) ? code : (code >= 500 ? code : 500)
 })
 
+const route = useRoute()
+const { isSignedIn } = useCurrentUser()
+const deadLink = computed(() => deadMailedLink(route.path, status.value, isSignedIn.value))
+
+/** Re-runs the failed navigation. */
 function retry() {
   clearError({ redirect: useRoute().fullPath })
 }
@@ -26,6 +31,8 @@ function retry() {
 useHead({
   title: () => {
     const code = status.value
+    if (deadLink.value === 'invite-closed') return 'Invitation not open · OpenKnowledgebase'
+    if (deadLink.value) return 'Link no longer valid · OpenKnowledgebase'
     if (code === 404) return 'Page not found · OpenKnowledgebase'
     if (code === 401 || code === 403) return 'No access · OpenKnowledgebase'
     return 'Temporarily unavailable · OpenKnowledgebase'
@@ -34,5 +41,5 @@ useHead({
 </script>
 
 <template>
-  <ErrorState :status-code="status" full-page @retry="retry" />
+  <ErrorState :status-code="status" :dead-link="deadLink" full-page @retry="retry" />
 </template>
