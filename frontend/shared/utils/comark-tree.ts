@@ -1052,14 +1052,14 @@ const URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'srcset', 'formaction', 
 const UNSAFE_SCHEME = /^(javascript|vbscript|data):/i
 
 /** C0 and space: the URL parser ignores them, the scheme checks must not. */
-const CONTROLS = /[\u0000-\u0020]/g
+export const CONTROLS = /[\u0000-\u0020]/g
 
 /**
  * The `data:` URIs a document may carry: an image of any type, its bytes inert
  * (a browser runs no script inside an `<img>`). Strip C0 and space first: the
  * URL parser ignores them, so `da\nta:image/…` would read as `data:` in the DOM.
  */
-function isDataImage(url: string): boolean {
+export function isDataImage(url: string): boolean {
   return /^data:image\//i.test(url.replace(CONTROLS, ''))
 }
 

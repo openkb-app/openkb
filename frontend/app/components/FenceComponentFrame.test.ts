@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createSSRApp, createApp, defineComponent, h, nextTick } from 'vue'
 import { renderToString } from 'vue/server-renderer'
+import { setBrowserPrintRender } from '~/composables/usePrintRender'
 import FenceComponentFrame from './FenceComponentFrame.vue'
 import HighlightedCodeBlock from './HighlightedCodeBlock.vue'
 
@@ -35,6 +36,7 @@ function mount(props: Record<string, unknown>): { root: HTMLElement, vm: Record<
 const errorText = (root: HTMLElement) => root.querySelector('.okb-fence-error')!.textContent!.trim()
 
 afterEach(() => {
+  setBrowserPrintRender(false)
   for (const app of apps.splice(0)) {
     if (app._container) app.unmount()
   }
@@ -47,6 +49,25 @@ describe('FenceComponentFrame', () => {
     expect(html).toMatch(/^<figure class="okb-fence" data-fence="stub" data-state="ok" id="b-d1">/)
     expect(html).toContain(SVG)
     expect(html).toMatch(/<button type="button" class="okb-fence-toggle" aria-expanded="false"/)
+  })
+
+  it('shows the source in a print render of a fence without a server drawing', async () => {
+    setBrowserPrintRender(true)
+    const html = await renderToString(withStubs(createSSRApp({ render: () => h(FenceComponentFrame, { fence: 'stub', source: SOURCE }) })))
+    expect(html).not.toContain('style="display:none;"')
+    expect(html).toContain('<code>')
+  })
+
+  it('hides the source in a print render of a drawn fence', async () => {
+    setBrowserPrintRender(true)
+    const html = await renderToString(withStubs(createSSRApp({ render: () => h(FenceComponentFrame, { fence: 'stub', source: SOURCE, html: SVG }) })))
+    expect(html).toContain(SVG)
+    expect(html).toContain('style="display:none;"')
+
+    const { root } = mount({ source: SOURCE })
+    await vi.waitFor(() => expect(root.querySelector('.okb-fence')!.hasAttribute('data-drawn')).toBe(true))
+    const panel = document.getElementById(root.querySelector('button.okb-fence-toggle')!.getAttribute('aria-controls')!)!
+    expect(panel.style.display).toBe('none')
   })
 
   it("hands the source to the fence's component", async () => {

@@ -16,18 +16,21 @@ const ANON_ROUTES = new Set(['/access-denied', '/user/login', '/user/password', 
 // The one-time login link: the invitee's, or a password reset's.
 const ONE_TIME_LOGIN = /^\/user\/reset\//
 
+// A Drupal session cookie; Drupal hashes its name from the cookie domain.
+const SESSION_COOKIE = /(?:^|;\s*)S?SESS[a-z0-9]+=/i
+
 /**
- * Whether the request carries a Drupal session cookie.
+ * Whether the request carries a Drupal session cookie, or is the page
+ * export's render of the read page (with an agent's token, too).
  *
- * - SSR: matches the raw Cookie header; Drupal hashes the cookie name from
- *   the cookie domain.
+ * - SSR: matches the raw Cookie header, or the export render's carrier
+ *   (server/utils/export-render.ts).
  * - Client: always true; the initial SSR already gated the visitor.
  */
-function hasSessionCookie(): boolean {
+function hasSessionCookieOrIsExportRender(): boolean {
   if (import.meta.server) {
-    const event = useRequestEvent()
-    const raw = event?.node?.req?.headers?.cookie ?? ''
-    return /(?:^|;\s*)S?SESS[a-z0-9]+=/i.test(raw)
+    const raw = useRequestEvent()?.node?.req?.headers?.cookie ?? ''
+    return SESSION_COOKIE.test(raw) || Object.keys(useExportRenderAuthHeaders()).length > 0
   }
   // Client. document.cookie omits HttpOnly cookies — so on a client-only
   // navigation we have to assume the initial SSR already let the user
@@ -43,7 +46,7 @@ export default defineNuxtRouteMiddleware((to) => {
   if (ANON_ROUTES.has(to.path) || ONE_TIME_LOGIN.test(to.path)) {
     return
   }
-  if (!hasSessionCookie()) {
+  if (!hasSessionCookieOrIsExportRender()) {
     return navigateTo({ path: '/access-denied', query: { from: to.fullPath } })
   }
 })

@@ -1,9 +1,10 @@
 import { defineEventHandler, getRouterParam, createError } from 'h3'
 import { findKbPageByPath } from '../../utils/drupal'
 import { getKbPage } from '../../utils/kb-read'
+import { exportPageHtml } from '../../utils/page-export'
 
 /**
- * GET /api/kb/<space>/<slug>(.md) and /api/kb/<space>/<slug>/draft.md
+ * GET /api/kb/<space>/<slug>(.md|.html) and /api/kb/<space>/<slug>/draft.(md|html)
  *
  * One catch-all, because a page's address is its multi-segment space-scoped
  * path now (`team-wiki/getting-started`) — a single `[slug]` param cannot carry
@@ -18,6 +19,8 @@ import { getKbPage } from '../../utils/kb-read'
  *  - `<path>.md` → the *published* comark body with a YAML frontmatter
  *    projection above it (text/markdown), the same projection Drupal's
  *    `tool_api__get_page` tool serves. Draft writes are invisible here by design.
+ *  - `<path>.html` and `<path>/draft.html` → the same two versions as one
+ *    self-contained print HTML file, a download (server/utils/page-export.ts).
  *  - `<path>` (no suffix) → a small JSON view of the published page.
  *
  * The draft suffix is told apart from a page literally slugged `draft` by
@@ -29,6 +32,14 @@ import { getKbPage } from '../../utils/kb-read'
 export default defineEventHandler(async (event) => {
   const path = getRouterParam(event, 'path')
   if (!path) throw createError({ statusCode: 400, statusMessage: 'Missing path' })
+
+  const htmlDraftStem = path.replace(/\/draft\.html$/, '')
+  if (htmlDraftStem !== path && htmlDraftStem.includes('/')) {
+    return exportPageHtml(event, htmlDraftStem, 'working-copy')
+  }
+  if (path.endsWith('.html')) {
+    return exportPageHtml(event, path.slice(0, -'.html'.length), 'default')
+  }
 
   const draftStem = path.replace(/\/draft\.md$/, '')
   if (draftStem !== path && draftStem.includes('/')) {

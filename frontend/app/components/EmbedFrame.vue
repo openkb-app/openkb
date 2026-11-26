@@ -16,6 +16,7 @@ const reportedHeights = new Map<string, number>()
  *   download, so the download button is its only link;
  * - anything else, or no file: the file card.
  * Drupal sends the matching headers (PageFileEmbedSubscriber).
+ * A print render shows a link to the file instead of the frame.
  */
 import { EMBED_MIN_HEIGHT, embedFrameHeight, embedKind, fileDownloadUrl, type ResolvedFile } from '#shared/utils/files'
 
@@ -52,7 +53,7 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
 <template>
   <figure
     v-if="file && kind"
-    class="not-prose overflow-hidden rounded-lg border border-default"
+    class="not-prose overflow-hidden rounded-lg border border-default print:break-inside-avoid"
     :aria-label="`${label} ${frameTitle}`"
     :data-test="`embed-${kind}`"
   >
@@ -65,7 +66,7 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
         :href="file.url"
         target="_blank"
         rel="noopener"
-        class="shrink-0 rounded-md px-1.5 py-0.5 text-muted hover:bg-elevated hover:text-default"
+        class="shrink-0 rounded-md px-1.5 py-0.5 text-muted hover:bg-elevated hover:text-default print:hidden"
         data-test="embed-open"
       >Open full</a>
       <a
@@ -74,7 +75,7 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
         target="_blank"
         rel="noopener"
         :aria-label="`Download ${file.name}`"
-        class="shrink-0 rounded-md p-1 text-muted hover:bg-elevated hover:text-default"
+        class="shrink-0 rounded-md p-1 text-muted hover:bg-elevated hover:text-default print:hidden"
       >
         <UIcon name="i-lucide-download" class="block size-4" aria-hidden="true" />
       </a>
@@ -87,7 +88,7 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
       :title="frameTitle"
       loading="lazy"
       referrerpolicy="no-referrer"
-      class="block w-full bg-white"
+      class="block w-full bg-white print:hidden"
       :style="{ height: `${height}px` }"
       data-test="embed-frame"
     />
@@ -97,9 +98,14 @@ onMounted(() => watch(kind, (value, _, onCleanup) => {
       :title="frameTitle"
       loading="lazy"
       referrerpolicy="no-referrer"
-      class="block h-[70vh] w-full"
+      class="block h-[70vh] w-full print:hidden"
       data-test="embed-frame"
     />
+    <a
+      :href="file.url"
+      class="okb-file-link hidden px-3 py-2 text-sm print:block"
+      data-test="embed-print-link"
+    >{{ file.name }}</a>
   </figure>
   <AttachmentCard v-else :file="file" :description="title" :pending="pending" />
 </template>

@@ -318,7 +318,7 @@ const dragHandleOptions = {
           <div
             role="presentation"
             data-testid="block-gutter"
-            class="h-full cursor-pointer"
+            class="h-full cursor-pointer print:hidden"
             @click="selectBlockFromGutter"
           >
             <!-- `whitespace-normal`: the refusal a review item carries is a

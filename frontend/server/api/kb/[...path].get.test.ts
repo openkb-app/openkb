@@ -22,6 +22,11 @@ vi.mock('../../utils/drupal', () => ({
   fetchFrontmatterSpecs: (...a: unknown[]) => fetchFrontmatterSpecs(...a),
 }))
 
+const exportPageHtml = vi.fn()
+vi.mock('../../utils/page-export', () => ({
+  exportPageHtml: (...a: unknown[]) => exportPageHtml(...a),
+}))
+
 const liveContent = vi.fn()
 vi.mock('../../utils/session-read', () => ({
   liveContent: (...a: unknown[]) => liveContent(...a),
@@ -54,6 +59,7 @@ describe('GET /api/kb/<space>/<slug>(.md|/draft.md)', () => {
     fetchCeWorkingCopy.mockReset()
     fetchFrontmatterSpecs.mockReset().mockResolvedValue(SPECS)
     liveContent.mockReset().mockReturnValue(null)
+    exportPageHtml.mockReset().mockResolvedValue('<!DOCTYPE html>')
   })
 
   it('404s when the page is missing', async () => {
@@ -134,5 +140,20 @@ describe('GET /api/kb/<space>/<slug>(.md|/draft.md)', () => {
     await handler(ev)
     expect(fetchCePage).toHaveBeenCalledWith(ev, 'team-wiki/draft')
     expect(fetchCeWorkingCopy).not.toHaveBeenCalled()
+  })
+
+  it('.html and /draft.html → the print HTML of the published page and of the working copy', async () => {
+    const published = event('team-wiki/getting-started.html')
+    expect(await handler(published)).toBe('<!DOCTYPE html>')
+    expect(exportPageHtml).toHaveBeenCalledWith(published, 'team-wiki/getting-started', 'default')
+
+    const draft = event('team-wiki/getting-started/draft.html')
+    await handler(draft)
+    expect(exportPageHtml).toHaveBeenCalledWith(draft, 'team-wiki/getting-started', 'working-copy')
+
+    // A page slugged `draft`: its published HTML.
+    const slugged = event('team-wiki/draft.html')
+    await handler(slugged)
+    expect(exportPageHtml).toHaveBeenCalledWith(slugged, 'team-wiki/draft', 'default')
   })
 })

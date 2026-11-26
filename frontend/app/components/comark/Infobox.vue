@@ -21,7 +21,7 @@ const slots = useSlots()
 <template>
   <section
     data-test="infobox"
-    class="my-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/60 px-5 py-4"
+    class="my-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/60 px-5 py-4 print:break-inside-avoid"
   >
     <!-- Chrome inside a prose body states its own scale as important:
          `okb-prose` styles by descendant selector, so its heading classes reach

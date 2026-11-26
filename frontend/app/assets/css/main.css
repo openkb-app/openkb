@@ -1,5 +1,18 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./print.css";
+
+/* `print:` matches a print render: the class on the root that the export's
+   render and the browser's print set, or a print before any script ran
+   (docs/adr/0029-the-print-render.md). */
+@custom-variant print {
+  &:where(.okb-print-render, .okb-print-render *) {
+    @slot;
+  }
+  @media print {
+    @slot;
+  }
+}
 
 /* The two brand faces, served from `public/fonts/` — one variable file per
    family covers every weight the book uses, and the OFL text sits beside each
@@ -318,6 +331,81 @@
   @apply [&_code]:text-xs!;
 }
 
+/* Page content in a print render. A component's box states its own
+   `print:break-inside-avoid`. */
+.okb-prose {
+  /* A block that fits on one page stays whole; a heading stays with what
+     follows it. */
+  & :is(p, li, blockquote, pre, figure, img, tr) {
+    @variant print {
+      break-inside: avoid;
+    }
+  }
+  & :is(h1, h2, h3, h4, h5, h6) {
+    @variant print {
+      break-after: avoid;
+      break-inside: avoid;
+    }
+  }
+  & p {
+    @variant print {
+      orphans: 3;
+      widows: 3;
+    }
+  }
+  /* Rows may break across pages; the header repeats. */
+  & thead {
+    @variant print {
+      display: table-header-group;
+    }
+  }
+  /* Columns sized by their content, so a cell wraps between words.
+     - The cap makes a word longer than a third of the paper break inside the
+       cell instead of running off the paper.
+     - Compact cells leave room for ten columns. */
+  & table {
+    @variant print {
+      break-inside: auto;
+      table-layout: auto !important;
+    }
+  }
+  & :is(th, td) {
+    @variant print {
+      max-width: 60mm;
+      padding: 3pt 5pt !important;
+      font-size: 8.5pt !important;
+      line-height: 1.35 !important;
+      overflow-wrap: break-word;
+    }
+  }
+  & a {
+    @variant print {
+      color: inherit !important;
+      border: 0 !important;
+      text-decoration: underline;
+      text-decoration-color: #9ca3af;
+    }
+  }
+  /* Scaled to the paper, never split. */
+  & img {
+    @variant print {
+      max-height: 230mm;
+      object-fit: contain;
+    }
+  }
+}
+/* An external link's address after its text. A page file's link is not an
+   address the reader types (`okb-file-link`); its name says it. */
+@variant print {
+  .okb-prose a[href^='http']:not([data-lightbox], [download], .okb-file-link)::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    font-weight: normal;
+    color: #4b5563;
+    word-break: break-all;
+  }
+}
+
 html, body {
   font-family: var(--font-sans);
 }
@@ -485,6 +573,12 @@ body {
   flex: 1 1 auto;
 }
 
+/* A peer's caret and name do not print. */
+:is(.collaboration-carets__caret, .collaboration-carets__label) {
+  @variant print {
+    display: none !important;
+  }
+}
 .collaboration-carets__caret {
   border-left: 1px solid;
   border-right: 1px solid;
@@ -896,6 +990,17 @@ body {
 .inplace-editor .ProseMirror .okb-comment-range {
   background-color: color-mix(in srgb, var(--color-warning-500) 22%, transparent);
   border-bottom: 1px solid var(--ui-warning);
+
+  @variant print {
+    background: none !important;
+    border: 0 !important;
+  }
+}
+/* Editor marks do not print, when printing from edit mode. */
+.inplace-editor :is(.okb-comment-badge, .okb-comment-start, .okb-review-pills, .okb-margin-gap) {
+  @variant print {
+    display: none !important;
+  }
 }
 /* Every addressable block anchors its own margin marks, so one rule places
    the control whatever the block holds. The strip below extends hover into
@@ -1105,6 +1210,13 @@ body {
 .inplace-editor .ProseMirror > :focus-within:not(.ProseMirror-selectednode, .okb-margin-gap) {
   --okb-board: var(--ui-border-accented);
 }
+/* Interactive state never prints. */
+.page-body [id^='b-'] {
+  @variant print {
+    outline: none !important;
+    background-image: none !important;
+  }
+}
 .inplace-editor .ProseMirror .okb-comment-badge,
 .inplace-editor .ProseMirror .okb-comment-start,
 .inplace-editor .ProseMirror .okb-claimed::before {
@@ -1133,6 +1245,10 @@ body {
 .okb-block-margin {
   position: relative;
   height: 0;
+
+  @variant print {
+    display: none !important;
+  }
 }
 .okb-block-margin-tools {
   position: absolute;
@@ -1296,10 +1412,15 @@ body {
 .okb-block-link:focus-visible {
   color: var(--ui-text-highlighted);
 }
-/* No margin to sit in and no hover to reveal it. */
+/* No margin to sit in and no hover to reveal it; no paper to click it on. */
 @media (max-width: 767px) {
   .okb-block-link {
     display: none;
+  }
+}
+.okb-block-link {
+  @variant print {
+    display: none !important;
   }
 }
 
@@ -1483,6 +1604,11 @@ body {
   color: var(--ui-text-muted);
   user-select: none;
   white-space: normal;
+
+  /* No copy button on paper. */
+  @variant print {
+    display: none !important;
+  }
 }
 .okb-code-lang {
   margin-inline-end: auto;
@@ -1544,6 +1670,12 @@ body {
 .okb-fence-toggle:hover {
   color: var(--ui-text-highlighted);
   background: var(--ui-bg-accented);
+}
+/* The drawing prints, not its source toggle. */
+.okb-fence-toggle {
+  @variant print {
+    display: none !important;
+  }
 }
 /* The line the fence refused, in the editor's source. */
 .okb-code-errline {

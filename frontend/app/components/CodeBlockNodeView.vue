@@ -130,7 +130,7 @@ function markLine(error: FenceError | null): void {
     @toggle="onToggle"
   >
     <template #source>
-      <pre class="okb-code"><span
+      <pre class="okb-code print:overflow-visible! print:whitespace-pre-wrap! print:wrap-break-word"><span
         class="okb-code-tools"
         contenteditable="false"
       ><USelect
@@ -152,7 +152,7 @@ function markLine(error: FenceError | null): void {
   <NodeViewWrapper
     v-else
     as="pre"
-    class="okb-code"
+    class="okb-code print:overflow-visible! print:whitespace-pre-wrap! print:wrap-break-word"
     :id="props.HTMLAttributes.id"
   >
     <span

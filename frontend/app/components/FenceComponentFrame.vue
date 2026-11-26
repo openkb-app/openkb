@@ -7,11 +7,16 @@
  * The editor passes its node view wrapper as `wrapper` and the editable code
  * as the `source` slot, so pressing Edit swaps nothing that has a size
  * (docs/adr/0022).
+ *
+ * A print render shows the source of a fence nothing drew: the export's
+ * server render of a fence without a server drawing. In the browser the
+ * drawing prints.
  */
 import { computed, ref, useId, watch, type Component } from 'vue'
 import { fenceComponents } from '#okb-fence-components'
 import type { CodeLine } from '#shared/utils/code-highlight'
 import { describeFenceError, fenceFor, type FenceError } from '#shared/utils/fences'
+import { usePrintRender } from '~/composables/usePrintRender'
 
 const props = defineProps<{
   /** The fence's language. */
@@ -46,6 +51,7 @@ const definition = computed(() => fenceFor(props.fence))
 const drawer = computed(() => fenceComponents[props.fence])
 const failure = ref<FenceError | null>(props.error ?? null)
 const sourceId = useId()
+const printRender = usePrintRender()
 
 const empty = computed(() => props.source.trim() === '')
 const sourceLines = computed(() => props.lines ?? props.source.split('\n').map(line => (line === '' ? [] : [{ content: line }])))
@@ -58,6 +64,7 @@ const message = computed(() => failure.value
  * outside the editor.
  */
 const drawn = ref(Boolean(props.error && !props.preview))
+const sourceShown = computed(() => open.value || (printRender.value && props.html === undefined && !drawn.value))
 
 /** A source that does not draw opens on the first draw only; later edits keep the reader's choice. */
 function report(next: FenceError | null): void {
@@ -141,7 +148,7 @@ watch(empty, (now) => {
         {{ open ? 'Hide source' : 'Show source' }}
       </button>
       <div
-        v-show="open"
+        v-show="sourceShown"
         :id="sourceId"
       >
         <slot name="source">

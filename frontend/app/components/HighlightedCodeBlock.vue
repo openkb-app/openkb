@@ -54,7 +54,7 @@ const status = computed(() => ({
 <!-- Whitespace inside `pre` is content: every break below sits inside a tag. -->
 <template>
   <pre
-    class="okb-code"
+    class="okb-code print:overflow-visible! print:whitespace-pre-wrap! print:wrap-break-word"
     :data-language="language || undefined"
   ><span
     class="okb-code-tools"

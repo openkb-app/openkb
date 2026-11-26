@@ -41,7 +41,7 @@ const tone = computed(() => {
 <template>
   <div
     data-test="callout"
-    class="my-4 rounded-lg ring-1 px-4 py-3 flex gap-3"
+    class="my-4 rounded-lg ring-1 px-4 py-3 flex gap-3 print:break-inside-avoid"
     :class="[tone.ring, tone.bg, tone.text]"
   >
     <!-- The editor keeps the icon's column and hides the icon. -->

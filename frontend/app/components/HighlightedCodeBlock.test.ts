@@ -70,7 +70,7 @@ describe('HighlightedCodeBlock', () => {
     app.component('UIcon', UIcon)
     const html = (await renderToString(app)).replace(/<!--.*?-->/g, '')
     expect(html).toMatch(/<code><span>x<\/span>\n<span>y<\/span><\/code><\/pre>$/)
-    expect(html).toMatch(/^<pre class="okb-code"><span class="okb-code-tools">/)
+    expect(html).toMatch(/^<pre class="okb-code[^"]*"><span class="okb-code-tools">/)
   })
 
   it('never renders markup from the tree', () => {

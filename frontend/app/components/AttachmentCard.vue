@@ -37,7 +37,7 @@ const size = computed(() => formatFileSize(props.file?.size))
     :href="fileNameLinkUrl(file)"
     target="_blank"
     rel="noopener"
-    class="inline-flex items-baseline gap-1"
+    class="okb-file-link inline-flex items-baseline gap-1"
     data-test="attachment-link"
   >
     <UIcon :name="fileIcon(file.mime)" class="size-4 self-center" aria-hidden="true" /><slot name="label">{{ label || file.name }}</slot>
@@ -48,14 +48,14 @@ const size = computed(() => formatFileSize(props.file?.size))
   </span>
   <div
     v-else-if="file"
-    class="not-prose flex items-center gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3"
+    class="not-prose flex items-center gap-3 rounded-lg border border-default bg-elevated/40 px-4 py-3 print:break-inside-avoid"
     data-test="attachment-card"
   >
     <img v-if="file.mime.startsWith('image/')" :src="file.url" alt="" loading="lazy" class="size-10 shrink-0 rounded object-cover">
     <UIcon v-else :name="fileIcon(file.mime)" class="size-6 shrink-0 text-muted" aria-hidden="true" />
     <div class="min-w-0 flex-1">
       <slot name="name">
-        <a :href="fileNameLinkUrl(file)" target="_blank" rel="noopener" class="inline-block max-w-full truncate align-top font-medium">{{ file.name }}</a>
+        <a :href="fileNameLinkUrl(file)" target="_blank" rel="noopener" class="okb-file-link inline-block max-w-full truncate align-top font-medium print:whitespace-normal">{{ file.name }}</a>
       </slot>
       <slot name="description">
         <p v-if="description" class="text-sm text-muted" data-test="attachment-description">
@@ -73,7 +73,7 @@ const size = computed(() => formatFileSize(props.file?.size))
       target="_blank"
       rel="noopener"
       :aria-label="`Download ${file.name}`"
-      class="shrink-0 rounded-md p-1.5 text-muted hover:bg-elevated hover:text-default"
+      class="shrink-0 rounded-md p-1.5 text-muted hover:bg-elevated hover:text-default print:hidden"
       data-test="attachment-download"
     >
       <UIcon name="i-lucide-download" class="block size-4" aria-hidden="true" />

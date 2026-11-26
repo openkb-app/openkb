@@ -25,7 +25,8 @@ if (route.path.startsWith('/api/')) {
 // (`[GET] "/api/drupal-ce/…": 500 …`), which then rides into the client
 // payload. Replace it with a status-only error: app/error.vue derives all
 // user-facing copy from the status class anyway.
-const page = await fetchPage(route.path, { query: route.query }, (error) => {
+// The page export's render carries its reader's carrier (an agent token, too).
+const page = await fetchPage(route.path, { query: route.query, headers: useExportRenderAuthHeaders() }, (error) => {
   const statusCode = Number(error.value?.statusCode) || 503
   // No query: its `pass-reset-token` sets a password without the current one.
   console.error(`[kb-page] ${loggablePath(route.path)} → ${statusCode}`)

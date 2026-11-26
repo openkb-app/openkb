@@ -5,9 +5,10 @@ import type { DropdownMenuItem } from '@nuxt/ui'
  * The page's own action menu — actions about the page rather than about its
  * text. One menu holds them all, so the navbar never grows a second kebab.
  *
- * Read and edit mode offer the same entries, but two: Revert unsaved changes
- * acts on a live editing session and is edit-only, Print / Save as PDF prints
- * the read view and is read-only. Every other entry is gated on its own signal.
+ * Read and edit mode offer the same entries, but three: Revert unsaved changes
+ * acts on a live editing session and is edit-only; Print / Save as PDF and
+ * Download as HTML export the read view and are read-only. Every other entry
+ * is gated on its own signal.
  *
  * Move and Delete carry separate signals because they are separate Drupal
  * permissions: under editorial moderation an editor who may update a page
@@ -68,6 +69,18 @@ async function loadCurrentSpace() {
   }
 }
 
+/**
+ * Prints the page as a print render: the markup changes first, then the
+ * browser prints. A browser that copies the page on `window.print()` misses a
+ * change made on `beforeprint`.
+ */
+async function printPage(): Promise<void> {
+  setBrowserPrintRender(true)
+  await nextTick()
+  window.print()
+  setBrowserPrintRender(false)
+}
+
 const items = computed<DropdownMenuItem[][]>(() => {
   const groups: DropdownMenuItem[][] = []
   // What the reader can do with the document, in either mode.
@@ -93,7 +106,16 @@ const items = computed<DropdownMenuItem[][]>(() => {
     docGroup.push({
       label: 'Print / Save as PDF',
       icon: 'i-lucide-printer',
-      onSelect: () => window.print(),
+      onSelect: printPage,
+    })
+  }
+  if (!props.edit && props.markdownHref) {
+    // The page's self-contained print HTML, next to its markdown: a download.
+    docGroup.push({
+      label: 'Download as HTML',
+      icon: 'i-lucide-file-down',
+      to: props.markdownHref.replace(/\.md$/, '.html'),
+      external: true,
     })
   }
   groups.push(docGroup)

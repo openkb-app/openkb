@@ -36,6 +36,10 @@ const props = defineProps<{
   title?: string
   nid?: string | number
   type?: string
+  /** The page's address, also on the route of its latest version. */
+  path?: string
+  /** The moderation state of the revision shown. */
+  moderationState?: string
   summary?: string
   changed?: string | number
   owner?: CeEntityReference
@@ -372,13 +376,17 @@ useChatCommentHandler(session, myUid)
 // Print rules that need the page's data, as CSS strings (quotes, backslashes
 // and `<` escaped):
 // - the title in the top margin, where the browser prints margin boxes;
-// - no address after a link to this site, which is internal too.
+// - in a print render, no address after a link to this site, which is
+//   internal too. Both forms of the `print:` variant (main.css): Tailwind
+//   does not see this string.
 const o = cssString(useRequestURL().origin)
+const ownLinkWithoutAddress = `.okb-prose :is(a[href="${o}"], a[href^="${o}/"])::after { content: none !important }`
 useHead(() => ({
   style: [{
     key: 'okb-print-title',
     innerHTML: `@page { @top-center { content: "${cssString(props.title ?? '')}"; font: 8pt 'Manrope Variable', sans-serif; color: #6b7280; } }`
-      + ` @media print { .okb-prose :is(a[href="${o}"], a[href^="${o}/"])::after { content: none !important } }`,
+      + ` .okb-print-render ${ownLinkWithoutAddress}`
+      + ` @media print { ${ownLinkWithoutAddress} }`,
   }],
 }))
 </script>
@@ -521,7 +529,10 @@ useHead(() => ({
 
       <div class="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 sm:py-8">
         <article class="min-w-0">
+          <!-- A print render shows title, print line, summary, body and
+               attachments. -->
           <ViewPageMetaStrip
+            class="print:hidden"
             :doc-type="docType"
             :changed="shownChanged"
             :raw-href="rawHref"
@@ -558,23 +569,25 @@ useHead(() => ({
           <h1
             v-else
             :id="body.titleBlockId || undefined"
-            class="okb-page-title mb-3 text-[26px] font-bold leading-[1.15] tracking-tight text-highlighted sm:text-[34px]"
+            class="okb-page-title mb-3 text-[26px] font-bold leading-[1.15] tracking-tight text-highlighted sm:text-[34px] print:mb-[4pt] print:text-[20pt]"
           >
             {{ title }}
           </h1>
           <ViewPagePrintMeta
             :space-name="pageSpace?.name"
+            :path="path ?? route.path"
             :changed="changed"
-            :draft="!!moderationStatus && !moderationStatus.hasPublishedRevision"
+            :draft="moderationState !== undefined && moderationState !== 'published'"
           />
 
-          <NodeRevisionNotice v-if="revision" :revision="revision" />
+          <NodeRevisionNotice v-if="revision" :revision="revision" class="print:hidden" />
 
           <p v-if="summary" class="mb-5 max-w-[60ch] text-[15px] leading-relaxed text-muted">
             {{ summary }}
           </p>
 
           <ViewPageAuthorMeta
+            class="print:hidden"
             :owner="owner"
             :tags="tags"
             :editable="mode === 'edit'"
@@ -583,6 +596,7 @@ useHead(() => ({
 
           <EditorFrontmatterForm
             v-if="mode === 'edit' && fmOpen && session"
+            class="print:hidden"
             :frontmatter="session.frontmatter"
           />
 
@@ -593,7 +607,7 @@ useHead(() => ({
                The editor surface never carries it, and mounts inside this same
                prose column: identical x/width/typography in both modes. -->
           <div
-            class="page-body relative max-w-[720px] [&>:first-child>h1:first-child]:hidden"
+            class="page-body relative max-w-[720px] print:max-w-none [&>:first-child>h1:first-child]:hidden"
             @click="copyBlockLink"
             @dblclick="editBlockAt"
           >
@@ -626,7 +640,7 @@ useHead(() => ({
                page as a collapsible. The box is a class and the outline in it
                a query, so both renders agree on the markup while only one
                outline is live. No `<aside>`: the pane owns that one. -->
-          <div class="mt-8 lg:hidden">
+          <div class="mt-8 lg:hidden print:hidden">
             <ViewPageToc v-if="!wide" container-selector=".page-body" />
           </div>
         </article>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useSlots } from 'vue'
+import { ref, useSlots, watch } from 'vue'
+import { usePrintRender } from '~/composables/usePrintRender'
 
 interface Props {
   summary?: string
@@ -9,7 +10,7 @@ interface Props {
    */
   open?: boolean
 }
-withDefaults(defineProps<Props>(), { open: false })
+const props = withDefaults(defineProps<Props>(), { open: false })
 
 defineComarkComponent<Props>({
   label: 'Collapsible section',
@@ -20,18 +21,44 @@ defineComarkComponent<Props>({
   },
 })
 const slots = useSlots()
+const printRender = usePrintRender()
+
+/** On for a render that is a print render from the start: the export's. */
+const openForPrint = printRender.value
+
+/**
+ * A browser print opens the section and gives the reader's state back after.
+ * Sync, so the section is open before the browser takes the page.
+ */
+const section = ref<HTMLElement>()
+let openBeforePrint = props.open
+watch(printRender, (on) => {
+  const element = section.value
+  if (!(element instanceof HTMLDetailsElement)) {
+    return
+  }
+  if (on) {
+    openBeforePrint = element.open
+    element.open = true
+    return
+  }
+  element.open = openBeforePrint
+}, { flush: 'sync' })
 </script>
 
 <template>
   <!-- Read page: the native element. A closed body stays in the page, so a link
        to a block inside it has a target, and it opens without JavaScript.
        Editor (fills `marker`): plain elements, since its summary holds a field
-       and a button, which a native summary may not contain. -->
+       and a button, which a native summary may not contain.
+       A print render opens it; the print CSS shows the body of one a browser
+       print caught closed. -->
   <component
     :is="slots.marker ? 'div' : 'details'"
-    :open="open ? '' : undefined"
+    ref="section"
+    :open="open || openForPrint ? '' : undefined"
     data-test="details"
-    class="group my-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/60 px-5 py-4"
+    class="group my-5 print:break-inside-avoid print:details-content:[content-visibility:visible] rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/60 px-5 py-4"
   >
     <component
       :is="slots.marker ? 'div' : 'summary'"
