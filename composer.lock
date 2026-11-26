@@ -2852,21 +2852,21 @@
         },
         {
             "name": "drupal/custom_elements",
-            "version": "3.5.0-beta1",
+            "version": "3.5.0",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/custom_elements.git",
-                "reference": "3.5.0-beta1"
+                "reference": "3.5.0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/custom_elements-3.5.0-beta1.zip",
-                "reference": "3.5.0-beta1",
-                "shasum": "fb7ba11ad796813737eedfe85e4c4e3a87db5877"
+                "url": "https://ftp.drupal.org/files/projects/custom_elements-3.5.0.zip",
+                "reference": "3.5.0",
+                "shasum": "fe8ca73334d083ebfa12c1d69037dd5a31cba082"
             },
             "require": {
                 "drunomics/service-utils": "*",
-                "drupal/core": "^10 || ^11"
+                "drupal/core": "^10.2 || ^11"
             },
             "require-dev": {
                 "drupal/address": "^2.0.4",
@@ -2884,11 +2884,11 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "3.5.0-beta1",
-                    "datestamp": "1786515081",
+                    "version": "3.5.0",
+                    "datestamp": "1794585759",
                     "security-coverage": {
-                        "status": "not-covered",
-                        "message": "Beta releases are not covered by Drupal security advisories."
+                        "status": "covered",
+                        "message": "Covered by Drupal's security advisory policy"
                     }
                 },
                 "branch-alias": {
@@ -2918,7 +2918,8 @@
             "homepage": "https://www.drupal.org/project/custom_elements",
             "support": {
                 "source": "https://git.drupalcode.org/project/custom_elements"
-            }
+            },
+            "published-time": "2026-11-13T16:02:17+00:00"
         },
         {
             "name": "drupal/easy_email",
@@ -4436,13 +4437,13 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "703faa0ba41dfa6b3826b509351465707a96bb7f"
+                "reference": "1850f7f2fcde1abb784081f1a68462ce4def2d87"
             },
             "require": {
                 "drupal/ai": "^1.5.3",
                 "drupal/ai_vdb_provider_opensearch": "1.1.0-alpha2",
                 "drupal/consumers": "^1.24.0",
-                "drupal/custom_elements": "3.5.0-beta1",
+                "drupal/custom_elements": "^3.5.0",
                 "drupal/easy_email": "^3.0.10",
                 "drupal/easy_email_theme": "^1.2.0",
                 "drupal/jsonapi_role_access": "^2.0.2",
@@ -4495,9 +4496,6 @@
                     "drupal/core": {
                         "#3210926: Call to a member function getAlias on null in PathItem->postSave(). Saving a pending revision whose path field carries a pid for an alias entity that is gone fatals; the guard re-creates the alias instead. Paths are relative to the drupal repository root; composer-patches knows drupal/core takes patch depth 2.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/drupal-core-3210926-pathitem-postsave-missing-alias.patch"
                     },
-                    "drupal/custom_elements": {
-                        "OKB-134: Let the entity_reference formatter emit the referenced entity UUID (upstream merge pending)": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/custom_elements-entity-reference-include-uuid.patch"
-                    },
                     "drupal/lupus_ce_renderer": {
                         "OKB-151: Answer a plain 3xx Response as the CE redirect payload too — a controller answering in PSR-7 (simple_oauth's /oauth/authorize) reaches the response event as a plain Response, so the class check alone lets a raw 302 leave /ce-api for a consumer's HTTP layer to follow server-side. drupal.org issue pending; swap for its patch once merged.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_ce_renderer-psr7-redirect-as-ce-payload.patch",
                         "OKB-270: Keep a CE redirect to the destination query parameter relative. Core resolves the destination against the backend host, so a form submitted from the frontend with ?destination= sends the reader to the backend. drupal.org issue pending; swap for its patch once filed.": "https://git.drupalcode.org/project/openkb/-/raw/1.x/patches/lupus_ce_renderer-destination-relative.patch"
@@ -4524,7 +4522,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-26T17:54:23+00:00"
+            "time": "2026-11-26T17:59:35+00:00"
         },
         {
             "name": "drupal/pathauto",
