@@ -4436,7 +4436,7 @@
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/openkb.git",
-                "reference": "87853b0e583da06511a49c2bbdb6a90be7699cd5"
+                "reference": "703faa0ba41dfa6b3826b509351465707a96bb7f"
             },
             "require": {
                 "drupal/ai": "^1.5.3",
@@ -4456,7 +4456,7 @@
                 "drupal/pathauto": "^1.15.0",
                 "drupal/search_api": "^1.41.0",
                 "drupal/search_api_opensearch": "^2.5.0",
-                "drupal/simple_oauth": "^6.1.4",
+                "drupal/simple_oauth": "^6.1.5",
                 "drupal/symfony_mailer_lite": "^2.0.4",
                 "drupal/token": "^1.17.0",
                 "drupal/tool": "1.0.0-beta12",
@@ -4524,7 +4524,7 @@
             "support": {
                 "source": "https://github.com/openkb-app/openkb"
             },
-            "time": "2026-11-26T17:43:46+00:00"
+            "time": "2026-11-26T17:54:23+00:00"
         },
         {
             "name": "drupal/pathauto",
@@ -4920,17 +4920,17 @@
         },
         {
             "name": "drupal/simple_oauth",
-            "version": "6.1.4",
+            "version": "6.1.5",
             "source": {
                 "type": "git",
                 "url": "https://git.drupalcode.org/project/simple_oauth.git",
-                "reference": "6.1.4"
+                "reference": "6.1.5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://ftp.drupal.org/files/projects/simple_oauth-6.1.4.zip",
-                "reference": "6.1.4",
-                "shasum": "f210f853ad3445e5b81ce96ceebd7e438eccc1d7"
+                "url": "https://ftp.drupal.org/files/projects/simple_oauth-6.1.5.zip",
+                "reference": "6.1.5",
+                "shasum": "c2a413313c7e454e7b3083a7d5e727db2ffc999d"
             },
             "require": {
                 "drupal/consumers": "^1.24",
@@ -4946,8 +4946,8 @@
             "type": "drupal-module",
             "extra": {
                 "drupal": {
-                    "version": "6.1.4",
-                    "datestamp": "1793813022",
+                    "version": "6.1.5",
+                    "datestamp": "1795615409",
                     "security-coverage": {
                         "status": "covered",
                         "message": "Covered by Drupal's security advisory policy"
@@ -4983,9 +4983,14 @@
             ],
             "description": "The Simple OAuth module for Drupal",
             "homepage": "https://www.drupal.org/project/simple_oauth",
+            "keywords": [
+                "Access control",
+                "Actively maintained"
+            ],
             "support": {
                 "source": "https://git.drupalcode.org/project/simple_oauth"
-            }
+            },
+            "published-time": "2026-11-25T14:03:09+00:00"
         },
         {
             "name": "drupal/symfony_mailer_lite",
