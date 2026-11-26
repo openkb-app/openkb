@@ -101,6 +101,15 @@ function onEscape(event: KeyboardEvent) {
   endVisit()
 }
 
+/** The collapsed rail's links. */
+const railItems = [
+  { id: 'home', to: '/', label: 'Home', icon: 'i-lucide-home' },
+  { id: 'search', to: '/search', label: 'Search', icon: 'i-lucide-search' },
+]
+
+/** The accent bar on the rail's left edge, on the link to the current page. */
+const railAccentBarClass = 'aria-[current=page]:before:absolute aria-[current=page]:before:-left-3.25 aria-[current=page]:before:inset-y-1.5 aria-[current=page]:before:w-0.75 aria-[current=page]:before:rounded-r-[3px] aria-[current=page]:before:bg-primary'
+
 // A route change always collapses the rail.
 watch(() => route.fullPath, endVisit)
 
@@ -189,6 +198,7 @@ watch(collapsed, endVisit)
           to="/search"
           data-testid="sidebar-search"
           class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-toned hover:bg-elevated focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ui-primary)"
+          :class="NAV_ACTIVE_CLASS"
         >
           <UIcon name="i-lucide-search" class="size-3.5 text-dimmed" />
           <span>Search</span>
@@ -220,13 +230,19 @@ watch(collapsed, endVisit)
         </div>
       </nav>
 
-      <!-- Collapsed rail: icon-only links, so each carries its own name. -->
+      <!-- Collapsed rail: icon-only links, so each carries its own name.
+           The current page's link: exact path match, as in the outline. -->
       <nav v-if="showIconRail(collapsed)" aria-label="Knowledge base" class="flex flex-col items-center gap-2 py-2">
-        <NuxtLink to="/" aria-label="Home" class="flex h-9 w-9 items-center justify-center rounded-md hover:bg-elevated">
-          <UIcon name="i-lucide-home" class="size-4" aria-hidden="true" />
-        </NuxtLink>
-        <NuxtLink to="/search" aria-label="Search" class="flex h-9 w-9 items-center justify-center rounded-md hover:bg-elevated">
-          <UIcon name="i-lucide-search" class="size-4" aria-hidden="true" />
+        <NuxtLink
+          v-for="item in railItems"
+          :key="item.to"
+          :to="item.to"
+          :aria-label="item.label"
+          :data-testid="`rail-${item.id}`"
+          class="relative flex h-9 w-9 items-center justify-center rounded-md hover:bg-elevated"
+          :class="[NAV_ACTIVE_CLASS, railAccentBarClass]"
+        >
+          <UIcon :name="item.icon" class="size-4" aria-hidden="true" />
         </NuxtLink>
       </nav>
     </template>

@@ -121,7 +121,8 @@ function onDrop(event: DragEvent): void {
         class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 text-toned hover:bg-elevated hover:text-highlighted"
         :class="[
           tree.dense.value ? 'py-1 text-[13px]' : 'py-1.5 text-[13.5px]',
-          isCurrent ? 'bg-primary/12 font-medium text-primary-700 dark:text-primary-300' : '',
+          NAV_ACTIVE_CLASS,
+          isCurrent ? 'font-medium' : '',
         ]"
         :aria-current="isCurrent ? 'page' : undefined"
       >
