@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { beforeAll, describe, it, expect } from 'vitest'
-import Ajv, { type ValidateFunction } from 'ajv'
+import { describe, it, expect } from 'vitest'
+import Ajv from 'ajv'
 import type { JSONContent } from '@tiptap/core'
 import * as Y from 'yjs'
 import {
@@ -310,16 +310,14 @@ describe('the review model', () => {
   })
 })
 
-const blockMetaSchemaPath = fileURLToPath(new URL('../../openkb/openkb_workflow/schema/block-meta.schema.json', import.meta.url))
-
-// The public repo has no module folder: the module comes by composer.
-describe.skipIf(!existsSync(blockMetaSchemaPath))('the stored sidecar format', () => {
-  let validate: ValidateFunction
-
-  beforeAll(() => {
-    const schema = JSON.parse(readFileSync(blockMetaSchemaPath, 'utf8')) as object
-    validate = new Ajv({ allErrors: true }).compile(schema)
-  })
+// A copy of openkb/openkb_workflow/schema/block-meta.schema.json; CI fails when
+// the two differ (scripts/check-frontend-copies.sh).
+describe('the stored sidecar format', () => {
+  const schema = JSON.parse(readFileSync(
+    fileURLToPath(new URL('./block-meta.schema.json', import.meta.url)),
+    'utf8',
+  )) as object
+  const validate = new Ajv({ allErrors: true }).compile(schema)
 
   it('is what serializeBlockMeta writes', () => {
     const map: BlockMetaMap = {

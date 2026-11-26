@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://openkb.app/schema/block-meta.schema.json",
+  "title": "OpenKB review sidecar (field_block_meta)",
+  "description": "Stored per page revision. Ids only: names are resolved when read. Written by \\Drupal\\openkb_workflow\\PageBlocks::encode(), read by it and by frontend/shared/page-blocks.ts.",
+  "type": "object",
+  "required": ["v", "blocks"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "const": 1 },
+    "blocks": {
+      "type": "object",
+      "propertyNames": { "pattern": "^([A-Za-z0-9_-]+|field:[a-z_]+)$" },
+      "additionalProperties": { "$ref": "#/definitions/block" }
+    }
+  },
+  "definitions": {
+    "uid": { "type": "integer", "minimum": 0 },
+    "agent": {
+      "description": "The UUID of the agent client the account acted through; null for a direct write.",
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "contributor": {
+      "type": "object",
+      "required": ["uid", "agent", "lastEdit"],
+      "additionalProperties": false,
+      "properties": {
+        "uid": { "$ref": "#/definitions/uid" },
+        "agent": { "$ref": "#/definitions/agent" },
+        "lastEdit": { "type": "integer" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "required": ["uid", "at", "vid"],
+      "additionalProperties": false,
+      "properties": {
+        "uid": { "$ref": "#/definitions/uid" },
+        "at": { "type": "integer" },
+        "vid": { "type": "integer" },
+        "by": { "type": "array", "items": { "$ref": "#/definitions/uid" } }
+      }
+    },
+    "pending": {
+      "type": "object",
+      "required": ["by", "ok"],
+      "additionalProperties": false,
+      "properties": {
+        "by": { "type": "array", "items": { "$ref": "#/definitions/uid" } },
+        "ok": { "type": "array", "items": { "$ref": "#/definitions/approval" } }
+      }
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contributors": { "type": "array", "items": { "$ref": "#/definitions/contributor" } },
+        "moved": { "const": true },
+        "added": { "const": true },
+        "deleted": { "const": true },
+        "pending:peer": { "$ref": "#/definitions/pending" },
+        "pending:agent": { "$ref": "#/definitions/pending" },
+        "review:peer": { "$ref": "#/definitions/approval" },
+        "review:agent": { "$ref": "#/definitions/approval" }
+      }
+    }
+  }
+}
