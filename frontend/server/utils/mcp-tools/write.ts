@@ -67,7 +67,6 @@ function writeResult(result: AgentEditResult): ToolResult {
   const blocks = Object.entries(applied.blocks)
   const changed = [
     applied.fields.length ? `fields: ${applied.fields.join(', ')}` : null,
-    applied.body ? 'body' : null,
     blocks.length ? `blocks: ${blocks.map(([id, version]) => `${id}@${version}`).join(', ')}` : null,
     removed.length ? `removed blocks: ${removed.join(', ')}` : null,
     applied.comment ? describeComment(applied.comment) : null,

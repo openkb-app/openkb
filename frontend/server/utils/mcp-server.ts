@@ -27,9 +27,8 @@ import { refused, type KbTool, type ToolResult } from './mcp-tools/types'
  * sees exactly what those endpoints serve (server/utils/kb-read.ts,
  * server/utils/kb-search.ts). Write tools go through the session router
  * (server/utils/session-router.ts) in-process: they join the document's live
- * collaborative session and let the commit service persist, exactly as
- * `POST /api/agent/edit` and the `.md` PUT do. No local tool writes to Drupal
- * directly, and there is no path by which one could.
+ * collaborative session and let the commit service persist. No local tool
+ * writes to Drupal directly, and there is no path by which one could.
  *
  * Drupal decides which local tools are offered and every text an agent reads:
  * one that its tool manifest (server/utils/tool-manifest.ts) does not list is

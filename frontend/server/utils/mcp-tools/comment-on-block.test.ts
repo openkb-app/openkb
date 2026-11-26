@@ -31,7 +31,7 @@ const POSTED = {
   nid: 7,
   entry: 'joined',
   observers: 1,
-  applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: [], comment: { threadId: 'c-1a2b', msgId: 'm-3c4d' } },
+  applied: { fields: [], blocks: {}, unchanged: [], removed: [], comment: { threadId: 'c-1a2b', msgId: 'm-3c4d' } },
 }
 
 describe('commentOnBlock', () => {
@@ -53,7 +53,6 @@ describe('commentOnBlock', () => {
     expect(routeAgentEdit).toHaveBeenLastCalledWith(
       expect.anything(), expect.anything(), { nid: 7, name: 'intro' },
       { comment: { blockId: 'b-1', text: 'Rewrote the second sentence.' } },
-      undefined,
     )
 
     await client.callTool({
@@ -64,7 +63,6 @@ describe('commentOnBlock', () => {
     expect(routeAgentEdit).toHaveBeenLastCalledWith(
       expect.anything(), expect.anything(), expect.anything(),
       { comment: { blockId: 'b-1', text: 'And the units.', threadId: 'c-1a2b' } },
-      undefined,
     )
   })
 
@@ -80,7 +78,6 @@ describe('commentOnBlock', () => {
     expect(routeAgentEdit).toHaveBeenLastCalledWith(
       expect.anything(), expect.anything(), expect.anything(),
       { comment: { blockId: 'b-1', text: 'Which fish?', quote: 'fish', occurrence: 2 } },
-      undefined,
     )
 
     // Resolving needs no text.
@@ -91,7 +88,6 @@ describe('commentOnBlock', () => {
     expect(routeAgentEdit).toHaveBeenLastCalledWith(
       expect.anything(), expect.anything(), expect.anything(),
       { comment: { blockId: 'b-1', threadId: 'c-1a2b', resolve: true } },
-      undefined,
     )
   })
 

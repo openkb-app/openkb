@@ -254,7 +254,6 @@ describe('routeAgentEdit', () => {
     expect(result.observers).toBe(0)
     expect(result.applied).toEqual({
       fields: ['summary'],
-      body: false,
       blocks: { [SEED_BLOCK]: expect.stringMatching(/^[\da-f]{12}$/) },
       unchanged: [],
       removed: [],
@@ -420,14 +419,6 @@ describe('routeAgentEdit', () => {
     expect(checkpoint).not.toHaveBeenCalled()
   })
 
-  it('refuses a whole body on an existing page — it is edited block by block', async () => {
-    await expect(routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { body: 'a whole new page' }))
-      .rejects.toMatchObject({ statusCode: 422 })
-
-    expect(deps.host.openDirectConnection).not.toHaveBeenCalled()
-    expect(await serializeYDoc(doc)).toBe(`before {#${SEED_BLOCK}}`)
-  })
-
   it('refuses ops the exposure contract cannot address — before joining', async () => {
     await expect(routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { fields: { nope: 'x' } }))
       .rejects.toBeInstanceOf(AgentOpsError)
@@ -460,8 +451,9 @@ describe('routeAgentEdit', () => {
     const result = await routeAgentEdit(deps, { token: 'tok' }, { nid: 1, name: 'node 1' }, { fields: { summary: 'only fields' } })
 
     expect(await serializeYDoc(doc)).toBe('from drupal')
-    // The body was restored, not authored — the caller is not told it wrote one.
-    expect(result.applied.body).toBe(false)
+    // The body was restored, not authored — the caller is told only of its fields.
+    expect(result.applied.fields).toEqual(['summary'])
+    expect(result.applied.blocks).toEqual({})
   })
 
   it('leaves a headless body a peer filled while Drupal\'s was read', async () => {

@@ -1,11 +1,9 @@
 import type { H3Event } from 'h3'
 import { createError, getHeader } from 'h3'
-import { fetchFrontmatterSpecs, findKbPageByPath } from './drupal'
+import { findKbPageByPath } from './drupal'
 import { useAgentRouter } from './hocuspocus'
-import { FrontmatterError, parseFields, splitFrontmatter } from './frontmatter'
 import {
   AgentOpsError,
-  authenticateWriter,
   joinAgentSession,
   routeAgentEdit,
   type AgentEditResult,
@@ -13,22 +11,15 @@ import {
   type WriteCarrier,
   type WriteSubject,
 } from './session-router'
-import { StaleBlockError, type AgentActor, type AgentOps } from './agent-peer'
+import { StaleBlockError, type AgentOps } from './agent-peer'
 import { decodePageEntities, encodePageEntities } from './comark-entities'
 import { encodeDataImageUris } from './comark-data-uri'
-import type { FieldValues } from './entity-fields'
 import { fenceErrors } from './fences'
 
 /**
- * The write surfaces' shared front door to the session router.
- *
- * Three transports reach the router — the `updateFields` / `updateBlocks` MCP
- * tools,
- * `POST /api/agent/edit`, and the draft `.md` PUT — and they must not each grow
- * their own idea of what a write request is. Everything they have in common lives
- * here: the Bearer token that authorizes the request, how a target is named,
- * what a `.md` document means as ops. What stays in each transport is only how a
- * refusal is *reported* (HTTP status vs MCP tool result).
+ * The MCP write tools' front door to the session router: the Bearer token
+ * that authorizes the request, how a target is named, and the entity and
+ * fence checks every write passes.
  */
 
 /**
@@ -37,7 +28,7 @@ import { fenceErrors } from './fences'
  * Browser cookies riding along on the same host are ignored: honoring one
  * would let a session's wider permissions mask the token's scope ceiling.
  */
-export function writeCarrier(event: H3Event): WriteCarrier {
+function writeCarrier(event: H3Event): WriteCarrier {
   const token = /^Bearer (.+)$/i.exec(getHeader(event, 'authorization') ?? '')?.[1]
   return token ? { token } : {}
 }
@@ -76,34 +67,6 @@ export async function resolveWriteSubject(event: H3Event, target: WriteTarget): 
 }
 
 /**
- * Reads a `.md` document as session ops: the YAML frontmatter becomes field
- * values, the remainder becomes the body.
- *
- * Parsing is the wire format's own codec (server/utils/frontmatter.ts) — the
- * same one the `.md` GET projects with — so the `.md` PUT accepts exactly what
- * the `.md` GET serves. A document with no frontmatter block writes the body
- * only; it does not blank the fields.
- */
-export async function markdownOps(event: H3Event, raw: string): Promise<AgentOps> {
-  const { frontmatter, body } = splitFrontmatter(raw)
-  if (frontmatter === null) return { body }
-  const specs = await fetchFrontmatterSpecs(event)
-  const fields: FieldValues = parseFields(specs, frontmatter)
-  return { fields, body }
-}
-
-/**
- * Authenticates the request's carrier before anything else runs.
- *
- * Every write transport calls this first — a caller with bad credentials hears
- * about the credentials, not about their payload (401 before 400). The actor
- * is handed to {@link routeWrite}, which still asks Drupal about this node.
- */
-export async function authenticateWrite(event: H3Event): Promise<AgentActor> {
-  return authenticateWriter(useAgentRouter(), writeCarrier(event))
-}
-
-/**
  * Puts the request in the page's session without writing anything — what a
  * watcher (`waitForChanges`) needs, admitted by the same gate as a write.
  */
@@ -126,12 +89,11 @@ export async function routeWrite(
   event: H3Event,
   subject: WriteSubject,
   ops: AgentOps,
-  authenticated?: AgentActor,
 ): Promise<AgentEditResult> {
   const encoded = encodeContent(ops)
   await refuseInvalidFences(encoded)
   try {
-    return await routeAgentEdit(useAgentRouter(), writeCarrier(event), subject, encoded, authenticated)
+    return await routeAgentEdit(useAgentRouter(), writeCarrier(event), subject, encoded)
   }
   catch (err) {
     if (err instanceof StaleBlockError) throw decodeConflicts(err)
@@ -139,16 +101,12 @@ export async function routeWrite(
   }
 }
 
-/** Per-op messages for every refused fence component, as `body` or `blocks[i]`. */
+/** Per-op messages for every refused fence component, as `blocks[i]`. */
 async function refuseInvalidFences(ops: AgentOps): Promise<void> {
   const errors: Record<string, string[]> = {}
-  const passages: Record<string, string> = {
-    ...(ops.body === undefined ? {} : { body: ops.body }),
-    ...Object.fromEntries((ops.blocks ?? []).map((op, i) => [`blocks[${i}]`, op.markdown])),
-  }
-  for (const [key, markdown] of Object.entries(passages)) {
-    const messages = await fenceErrors(markdown)
-    if (messages.length > 0) errors[key] = messages
+  for (const [i, op] of (ops.blocks ?? []).entries()) {
+    const messages = await fenceErrors(op.markdown)
+    if (messages.length > 0) errors[`blocks[${i}]`] = messages
   }
   if (Object.keys(errors).length > 0) throw new AgentOpsError(errors)
 }
@@ -167,7 +125,6 @@ function decodeConflicts(err: StaleBlockError): StaleBlockError {
 function encodeContent(ops: AgentOps): AgentOps {
   return {
     ...ops,
-    ...(ops.body === undefined ? {} : { body: encodeWritten(ops.body) }),
     ...(ops.blocks === undefined
       ? {}
       : { blocks: ops.blocks.map(op => ({ ...op, markdown: encodeWritten(op.markdown) })) }),
@@ -181,14 +138,3 @@ function encodeContent(ops: AgentOps): AgentOps {
 function encodeWritten(markdown: string): string {
   return encodePageEntities(encodeDataImageUris(markdown))
 }
-
-/**
- * Maps a frontmatter parse failure onto the per-field shape every write
- * surface reports, so an unknown key reads the same whether it arrived as
- * `.md` frontmatter or as an `updateFields` object.
- */
-export function frontmatterFieldErrors(err: FrontmatterError): Record<string, string[]> {
-  if (err.keys.length === 0) return { frontmatter: [err.message] }
-  return Object.fromEntries(err.keys.map(key => [key, [err.message]]))
-}
-

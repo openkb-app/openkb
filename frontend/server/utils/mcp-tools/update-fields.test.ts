@@ -72,14 +72,14 @@ describe('updateFields', () => {
 
     expect(res.isError).toBeFalsy()
     expect(routeAgentEdit).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: { summary: 'A new summary.' } }, undefined,
+      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: { summary: 'A new summary.' } },
     )
     expect(res.structuredContent).toEqual({
       ok: true,
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: ['summary'], body: false, blocks: {} },
+      applied: { fields: ['summary'], blocks: {} },
     })
   })
 
@@ -90,7 +90,7 @@ describe('updateFields', () => {
     const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files } })
     expect(res.isError).toBeFalsy()
     expect(routeAgentEdit).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: {}, files }, undefined,
+      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: {}, files },
     )
 
     routeAgentEdit.mockClear()
@@ -106,7 +106,7 @@ describe('updateFields', () => {
     const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files } })
     expect(res.isError).toBeFalsy()
     expect(routeAgentEdit).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: {}, files }, undefined,
+      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { fields: {}, files },
     )
 
     routeAgentEdit.mockClear()
@@ -144,7 +144,7 @@ describe('updateFields', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: ['attachments'], body: false, blocks: {}, unchanged: [], removed: [], notAccepted: [{ list: 'attachments', file: FOREIGN }] },
+      applied: { fields: ['attachments'], blocks: {}, unchanged: [], removed: [], notAccepted: [{ list: 'attachments', file: FOREIGN }] },
     })
     const { client } = await connect()
     const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { attachments: { add: [OWN, FOREIGN] } } } })
@@ -168,7 +168,7 @@ describe('updateFields', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: [], notAccepted: [{ list: 'images', file: FOREIGN }] },
+      applied: { fields: [], blocks: {}, unchanged: [], removed: [], notAccepted: [{ list: 'images', file: FOREIGN }] },
     })
     const { client } = await connect()
     const res = await client.callTool({ name: 'updateFields', arguments: { path: 'intro', files: { images: { add: [FOREIGN] } } } })

@@ -21,7 +21,7 @@ function run(name: string, input: Record<string, unknown>, output?: unknown, err
 
 /** A successful write, as the Tool API bridge answers it. */
 function written(blocks: Record<string, string>, fields: string[] = [], unchanged: string[] = [], removed: string[] = [], nid = 39) {
-  const applied = { fields, body: false, blocks, ...(removed.length ? { removed } : {}) }
+  const applied = { fields, blocks, ...(removed.length ? { removed } : {}) }
   const result: Record<string, unknown> = { ok: true, nid, applied, ...(unchanged.length ? { unchanged } : {}) }
   return { success: true, message: `Updated node ${nid}`, outputs: { result } }
 }

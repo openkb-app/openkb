@@ -142,39 +142,20 @@ export function applyFieldValues(doc: Y.Doc, values: FieldValues): string[] {
 
 /**
  * Applies a markdown body to the document's `default` fragment as a minimal
- * diff against what is already there.
+ * diff against what is already there — how a headless session is filled
+ * from Drupal.
  *
- * The naive write — clear the fragment, insert the new content — would be
- * correct in content and wrong in every other way: every human peer's cursor
- * and selection is a Y.js *relative position* anchored to the item it sits in,
- * so replacing the items moves everyone's caret to the top and turns a
- * one-word agent fix into a whole-document change for the CRDT to merge.
  * `updateYFragment` (y-prosemirror's own reconciler, the one the browser
- * binding uses) walks the existing Y types against the new ProseMirror tree
- * and touches only what differs, so untouched blocks keep their identity and
- * the peers anchored in them keep their positions.
+ * binding uses) touches only what differs, so blocks keep their Y.js identity
+ * and any peer's cursor anchored in them keeps its position.
  *
- * The body comes parsed (`parseMarkdownToJson`), through the same parser and
- * schema the browser editor and the commit serializer use, so an agent cannot
- * express anything a human could not have typed.
- *
- * `authored` says whether this write is authorship. It is, for an agent's own
- * edit: the blocks it created are minted stable ids, exactly as a browser
- * peer's minter would (server/utils/agent-block-ids.ts). It is not for a
- * restoration of content that already exists in Drupal — no ids are stamped,
- * and the document serializes back to the same bytes. Who wrote what is
- * settled elsewhere either way: Drupal's presave attributes the write it
- * stores.
+ * It restores content that already exists in Drupal: no ids are stamped, and
+ * the document serializes back to the same bytes.
  */
-export function applyBodyMarkdown(
-  doc: Y.Doc,
-  body: JSONContent,
-  authored = false,
-): void {
+export function applyBodyMarkdown(doc: Y.Doc, body: JSONContent): void {
   const fragment = doc.getXmlFragment('default')
-  const { doc: before, meta } = initProseMirrorDoc(fragment, editorSchema)
-  const json = authored ? mintAuthoredIds(before, body).json : body
-  updateYFragment(doc, fragment, ProseNode.fromJSON(editorSchema, json), meta)
+  const { meta } = initProseMirrorDoc(fragment, editorSchema)
+  updateYFragment(doc, fragment, ProseNode.fromJSON(editorSchema, body), meta)
 }
 
 /**
@@ -544,10 +525,9 @@ export function refuseStaleBlocks(segments: Map<string, string>, ops: BlockOp[])
   if (conflicts.length > 0) throw new StaleBlockError(conflicts)
 }
 
-/** Whether a write changed nothing at all: no field, body, block or comment. */
+/** Whether a write changed nothing at all: no field, block or comment. */
 function changedNothing(result: AgentOpsResult): boolean {
   return result.fields.length === 0
-    && !result.body
     && Object.keys(result.blocks).length === 0
     && result.removed.length === 0
     && !result.comment
@@ -782,8 +762,6 @@ export interface AgentOps {
   fields?: FieldValues
   /** Files to add to and take off the page's file lists, by field (ADR 0020). */
   files?: Partial<Record<PageFileKey, PageFileChange>>
-  /** Replacement body, as comark markdown. */
-  body?: string
   /** Block-level writes, applied in order. */
   blocks?: BlockOp[]
   /** One message on a block's conversation. */
@@ -794,8 +772,6 @@ export interface AgentOps {
 export interface AgentOpsResult {
   /** Field keys whose value the session actually changed. */
   fields: string[]
-  /** Whether a body was applied (it may still have been a no-op diff). */
-  body: boolean
   /**
    * Every block the ops wrote → the version it holds after the write, an
    * insertion under the id minted for it. Send one straight back as the next
@@ -986,9 +962,8 @@ export async function openAgentSession(
      *   When a block moved since the version an op expects. Nothing is written.
      */
     async apply(ops: AgentOps, foreignFiles: string[] = []): Promise<AgentOpsResult> {
-      const body = ops.body !== undefined ? await parseMarkdownToJson(ops.body) : undefined
       const parsed = await Promise.all((ops.blocks ?? []).map(op => parseMarkdownToJson(op.markdown)))
-      const result: AgentOpsResult = { fields: [], body: false, blocks: {}, unchanged: [], removed: [] }
+      const result: AgentOpsResult = { fields: [], blocks: {}, unchanged: [], removed: [] }
       const { written, before } = await writeOnUnmoved(document, ops.blocks ?? [], (segments) => {
         // A session that left is detached from the document: its ops would reach
         // nothing while the caller is told the write landed.
@@ -1008,10 +983,6 @@ export async function openAgentSession(
           if (ops.fields) result.fields = applyFieldValues(document, ops.fields)
           for (const [key, change] of Object.entries(files.files) as Array<[PageFileKey, PageFileChange]>) {
             if (changePageFiles(document, key, change)) result.fields.push(key)
-          }
-          if (body) {
-            applyBodyMarkdown(document, body, true)
-            result.body = true
           }
           if (ops.blocks?.length) {
             written = applyBlockOps(document, ops.blocks, parsed, true)

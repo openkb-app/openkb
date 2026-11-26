@@ -81,7 +81,7 @@ describe('a write without a cookie', () => {
 
 describe('a Bearer caller', () => {
   it('passes from anywhere when it sends no cookie', async () => {
-    const res = await request('/api/agent/edit', 'POST', { 'authorization': 'Bearer t', 'sec-fetch-site': 'cross-site', 'origin': 'https://evil.test' })
+    const res = await request('/api/mcp', 'POST', { 'authorization': 'Bearer t', 'sec-fetch-site': 'cross-site', 'origin': 'https://evil.test' })
     expect(res.status).toBe(200)
   })
 

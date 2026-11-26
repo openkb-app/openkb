@@ -119,7 +119,7 @@ export const APPLIED = {
   nid: 7,
   entry: 'started',
   observers: 0,
-  applied: { fields: ['summary'], body: false, blocks: {}, unchanged: [], removed: [] },
+  applied: { fields: ['summary'], blocks: {}, unchanged: [], removed: [] },
 }
 
 export const SCHEMA = {

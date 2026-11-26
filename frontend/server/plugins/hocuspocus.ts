@@ -632,8 +632,8 @@ export default defineNitroPlugin((nitroApp) => {
       // writer to nobody several times a minute — and let the mirror write at
       // the end of a pass re-enter the pass that produced it.
       //
-      // A write from outside any seat — the `.md` PUT, the MCP tools, an
-      // agent's block write — is one of these boundaries like any other, and
+      // A write from outside any seat — the MCP tools, an agent's block
+      // write — is one of these boundaries like any other, and
       // for the same reason: it moves the document, so the writer it interrupts
       // has to be paid before its bytes land. Who it seats afterwards is the
       // origin's own answer (AgentOrigin.seat) — agents are seated with their

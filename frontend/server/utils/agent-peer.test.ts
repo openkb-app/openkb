@@ -56,8 +56,8 @@ vi.mock('./block-versions', async (original) => {
 })
 
 /** {@link applyBodyMarkdown} as a session calls it: the markdown parsed first. */
-async function writeBody(doc: Y.Doc, markdown: string, authored = false): Promise<void> {
-  applyBodyMarkdown(doc, await parseMarkdownToJson(markdown), authored)
+async function writeBody(doc: Y.Doc, markdown: string): Promise<void> {
+  applyBodyMarkdown(doc, await parseMarkdownToJson(markdown))
 }
 
 /** {@link applyBlockOps} as a session calls it: ops parsed first, versions read off the write. */
@@ -759,14 +759,15 @@ describe('openAgentSession', () => {
   })
 
   it('applies both lanes in one transaction, tagged as an agent write', async () => {
-    const { host, document } = hostFor(docFromMarkdownBlocks(['before']))
+    const { host, document } = hostFor(new Y.Doc())
     const origins: unknown[] = []
     document.on('afterTransaction', tr => origins.push(tr.origin))
 
     const session = await openAgentSession(host, 1, ACTOR, noTimers)
-    const result = await session.apply({ fields: { summary: 'new' }, body: 'after' })
+    const result = await session.apply({ fields: { summary: 'new' }, blocks: [{ markdown: 'after' }] })
 
-    expect(result).toEqual({ fields: ['summary'], body: true, blocks: {}, unchanged: [], removed: [] })
+    expect(result).toMatchObject({ fields: ['summary'], unchanged: [], removed: [] })
+    expect(Object.keys(result.blocks)).toHaveLength(1)
     // The block the agent authored carries a minted id, exactly as a browser
     // peer's tracker would have given it.
     expect(await serializeYDoc(document)).toMatch(/^after \{#b-[\da-f]+\}$/)
@@ -780,10 +781,11 @@ describe('openAgentSession', () => {
     const NEW = '66666666-7777-4888-9999-000000000000'
     const { host, document } = hostFor(new Y.Doc())
     const session = await openAgentSession(host, 1, ACTOR, noTimers)
-    await session.apply({ files: { attachments: { add: [OLD, NEW] } }, body: `::embed{file="${OLD}"}\n::` })
+    const first = await session.apply({ files: { attachments: { add: [OLD, NEW] } }, blocks: [{ markdown: `::embed{file="${OLD}"}\n::` }] })
     setFileHidden(document, OLD, false)
+    const [embedded] = Object.keys(first.blocks)
 
-    await session.apply({ body: `::embed{file="${OLD}"}\n::\n\n::embed{file="${NEW}"}\n::` })
+    await session.apply({ blocks: [{ after: embedded!, markdown: `::embed{file="${NEW}"}\n::` }] })
 
     expect(liveHiddenFiles(document)).toEqual([NEW])
   })
@@ -811,36 +813,36 @@ describe('openAgentSession', () => {
     // Agents are session peers now: the write enters each block's set carrying
     // the agent client, and that member is what raises the agent review step —
     // the requirement travels in the set, not on the checkpoint's credential.
-    const { host, document } = hostFor(docFromMarkdownBlocks(['before']))
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'before']]))
     const origins: unknown[] = []
     document.on('afterTransaction', tr => origins.push(tr.origin))
 
     const session = await openAgentSession(host, 1, ACTOR, noTimers)
-    await session.apply({ body: 'after' })
+    await session.apply({ blocks: [{ id: 'b-1', markdown: 'after' }] })
 
     expect(origins.filter(isAgentOrigin)[0]!.seat).toEqual({ uid: 7, name: 'fago', agent: 'c1a0de00-0000-4000-8000-000000000001', via: 'Claude' })
   })
 
   it('writes no word about who wrote it — that is Drupal\'s to witness', async () => {
-    const { host, document } = hostFor(docFromMarkdownBlocks(['before']))
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'before']]))
     const session = await openAgentSession(host, 1, ACTOR, { ...noTimers, now: () => 1000 })
 
-    await session.apply({ body: 'a whole new block' })
+    await session.apply({ blocks: [{ after: 'b-1', markdown: 'a whole new block' }] })
 
     // The block reaches the document with an id — it has to be addressable —
     // and with nothing said about its authorship. Drupal's presave credits the
     // agent credential and stamps the review flags when the write lands there.
-    expect(await serializeYDoc(document)).toMatch(/^a whole new block \{#b-[\w-]+\}$/)
+    expect(await serializeYDoc(document)).toMatch(/\n\na whole new block \{#b-[\w-]+\}$/)
     expect(readBlockMeta(document)).toEqual({})
   })
 
-  it('records nothing for a body that only restores what was already there', async () => {
-    const { host, document } = hostFor(docFromMarkdownBlocks(['untouched']))
+  it('records nothing for a block op that only restores what was already there', async () => {
+    const { host, document } = hostFor(docWithIdentifiedBlocks([['b-1', 'untouched']]))
     const session = await openAgentSession(host, 1, ACTOR, { ...noTimers, now: () => 1000 })
 
-    await session.apply({ body: 'untouched' })
+    await session.apply({ blocks: [{ id: 'b-1', markdown: 'untouched' }] })
 
-    expect(await serializeYDoc(document)).toBe('untouched')
+    expect(await serializeYDoc(document)).toBe('untouched {#b-1}')
     expect([...document.getMap('blockMeta').keys()]).toEqual([])
   })
 
@@ -940,8 +942,8 @@ describe('openAgentSession', () => {
     const expected = await session.apply({ blocks: [{ id: 'b-1', expect: version, markdown: 'first' }] })
     const unexpected = await session.apply({ blocks: [{ id: 'b-1', markdown: 'first' }] })
 
-    expect(expected).toEqual({ fields: [], body: false, blocks: {}, unchanged: ['b-1'], removed: [] })
-    expect(unexpected).toEqual({ fields: [], body: false, blocks: {}, unchanged: ['b-1'], removed: [] })
+    expect(expected).toEqual({ fields: [], blocks: {}, unchanged: ['b-1'], removed: [] })
+    expect(unexpected).toEqual({ fields: [], blocks: {}, unchanged: ['b-1'], removed: [] })
     expect(document.awareness.getStates().get(session.clientId)).not.toHaveProperty('claim')
   })
 
@@ -964,7 +966,7 @@ describe('openAgentSession', () => {
 
     const result = await session.apply({ blocks: [{ id: 'b-1', expect: version, markdown: '' }] })
 
-    expect(result).toEqual({ fields: [], body: false, blocks: {}, unchanged: [], removed: ['b-1'] })
+    expect(result).toEqual({ fields: [], blocks: {}, unchanged: [], removed: ['b-1'] })
   })
 
   it('does not report a replace that added a block after the unchanged one as unchanged', async () => {

@@ -130,7 +130,6 @@ export const WRITE_OUTPUT_SCHEMA: JsonSchema = {
       type: 'object',
       properties: {
         fields: { type: 'array', items: { type: 'string' }, description: 'Field keys actually changed.' },
-        body: { type: 'boolean' },
         blocks: {
           type: 'object',
           additionalProperties: { type: 'string' },
@@ -164,7 +163,7 @@ export const WRITE_OUTPUT_SCHEMA: JsonSchema = {
           additionalProperties: false,
         },
       },
-      required: ['fields', 'body'],
+      required: ['fields'],
       additionalProperties: false,
     },
     message: { type: 'string', description: 'Why the write was refused.' },

@@ -38,8 +38,7 @@ import { admits, joinAccessUrl, parseJoinAnswer } from './collab-join'
  * overwriting it — and it would put the write outside the review model the
  * whole design exists for (a human can join and watch an agent edit happen).
  * One route means one set of guarantees, and every write surface uses it: the
- * `updateFields` / `updateBlocks` MCP tools, `POST /api/agent/edit`, and the
- * `.md` PUT.
+ * MCP write tools (`updateFields`, `updateBlocks`, `commentOnBlock`).
  *
  * ## One carrier: an agent Bearer token
  *
@@ -195,21 +194,14 @@ export interface GateDeps {
  * Runs checks (1) and (2) — who the token is, and whether it carries the write
  * ceiling. Node access (3) is {@link authorizeSessionWrite}'s half.
  *
- * Split out because it needs no target: a transport can authenticate before it
- * has parsed the payload, which is what makes "no/invalid credentials plus a
- * malformed body" a 401 rather than a 400. Credentials are the first thing a
- * caller gets wrong and the first thing they should hear about; reporting a
- * body problem to an unauthenticated caller also tells them something about
- * the API they have not earned.
- *
  * `subject` names the page in the scope refusal where the caller has already
  * named one. The missing scope is the credential's, not the page's, so the
  * wording says so either way.
  */
-export async function authenticateWriter(
+async function authenticateWriter(
   deps: GateDeps,
   carrier: WriteCarrier,
-  subject?: string,
+  subject: string,
 ): Promise<AgentActor> {
   const auth = carrierAuthHeaders(carrier)
   if (!carrier.token) {
@@ -238,7 +230,7 @@ export async function authenticateWriter(
   if (!identity.scopes.includes(AGENT_WRITE_SCOPE)) {
     throw new AgentJoinError(
       'scope',
-      `These credentials cannot edit${subject ? ` ${subject}` : ''}: the `
+      `These credentials cannot edit ${subject}: the `
       + `"${AGENT_WRITE_SCOPE}" scope is missing. Whoever manages this API `
       + 'client can add it.',
     )
@@ -250,9 +242,6 @@ export async function authenticateWriter(
 /**
  * Runs all three checks and returns the actor to act as.
  *
- * `authenticated` lets a transport that already ran {@link authenticateWriter}
- * (for the 401-before-400 ordering) skip the repeated identity round-trip.
- *
  * Called once per session, not once per write — {@link routeAgentEdit} reuses
  * the decision for as long as the session holding it stands.
  *
@@ -262,9 +251,8 @@ export async function authorizeSessionWrite(
   deps: GateDeps,
   carrier: WriteCarrier,
   subject: WriteSubject,
-  authenticated?: AgentActor,
 ): Promise<AgentActor> {
-  const actor = authenticated ?? await authenticateWriter(deps, carrier, subject.name)
+  const actor = await authenticateWriter(deps, carrier, subject.name)
   const { allowed, denied, refusal } = await deps.checkNodeAccess(carrierAuthHeaders(carrier), subject.nid)
   if (!allowed) {
     throw new AgentJoinError('access', refusalMessage(refusal, subject.name))
@@ -420,29 +408,6 @@ async function hydrateHeadlessBody(
   applyBodyMarkdown(session.doc, parsed)
 }
 
-/**
- * Refuses a whole-document body on an existing page.
- *
- * An agent is a peer, and a peer edits the blocks it means to edit. Handing in
- * a replacement body is a claim about *every* block in the page — including
- * the ones a human is typing in right now, and the ones a reviewer has already
- * signed off, which such a write would silently re-open. The block surface
- * says only what it means, and Drupal flags exactly those blocks.
- *
- * Creating a page names no blocks at all: `tool_api__create_page` takes a
- * title and a space, and seeds the one block the first `updateBlocks` anchors
- * on.
- */
-function refuseWholeBody(ops: AgentOps): void {
-  if (ops.body === undefined) return
-  throw createError({
-    statusCode: 422,
-    statusMessage:
-      'An agent edits an existing page block by block: pass "blocks" naming '
-      + 'the blocks to change, not a whole "body".',
-  })
-}
-
 /** The actor as the commit layer names it: the token's owner. */
 function commitIdentityOf(actor: AgentActor): CommitIdentity {
   return { uid: actor.uid }
@@ -590,13 +555,11 @@ export async function routeAgentEdit(
   carrier: WriteCarrier,
   subject: WriteSubject,
   ops: AgentOps,
-  authenticated?: AgentActor,
 ): Promise<AgentEditResult> {
   const { nid } = subject
   const key = agentSessionKey(nid, carrier)
   const held = await heldAgentSession(key)
-  const actor = held?.actor ?? await authorizeSessionWrite(deps, carrier, subject, authenticated)
-  refuseWholeBody(ops)
+  const actor = held?.actor ?? await authorizeSessionWrite(deps, carrier, subject)
 
   // Validate before joining: a rejected op must not leave a bot flickering in
   // the presence strip, and must never be half-applied.

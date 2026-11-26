@@ -71,7 +71,7 @@ describe('needs no token', () => {
   })
 
   it('for a Bearer caller, whose cookie is not forwarded', async () => {
-    const res = await request('/api/agent/edit', 'POST', { ...COOKIE, authorization: 'Bearer agent-token' })
+    const res = await request('/api/mcp', 'POST', { ...COOKIE, authorization: 'Bearer agent-token' })
     expect(res.status).toBe(200)
   })
 

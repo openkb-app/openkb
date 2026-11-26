@@ -38,7 +38,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-0d53e244': '05b561c1ae22' }, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: { 'b-0d53e244': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -58,7 +58,6 @@ describe('updateBlocks', () => {
     expect(routeAgentEdit).toHaveBeenLastCalledWith(
       expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) },
       { blocks: [{ id: 'b-0d53e244', expect: '05b561c1ae22', markdown: 'Two.' }] },
-      undefined,
     )
     // The whole point: two edits to one block, and no read between them.
     expect(getKbPage).not.toHaveBeenCalled()
@@ -107,7 +106,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: {}, unchanged: [], removed: [] },
     })
     const { client } = await connect()
 
@@ -116,7 +115,7 @@ describe('updateBlocks', () => {
 
     expect(res.isError).toBeFalsy()
     expect(routeAgentEdit).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { blocks }, undefined,
+      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { blocks },
     )
   })
 
@@ -125,7 +124,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-9f21': '05b561c1ae22' }, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: { 'b-9f21': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
 
@@ -134,7 +133,7 @@ describe('updateBlocks', () => {
 
     expect(res.isError).toBeFalsy()
     expect(routeAgentEdit).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { blocks }, undefined,
+      expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) }, { blocks },
     )
   })
 
@@ -175,7 +174,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: ['b-0d53e244'], unchanged: [], removed: [] },
+      applied: { fields: [], blocks: ['b-0d53e244'], unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -230,7 +229,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -280,7 +279,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -296,7 +295,7 @@ describe('updateBlocks', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -332,7 +331,7 @@ describe('updateBlocks', () => {
       nid: 39,
       entry: 'joined',
       observers: 1,
-      applied: { fields: [], body: false, blocks: {}, unchanged: ['b-4a5e25ad'], removed: [] },
+      applied: { fields: [], blocks: {}, unchanged: ['b-4a5e25ad'], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -354,7 +353,7 @@ describe('updateBlocks', () => {
     let written = false
     routeAgentEdit.mockImplementation(async () => {
       written = true
-      return { nid: 7, entry: 'joined', observers: 0, applied: { fields: [], body: false, blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] } }
+      return { nid: 7, entry: 'joined', observers: 0, applied: { fields: [], blocks: { 'b-1': '05b561c1ae22' }, unchanged: [], removed: [] } }
     })
     findKbPageByPath.mockImplementation(async () => {
       if (written) afterWrite.push('findKbPageByPath')
@@ -394,7 +393,7 @@ describe('updateBlocks', () => {
       nid: 39,
       entry: 'joined',
       observers: 1,
-      applied: { fields: [], body: false, blocks: { 'b-4a5e25ad': '05b561c1ae22' }, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: { 'b-4a5e25ad': '05b561c1ae22' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -416,7 +415,7 @@ describe('updateBlocks', () => {
       nid: 39,
       entry: 'joined',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-2': '05b561c1ae22' }, unchanged: ['b-1', 'b-3'], removed: [] },
+      applied: { fields: [], blocks: { 'b-2': '05b561c1ae22' }, unchanged: ['b-1', 'b-3'], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -447,7 +446,7 @@ describe('updateBlocks', () => {
       nid: 39,
       entry: 'joined',
       observers: 0,
-      applied: { fields: [], body: false, blocks: {}, unchanged: [], removed: ['b-1'] },
+      applied: { fields: [], blocks: {}, unchanged: [], removed: ['b-1'] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -461,6 +460,6 @@ describe('updateBlocks', () => {
     expect((res.content as any[])[0].text).toBe(
       'Updated node 39 — removed blocks: b-1; left to your open session, which persists it.',
     )
-    expect((res.structuredContent as any).applied).toEqual({ fields: [], body: false, blocks: {}, removed: ['b-1'] })
+    expect((res.structuredContent as any).applied).toEqual({ fields: [], blocks: {}, removed: ['b-1'] })
   })
 })

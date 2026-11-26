@@ -216,7 +216,7 @@ describe('MCP server', () => {
       nid: 7,
       entry: 'started',
       observers: 0,
-      applied: { fields: [], body: false, blocks: { 'b-1': '28de1f57b3d1' }, unchanged: [], removed: [] },
+      applied: { fields: [], blocks: { 'b-1': '28de1f57b3d1' }, unchanged: [], removed: [] },
     })
     const { client } = await connect()
     await client.listTools()
@@ -234,7 +234,6 @@ describe('MCP server', () => {
     expect(routeAgentEdit).toHaveBeenCalledWith(
       expect.anything(), expect.anything(), { nid: 7, name: expect.any(String) },
       { blocks: [{ id: 'b-1', expect: '05b561c1ae22', markdown: '# Intro, edited' }] },
-      undefined,
     )
 
     const reread = await client.callTool({ name: 'getPageForEditing', arguments: { path: 'intro' } })

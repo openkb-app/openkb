@@ -32,7 +32,8 @@ import { CommitValidationError, identityAuthHeaders, type CommitContext, type Co
  *     still differs from the baseline and reaches the next commit.
  *
  * The value → JSON:API mapping ({@link fieldsPatchPayload}) is shared with the
- * `.md` PUT endpoint: one codec for both persistence surfaces.
+ * write tools' pre-join validation and the revert: one codec for every
+ * persistence surface.
  *
  * Reference resolution: the Y.Map stores `{id, label}` with no JSON:API type,
  * and a relationship identifier needs the target's concrete `type--bundle`.
