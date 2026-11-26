@@ -21,7 +21,7 @@ import { nameThreadCurrently, projectThread, threadAccountUids, THREAD_SCHEMA } 
 import { answered, type JsonSchema, type KbTool, type ToolResult } from './types'
 
 /** Longest one call may wait, whatever it asks for. */
-const MAX_TIMEOUT_SEC = 120
+const MAX_TIMEOUT_SEC = 50
 /** How long it waits when it asks for nothing in particular. */
 const DEFAULT_TIMEOUT_SEC = 30
 

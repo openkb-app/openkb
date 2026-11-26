@@ -239,7 +239,7 @@ describe('waitForChanges', () => {
 
     const waiting = client.callTool({
       name: 'waitForChanges',
-      arguments: { path: 'intro', timeoutSec: 120 },
+      arguments: { path: 'intro', timeoutSec: 50 },
     })
     await tick(20)
     expect(seats()).toBe(1)
@@ -336,14 +336,14 @@ describe('waitForChanges', () => {
     expect(events[0]).toMatchObject({ kind: 'comments', thread: { block: 'b-1' } })
   })
 
-  it('still bounds the agent wait at 120 s', async () => {
+  it('bounds the agent wait at 50 s', async () => {
     session()
     const { client } = await connect()
 
     const tool = (await client.listTools()).tools.find(t => t.name === 'waitForChanges')!
     expect((tool.inputSchema as any).properties.timeoutSec).toMatchObject({
       minimum: 0,
-      maximum: 120,
+      maximum: 50,
     })
   })
 
