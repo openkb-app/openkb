@@ -1,0 +1,20 @@
+langcode: en
+status: true
+dependencies:
+  config:
+    - easy_email.easy_email_type.openkb_invite_account
+    - field.storage.easy_email.field_openkb_invite
+id: easy_email.openkb_invite_account.field_openkb_invite
+field_name: field_openkb_invite
+entity_type: easy_email
+bundle: openkb_invite_account
+label: Invite
+description: ''
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:openkb_invite'
+  handler_settings: {  }
+field_type: entity_reference

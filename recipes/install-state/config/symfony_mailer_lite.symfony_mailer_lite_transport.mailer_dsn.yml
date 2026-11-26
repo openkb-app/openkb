@@ -1,0 +1,8 @@
+langcode: en
+status: false
+dependencies: {  }
+id: mailer_dsn
+label: 'MAILER_DSN environment variable'
+plugin: dsn
+configuration:
+  dsn: 'null://null'

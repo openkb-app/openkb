@@ -1,0 +1,9 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - openkb_tools
+id: file_upload_url
+tool_id: openkb_file_upload_url
+description: null

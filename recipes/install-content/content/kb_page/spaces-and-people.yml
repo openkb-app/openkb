@@ -63,10 +63,11 @@ default:
       value: |
         # Spaces and people {#b-ea13e3c2}
 
-        Spaces, their rosters, read access and review policy. {#b-e762531f}
+        Spaces, their rosters, invitations, read access and review policy. {#b-e762531f}
 
         ::block{#b-b4736979}
         - [Spaces](/openkb-user-guide/spaces)
         - [Members and access](/openkb-user-guide/members-and-access)
+        - [Invitations](/openkb-user-guide/invitations)
         - [Review policy per space](/openkb-user-guide/review-policy)
         ::

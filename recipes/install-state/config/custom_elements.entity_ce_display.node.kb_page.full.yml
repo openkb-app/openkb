@@ -16,6 +16,7 @@ dependencies:
     - node.type.kb_page
   module:
     - openkb_schema
+    - openkb_workflow
 id: node.kb_page.full
 targetEntityType: node
 bundle: kb_page
@@ -33,7 +34,7 @@ content:
       include_uuid: true
       include_label: true
   blockMeta:
-    formatter: raw
+    formatter: openkb_block_meta
     field_name: field_block_meta
     is_slot: false
     weight: 1

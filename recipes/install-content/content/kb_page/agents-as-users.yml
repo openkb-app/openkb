@@ -78,7 +78,7 @@ default:
         - Leave a comment on a block, and follow a page live while a person edits it.
         ::
 
-        Whatever scopes it holds, an agent cannot publish, resolve a comment, delete a page or create a space: no agent scope names these, and no tool offers them. {#b-477dc02e}
+        Whatever scopes it holds, an agent cannot publish, delete a page or create a space: no agent scope names these, and no tool offers them. It resolves only a comment thread it opened itself. {#b-477dc02e}
 
         ## The permission ceiling {#b-c2ca6bf5}
 

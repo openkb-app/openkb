@@ -88,7 +88,7 @@ default:
         ::block{#b-c521f825}
         - The sidebar on the left shows the space you are in and its page tree. The space switcher at its top lists every space you may read.
         - The home page shows what changed recently and the spaces you may read.
-        - The account menu is at the bottom of the sidebar. It holds "Shortcuts", "Edit profile", "Agents & API clients" and "Log out".
+        - The account menu is at the bottom of the sidebar. It holds "Shortcuts", "Edit profile", "Agents & API clients" and "Log out". See [Your profile](/openkb-user-guide/your-profile).
         - The "Ask OpenKnowledgebase" button in the bottom right corner opens the assistant.
         ::
 
