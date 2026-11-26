@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../../test-support/h3'
 
 /**
  * The one forwarding route onto Drupal (ADR 0011), and the four limits on it:
@@ -28,16 +29,12 @@ const handler = (await import('./[...path]')).default as unknown as
 
 const JSON_ACCEPT = 'application/json'
 
+/** A forwarded request for the Drupal path `path`. */
 function event(
   headers: Record<string, string | undefined> = { cookie: 'SESS=1', accept: JSON_ACCEPT },
   { method = 'GET', path = 'openkb/node/7/moderation' } = {},
 ): H3Event {
-  return {
-    method,
-    path: `/api/drupal/${path}`,
-    context: { params: { path } },
-    node: { req: { method, headers } },
-  } as unknown as H3Event
+  return makeEvent(headers, { method, path: `/api/drupal/${path}`, params: { path } })
 }
 
 function answer(body: unknown, { status = 200, type = JSON_ACCEPT } = {}): Response {

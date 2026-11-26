@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import type { CommitResult } from '../../utils/commit'
 import handler from './[id]/commit.post'
+import { makeEvent } from '../../test-support/h3'
 
 const documents = new Map<string, unknown>()
 const openDirectConnection = vi.fn()
@@ -32,14 +33,9 @@ function joinAnswer(update: boolean, uid = 7): Response {
   return Response.json({ account: { uid, name: 'ada' }, update, denied_fields: [] })
 }
 
+/** A commit request for node `id`, with the credentials given. */
 function event(id: string, cookie?: string, authorization?: string): H3Event {
-  const headers: Record<string, string> = {}
-  if (cookie) headers.cookie = cookie
-  if (authorization) headers.authorization = authorization
-  return {
-    context: { params: { id } },
-    node: { req: { headers } },
-  } as unknown as H3Event
+  return makeEvent({ cookie, authorization }, { method: 'POST', params: { id } })
 }
 
 describe('POST /api/node/:id/commit', () => {

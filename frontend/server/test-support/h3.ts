@@ -1,12 +1,43 @@
 import { vi } from 'vitest'
 import type { H3Event } from 'h3'
 
-/** An event carrying only request headers — what the Drupal helpers read. */
-export function makeEvent(headers: Record<string, string> = { Cookie: 'SESS=x' }): H3Event {
+/** The request parts of a fake event besides its headers. */
+export interface EventInit {
+  method?: string
+  /** The request URL: path plus query. */
+  path?: string
+  /** Router params, as `getRouterParam()` reads them. */
+  params?: Record<string, string>
+  context?: Record<string, unknown>
+  remoteAddress?: string
+}
+
+/** A fake event; `sent` holds the response headers the code set. */
+export type FakeEvent = H3Event & { sent: Record<string, string> }
+
+/** An event as h3's request and response helpers read and write one. */
+export function makeEvent(
+  headers: Record<string, string | undefined> = { Cookie: 'SESS=x' },
+  { method = 'GET', path = '/', params = {}, context = {}, remoteAddress }: EventInit = {},
+): FakeEvent {
   const lower = Object.fromEntries(
     Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]),
   )
-  return { context: {}, node: { req: { headers: lower } } } as unknown as H3Event
+  const sent: Record<string, string> = {}
+  const event = {
+    method,
+    path,
+    context: { params, ...context },
+    node: {
+      req: { url: path, method, headers: lower, socket: { remoteAddress } },
+      res: {
+        statusCode: 200,
+        setHeader: (name: string, value: string) => { sent[name] = value },
+      },
+    },
+    sent,
+  }
+  return event as unknown as FakeEvent
 }
 
 /** One stubbed answer; `offline` makes the call throw as an unreachable host does. */

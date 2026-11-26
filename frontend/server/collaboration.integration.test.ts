@@ -15,6 +15,7 @@ import {
   type BlockMetaMap,
 } from '#shared/page-blocks'
 import { messageKey, type InlineCommentRecord } from '#shared/block-comments'
+import { DRUPAL_URL, NUXT_URL, PORT, drupalLogin, sessionToken } from './test-support/drupal-session'
 
 /**
  * WS bridge integration test — real client against the running dev server.
@@ -33,46 +34,13 @@ import { messageKey, type InlineCommentRecord } from '#shared/block-comments'
  *   docker compose exec -T frontend npx vitest run --project integration
  */
 
-// The port the surrounding frontend container listens on: local stacks raise it
-// to the published host port so the advertised frontend URL is valid
-// in-network too; elsewhere it is nitro's 3000.
-const PORT = process.env.NUXT_PORT ?? process.env.NITRO_PORT ?? '3000'
 const WS_URL = process.env.OKB_COLLAB_WS_URL ?? `ws://127.0.0.1:${PORT}/collaboration`
-const DRUPAL_URL = (process.env.DRUPAL_BASE_URL ?? 'http://openkb-dev-project.localdev.space:8081').replace(/\/$/, '')
 const DOC_NAME = 'node:1'
-const NUXT_URL = (process.env.OKB_NUXT_URL ?? `http://127.0.0.1:${PORT}`).replace(/\/$/, '')
-
-async function drupalAdminCookie(): Promise<string> {
-  const body = new URLSearchParams({
-    name: 'admin',
-    pass: process.env.OKB_ADMIN_PASS ?? 'yKCE5gSqOk2z7WmLO7__gAqv',
-    form_id: 'user_login_form',
-    op: 'Log in',
-  })
-  const res = await fetch(`${DRUPAL_URL}/user/login`, {
-    method: 'POST',
-    body,
-    redirect: 'manual',
-  })
-  const cookie = res.headers
-    .getSetCookie()
-    .map(c => c.split(';')[0])
-    .find(c => /^S?SESS/.test(c))
-  if (!cookie) {
-    throw new Error(`Drupal login failed (status ${res.status}, no SESS cookie)`)
-  }
-  return cookie
-}
 
 interface Session {
   provider: HocuspocusProvider
   socket: HocuspocusProviderWebsocket
   doc: Y.Doc
-}
-
-/** The session's CSRF token, read the way the app reads it. */
-async function sessionToken(cookie: string): Promise<string> {
-  return (await (await fetch(`${NUXT_URL}/session/token`, { headers: { Cookie: cookie } })).text()).trim()
 }
 
 /**
@@ -471,7 +439,7 @@ describe('collaboration WS bridge', () => {
   }
 
   beforeAll(async () => {
-    cookie = await drupalAdminCookie()
+    cookie = await drupalLogin()
   })
 
   afterEach(() => {
@@ -555,7 +523,7 @@ describe('collaboration WS bridge', () => {
 
     await expect(declaring(cookie, '')).rejects.toThrow(/CSRF token|authentication failed/i)
     await expect(declaring(cookie, 'okb-agent-token')).rejects.toThrow(/CSRF token|authentication failed/i)
-    await expect(declaring(cookie, await sessionToken(await drupalAdminCookie()))).rejects.toThrow(/CSRF token|authentication failed/i)
+    await expect(declaring(cookie, await sessionToken(await drupalLogin()))).rejects.toThrow(/CSRF token|authentication failed/i)
     await expect(declaring(null, 'okb-agent-token')).rejects.toThrow(/authentication failed/i)
   })
 
@@ -755,7 +723,7 @@ describe('collaboration entity fields', () => {
   }
 
   beforeAll(async () => {
-    cookie = await drupalAdminCookie()
+    cookie = await drupalLogin()
   })
 
   afterEach(() => {
@@ -858,7 +826,7 @@ describe('collaboration block provenance', () => {
   }
 
   beforeAll(async () => {
-    cookie = await drupalAdminCookie()
+    cookie = await drupalLogin()
   })
 
   afterEach(() => {
@@ -1082,7 +1050,7 @@ describe('collaboration multi-peer settle', () => {
   const PASS = 'okb121-settle-pass'
 
   beforeAll(async () => {
-    cookie = await drupalAdminCookie()
+    cookie = await drupalLogin()
   })
 
   afterEach(() => {
@@ -1104,17 +1072,6 @@ describe('collaboration multi-peer settle', () => {
     if (index >= 0) sessions.splice(index, 1)
     session.provider.destroy()
     session.socket.destroy()
-  }
-
-  async function login(name: string): Promise<string> {
-    const res = await fetch(`${DRUPAL_URL}/user/login`, {
-      method: 'POST',
-      body: new URLSearchParams({ name, pass: PASS, form_id: 'user_login_form', op: 'Log in' }),
-      redirect: 'manual',
-    })
-    const session = res.headers.getSetCookie().map(c => c.split(';')[0]).find(c => /^S?SESS/.test(c))
-    if (!session) throw new Error(`login failed for ${name} (status ${res.status})`)
-    return session
   }
 
   /**
@@ -1150,7 +1107,7 @@ describe('collaboration multi-peer settle', () => {
       uuid: created.data.id,
       uid: created.data.attributes.drupal_internal__uid,
       name,
-      cookie: await login(name),
+      cookie: await drupalLogin(name, PASS),
       /**
        * The roster entry and the account, undone together.
        *

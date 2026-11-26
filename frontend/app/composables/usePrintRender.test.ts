@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
-import type { H3Event } from 'h3'
 import { isPrintRenderRequest, setBrowserPrintRender, usePrintRender } from './usePrintRender'
+import { makeEvent } from '../../server/test-support/h3'
 
 /** A server request with `context`, as server/utils/export-render.ts leaves it. */
-function requestWith(context: Record<string, unknown>): H3Event {
-  return { context } as unknown as H3Event
+function requestWith(context: Record<string, unknown>) {
+  return makeEvent({}, { context })
 }
 
 afterEach(() => {

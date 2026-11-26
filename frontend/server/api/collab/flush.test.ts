@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { H3Event } from 'h3'
 import handler from './flush.post'
+import { makeEvent } from '../../test-support/h3'
 
 const executeNow = vi.fn()
 const hp = {
@@ -18,8 +19,9 @@ vi.mock('nitropack/runtime', () => ({
   useNitroApp: () => ({ hocuspocus: hp }),
 }))
 
+/** A flush request from `remoteAddress`. */
 function eventWithRemote(remoteAddress: string | undefined): H3Event {
-  return { node: { req: { socket: { remoteAddress } } } } as unknown as H3Event
+  return makeEvent({}, { method: 'POST', remoteAddress })
 }
 
 describe('POST /api/collab/flush', () => {

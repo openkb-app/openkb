@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
 import type { FieldSpec } from '../../utils/entity-fields'
 import handler from './[...path].get'
+import { makeEvent, type FakeEvent } from '../../test-support/h3'
 
 /**
  * The one catch-all serves three shapes off a space-scoped path: the published
@@ -41,16 +41,9 @@ function cePage(page: Record<string, unknown>, canEdit = false) {
   return { page: { id: 'n-1', ...page }, props: {}, canEdit }
 }
 
-function event(path: string): H3Event & { headers: Record<string, string> } {
-  const headers: Record<string, string> = {}
-  return {
-    context: { params: { path } },
-    node: {
-      req: { headers: {} },
-      res: { setHeader: (k: string, v: string) => { headers[k] = v } },
-    },
-    headers,
-  } as unknown as H3Event & { headers: Record<string, string> }
+/** A read of the page address `path`. */
+function event(path: string): FakeEvent {
+  return makeEvent({}, { params: { path } })
 }
 
 describe('GET /api/kb/<space>/<slug>(.md|/draft.md)', () => {
@@ -80,7 +73,7 @@ describe('GET /api/kb/<space>/<slug>(.md|/draft.md)', () => {
     const ev = event('team-wiki/getting-started.md')
     const md = await handler(ev) as string
 
-    expect(ev.headers['Content-Type']).toBe('text/markdown; charset=utf-8')
+    expect(ev.sent['Content-Type']).toBe('text/markdown; charset=utf-8')
     expect(md).toContain('Body.')
     expect(md).not.toContain('# Getting started')
     expect(fetchCePage).toHaveBeenCalledWith(ev, 'team-wiki/getting-started')
@@ -109,7 +102,7 @@ describe('GET /api/kb/<space>/<slug>(.md|/draft.md)', () => {
     const ev = event('team-wiki/getting-started/draft.md')
     const md = await handler(ev) as string
 
-    expect(ev.headers['X-OpenKB-Revision']).toBe('working-copy')
+    expect(ev.sent['X-OpenKB-Revision']).toBe('working-copy')
     expect(md).toContain('Draft.')
     expect(fetchCeWorkingCopy).toHaveBeenCalledWith({}, 7, live)
   })

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../../test-support/h3'
 
 /** The CE-API passthrough: the target comes from the router param and stays under /ce-api. */
 
@@ -17,13 +18,9 @@ vi.mock('../../utils/drupal-ce-enrich', () => ({ enrichCePage: (page: unknown) =
 const handler = (await import('./[...path].get')).default as unknown as
   (event: H3Event) => Promise<unknown>
 
+/** A request for `url`, routed with the `[...path]` param `param`. */
 function event(url: string, param: string): H3Event {
-  return {
-    method: 'GET',
-    path: url,
-    context: { params: { path: param } },
-    node: { req: { url, method: 'GET', headers: {} } },
-  } as unknown as H3Event
+  return makeEvent({}, { path: url, params: { path: param } })
 }
 
 describe('/api/drupal-ce/[...path]', () => {

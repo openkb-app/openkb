@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import { NUXT_URL, drupalLogin, sessionToken } from './test-support/drupal-session'
 
 /**
  * ADR 0019 from the caller's side, against the running dev server: a cookie
@@ -6,30 +7,6 @@ import { describe, it, expect, beforeAll } from 'vitest'
  *
  * Needs the full docker stack; see collaboration.integration.test.ts.
  */
-
-const PORT = process.env.NUXT_PORT ?? process.env.NITRO_PORT ?? '3000'
-const DRUPAL_URL = (process.env.DRUPAL_BASE_URL ?? 'http://openkb-dev-project.localdev.space:8081').replace(/\/$/, '')
-const NUXT_URL = (process.env.OKB_NUXT_URL ?? `http://127.0.0.1:${PORT}`).replace(/\/$/, '')
-
-async function adminCookie(): Promise<string> {
-  const res = await fetch(`${DRUPAL_URL}/user/login`, {
-    method: 'POST',
-    body: new URLSearchParams({
-      name: 'admin',
-      pass: process.env.OKB_ADMIN_PASS ?? 'yKCE5gSqOk2z7WmLO7__gAqv',
-      form_id: 'user_login_form',
-      op: 'Log in',
-    }),
-    redirect: 'manual',
-  })
-  const cookie = res.headers.getSetCookie().map(c => c.split(';')[0]).find(c => /^S?SESS/.test(c))
-  if (!cookie) throw new Error(`Drupal login failed (status ${res.status}, no SESS cookie)`)
-  return cookie
-}
-
-async function sessionToken(cookie: string): Promise<string> {
-  return (await (await fetch(`${NUXT_URL}/session/token`, { headers: { Cookie: cookie } })).text()).trim()
-}
 
 /**
  * Dry-run writes: Drupal validates, nothing is stored.
@@ -48,9 +25,9 @@ describe('CSRF token from the caller', () => {
   let otherToken: string
 
   beforeAll(async () => {
-    cookie = await adminCookie()
+    cookie = await drupalLogin()
     ownToken = await sessionToken(cookie)
-    otherToken = await sessionToken(await adminCookie())
+    otherToken = await sessionToken(await drupalLogin())
   })
 
   function write(path: string, token?: string): Promise<Response> {

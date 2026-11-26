@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
 import handler from './index.get'
+import { makeEvent } from '../../test-support/h3'
 
 /**
  * The list the whole navigation is built from.
@@ -17,10 +17,6 @@ vi.mock('../../utils/drupal', async importOriginal => ({
   ...(await importOriginal<typeof import('../../utils/drupal')>()),
   drupalFetch: (...args: unknown[]) => drupalFetch(...args),
 }))
-
-function event(): H3Event {
-  return { context: {} } as unknown as H3Event
-}
 
 const SPACE = {
   type: 'openkb_space--openkb_space',
@@ -43,7 +39,7 @@ describe('GET /api/kb', () => {
 
   it('carries the page UUID — the id the space outline names it by', async () => {
     drupalFetch.mockResolvedValue({ data: [page('a')], included: [SPACE] })
-    const result = await handler(event())
+    const result = await handler(makeEvent())
     expect(result).toEqual([{
       id: 'a',
       title: 'A',
@@ -57,7 +53,7 @@ describe('GET /api/kb', () => {
     const undated = page('b')
     delete (undated.attributes as { changed?: string }).changed
     drupalFetch.mockResolvedValue({ data: [page('a'), undated], included: [SPACE] })
-    const result = await handler(event()) as Array<{ changed: number }>
+    const result = await handler(makeEvent()) as Array<{ changed: number }>
     expect(result[0]!.changed).toBe(Date.parse('2026-07-20T10:00:00+00:00'))
     // Sorting must not float an unknown edit date to the top of "recent".
     expect(result[1]!.changed).toBe(0)
@@ -74,7 +70,7 @@ describe('GET /api/kb', () => {
       })
       .mockResolvedValueOnce({ data: second, included: [SPACE] })
 
-    const result = await handler(event())
+    const result = await handler(makeEvent())
     expect(result).toHaveLength(87)
     expect(drupalFetch).toHaveBeenCalledTimes(2)
     // The next link is reduced to a path: Drupal builds it from its own base
@@ -99,7 +95,7 @@ describe('GET /api/kb', () => {
         included: [other],
       })
 
-    const result = await handler(event())
+    const result = await handler(makeEvent())
     expect(result.map(item => item.space?.name)).toEqual(['Engineering', 'Product'])
   })
 
@@ -117,14 +113,14 @@ describe('GET /api/kb', () => {
         links: { next: { href: 'http://drupal.test/jsonapi/node/kb_page?page[offset]=400' } },
       })
 
-    const result = await handler(event())
+    const result = await handler(makeEvent())
     expect(result).toHaveLength(1)
     expect(drupalFetch).toHaveBeenCalledTimes(2)
   })
 
   it('pages on a total order, so no row can straddle a page boundary', async () => {
     drupalFetch.mockResolvedValue({ data: [page('a')], included: [SPACE] })
-    await handler(event())
+    await handler(makeEvent())
     // `created` alone ties across a bulk import; the node id breaks the tie.
     const query = drupalFetch.mock.calls[0]![1] as string
     expect(query).toContain('created')
@@ -142,7 +138,7 @@ describe('GET /api/kb', () => {
       })
       .mockResolvedValueOnce({ data: [page('b'), page('c')], included: [SPACE] })
 
-    const result = await handler(event())
+    const result = await handler(makeEvent())
     expect(result.map(item => item.id)).toEqual(['a', 'b', 'c'])
   })
 
@@ -150,7 +146,7 @@ describe('GET /api/kb', () => {
     drupalFetch.mockResolvedValue({
       data: [{ id: 'a', attributes: { title: 'A', path: null }, relationships: {} }],
     })
-    const result = await handler(event())
+    const result = await handler(makeEvent())
     expect(result).toEqual([{ id: 'a', title: 'A', path: '', space: null, changed: 0 }])
   })
 })

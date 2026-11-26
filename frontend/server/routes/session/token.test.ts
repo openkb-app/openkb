@@ -1,23 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
 import handler from './token'
+import { makeEvent, type FakeEvent } from '../../test-support/h3'
 
 const passthrough = vi.fn()
 vi.mock('../../utils/drupal-proxy', () => ({ drupalPassthrough: (...a: unknown[]) => passthrough(...a) }))
 
-function event(method: string): H3Event & { headers: Record<string, string> } {
-  const headers: Record<string, string> = {}
-  const e = {
-    path: '/session/token',
-    method,
-    context: {},
-    node: {
-      req: { url: '/session/token', method, headers: { cookie: 'SSESSabc=1' } },
-      res: { setHeader: (name: string, value: string) => { headers[name.toLowerCase()] = value }, statusCode: 200 },
-    },
-    headers,
-  }
-  return e as unknown as H3Event & { headers: Record<string, string> }
+/** A request to the token route with `method`. */
+function event(method: string): FakeEvent {
+  return makeEvent({ cookie: 'SSESSabc=1' }, { method, path: '/session/token' })
 }
 
 describe('/session/token', () => {
@@ -34,7 +24,7 @@ describe('/session/token', () => {
   it.each(['POST', 'OPTIONS', 'PUT', 'DELETE'])('answers %s with 405 and Allow', (method) => {
     const e = event(method)
     expect(() => handler(e)).toThrow(expect.objectContaining({ statusCode: 405 }))
-    expect(e.headers.allow).toBe('GET, HEAD')
+    expect(e.sent.Allow).toBe('GET, HEAD')
     expect(passthrough).not.toHaveBeenCalled()
   })
 })

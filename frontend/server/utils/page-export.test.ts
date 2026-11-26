@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { H3Event } from 'h3'
 import type { PrintHtmlSources } from './print-html'
 import { exportPageHtml } from './page-export'
+import { makeEvent } from '../test-support/h3'
 
 /**
  * The export's access and wiring: which version renders, for whom, and which
@@ -26,12 +26,6 @@ vi.mock('nitropack/runtime', () => ({
   useNitroApp: () => ({ localFetch }),
 }))
 
-vi.mock('h3', async original => ({
-  ...await original<typeof import('h3')>(),
-  getRequestURL: () => new URL('https://kb.example/api/kb/general/probe.html'),
-  setResponseHeaders: (event: { headers: Record<string, string> }, headers: Record<string, string>) => Object.assign(event.headers, headers),
-}))
-
 /** What fetchCePage answers for the page. */
 function cePage(canEdit: boolean, hasDraft: boolean) {
   return { page: { nid: 7, path: '/general/probe' }, props: {}, canEdit, hasDraft }
@@ -40,16 +34,17 @@ function cePage(canEdit: boolean, hasDraft: boolean) {
 /** A request with a session cookie whose own render answers `status`. */
 function exportEvent(status = 200) {
   const rendered: Array<{ path: string, init: RequestInit }> = []
-  const event = {
-    headers: {} as Record<string, string>,
+  const event = makeEvent(
+    { 'cookie': 'SESSabc=1', 'host': 'kb.example', 'x-forwarded-proto': 'https' },
+    { path: '/api/kb/general/probe.html' },
+  )
+  return Object.assign(event, {
     rendered,
-    node: { req: { headers: { cookie: 'SESSabc=1' } } },
     fetch: async (path: string, init: RequestInit) => {
       rendered.push({ path, init })
       return new Response('<html></html>', { status })
     },
-  }
-  return event as unknown as H3Event & { headers: Record<string, string>, rendered: typeof rendered }
+  })
 }
 
 describe('exportPageHtml', () => {
@@ -70,7 +65,7 @@ describe('exportPageHtml', () => {
     expect(event.rendered[0]?.path).toBe('/general/probe')
     expect(event.rendered[0]?.init.headers).toEqual({ 'Accept': 'text/html', 'x-okb-export-render': expect.any(String) })
     expect(buildPrintHtml.mock.calls[0]?.[0]).toMatchObject({ pageUrl: 'https://kb.example/general/probe' })
-    expect(event.headers).toMatchObject({
+    expect(event.sent).toMatchObject({
       'Content-Type': 'text/html; charset=utf-8',
       'Content-Disposition': 'attachment; filename="probe.html"',
       'Cache-Control': 'private, no-store',

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../../test-support/h3'
 
 /**
  * `POST /api/kb` is the create surface's transport: it validates what the dialog
@@ -30,10 +31,6 @@ const handler = (await import('./index.post')).default as unknown as
 
 const SPACE_UUID = '7f0aa5e7-3c5b-46cb-9002-c7a65aff9857'
 
-function event(headers: Record<string, string> = { cookie: 'SESS=1' }): H3Event {
-  return { node: { req: { headers } } } as unknown as H3Event
-}
-
 async function statusOf(promise: Promise<unknown>): Promise<number> {
   try {
     await promise
@@ -60,7 +57,7 @@ describe('POST /api/kb', () => {
       path: '/engineering/getting-started',
     })
 
-    const result = await handler(event())
+    const result = await handler(makeEvent({ cookie: 'SESS=1' }))
 
     expect(resolveSpaceId).toHaveBeenCalledWith(expect.anything(), 'engineering')
     expect(createKbPage).toHaveBeenCalledWith(expect.anything(), {
@@ -77,7 +74,7 @@ describe('POST /api/kb', () => {
     readBody.mockResolvedValue({ title: 'Runbook', space: 'engineering', type: 'runbook' })
     createKbPage.mockResolvedValue({ nid: 43, uuid: 'u', title: 'Runbook', path: '/engineering/runbook' })
 
-    await handler(event())
+    await handler(makeEvent({ cookie: 'SESS=1' }))
 
     expect(createKbPage).toHaveBeenCalledWith(
       expect.anything(),
@@ -87,16 +84,16 @@ describe('POST /api/kb', () => {
 
   it('requires a session', async () => {
     readBody.mockResolvedValue({ title: 'Anonymous page', space: SPACE_UUID })
-    expect(await statusOf(handler(event({})))).toBe(401)
+    expect(await statusOf(handler(makeEvent({})))).toBe(401)
     expect(createKbPage).not.toHaveBeenCalled()
   })
 
   it('requires a title and a space', async () => {
     readBody.mockResolvedValue({ title: '   ', space: SPACE_UUID })
-    expect(await statusOf(handler(event()))).toBe(400)
+    expect(await statusOf(handler(makeEvent({ cookie: 'SESS=1' })))).toBe(400)
 
     readBody.mockResolvedValue({ title: 'No space in sight' })
-    expect(await statusOf(handler(event()))).toBe(400)
+    expect(await statusOf(handler(makeEvent({ cookie: 'SESS=1' })))).toBe(400)
 
     expect(createKbPage).not.toHaveBeenCalled()
   })

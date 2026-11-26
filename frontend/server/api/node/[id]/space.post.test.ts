@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../../../test-support/h3'
 
 /**
  * `POST /api/node/<nid>/space` is a transport onto the Drupal move route: it
@@ -30,11 +31,9 @@ const handler = (await import('./space.post')).default as unknown as
 
 const SPACE_UUID = '7f0aa5e7-3c5b-46cb-9002-c7a65aff9857'
 
+/** A space move request for node `id`. */
 function event(id: string, headers: Record<string, string> = { cookie: 'SESS=1' }): H3Event {
-  return {
-    context: { params: { id } },
-    node: { req: { headers } },
-  } as unknown as H3Event
+  return makeEvent(headers, { method: 'POST', params: { id } })
 }
 
 async function statusOf(promise: Promise<unknown>): Promise<number> {

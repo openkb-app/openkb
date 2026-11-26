@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../test-support/h3'
 
 /**
  * The MCP relay to Drupal: when it opens a session, whose listing it serves,
@@ -106,8 +107,9 @@ async function drupal(url: string | URL, init: RequestInit = {}): Promise<Respon
   return new Response('{}', { status: 404 })
 }
 
+/** A request whose actor carries `token`. */
 function event(token: string): H3Event {
-  return { context: { token } } as unknown as H3Event
+  return makeEvent({}, { context: { token } })
 }
 
 /** Just the RPC methods and the HTTP verbs that carried no RPC. */

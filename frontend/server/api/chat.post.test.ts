@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../test-support/h3'
 
 /** The chat proxy maps upstream failures like every other proxy and never names the upstream. */
 
@@ -13,7 +14,7 @@ vi.mock('../utils/capped-body', () => ({ readCappedBody: (...a: unknown[]) => ra
 const handler = (await import('./chat.post')).default as unknown as
   (event: H3Event) => Promise<unknown>
 
-const event = { node: { req: { headers: { 'cookie': 'SESS=1', 'x-csrf-token': 'browser-token' } } } } as unknown as H3Event
+const event = makeEvent({ 'cookie': 'SESS=1', 'x-csrf-token': 'browser-token' })
 
 beforeEach(() => {
   rawBody.mockResolvedValue(Buffer.from('{"messages":[]}'))
@@ -33,7 +34,7 @@ describe('POST /api/chat', () => {
 
   it('maps an upstream 403 for an anonymous caller to 401', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('denied', { status: 403 })))
-    const anonymous = { node: { req: { headers: {} } } } as unknown as H3Event
+    const anonymous = makeEvent({})
     await expect(handler(anonymous)).rejects.toMatchObject({ statusCode: 401 })
   })
 
@@ -52,7 +53,7 @@ describe('POST /api/chat', () => {
   it('forwards a Bearer token alone, without the cookie', async () => {
     const fetch = vi.fn().mockResolvedValue(new Response('denied', { status: 403 }))
     vi.stubGlobal('fetch', fetch)
-    const bearer = { node: { req: { headers: { cookie: 'SESS=1', authorization: 'Bearer agent-1' } } } } as unknown as H3Event
+    const bearer = makeEvent({ cookie: 'SESS=1', authorization: 'Bearer agent-1' })
     await handler(bearer).catch(() => {})
     const headers = new Headers(fetch.mock.calls[0]![1].headers)
     expect(headers.get('authorization')).toBe('Bearer agent-1')

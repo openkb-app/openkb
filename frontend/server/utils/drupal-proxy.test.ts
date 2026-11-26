@@ -3,6 +3,7 @@ import { createServer, type Server } from 'node:http'
 import { connect, type AddressInfo } from 'node:net'
 import { createApp, createRouter, toNodeListener, type EventHandler, type H3Event } from 'h3'
 import { drupalPassthrough, drupalPath } from './drupal-proxy'
+import { makeEvent } from '../test-support/h3'
 /**
  * A Drupal passthrough: where it forwards, and that a path which would resolve
  * outside its prefix never leaves the app.
@@ -19,12 +20,7 @@ vi.mock('h3', async (importOriginal) => {
 
 /** An event as the router hands it over: the raw URL plus the `[...path]` param. */
 function event(url: string, param?: string): H3Event {
-  return {
-    path: url,
-    method: 'GET',
-    context: { params: param === undefined ? {} : { path: param } },
-    node: { req: { url, method: 'GET', headers: { host: 'app.test' } } },
-  } as unknown as H3Event
+  return makeEvent({ host: 'app.test' }, { path: url, params: param === undefined ? {} : { path: param } })
 }
 
 /** Runs a handler, a synchronous throw included, as a promise. */

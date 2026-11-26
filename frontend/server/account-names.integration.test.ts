@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest'
 import { fetchAccountNames } from './utils/account-names'
+import { DRUPAL_URL, drupalLogin } from './test-support/drupal-session'
 
 /**
  * Agent reads name accounts through the collab server's own token.
@@ -9,27 +10,6 @@ import { fetchAccountNames } from './utils/account-names'
  *
  * Needs the full docker stack; see collaboration.integration.test.ts.
  */
-
-const DRUPAL_URL = (process.env.DRUPAL_BASE_URL ?? 'http://openkb-dev-project.localdev.space:8081').replace(/\/$/, '')
-
-/**
- * A Drupal session cookie of the admin account.
- */
-async function adminCookie(): Promise<string> {
-  const res = await fetch(`${DRUPAL_URL}/user/login`, {
-    method: 'POST',
-    body: new URLSearchParams({
-      name: 'admin',
-      pass: process.env.OKB_ADMIN_PASS ?? 'yKCE5gSqOk2z7WmLO7__gAqv',
-      form_id: 'user_login_form',
-      op: 'Log in',
-    }),
-    redirect: 'manual',
-  })
-  const cookie = res.headers.getSetCookie().map(c => c.split(';')[0]).find(c => /^S?SESS/.test(c))
-  if (!cookie) throw new Error(`Drupal login failed (status ${res.status}, no SESS cookie)`)
-  return cookie
-}
 
 /**
  * The permissions the site's `collab_server` role holds.
@@ -49,7 +29,7 @@ describe('account names for agent reads', () => {
   })
 
   it('reads current names while collab_server lacks access user profiles', async () => {
-    const permissions = await collabServerPermissions(await adminCookie())
+    const permissions = await collabServerPermissions(await drupalLogin())
     expect(permissions).toContain('use collaboration api')
     expect(permissions).not.toContain('access user profiles')
 

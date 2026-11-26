@@ -1,8 +1,8 @@
 import { parseBlockMeta, type ActorNames } from '#shared/page-blocks'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
 import { fieldSpecs } from './entity-fields'
 import { getKbPage } from './kb-read'
+import { makeEvent } from '../test-support/h3'
 import { blockVersion } from './block-versions'
 import { splitTitleHeading } from './title-heading'
 
@@ -70,7 +70,7 @@ const SPECS = fieldSpecs({
   },
 })
 
-const EVENT = { node: { req: { headers: {} } } } as unknown as H3Event
+const EVENT = makeEvent({})
 
 const CE_PAGE = {
   page: {

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { H3Event } from 'h3'
 import {
   OAuthMetadataSchema,
   OAuthProtectedResourceMetadataSchema,
 } from '@modelcontextprotocol/sdk/shared/auth.js'
+import { makeEvent, type FakeEvent } from '../test-support/h3'
 
 /**
  * The two discovery documents and the 401 header that points at them — the
@@ -25,12 +25,9 @@ vi.mock('./upstream', () => ({ fetchUpstream: (...a: unknown[]) => fetchUpstream
 
 const HOST = 'kb.example.test:8091'
 
-/** An event as h3's request helpers read one. */
-function eventFor(path: string, headers: Record<string, string> = {}): H3Event {
-  return {
-    path,
-    node: { req: { url: path, headers: { host: HOST, ...headers } }, res: {} },
-  } as unknown as H3Event
+/** A request to `path` on the frontend host. */
+function eventFor(path: string, headers: Record<string, string> = {}): FakeEvent {
+  return makeEvent({ host: HOST, ...headers }, { path })
 }
 
 /** What Drupal answers on the registration-metadata route. */
@@ -183,8 +180,6 @@ describe('the 401 challenge', () => {
     )
     const route = await import('../routes/.well-known/oauth-protected-resource/api/mcp.get')
     const event = eventFor('/.well-known/oauth-protected-resource/api/mcp')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(event.node.res as any).setHeader = () => {}
     const doc = await route.default(event)
     expect(doc).toEqual(await protectedResourceMetadata(event, DEPRECATED_MCP_PATH))
     expect(doc.resource).toBe(`http://${HOST}/api/mcp`)
@@ -199,13 +194,10 @@ describe('the routes serving them', () => {
 
     for (const [handler, path] of [[prm.default, PRM_PATH], [as.default, AS_METADATA_PATH]] as const) {
       const event = eventFor(path)
-      const headers: Record<string, string> = {}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(event.node.res as any).setHeader = (name: string, value: string) => { headers[name] = value }
       const doc = await handler(event)
       expect(doc).toBeTruthy()
       // Discovery precedes any credential, and an MCP client may be a browser.
-      expect(headers['access-control-allow-origin']).toBe('*')
+      expect(event.sent['access-control-allow-origin']).toBe('*')
     }
   })
 })

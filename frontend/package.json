@@ -8,8 +8,7 @@
     "build": "nuxt build",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/vue": "^4.0.127",
@@ -55,7 +54,6 @@
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.138",
     "@iconify-json/sidekickicons": "^1.2.1",
-    "@playwright/test": "^1.63.0",
     "@tiptap/extension-link": "3.32.2",
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-vue": "^6.0.9",

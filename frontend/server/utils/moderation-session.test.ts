@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Y from 'yjs'
-import type { H3Event } from 'h3'
 import type { CommitResult } from './commit'
 import { checkpointLiveDocument, moderationWriteError } from './moderation-session'
+import { makeEvent } from '../test-support/h3'
 
 /**
  * Pins the one property the publish / revert paths share and cannot be seen to
@@ -37,10 +37,6 @@ vi.mock('./commit', async (importOriginal) => {
   return { ...actual, commitDocument }
 })
 
-function event(headers: Record<string, string> = {}): H3Event {
-  return { node: { req: { headers } } } as unknown as H3Event
-}
-
 /** A join-access answer: node update for account `uid`, and the fields out of reach. */
 function joinAnswer(update: boolean, uid = 7, deniedFields: string[] = []): Response {
   return Response.json({ account: { uid, name: 'reviewer' }, update, denied_fields: deniedFields })
@@ -63,7 +59,7 @@ describe('checkpointLiveDocument', () => {
     it('refuses a made-up token', async () => {
       fetchUpstream.mockResolvedValue(new Response('', { status: 401 }))
 
-      await expect(checkpointLiveDocument(hp(live), 1, event({ authorization: 'Bearer made-up' })))
+      await expect(checkpointLiveDocument(hp(live), 1, makeEvent({ authorization: 'Bearer made-up' })))
         .rejects.toMatchObject({ statusCode: 401 })
       expect(checkpoint).not.toHaveBeenCalled()
     })
@@ -71,7 +67,7 @@ describe('checkpointLiveDocument', () => {
     it('refuses a caller who may not view the page', async () => {
       fetchUpstream.mockResolvedValue(new Response('', { status: 403 }))
 
-      await expect(checkpointLiveDocument(hp(live), 1, event({ cookie: 'SESS=x' })))
+      await expect(checkpointLiveDocument(hp(live), 1, makeEvent({ cookie: 'SESS=x' })))
         .rejects.toMatchObject({ statusCode: 403, statusMessage: 'Request failed (403)' })
       expect(checkpoint).not.toHaveBeenCalled()
     })
@@ -79,7 +75,7 @@ describe('checkpointLiveDocument', () => {
     it('refuses a read-only token', async () => {
       fetchUpstream.mockResolvedValue(joinAnswer(false))
 
-      expect(await checkpointLiveDocument(hp(live), 1, event({ authorization: 'Bearer read-only' })))
+      expect(await checkpointLiveDocument(hp(live), 1, makeEvent({ authorization: 'Bearer read-only' })))
         .toEqual({ blocked: true, statusCode: 403, message: 'You do not have permission to make this change.' })
       expect(checkpoint).not.toHaveBeenCalled()
     })
@@ -88,7 +84,7 @@ describe('checkpointLiveDocument', () => {
   it('refuses a caller without edit access to a session field', async () => {
     fetchUpstream.mockResolvedValue(joinAnswer(true, 7, ['field_owner']))
 
-    expect(await checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=x' })))
+    expect(await checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=x' })))
       .toMatchObject({ blocked: true, statusCode: 403 })
     expect(checkpoint).not.toHaveBeenCalled()
   })
@@ -96,7 +92,7 @@ describe('checkpointLiveDocument', () => {
   it.each([true, false])('refuses a cookie Drupal reads as anonymous (update: %s) with 401', async (update) => {
     fetchUpstream.mockResolvedValue(joinAnswer(update, 0))
 
-    await expect(checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=stale' })))
+    await expect(checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=stale' })))
       .rejects.toMatchObject({ statusCode: 401 })
     expect(checkpoint).not.toHaveBeenCalled()
   })
@@ -104,13 +100,13 @@ describe('checkpointLiveDocument', () => {
   it('checkpoints nothing when the join gate is unavailable', async () => {
     fetchUpstream.mockResolvedValue(new Response('', { status: 503 }))
 
-    await expect(checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=x' })))
+    await expect(checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=x' })))
       .rejects.toMatchObject({ statusCode: 503 })
     expect(checkpoint).not.toHaveBeenCalled()
   })
 
   it('checkpoints through the one entry point, as the caller', async () => {
-    await checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=reviewer' }))
+    await checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=reviewer' }))
 
     expect(fetchUpstream).toHaveBeenCalledWith(
       'http://drupal/openkb/node/1/join-access',
@@ -122,7 +118,7 @@ describe('checkpointLiveDocument', () => {
   })
 
   it('asks under the token alone and checkpoints as its owner', async () => {
-    await checkpointLiveDocument(hp(true), 1, event({ authorization: 'Bearer tok-123', cookie: 'SESS=x' }))
+    await checkpointLiveDocument(hp(true), 1, makeEvent({ authorization: 'Bearer tok-123', cookie: 'SESS=x' }))
 
     expect(fetchUpstream).toHaveBeenCalledWith(
       'http://drupal/openkb/node/1/join-access',
@@ -134,7 +130,7 @@ describe('checkpointLiveDocument', () => {
   it('does not checkpoint a page nobody is editing', async () => {
     // No live document means nothing is pending: Drupal's working copy is
     // already the whole truth, and there is no ledger to settle.
-    expect(await checkpointLiveDocument(hp(false), 1, event({ cookie: 'SESS=x' })))
+    expect(await checkpointLiveDocument(hp(false), 1, makeEvent({ cookie: 'SESS=x' })))
       .toEqual({ blocked: false })
     expect(checkpoint).not.toHaveBeenCalled()
   })
@@ -142,28 +138,28 @@ describe('checkpointLiveDocument', () => {
   it('blocks the moderation action on edits it could not write', async () => {
     checkpoint.mockResolvedValue({ outcome: 'conflict', committed: false, expected: 1, changed: 2 })
 
-    expect(await checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=x' })))
+    expect(await checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=x' })))
       .toMatchObject({ blocked: true, statusCode: 409 })
   })
 
   it('reports the refusal of a checkpoint Drupal found invalid', async () => {
     checkpoint.mockResolvedValue({ outcome: 'invalid', committed: false, message: 'Title is required.' })
 
-    expect(await checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=x' })))
+    expect(await checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=x' })))
       .toMatchObject({ blocked: true, statusCode: 422, message: 'Title is required.' })
   })
 
   it('reports a server without its Drupal credential', async () => {
     checkpoint.mockResolvedValue({ outcome: 'no-credentials', committed: false })
 
-    expect(await checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=x' })))
+    expect(await checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=x' })))
       .toMatchObject({ blocked: true, statusCode: 503 })
   })
 
   it('lets a clean checkpoint through — nothing pending is not a failure', async () => {
     checkpoint.mockResolvedValue({ outcome: 'clean', committed: false })
 
-    expect(await checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=x' })))
+    expect(await checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=x' })))
       .toEqual({ blocked: false })
   })
 
@@ -174,7 +170,7 @@ describe('checkpointLiveDocument', () => {
     // already holds in full.
     checkpoint.mockResolvedValue({ outcome: 'empty-body', committed: false })
 
-    expect(await checkpointLiveDocument(hp(true), 1, event({ cookie: 'SESS=x' })))
+    expect(await checkpointLiveDocument(hp(true), 1, makeEvent({ cookie: 'SESS=x' })))
       .toEqual({ blocked: false })
   })
 })

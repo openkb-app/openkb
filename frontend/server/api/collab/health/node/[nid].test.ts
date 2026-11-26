@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../../../../test-support/h3'
 
 /**
  * The aggregate probe next door is unauthenticated and therefore aggregate-only
@@ -22,8 +23,9 @@ vi.mock('../../../../utils/hocuspocus', () => ({
 const handler = (await import('./[nid].get')).default as unknown as
   (event: H3Event) => Promise<unknown>
 
+/** A health request for node `nid`. */
 function event(nid: string): H3Event {
-  return { context: { params: { nid } }, node: { req: { headers: { cookie: 'SESS=1' } } } } as unknown as H3Event
+  return makeEvent({ cookie: 'SESS=1' }, { params: { nid } })
 }
 
 /** The error a refusal throws, whatever the reason for it. */

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
 import handler from './register.post'
+import { makeEvent, type FakeEvent } from '../test-support/h3'
 
 /**
  * The registration pass-through: what it forwards, what it adds, and what it
@@ -29,22 +30,9 @@ vi.mock('../utils/capped-body', () => ({ readCappedBody: (...a: unknown[]) => ra
 
 const BODY = '{"client_name":"Claude","redirect_uris":["https://claude.ai/cb"]}'
 
-function event(ip = '203.0.113.9'): H3Event & { status?: number, headers: Record<string, string> } {
-  const headers: Record<string, string> = {}
-  const e = {
-    path: '/register',
-    method: 'POST',
-    context: {},
-    node: {
-      req: { url: '/register', method: 'POST', headers: { 'x-forwarded-for': ip }, socket: {} },
-      res: {
-        setHeader: (name: string, value: string) => { headers[name] = value },
-        statusCode: 200,
-      },
-    },
-    headers,
-  }
-  return e as unknown as H3Event & { status?: number, headers: Record<string, string> }
+/** A registration request from `ip`. */
+function event(ip = '203.0.113.9'): FakeEvent {
+  return makeEvent({ 'x-forwarded-for': ip }, { method: 'POST', path: '/register' })
 }
 
 function upstream(status: number, body: unknown, headers: Record<string, string> = {}): Response {
@@ -116,8 +104,8 @@ describe('POST /register', () => {
     const e = event()
     await expect(callRegister(e)).resolves.toEqual(body)
     expect(e.node.res.statusCode).toBe(429)
-    expect(e.headers['retry-after']).toBe('600')
-    expect(e.headers['access-control-expose-headers']).toBe('Retry-After')
+    expect(e.sent['retry-after']).toBe('600')
+    expect(e.sent['access-control-expose-headers']).toBe('Retry-After')
   })
 
   it('issues a fresh token once when Drupal refuses the held one', async () => {

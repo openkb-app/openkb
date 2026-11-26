@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { H3Event } from 'h3'
+import { makeEvent } from '../../test-support/h3'
 
 /**
  * `POST /api/spaces` is the add-space dialog's same-origin transport: it trims
@@ -20,10 +21,6 @@ vi.mock('h3', async (importOriginal) => {
 const handler = (await import('./index.post')).default as unknown as
   (event: H3Event) => Promise<unknown>
 
-function event(headers: Record<string, string> = { cookie: 'SESS=1' }): H3Event {
-  return { node: { req: { headers } } } as unknown as H3Event
-}
-
 describe('POST /api/spaces', () => {
   beforeEach(() => {
     createSpace.mockReset().mockResolvedValue({ id: 'term-uuid', slug: 'ops' })
@@ -38,7 +35,7 @@ describe('POST /api/spaces', () => {
       moderation: false,
       agentReview: false,
     })
-    await expect(handler(event())).resolves.toEqual({ id: 'term-uuid', slug: 'ops' })
+    await expect(handler(makeEvent({ cookie: 'SESS=1' }))).resolves.toEqual({ id: 'term-uuid', slug: 'ops' })
     expect(createSpace).toHaveBeenCalledWith(expect.anything(), {
       name: 'Ops',
       description: 'How we run things.',
@@ -50,7 +47,7 @@ describe('POST /api/spaces', () => {
 
   it('sends no description at all when the field was left empty', async () => {
     readBody.mockResolvedValue({ name: 'Ops', description: '   ' })
-    await handler(event())
+    await handler(makeEvent({ cookie: 'SESS=1' }))
     expect(createSpace).toHaveBeenCalledWith(expect.anything(), {
       name: 'Ops',
       description: undefined,
@@ -65,7 +62,7 @@ describe('POST /api/spaces', () => {
     // dialog gates it client-side, and restating it here would be a second rule.
     readBody.mockResolvedValue({ name: '   ' })
     createSpace.mockRejectedValue(Object.assign(new Error('required'), { statusCode: 422 }))
-    await expect(handler(event())).rejects.toMatchObject({ statusCode: 422 })
+    await expect(handler(makeEvent({ cookie: 'SESS=1' }))).rejects.toMatchObject({ statusCode: 422 })
     expect(createSpace).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ name: '' }))
   })
 })
