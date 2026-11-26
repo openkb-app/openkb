@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+// Explicit, not auto-imported: the component's vitest suite renders it outside
+// a Nuxt app.
+import { computed, nextTick, ref } from 'vue'
+import { pageExportFileName } from '#shared/utils/export-name'
 
 /**
  * The page's own action menu — actions about the page rather than about its
  * text. One menu holds them all, so the navbar never grows a second kebab.
  *
- * Read and edit mode offer the same entries, but three: Revert unsaved changes
- * acts on a live editing session and is edit-only; Print / Save as PDF and
- * Download as HTML export the read view and are read-only. Every other entry
- * is gated on its own signal.
+ * Read and edit mode offer the same entries, except:
+ * - View as Markdown, Export and Print… act on the published page, not on the
+ *   working copy the editor shows, so they are read-only.
+ * - Revert unsaved changes acts on a live editing session and is edit-only.
+ * Every other entry is gated on its own signal.
  *
  * Move and Delete carry separate signals because they are separate Drupal
  * permissions: under editorial moderation an editor who may update a page
@@ -35,8 +40,9 @@ const props = defineProps<{
   canMove?: boolean
   /** Drupal grants this session the delete. */
   canDelete?: boolean
-  /** Editing: add the two actions that need a live document, and collapse the
-   *  trigger to a plain kebab. The read view keeps the labelled "More" button. */
+  /** Editing: drop the entries about the published content, add the one that
+   *  needs a live document, and collapse the trigger to a plain kebab. The
+   *  read view keeps the labelled "More" button. */
   edit?: boolean
   /** Unsaved collab changes exist — enables "Revert unsaved changes". */
   dirty?: boolean
@@ -83,7 +89,7 @@ async function printPage(): Promise<void> {
 
 const items = computed<DropdownMenuItem[][]>(() => {
   const groups: DropdownMenuItem[][] = []
-  // What the reader can do with the document, in either mode.
+  // What the reader can do with the document.
   const docGroup: DropdownMenuItem[] = []
   // Always offered, disabled when there is nothing behind it: an entry that
   // vanishes reads as a broken page, a greyed one states that this page has
@@ -94,28 +100,40 @@ const items = computed<DropdownMenuItem[][]>(() => {
     to: props.historyHref ?? undefined,
     disabled: !props.historyHref,
   })
-  if (props.markdownHref) {
+  if (!props.edit && props.markdownHref) {
     docGroup.push({
       label: 'View as Markdown',
       icon: 'i-lucide-file-code-2',
       to: props.markdownHref,
       target: '_blank',
     })
+    docGroup.push({
+      label: 'Export',
+      icon: 'i-lucide-download',
+      children: [
+        {
+          label: 'Markdown',
+          icon: 'i-lucide-file-text',
+          to: props.markdownHref,
+          // The `.md` route answers inline; the attribute makes it a file.
+          download: pageExportFileName(props.markdownHref.replace(/\.md$/, ''), 'md'),
+          external: true,
+        },
+        {
+          label: 'HTML',
+          icon: 'i-lucide-file-code',
+          // Answered as an attachment by the route.
+          to: props.markdownHref.replace(/\.md$/, '.html'),
+          external: true,
+        },
+      ],
+    })
   }
   if (!props.edit) {
     docGroup.push({
-      label: 'Print / Save as PDF',
+      label: 'Print…',
       icon: 'i-lucide-printer',
       onSelect: printPage,
-    })
-  }
-  if (!props.edit && props.markdownHref) {
-    // The page's self-contained print HTML, next to its markdown: a download.
-    docGroup.push({
-      label: 'Download as HTML',
-      icon: 'i-lucide-file-down',
-      to: props.markdownHref.replace(/\.md$/, '.html'),
-      external: true,
     })
   }
   groups.push(docGroup)

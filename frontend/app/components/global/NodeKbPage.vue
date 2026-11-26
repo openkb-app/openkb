@@ -61,12 +61,12 @@ const env = useKbCePage()
 watch(() => props.pageFiles, files => rememberPageFiles(files ?? []), { immediate: true })
 const nodeId = computed(() => Number(props.nid) || undefined)
 
-// The raw-markdown projection of the page at this path — the address IS the
-// route, so the `.md` link is the current path with a `.md` suffix (a page
-// has no slug field to build it from; the path alias is the address).
+// The raw-markdown projection of the page: its own path with a `.md` suffix,
+// as the server names it. Not the route path, which may carry a trailing slash.
 // A single revision's page has none: its markdown would be the live page's.
 const route = useRoute()
-const rawHref = computed(() => props.revision ? undefined : `/api/kb${route.path}.md`)
+const pagePath = computed(() => props.path || `/node/${props.nid}`)
+const rawHref = computed(() => props.revision ? undefined : `/api/kb${pagePath.value}.md`)
 
 // A revision's page: last updated is that revision's save, and the tab names it.
 const revisionCreatedMs = computed(() => {

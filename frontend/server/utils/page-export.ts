@@ -5,6 +5,7 @@ import { forwardedAuthHeaders } from './actor'
 import { exportRenderHeaders } from './export-render'
 import { fetchUpstream } from './upstream'
 import { buildPrintHtml, EXPORT_CSP } from './print-html'
+import { pageExportFileName } from '#shared/utils/export-name'
 import type { PageVersion } from './drupal'
 
 /** How long the page files of one export may take to download, together. */
@@ -40,10 +41,9 @@ export async function exportPageHtml(event: H3Event, path: string, version: Page
     fetchFile: url => fetchPageFileAsReader(event, url, filesDeadline),
   })
 
-  const slug = found.page.path.split('/').pop() || 'page'
   setResponseHeaders(event, {
     'Content-Type': 'text/html; charset=utf-8',
-    'Content-Disposition': `attachment; filename="${slug.replace(/[^\w.-]/g, '-')}.html"`,
+    'Content-Disposition': `attachment; filename="${pageExportFileName(found.page.path, 'html')}"`,
     'Content-Security-Policy': EXPORT_CSP,
     'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
