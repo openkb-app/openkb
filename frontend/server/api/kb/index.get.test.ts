@@ -32,6 +32,29 @@ function page(id: string, changed = '2026-07-20T10:00:00+00:00') {
   }
 }
 
+/**
+ * A kb_page collection as core's JSON:API pages it: 50 rows from
+ * `page[offset]`, and a `next` link only while more rows follow. `delay` lets
+ * a later page answer before an earlier one.
+ */
+function collection(rows: ReturnType<typeof page>[], delay: (offset: number) => number = () => 0) {
+  const seen = { calls: 0, inFlight: 0, maxInFlight: 0 }
+  const respond = async (_event: unknown, path: string) => {
+    seen.calls++
+    seen.inFlight++
+    seen.maxInFlight = Math.max(seen.maxInFlight, seen.inFlight)
+    const offset = Number(/[?&]page\[offset\]=(\d+)/.exec(path)?.[1] ?? 0)
+    await new Promise(resolve => setTimeout(resolve, delay(offset)))
+    seen.inFlight--
+    const data = rows.slice(offset, offset + 50)
+    const next = rows.length > offset + 50
+      ? { links: { next: { href: `http://drupal.test/jsonapi/node/kb_page?page[offset]=${offset + 50}` } } }
+      : {}
+    return { data, included: data.length ? [SPACE] : [], ...next }
+  }
+  return { respond, seen }
+}
+
 describe('GET /api/kb', () => {
   beforeEach(() => {
     drupalFetch.mockReset()
@@ -59,23 +82,61 @@ describe('GET /api/kb', () => {
     expect(result[1]!.changed).toBe(0)
   })
 
-  it('follows `next` to exhaustion, so a >50-page space arrives whole', async () => {
-    const first = Array.from({ length: 50 }, (_, i) => page(`a${i}`))
-    const second = Array.from({ length: 37 }, (_, i) => page(`b${i}`))
-    drupalFetch
-      .mockResolvedValueOnce({
-        data: first,
-        included: [SPACE],
-        links: { next: { href: 'http://drupal.test/jsonapi/node/kb_page?page[offset]=50' } },
-      })
-      .mockResolvedValueOnce({ data: second, included: [SPACE] })
+  it('reads every page, so a >50-page space arrives whole', async () => {
+    const rows = Array.from({ length: 87 }, (_, i) => page(`a${i}`))
+    const drupal = collection(rows)
+    drupalFetch.mockImplementation(drupal.respond)
 
     const result = await handler(makeEvent())
-    expect(result).toHaveLength(87)
+    expect(result.map(item => item.id)).toEqual(rows.map(row => row.id))
     expect(drupalFetch).toHaveBeenCalledTimes(2)
-    // The next link is reduced to a path: Drupal builds it from its own base
-    // URL, which is not the host the Nuxt server talks to.
-    expect(drupalFetch.mock.calls[1]![1]).toBe('/jsonapi/node/kb_page?page[offset]=50')
+    expect(drupalFetch.mock.calls[1]![1]).toContain('page[offset]=50')
+  })
+
+  it('costs one request when the KB fits one page', async () => {
+    const drupal = collection(Array.from({ length: 50 }, (_, i) => page(`a${i}`)))
+    drupalFetch.mockImplementation(drupal.respond)
+
+    expect(await handler(makeEvent())).toHaveLength(50)
+    expect(drupal.seen.calls).toBe(1)
+  })
+
+  it('reads a large KB several pages at a time, in the collection order', async () => {
+    // 5,234 rows are 105 pages. Later pages answer first, which must not
+    // reorder the list: the outline appends unplaced pages in this order.
+    const rows = Array.from({ length: 5234 }, (_, i) => page(`p${i}`))
+    const drupal = collection(rows, offset => (offset / 50) % 3 === 0 ? 3 : 0)
+    drupalFetch.mockImplementation(drupal.respond)
+
+    const result = await handler(makeEvent())
+    expect(result.map(item => item.id)).toEqual(rows.map(row => row.id))
+    expect(drupal.seen.maxInFlight).toBe(6)
+    // A last wave may overshoot the end by a few empty pages.
+    expect(drupal.seen.calls).toBeGreaterThanOrEqual(105)
+    expect(drupal.seen.calls).toBeLessThanOrEqual(105 + 5)
+  })
+
+  it('never asks for more pages than twice the list needs', async () => {
+    for (const length of [0, 1, 51, 100, 101, 151, 201, 401, 1001]) {
+      drupalFetch.mockReset()
+      const rows = Array.from({ length }, (_, i) => page(`a${i}`))
+      const drupal = collection(rows)
+      drupalFetch.mockImplementation(drupal.respond)
+
+      const result = await handler(makeEvent())
+      expect(result).toHaveLength(length)
+      const needed = Math.max(1, Math.ceil(length / 50))
+      expect(drupal.seen.calls).toBeLessThanOrEqual(Math.min(2 * needed, needed + 5))
+    }
+  })
+
+  it('fails rather than answer part of the list when a page fails', async () => {
+    // A partial list would drop pages from the navigation without a trace.
+    const drupal = collection(Array.from({ length: 300 }, (_, i) => page(`a${i}`)))
+    drupalFetch.mockImplementation((event: unknown, path: string) =>
+      path.includes('page[offset]=150') ? Promise.reject(new Error('upstream down')) : drupal.respond(event, path))
+
+    await expect(handler(makeEvent())).rejects.toThrow('upstream down')
   })
 
   it('resolves spaces seen on any page, not only the first', async () => {
