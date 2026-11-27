@@ -1,5 +1,75 @@
 # Changelog
 
+## [1.0.0-beta5](https://github.com/openkb-app/openkb/compare/v1.0.0-beta4...v1.0.0-beta5) - 2026-11-27
+
+### Features
+
+- Invite users by email from a space's members form ([5fb07df](https://github.com/openkb-app/openkb/commit/5fb07df14de50d179398a135f89a93ba8a2101f8))
+- A component's stored props reach the search index; @notIndexed opts one out. ([3dbbc94](https://github.com/openkb-app/openkb/commit/3dbbc94469331512cc5ed7fba070ed40139b221f))
+- Make the AI assistant provide change receipts when changing content ([0d73998](https://github.com/openkb-app/openkb/commit/0d7399846559275fdfb227ff82a02db60695ab8d))
+- Add a Collapsible section (::details): component ([fe7b415](https://github.com/openkb-app/openkb/commit/fe7b415b4d607569d7b61cc33bd95e86cd88bbf6))
+- The quickstart is one file: docker-compose.yml carries the evaluation defaults, a .env is optional. ([d5ae50a](https://github.com/openkb-app/openkb/commit/d5ae50a11c05612f8731190212632cd764858a2d))
+- /node/<nid> leads to the page path; the chat receipt links changed blocks by node id. ([6b90b6f](https://github.com/openkb-app/openkb/commit/6b90b6f74332ac472f03b693ab1034b5722161d8))
+- Sign in with the email and disallow changing it (mail_login + userprotect). ([cf87066](https://github.com/openkb-app/openkb/commit/cf870664c73d44d26bf547268fe0553df9b0d93a))
+- Use a model step to write the chat's lexical search query ([c38fda6](https://github.com/openkb-app/openkb/commit/c38fda6ebe07996d237ff7c1607d23e608dbca4d))
+- Turn the search summary into the AI answer. ([07a8642](https://github.com/openkb-app/openkb/commit/07a864263fe61c682dbbf5a763f20fa77e18c975))
+- Store comment threads in columns, mentions by uid. ([9ed0134](https://github.com/openkb-app/openkb/commit/9ed01345a6e4ef95d7df7f22326fbef4cdf66aff))
+- Allow agents to upload files through a single-use URL ([64f46a9](https://github.com/openkb-app/openkb/commit/64f46a98911804dea170d85e2ca16cb0fef8c21a))
+- Add site-wide upload quota (5 GB default) ([2da218f](https://github.com/openkb-app/openkb/commit/2da218f185d8e22ff4816e7f151229bedc18b50d))
+- Print a page on A4 with a print stylesheet. ([128a609](https://github.com/openkb-app/openkb/commit/128a60951d2b7950e77b365c36258a480f3b594c))
+- Allow setting the user name in the welcome step. ([6cf2057](https://github.com/openkb-app/openkb/commit/6cf205753fdd5fd7ae3b205c598228a68ef1cd50))
+- The chat searches and reads with its tools; every source a tool answers is citable. ([1e7517d](https://github.com/openkb-app/openkb/commit/1e7517d7678e339cf1e800ff4211518289978a10))
+- Chat citations name the block of a page the model read. ([92bd318](https://github.com/openkb-app/openkb/commit/92bd318f281d96b08c034487d58efc3127cf4b2d))
+- Configure the MCP server instructions and every tool description in Drupal. ([e8ad429](https://github.com/openkb-app/openkb/commit/e8ad429b91c5cb5382d39e801bfa60bbdc8ff342))
+- Teach agents to ask for decisions in block comments, not todo lists in the page. ([0b25fb3](https://github.com/openkb-app/openkb/commit/0b25fb39fb359d67f582a965af29d16faf1fc568))
+- Agents mark text and resolve own threads. ([e03cbae](https://github.com/openkb-app/openkb/commit/e03cbae7c6ca7c898d5e00e8327a6446ae66514c))
+- Provide search hits as citable source. ([9d10a05](https://github.com/openkb-app/openkb/commit/9d10a05b5e26e7aedf576290668b9d82c2d0a31d))
+- Style invite and account mails in the OpenKB look. ([764307a](https://github.com/openkb-app/openkb/commit/764307aaa93ce09da77aff50c216d00a5e66c5e5))
+- Download a page as one self-contained print HTML file. ([ec62a1d](https://github.com/openkb-app/openkb/commit/ec62a1de17498c938d32fa0c1d870f8b349cfd00))
+- Agent access tokens last an hour, connect-by-URL logins 90 days. ([a707312](https://github.com/openkb-app/openkb/commit/a7073123d6d0a06992d5fe5c0afcd3f21f9b5c63))
+- Mark the active page on the collapsed icon rail. ([45b5290](https://github.com/openkb-app/openkb/commit/45b52900cd4face5b1fc9720e753ba60623cd17e))
+
+### Fixes
+
+- Ensure a link's URL field opens without scrolling the text away. ([a4dcc3b](https://github.com/openkb-app/openkb/commit/a4dcc3b7e5f03c46804f0ad6389800cbaab15109))
+- Stop update notification mails: installer form alter in a new openkb_update_status module, empty them on installed sites. ([4a2c091](https://github.com/openkb-app/openkb/commit/4a2c091a77d638f4c78a8fe5fae55e40a8d954e3))
+- Only normalize blocks that have been edited during save; improve the review panel to list blocks without an id. ([60461e2](https://github.com/openkb-app/openkb/commit/60461e242a302b4d11692b9f4ae385b48d438d33))
+- Keep visible text inside the accessible name of chrome controls. ([b8ab73e](https://github.com/openkb-app/openkb/commit/b8ab73e803bdfabbdca74483921db1f2803e292d))
+- Drupal core 11.4.13 (SA-CORE-2026-017/-018); execute no PHP file but index.php and update.php. ([532a6af](https://github.com/openkb-app/openkb/commit/532a6afc78d9beb7bafdac83df72618aac556c13))
+- Harden the openkb-drupal image: read-only code, no code docs served. ([e988d97](https://github.com/openkb-app/openkb/commit/e988d97b4689170cef009cd62ea78a3b776b8764))
+- The search row's change date renders in the reader's locale through NuxtTime, so /search hydrates without a mismatch. ([3090806](https://github.com/openkb-app/openkb/commit/3090806d11354d59679d65ee997a3b801d3f6fe2))
+- Keep empty-lines of the editor, so the read page matches. ([6358137](https://github.com/openkb-app/openkb/commit/635813753960365e00f3181933ba6f0a9d914953))
+- Take the custom filename for downloads, store them sanitized ([39d0ef4](https://github.com/openkb-app/openkb/commit/39d0ef4d9a5db343b889ac965d91a3896b45ccef))
+- Give a component body the size of the text around it ([ac7a4a7](https://github.com/openkb-app/openkb/commit/ac7a4a7e9d9b13d57ec7696c179ddf0c0de6d863))
+- Make drupal.org's cspell job pass on the filename and invite tests. ([fb40430](https://github.com/openkb-app/openkb/commit/fb40430c74d4f64bbf53d106c8ef7f88b14e70ab))
+- Stop offering a peer approval to a writer who already gave it ([60b32ea](https://github.com/openkb-app/openkb/commit/60b32ea8c994dbd6578d5544f55ea21205cb745a))
+- Rank the link mark below code, so Arrow-Right leaves a linked inline code. ([46d7112](https://github.com/openkb-app/openkb/commit/46d71123513e9f16f8c418a29ac40d73a68dbd10))
+- Fix offline mirrors to be per user, report changes as draft ([c515f85](https://github.com/openkb-app/openkb/commit/c515f853cd2e61d4e2dbd63eaa5f9986b86ba950))
+- Move a session endpoint off the deprecated /api/mcp in a post update. ([8073ec8](https://github.com/openkb-app/openkb/commit/8073ec83f307591db54b01874f99d3e0095bfa14))
+- WaitForChanges tool reports each comment change only once. ([5d7d909](https://github.com/openkb-app/openkb/commit/5d7d909838de945fa536412e706ac76e127cc0ad))
+- Read shipped config through one reader, for drupal.org's pipeline. ([3f3cd87](https://github.com/openkb-app/openkb/commit/3f3cd87febd8dbd3eee9c0671a52457b40755f5a))
+- Ctrl+P in edit mode with the chat open prints at page width. ([5bea4b9](https://github.com/openkb-app/openkb/commit/5bea4b9c0e7840d92f851c9de0a8d1979695c5eb))
+
+### Improvements
+
+- The webserver refuses core's JSON login (/user/login?_format). ([b3de30d](https://github.com/openkb-app/openkb/commit/b3de30da8d6b2ac131acec180944e36540e55ead))
+- Cancel pending invitations after 24h ([2248577](https://github.com/openkb-app/openkb/commit/2248577baf63c7caa7bb9c93bce6ab2b49a048a9))
+- Invite polish: one add row per list, stale rows, duplicate and invalid emails, no account without accepting. ([0d305d8](https://github.com/openkb-app/openkb/commit/0d305d8c1cafe8315ed04d4b0f812bc367b141f2))
+- Better UX and error message for AI answers ([a8c4ccd](https://github.com/openkb-app/openkb/commit/a8c4ccdd57cc9469e83111c5b9a2ce8fff1b54a3))
+- Serve the MCP endpoint at /mcp, deprecate /api/mcp, present the server with an icon. ([9c3f2ad](https://github.com/openkb-app/openkb/commit/9c3f2addcc28fc7d5d0e8ffb1dd7bbf585d368d6))
+- Limit mcp tool to only allow own uploads ([d37c42c](https://github.com/openkb-app/openkb/commit/d37c42c9054c6c9053aa5df5bc011b9bfe975e35))
+- Assistants follow the site default cleanly; drop the ai_assistant_api form patch ([86d346d](https://github.com/openkb-app/openkb/commit/86d346d9161785897ede9a82495cb7bd741cf193))
+- Say when a mailed invite link is no longer valid. ([b06c92a](https://github.com/openkb-app/openkb/commit/b06c92a6c0b694209bbefc5d74faa0f9b527c5c2))
+
+### Performance
+
+- Load the editor and the chat on demand on read pages. ([e61bea1](https://github.com/openkb-app/openkb/commit/e61bea1b846f97a438a1da1daade16ad666293ba))
+
+### Documentation
+
+- Add updating the openkb.app Features page to the release steps. ([849e388](https://github.com/openkb-app/openkb/commit/849e388413e6b02d9a0ea241ee8b7e7d7059ac6a))
+- Add Invitations, profile guide pages and user-management steps ([5bdb15c](https://github.com/openkb-app/openkb/commit/5bdb15c771583409764f012c06c25708c85c86ac))
+
 ## [1.0.0-beta4](https://github.com/openkb-app/openkb/compare/v1.0.0-beta3...v1.0.0-beta4) - 2026-11-17
 
 ### Features
